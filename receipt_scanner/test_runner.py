@@ -3,7 +3,7 @@ import os
 import sys
 
 sys.path.insert(0, "/Users/aplachykau/Experiments/gdg_krakow_tool")
-sys.path.insert(0, "/Users/aplachykau/Experiments/gdg_krakow_tool/receipt_agent")
+sys.path.insert(0, "/Users/aplachykau/Experiments/gdg_krakow_tool/receipt_scanner")
 
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
 os.environ["GOOGLE_CLOUD_PROJECT"] = "gdg-agents-496611"
@@ -12,13 +12,13 @@ os.environ["GOOGLE_CLOUD_LOCATION"] = "europe-central2"
 from google.adk.runners import Runner
 from google.adk.sessions.in_memory_session_service import InMemorySessionService
 from google.genai import types
-from receipt_agent.agent import root_agent
+from receipt_scanner.agent import receipt_agent
 
 async def main():
     session_service = InMemorySessionService()
     runner = Runner(
         app_name="receipt_agent",
-        agent=root_agent,
+        agent=receipt_agent,
         session_service=session_service,
         auto_create_session=True
     )

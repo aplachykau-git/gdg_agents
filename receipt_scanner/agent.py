@@ -6,10 +6,12 @@ Receipt & Invoice Scanner Agent
 - Exports summary reports to Google Docs with beautiful formatting
 """
 
+import io
 import mimetypes
 import os
 import re
 import base64
+import tempfile
 from pathlib import Path
 
 import requests
@@ -186,6 +188,65 @@ def read_receipt_file(file_path: str) -> dict:
         }
     except Exception as e:
         return {"success": False, "error": f"Failed to natively process document: {str(e)}"}
+
+
+# ---------------------------------------------------------------------------
+# Helpers: image auto-rotate and PDF-to-PNG
+# ---------------------------------------------------------------------------
+
+def _auto_rotate_image(img_path: str) -> str:
+    """
+    Returns a path to an EXIF-corrected copy of the image if rotation is needed,
+    otherwise returns the original path unchanged.
+    The copy is written to a temp file and should be cleaned up by the caller.
+    """
+    try:
+        from PIL import Image, ExifTags
+        img = Image.open(img_path)
+        exif = img._getexif() if hasattr(img, '_getexif') else None
+        if not exif:
+            return img_path
+        orientation_key = next(
+            (k for k, v in ExifTags.TAGS.items() if v == 'Orientation'), None
+        )
+        if orientation_key is None or orientation_key not in exif:
+            return img_path
+        orientation = exif[orientation_key]
+        rotation_map = {3: 180, 6: 270, 8: 90}
+        if orientation not in rotation_map:
+            return img_path
+        rotated = img.rotate(rotation_map[orientation], expand=True)
+        suffix = Path(img_path).suffix or '.jpg'
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        rotated.save(tmp.name)
+        tmp.close()
+        print(f"[DEBUG] Auto-rotated image (orientation={orientation}): {tmp.name}")
+        return tmp.name
+    except Exception as e:
+        print(f"[WARNING] Auto-rotate failed: {e}")
+        return img_path
+
+
+def _pdf_to_png_screenshot(pdf_path: str) -> str | None:
+    """
+    Renders the first page of a PDF to a PNG temp file and returns its path.
+    Returns None on failure. The original PDF is never copied or moved.
+    """
+    try:
+        import pypdfium2 as pdfium
+        doc = pdfium.PdfDocument(pdf_path)
+        page = doc[0]
+        bitmap = page.render(scale=2.0)  # 2x scale for decent resolution
+        pil_image = bitmap.to_pil()
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+        pil_image.save(tmp.name, format='PNG')
+        tmp.close()
+        doc.close()
+        print(f"[DEBUG] PDF rendered to PNG screenshot: {tmp.name}")
+        return tmp.name
+    except Exception as e:
+        print(f"[WARNING] PDF-to-PNG failed: {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -404,14 +465,31 @@ def export_summary_to_google_doc(
             # ----------------------------------------------------
             today_str = datetime.date.today().strftime("%d.%m.%Y")
             rate_val = exchange_rate or 1.0
-            total_pln_val = f"{300.0 * rate_val:.2f} PLN"
-            
+
+            # Compute real totals from all receipts
+            def _parse_amount(s: str) -> float:
+                """Extract numeric value from a string like '124.50 PLN' or '31.28 USD'."""
+                try:
+                    return float(re.sub(r'[^\d.]', '', s.split()[0]))
+                except Exception:
+                    return 0.0
+
+            total_pln = 0.0
+            total_usd = 0.0
+            if receipts_data:
+                for r in receipts_data:
+                    total_pln += _parse_amount(r.get('sum_pln', '0'))
+                    total_usd += _parse_amount(r.get('sum_usd', '0'))
+
+            total_pln_str = f"{total_pln:.2f} PLN"
+            total_usd_str = f"{total_usd:.2f} USD"
+
             global_replaces = [
                 ('{{TITLE}}', title),
                 ('{{Current date}}', today_str),
                 ('{{Current exchange rate}}', f"{rate_val:.4f}"),
-                ('{{TOTAL SUM USD}}', "300 USD"),
-                ('{{TOTAL SUM PL}}', total_pln_val),
+                ('{{TOTAL SUM USD}}', total_usd_str),
+                ('{{TOTAL SUM PL}}', total_pln_str),
             ]
             if receipts_data:
                 global_replaces.extend([
@@ -509,50 +587,63 @@ def export_summary_to_google_doc(
                         path_str = receipt.get('image_path')
                         if not path_str:
                             continue
-                        
-                        uploaded = upload_file_to_drive(drive_service, path_str, target_folder)
-                        if uploaded:
-                            mime = uploaded.get('mime_type', '')
-                            is_img = mime.startswith('image/') or any(
-                                path_str.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.webp', '.gif']
-                            )
-                            if is_img:
-                                docs_service.documents().batchUpdate(
-                                    documentId=doc_id,
-                                    body={'requests': [
-                                        {
-                                            'insertInlineImage': {
-                                                'uri': uploaded.get('thumbnailLink', '').replace('=s220', '=s2000') if uploaded.get('thumbnailLink') else uploaded.get('webContentLink'),
-                                                'objectSize': {
-                                                    'width': {'magnitude': 220, 'unit': 'PT'}
-                                                },
-                                                'location': {'index': proofs_index}
-                                            }
-                                        },
-                                        {
-                                            'insertText': {
-                                                'location': {'index': proofs_index},
-                                                'text': "\n"
-                                            }
-                                        }
-                                    ]}
-                                ).execute()
-                                # Clean up the temporary uploaded image from Google Drive to avoid clutter
-                                try:
-                                    drive_service.files().delete(fileId=uploaded.get('id')).execute()
-                                    print(f"[DEBUG] Successfully deleted temp image {uploaded.get('name')} from Drive.")
-                                except Exception as cleanup_e:
-                                    print(f"[WARNING] Failed to cleanup temp image: {cleanup_e}")
+
+                        is_pdf = path_str.lower().endswith('.pdf')
+                        temp_files_to_cleanup = []  # local temp files created by helpers
+
+                        if is_pdf:
+                            # Convert PDF first page to PNG screenshot (never copies the PDF)
+                            png_path = _pdf_to_png_screenshot(path_str)
+                            if png_path:
+                                upload_path = png_path
+                                temp_files_to_cleanup.append(png_path)
                             else:
-                                docs_service.documents().batchUpdate(
-                                    documentId=doc_id,
-                                    body={'requests': [{
+                                print(f"[WARNING] Skipping PDF (could not render): {path_str}")
+                                continue
+                        else:
+                            # Auto-rotate image by EXIF if needed
+                            rotated_path = _auto_rotate_image(path_str)
+                            upload_path = rotated_path
+                            if rotated_path != path_str:
+                                temp_files_to_cleanup.append(rotated_path)
+
+                        uploaded = upload_file_to_drive(drive_service, upload_path, target_folder)
+
+                        # Clean up local temp files regardless of upload outcome
+                        for tf in temp_files_to_cleanup:
+                            try:
+                                os.unlink(tf)
+                            except Exception:
+                                pass
+
+                        if uploaded:
+                            # Always treat as image (PNG from PDF or rotated photo)
+                            docs_service.documents().batchUpdate(
+                                documentId=doc_id,
+                                body={'requests': [
+                                    {
+                                        'insertInlineImage': {
+                                            'uri': uploaded.get('thumbnailLink', '').replace('=s220', '=s2000') if uploaded.get('thumbnailLink') else uploaded.get('webContentLink'),
+                                            'objectSize': {
+                                                'width': {'magnitude': 220, 'unit': 'PT'}
+                                            },
+                                            'location': {'index': proofs_index}
+                                        }
+                                    },
+                                    {
                                         'insertText': {
                                             'location': {'index': proofs_index},
-                                            'text': f"\n• [{receipt.get('desc', 'Expense')} (PDF Link)]({uploaded.get('webViewLink')})\n"
+                                            'text': "\n"
                                         }
-                                    }]}
-                                ).execute()
+                                    }
+                                ]}
+                            ).execute()
+                            # Clean up the temporary uploaded image from Google Drive
+                            try:
+                                drive_service.files().delete(fileId=uploaded.get('id')).execute()
+                                print(f"[DEBUG] Successfully deleted temp Drive file {uploaded.get('id')}.")
+                            except Exception as cleanup_e:
+                                print(f"[WARNING] Failed to cleanup temp Drive file: {cleanup_e}")
                 
                 # Fetch updated doc data
                 doc_data = docs_service.documents().get(documentId=doc_id).execute()
@@ -645,12 +736,13 @@ You MUST automatically determine the title of the document using the following r
      - `"desc"`: A short description of the expense **strictly in English** (2-4 words, e.g., "Kaufland Grocery", "Uber Ride", "Hotel Accommodation"). Even if the receipt is in Polish, German, Russian, or any other language, you MUST translate the description into English!
      - `"sum_pln"`: The sum in PLN (formatted string, e.g., `"124.50 PLN"`).
      - `"sum_usd"`: The sum in USD based on the exchange rate (formatted string, e.g., `"31.28 USD"`).
-     - `"image_path"`: The path of the receipt file. If the user attached it in chat, just pass the attachment filename. (Note: chat attachments cannot be uploaded to Google Drive by the agent, so the image will be skipped in the Doc, which is expected).
+      - `"image_path"`: The absolute local path of the receipt file (image or PDF). The tool handles everything: images are auto-rotated, PDFs are rendered to a PNG screenshot automatically. Never skip this field for local paths!
 5. Immediately invoke `export_summary_to_google_doc` with all these parameters and display the clickable direct URL to the created document to the user. Perform this export automatically without asking the user for confirmation!
 
 ## Rules:
 - Round all amounts in PLN and USD to 2 decimal places.
 - Do not invent any numbers; use only what is visible on the documents.
+- The `{{TOTAL SUM PL}}` and `{{TOTAL SUM USD}}` placeholders in the document are filled automatically by summing all receipts — you do NOT need to pass totals separately.
 """
 
 receipt_agent = Agent(
@@ -664,3 +756,6 @@ receipt_agent = Agent(
     instruction=INSTRUCTION,
     tools=[get_usd_pln_rate, read_receipt_file, export_summary_to_google_doc],
 )
+
+# ADK 2.0 requires the entry-point agent to be named `root_agent`
+root_agent = receipt_agent
