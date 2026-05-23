@@ -1,9 +1,12 @@
 import asyncio
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, "/Users/aplachykau/Experiments/gdg_krakow_tool")
-sys.path.insert(0, "/Users/aplachykau/Experiments/gdg_krakow_tool/receipt_scanner")
+# Dynamically add project root and subfolders for clean imports
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "receipt_scanner"))
 
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
 os.environ["GOOGLE_CLOUD_PROJECT"] = "gdg-agents-496611"
@@ -23,7 +26,19 @@ async def main():
         auto_create_session=True
     )
     
-    file_path = "/Users/aplachykau/Experiments/gdg_krakow_tool/gdg_agent/invoice_processing/exemplary_data/case_001/invoice.pdf"
+    # Dynamically find the test invoice relative to the project root
+    file_path = project_root / "gdg_agent" / "invoice_processing" / "exemplary_data" / "case_001" / "invoice.pdf"
+    if not file_path.exists():
+        # Fallback to local sibling directory
+        sibling_path = project_root.parent / "gdg_agent" / "invoice_processing" / "exemplary_data" / "case_001" / "invoice.pdf"
+        if sibling_path.exists():
+            file_path = sibling_path
+        else:
+            # Legacy absolute path fallback
+            legacy_path = Path("/Users/aplachykau/Experiments/gdg_krakow_tool/gdg_agent/invoice_processing/exemplary_data/case_001/invoice.pdf")
+            if legacy_path.exists():
+                file_path = legacy_path
+            
     print(f"Sending request for: {file_path}...")
     
     user_query = f"Analyze receipt: {file_path}"

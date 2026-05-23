@@ -1,9 +1,4 @@
 import os
-import sys
-from pathlib import Path
-
-# Add project root to sys.path for correct imports
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from google.adk.agents.llm_agent import Agent
 from receipt_scanner.agent import receipt_agent
