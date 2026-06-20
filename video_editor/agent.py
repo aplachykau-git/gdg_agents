@@ -224,7 +224,7 @@ def compile_and_render(ctx: Context, node_input: dict) -> Event:
     print(f"[Workflow] {render_res}")
 
     # Return the final message to display in UI
-    ui_message = f"🎉 **Готово! Карта спикера успешно создана.**\n\n{render_res}"
+    ui_message = f"🎉 **Done! Speaker card has been successfully created.**\n\n{render_res}"
     content_event = types.Content(role="model", parts=[types.Part.from_text(text=ui_message)])
     return Event(output=render_res, content=content_event)
 

@@ -210,7 +210,7 @@ def clean_and_validate_name(first_name: str, last_name: str) -> Tuple[str, str, 
         return fn_clean, ln_clean, "Incomplete name or initials without proper format"
 
     # Check for test keywords
-    test_keywords = {"test", "demo", "asd", "qwerty", "guest", "anonymous", "тест", "демо"}
+    test_keywords = {"test", "demo", "asd", "qwerty", "guest", "anonymous"}
     fn_lower = fn_clean.lower()
     ln_lower = ln_clean.lower()
     if any(kw in fn_lower or kw in ln_lower for kw in test_keywords):
@@ -408,26 +408,26 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
     # Column mapping heuristics
     for norm_h, original_h in norm_headers.items():
         # First Name matching
-        if norm_h in ["firstname", "name", "givenname", "имя", "first"]:
+        if norm_h in ["firstname", "name", "givenname", "first"]:
             first_name_col = original_h
         # Last Name matching
-        elif norm_h in ["lastname", "surname", "familyname", "фамилия", "last"]:
+        elif norm_h in ["lastname", "surname", "familyname", "last"]:
             last_name_col = original_h
         # Full Name matching
-        elif norm_h in ["fullname", "фио", "фи", "speaker", "fio"]:
+        elif norm_h in ["fullname", "speaker", "fio"]:
             full_name_col = original_h
         # Pre-existing status/waitlist column matching
-        elif any(kw in norm_h for kw in ["status", "waitlist", "queue", "state", "статус", "очередь", "список"]):
+        elif any(kw in norm_h for kw in ["status", "waitlist", "queue", "state"]):
             status_col = original_h
 
         # Timestamp/Registration Date matching (prioritized, strictly avoiding check-in columns)
-        is_checkin = any(kw in norm_h for kw in ["checkin", "check_in", "check-in", "check", "чекин", "отметка"])
+        is_checkin = any(kw in norm_h for kw in ["checkin", "check_in", "check-in", "check"])
         if not is_checkin:
-            if any(kw in norm_h for kw in ["registration", "registered", "regdate", "regtime", "зарегистрирован"]):
+            if any(kw in norm_h for kw in ["registration", "registered", "regdate", "regtime"]):
                 prio1_timestamp = original_h
             elif any(kw in norm_h for kw in ["timestamp", "created", "createdat"]):
                 prio2_timestamp = original_h
-            elif any(kw in norm_h for kw in ["date", "time", "дата", "время"]):
+            elif any(kw in norm_h for kw in ["date", "time"]):
                 prio3_timestamp = original_h
 
     timestamp_col = prio1_timestamp or prio2_timestamp or prio3_timestamp
@@ -467,7 +467,7 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
         is_waitlisted_pre = False
         if status_col:
             status_val = str(row.get(status_col, "")).strip().lower()
-            if any(kw in status_val for kw in ["wait", "pend", "queu", "отклон", "ожид", "резерв"]):
+            if any(kw in status_val for kw in ["wait", "pend", "queu"]):
                 is_waitlisted_pre = True
 
         processed_records.append(

@@ -24,10 +24,10 @@ Your job is to cleanly organize, clean, sort, and partition event registration l
 
 ## 👥 Organisers File Configurations & Fuzzy Matching Rules:
 1. **Fuzzy Matching for Manual Organiser Additions**:
-   - If the user asks to include or add specific organizers to the event (e.g., "include Arina and Yusuf from the organizers" or in Russian "включи Арину и Юсуфа из организаторов", "добавь Сашу", "Юля и Юсуф"), you MUST:
+   - If the user asks to include or add specific organizers to the event (e.g., "include Arina and Yusuf from the organizers", "add Sasha", "Yulia and Yusuf"), you MUST:
      * First invoke the `get_organisers_list` tool to dynamically load the active list of organizer names from the file.
-     * Intelligently match the user's input names (which may be shortened, written phonetically, in Cyrillic, or otherwise transliterated) to the official full names present in the active list retrieved from `get_organisers_list`.
-     * Dynamically perform phonetic and substring matches on the active list (e.g. if the loaded list contains "Aryna Stsiapanava", match "Арина" or "Arina" to it; if it contains "Yusuf Gültaç", match "Юсуф" or "Yusuf" to it).
+     * Intelligently match the user's input names (which may be shortened, written phonetically, or otherwise transliterated) to the official full names present in the active list retrieved from `get_organisers_list`.
+     * Dynamically perform phonetic and substring matches on the active list (e.g. if the loaded list contains "Aryna Stsiapanava", match "Arina" to it; if it contains "Yusuf Gültaç", match "Yusuf" to it).
      * Do NOT hardcode the list of organizers or mappings; always resolve them dynamically based on the current contents of the organisers file.
      * Automatically include these resolved full official names (separated by commas or newlines) in the `manual_confirmed` string parameter when invoking the `process_registrations` tool! Do NOT ask the user for their full names or ask for confirmation; perform the matching instantly and silently.
 2. **Dynamic Management of Organisers List**:
