@@ -4,7 +4,9 @@ import sys
 
 from dotenv import load_dotenv
 from google.adk import Agent
-from google.adk.tools.agent_tool import AgentTool
+from google.adk.agents.context import Context
+from google.adk.events.event import Event
+from google.adk.workflow import JoinNode, Workflow
 from google.genai import types
 from pydantic import BaseModel, Field
 
@@ -86,8 +88,15 @@ def validate_metadata(title: str, name: str, position_company: str) -> str:
 
 
 # ============================================================================
-# 📦 STRONGLY-TYPED SUB-AGENT SCHEMAS
+# 📦 STRONGLY-TYPED WORKFLOW SCHEMAS
 # ============================================================================
+
+
+class VideoEditorInput(BaseModel):
+    title: str = Field(description="The typewriter title of the speaker card (max 80 chars)")
+    name: str = Field(description="The full name of the speaker (max 50 chars)")
+    position_company: str = Field(description="The role and company of the speaker (max 80 chars)")
+    photo_path: str = Field(default="", description="The local path to the media file if provided manually")
 
 
 class ContentAgentInput(BaseModel):
@@ -105,25 +114,6 @@ class MediaAgentInput(BaseModel):
 # ============================================================================
 # 🤖 SUB-AGENTS DEFINITIONS
 # ============================================================================
-
-# content_agent accepts texts, validates length, checks safety, and generates speaker JSON config
-content_agent = Agent(
-    name="content_agent",
-    description="Validates metadata fields (title, name, position_company), checks safety, and generates a formatted JSON configuration.",
-    model="gemini-2.5-flash",
-    input_schema=ContentAgentInput,
-    instruction=(
-        "You are the Speaker Card Content Editor sub-agent.\n"
-        "Your task is to take the speaker's metadata (Title, Speaker Name, Position & Company) "
-        "provided in your input schema, and perform validation using the `validate_metadata` tool.\n"
-        "If the metadata is valid, output the final verified JSON string and hand control back "
-        "to the orchestrator.\n"
-        "If there are any validation errors or safety issues, report them clearly so the execution "
-        "can be corrected."
-    ),
-    tools=[validate_metadata],
-    generate_content_config=types.GenerateContentConfig(safety_settings=safety_text_config),
-)
 
 # media_agent processes media files, validates human faces, runs outpainting, and generates videos
 media_agent = Agent(
@@ -156,67 +146,158 @@ media_agent = Agent(
     generate_content_config=types.GenerateContentConfig(safety_settings=safety_text_config),
 )
 
-# ============================================================================
-# 🤖 WRAP SUB-AGENTS AS STRONGLY-TYPED ADK TOOLS
-# ============================================================================
-
-content_agent_tool = AgentTool(content_agent)
-media_agent_tool = AgentTool(media_agent)
 
 # ============================================================================
-# 🤖 ORCHESTRATOR ROOT AGENT DEFINITION
+# ⚙️ WORKFLOW GRAPH NODES DEFINITIONS
 # ============================================================================
 
-# root_agent coordinates sub-agents and final rendering compiler
-root_agent = Agent(
+
+async def stage_input(ctx: Context, node_input: VideoEditorInput) -> Event:
+    """Stages the user uploaded media file from the session events or local path."""
+
+    class MockToolContext:
+        def __init__(self, session):
+            self.session = session
+
+    staged_path = await stage_uploaded_media(
+        photo_path=node_input.photo_path, tool_context=MockToolContext(ctx.session)
+    )
+    return Event(
+        output=staged_path,
+        state={
+            "title": node_input.title,
+            "name": node_input.name,
+            "position_company": node_input.position_company,
+            "photo_path": staged_path,
+        },
+    )
+
+
+def prepare_content_input(ctx: Context) -> ContentAgentInput:
+    """Prepares the structured input for metadata validation."""
+    return ContentAgentInput(
+        title=ctx.state.get("title", ""),
+        name=ctx.state.get("name", ""),
+        position_company=ctx.state.get("position_company", ""),
+    )
+
+
+def validate_metadata_node(ctx: Context, node_input: ContentAgentInput) -> Event:
+    """Validates the speaker text fields lengths."""
+    validated_json = validate_metadata(
+        title=node_input.title, name=node_input.name, position_company=node_input.position_company
+    )
+    return Event(output=validated_json, state={"validated_metadata": validated_json})
+
+
+def prepare_media_input(ctx: Context) -> MediaAgentInput:
+    """Prepares the structured input for media agent."""
+    return MediaAgentInput(photo_path=ctx.state.get("photo_path", ""))
+
+
+def process_media_result(node_input: types.Content) -> Event:
+    """Extracts the resulting video path from the media agent output."""
+    if not node_input.parts:
+        raise ValueError("Media agent returned empty content")
+
+    video_path = node_input.parts[0].text.strip()
+    return Event(output=video_path, state={"video_path": video_path})
+
+
+def compile_and_render(ctx: Context, node_input: dict) -> Event:
+    """Updates index.html with validated texts and renders ordinary, GIF, and 4K cards."""
+    video_path = node_input.get("process_media_result", "")
+
+    if video_path.startswith("Error:") or "error" in video_path.lower():
+        raise ValueError(f"Media processing failed: {video_path}")
+
+    title = ctx.state.get("title", "")
+    name = ctx.state.get("name", "")
+    position_company = ctx.state.get("position_company", "")
+
+    # Update composer index.html
+    update_res = update_composer(video_path=video_path, title=title, name=name, position_company=position_company)
+    print(f"[Workflow] {update_res}")
+
+    # Render composition
+    render_res = render_composer()
+    print(f"[Workflow] {render_res}")
+
+    # Return the final message to display in UI
+    ui_message = f"🎉 **Готово! Карта спикера успешно создана.**\n\n{render_res}"
+    content_event = types.Content(role="model", parts=[types.Part.from_text(text=ui_message)])
+    return Event(output=render_res, content=content_event)
+
+
+# ============================================================================
+# 🤖 ORCHESTRATOR WORKFLOW GRAPH DEFINITION
+# ============================================================================
+
+join_node = JoinNode(name="join_validation_and_media")
+
+root_workflow = Workflow(
     name="video_editor",
-    description="Specialized sub-agent that coordinates speaker content and media processing, compiling premium Live Speaker Avatars.",
-    model="gemini-2.5-flash",
-    instruction=(
-        "You are the Live Speaker Avatars Video Editor Agent (Google ADK 2.0).\n"
-        "Your workflow to create a premium Live Speaker Avatars card is:\n"
-        "1. Ask the user to upload/provide their custom portrait photo or a custom background "
-        "video file, and supply the texts: Title, Speaker Name, and Position & Company.\n"
-        "   CRITICAL: Do NOT start validation or invoke any tools unless a custom portrait photo or "
-        "custom background video file has been explicitly provided/uploaded by the user. There is "
-        "NO default fallback.\n"
-        "   CRITICAL: Inform the user about character length limits:\n"
-        "     - Title: max 80 characters\n"
-        "     - Speaker Name: max 50 characters\n"
-        "     - Position & Company: max 80 characters\n"
-        "     Warn them that exceeding these limits will fail validation and block rendering.\n"
-        "2. Once the user uploads the media, you MUST first run the `stage_uploaded_media` tool to "
-        "save their active upload to a deterministic local path. If the user uploaded the media directly "
-        "in the chat, invoke `stage_uploaded_media` with an empty string as `photo_path`.\n"
-        "3. Once staged, you MUST invoke both sub-agent tools in parallel in a single turn:\n"
-        "   - Call `content_agent` with parameters (title, name, position_company) to validate the "
-        "metadata text and format the JSON.\n"
-        "   - Call `media_agent` with parameter (photo_path) passing the staged path returned by "
-        "`stage_uploaded_media` to perform face verification and generate the background video.\n"
-        "4. In the next turn, once you receive the results from both sub-agents (validated JSON and "
-        "video path):\n"
-        "   - CRITICAL: Before calling `update_composer` or `render_composer`, you MUST check the result "
-        "returned by `media_agent`. If the returned path starts with 'Error:', describes a face "
-        "verification failure, or is otherwise invalid as a file path, you MUST immediately halt, "
-        "skip `update_composer` and `render_composer` entirely, and report the specific failure message "
-        "clearly to the user, explaining that the card generation has failed.\n"
-        "   - If the path is valid, immediately call `update_composer` with the video path, title, "
-        "name, and position_company to update the index.html.\n"
-        "   - Immediately call `render_composer` to sequentially render ordinary, GIF, and 4K media "
-        "cards.\n"
-        "   CRITICAL: You MUST execute `update_composer` and `render_composer` in the same turn right "
-        "after receiving the sub-agents' responses! Do NOT wait or ask the user for permission.\n"
-        "5. Share a friendly confirmation with the user outlining the rendered assets.\n"
-        "CRITICAL ERROR RECOVERY RULE:\n"
-        "If any sub-agent tool, staging tool, validation, or rendering step fails or raises a "
-        "ValueError/exception (e.g. invalid photo, face validation failed, or character limit exceeded), "
-        "you MUST immediately report the failure message clearly to the user in the chat, explain what "
-        "went wrong, and explicitly tell them that they can start a completely fresh attempt by uploading "
-        "a new photo/video and providing new texts.\n"
-        "Do NOT tell the user that you are 'still processing' or 'waiting' for sub-agents if a tool has "
-        "already errored. Once a tool fails, consider the previous execution cycle fully terminated, "
-        "and allow a new execution to begin."
-    ),
-    sub_agents=[content_agent, media_agent],
-    tools=[stage_uploaded_media, content_agent_tool, media_agent_tool, update_composer, render_composer],
+    description="Specialized workflow that coordinates speaker content and media processing, compiling premium Live Speaker Avatars.",
+    input_schema=VideoEditorInput,
+    edges=[
+        ("START", stage_input),
+        (stage_input, (prepare_content_input, prepare_media_input)),
+        (prepare_content_input, validate_metadata_node),
+        (prepare_media_input, media_agent),
+        (media_agent, process_media_result),
+        ((validate_metadata_node, process_media_result), join_node),
+        (join_node, compile_and_render),
+    ],
 )
+
+
+from typing import Any, AsyncGenerator
+
+from google.adk.agents.invocation_context import InvocationContext
+
+
+class WorkflowAgent(Agent):
+    _workflow: Workflow
+
+    def __init__(self, workflow: Workflow, description: str = ""):
+        super().__init__(
+            name=workflow.name,
+            description=description or workflow.description,
+            model="gemini-2.5-flash",
+            instruction="This is a wrapped workflow agent.",
+            input_schema=workflow.input_schema,
+            output_schema=workflow.output_schema,
+        )
+        self._workflow = workflow
+        self.mode = "single_turn"
+
+    async def _run_impl(
+        self,
+        *,
+        ctx: Context,
+        node_input: Any,
+    ) -> AsyncGenerator[Any, None]:
+        async for event in self._workflow.run(ctx=ctx, node_input=node_input):
+            yield event
+
+    async def _run_async_impl(
+        self,
+        ctx: InvocationContext,
+    ) -> AsyncGenerator[Event, None]:
+        adk_ctx = Context(ctx)
+        node_input = None
+        if ctx.user_content and ctx.user_content.parts:
+            text = "".join(p.text for p in ctx.user_content.parts if p.text)
+            if self.input_schema:
+                try:
+                    node_input = self.input_schema.model_validate_json(text)
+                except Exception:
+                    node_input = text
+            else:
+                node_input = text
+
+        async for event in self._workflow.run(ctx=adk_ctx, node_input=node_input):
+            yield event
+
+
+root_agent = WorkflowAgent(root_workflow)
