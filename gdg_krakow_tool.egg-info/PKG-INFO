@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: gdg_krakow_tool
+Version: 0.1.0
+Requires-Dist: google-adk
+Requires-Dist: google-genai
+Requires-Dist: google-api-python-client
+Requires-Dist: google-auth-oauthlib
+Requires-Dist: google-auth
+Requires-Dist: requests
+Requires-Dist: pillow
+Requires-Dist: pypdfium2
+Requires-Dist: python-dotenv
+Requires-Dist: openpyxl
+Dynamic: requires-dist

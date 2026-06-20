@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="gdg_krakow_tool",
@@ -14,5 +14,6 @@ setup(
         "pillow",
         "pypdfium2",
         "python-dotenv",
+        "openpyxl",
     ],
 )

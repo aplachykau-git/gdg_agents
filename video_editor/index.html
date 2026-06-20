@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920, height=1080">
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/MotionPathPlugin.min.js"></script>
+  <style>
+    @font-face {
+      font-family: 'Google Sans';
+      src: url('assets/fonts/GoogleSans-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Google Sans';
+      src: url('assets/fonts/%20GoogleSans-Medium.ttf') format('truetype');
+      font-weight: 500;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: 'Google Sans';
+      src: url('assets/fonts/%20GoogleSans-Bold.ttf') format('truetype');
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    :root {
+      --bg-color: #F0F0F0;
+      --avatar-orange: #ff5f00;
+      --avatar-green: #10b981;
+      --text-primary: #1e1e1e;
+      --text-secondary: #808793;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: var(--bg-color);
+      font-family: 'Google Sans', sans-serif;
+      color: var(--text-primary);
+    }
+
+    /* Tech Background Mesh */
+    .grid-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      background-image:
+        radial-gradient(rgba(255, 95, 0, 0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Ambient Light Orbs */
+    .glow-orb-orange {
+      position: absolute;
+      width: 800px;
+      height: 800px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 95, 0, 0.08) 0%, transparent 70%);
+      top: -150px;
+      left: -100px;
+      filter: blur(60px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .glow-orb-green {
+      position: absolute;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 70%);
+      bottom: -150px;
+      right: -100px;
+      filter: blur(60px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Core Clip Layouts */
+    .clip {
+      position: absolute;
+      visibility: hidden;
+      /* Managed by HyperFrames runtime */
+      width: 1920px;
+      height: 1080px;
+      left: 0;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* SVG Layout Wrapper */
+    .svg-container {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+    }
+
+    /* Unified Text Group: title + speaker-info in a grid layout.
+       speaker-info is pinned to the bottom (aligned with video frame at 951px),
+       title-box floats vertically centered in the remaining space above. */
+    .text-group {
+      position: absolute;
+      left: 846px;
+      top: 520px;
+      width: 945px;
+      height: 431px;
+      /* bottom aligns with video frame bottom: 130 + 821 = 951px */
+      display: grid;
+      grid-template-rows: 1fr auto;
+      row-gap: 28px;
+      z-index: 20;
+      pointer-events: none;
+      font-family: 'Google Sans', sans-serif;
+      overflow: hidden;
+    }
+
+    /* Premium Adaptive HTML Title Box — centered in the 1fr grid row */
+    .title-box {
+      align-self: center;
+      font-weight: 700;
+      color: #1e1e1e;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Speaker info block — pinned to the bottom of the grid (auto row) */
+    .speaker-info {}
+
+    .speaker-name {
+      font-size: 52px;
+      font-weight: 400;
+      color: #1E1E1E;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .speaker-company {
+      font-size: 52px;
+      font-weight: 400;
+      color: #808793;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Thin blinking cursor that trails the typewriter in HTML */
+    .cursor-span {
+      font-weight: 100;
+      display: inline;
+      padding-left: 2px;
+      line-height: 1;
+    }
+
+    /* Waves and heart curves: initial hidden state for draw-in animation */
+    .wave-path,
+    .heart-path {
+      stroke-dasharray: 120;
+      stroke-dashoffset: 120;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root" data-composition-id="main" data-width="1920" data-height="1080" data-start="0" data-duration="8">
+    <!-- Premium Ambient Background Visuals -->
+    <div class="grid-bg"></div>
+    <div class="glow-orb-orange"></div>
+    <div class="glow-orb-green"></div>
+
+    <!-- Video: direct child of root — HyperFrames requires media NOT nested in timed containers.
+           object-fit:cover + border-radius crops the 720×1280 portrait video into the card. -->
+    <video id="card-video" src="assets/Video_example.mp4" data-start="0" data-duration="8" data-track-index="0" muted
+      playsinline class="clip"
+      style="position:absolute;left:127px;top:130px;width:585px;height:821px;object-fit:cover;object-position:center center;border-radius:43px;z-index:5;"></video>
+    <img id="card-image" src="" data-start="0" data-duration="8" data-track-index="2" class="clip"
+      style="position:absolute;left:127px;top:130px;width:585px;height:821px;object-fit:cover;object-position:center center;border-radius:43px;z-index:5;display:none;">
+
+    <!-- MAIN COMPOSITION CONTAINER (8 SECONDS) -->
+    <div id="main-scene" class="clip" data-start="0" data-duration="8" data-track-index="1">
+      <div class="svg-container">
+        <!-- Unified Text Group: Title + Speaker Name + Company -->
+        <div id="text-group" class="text-group" data-layout-allow-overflow="true">
+          <div id="title-box" class="title-box" data-layout-allow-overflow="true"><span id="title-text">How to
+              Live</span><span id="cursor" class="cursor-span">|</span></div>
+          <div class="speaker-info" data-layout-allow-overflow="true">
+            <div id="name" class="speaker-name" data-layout-allow-overflow="true">Name Surname</div>
+            <div id="position_company" class="speaker-company" data-layout-allow-overflow="true">Software Engineer,
+              Google</div>
+          </div>
+        </div>
+
+        <svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+          <!-- Border ring drawn on top of the video -->
+          <rect id="video_border" x="127" y="130" width="585" height="821" rx="43" stroke="#1E1E1E" stroke-width="3"
+            fill="none" data-layout-allow-overflow="true" />
+
+          <!-- Background mask: fills whole canvas, punches out the card slot -->
+          <path
+            d="M1920 1080H0V0H1920V1080ZM167 130C144.909 130 127 147.909 127 170V911C127 933.091 144.909 951 167 951H672C694.091 951 712 933.091 712 911V170C712 147.909 694.091 130 672 130H167Z"
+            fill="#F0F0F0" />
+
+          <!-- Employee/Position are now HTML elements inside .text-group above -->
+
+          <!-- Accent Bracket 1 (Left Bracket, originally blue #57CAFF, changed to vibrant orange) -->
+          <path id="break_1"
+            d="M845 230.645H852.051C854.565 230.645 856.601 232.681 856.601 235.196V277.06C856.601 289.628 866.786 299.822 879.358 299.822H897.558C898.562 299.822 899.378 299.006 899.378 298.002V272.461C899.378 271.457 898.562 270.641 897.558 270.641H883.591C881.077 270.641 879.041 268.605 879.041 266.09V164.912C879.041 162.397 881.077 160.361 883.591 160.361H897.558C898.562 160.361 899.378 159.545 899.378 158.541V133C899.378 131.996 898.562 131.18 897.558 131.18H879.358C866.793 131.18 856.601 141.368 856.601 153.942V195.773C856.601 198.288 854.565 200.324 852.051 200.324H845C843.995 200.324 843.18 201.14 843.18 202.144V228.824C843.18 229.829 843.995 230.645 845 230.645Z"
+            fill="#34A853" stroke="#1E1E1E" stroke-width="3" stroke-miterlimit="10" />
+
+          <!-- Accent Bracket 2 (Right Bracket, originally blue #57CAFF, changed to vibrant orange) -->
+          <path id="break_2"
+            d="M1325 200.358H1317.95C1315.43 200.358 1313.4 198.321 1313.4 195.806V153.942C1313.4 141.375 1303.21 131.18 1290.64 131.18H1272.44C1271.44 131.18 1270.62 131.996 1270.62 133V158.541C1270.62 159.545 1271.44 160.361 1272.44 160.361H1286.41C1288.92 160.361 1290.96 162.397 1290.96 164.912V266.09C1290.96 268.605 1288.92 270.641 1286.41 270.641H1272.44C1271.44 270.641 1270.62 271.457 1270.62 272.461V298.002C1270.62 299.006 1271.44 299.822 1272.44 299.822H1290.64C1303.21 299.822 1313.4 289.634 1313.4 277.06V235.229C1313.4 232.715 1315.43 230.678 1317.95 230.678H1325C1326 230.678 1326.82 229.862 1326.82 228.858V202.178C1326.82 201.173 1326 200.358 1325 200.358Z"
+            fill="#34A853" stroke="#1E1E1E" stroke-width="3" stroke-miterlimit="10" />
+
+          <!-- Vector Text Paths for "BUILD WITH AI" logo title at top center -->
+          <path
+            d="M933.891 132.003H962.586C966.685 132.003 970.46 132.859 973.911 134.565C977.362 136.27 980.079 138.597 982.061 141.536C984.042 144.476 985.033 147.685 985.033 151.171C985.033 154.859 984.13 158.055 982.317 160.752C980.503 163.456 978.131 165.519 975.192 166.955V167.778C979.02 169.147 982.061 171.318 984.312 174.284C986.563 177.258 987.696 180.831 987.696 184.998C987.696 189.165 986.617 192.604 984.467 195.712C982.317 198.82 979.411 201.214 975.758 202.886C972.104 204.558 968.053 205.394 963.611 205.394H933.891V132.003ZM961.562 161.932C964.636 161.932 967.062 161.096 968.835 159.424C970.608 157.752 971.498 155.648 971.498 153.12C971.498 150.591 970.628 148.596 968.882 146.917C967.143 145.245 964.831 144.402 961.966 144.402H947.723V161.932H961.555H961.562ZM963.099 192.786C966.442 192.786 969.058 191.916 970.938 190.17C972.819 188.43 973.756 186.158 973.756 183.353C973.756 180.548 972.799 178.262 970.884 176.482C968.97 174.709 966.24 173.819 962.687 173.819H947.723V192.786H963.099Z"
+            fill="#1E1E1E" />
+          <path
+            d="M998.253 201.295C995.038 197.465 993.434 192.172 993.434 185.403V154.549H1006.86V183.764C1006.86 187.25 1007.68 189.934 1009.32 191.808C1010.96 193.689 1013.29 194.626 1016.29 194.626C1019.91 194.626 1022.78 193.224 1024.9 190.426C1027.02 187.628 1028.07 184.068 1028.07 179.766V154.549H1041.5V205.394H1028.9V198.834H1028.07C1026.44 201.362 1024.25 203.365 1021.52 204.828C1018.78 206.298 1015.74 207.033 1012.4 207.033C1006.18 207.033 1001.46 205.118 998.253 201.295Z"
+            fill="#1E1E1E" />
+          <path
+            d="M1051.49 145.939C1049.82 144.233 1048.98 142.184 1048.98 139.79C1048.98 137.396 1049.84 135.367 1051.55 133.688C1053.25 132.016 1055.27 131.18 1057.59 131.18C1059.92 131.18 1062.03 132.016 1063.74 133.688C1065.45 135.36 1066.3 137.396 1066.3 139.79C1066.3 142.184 1065.45 144.233 1063.74 145.939C1062.03 147.645 1059.98 148.501 1057.59 148.501C1055.21 148.501 1053.17 147.645 1051.49 145.939ZM1050.93 154.549H1064.35V205.394H1050.93V154.549Z"
+            fill="#1E1E1E" />
+          <path d="M1073.78 132.003H1087.21V205.401H1073.78V132.003Z" fill="#1E1E1E" />
+          <path
+            d="M1104.68 203.553C1100.95 201.234 1097.98 198.018 1095.76 193.918C1093.54 189.819 1092.43 185.174 1092.43 179.975C1092.43 174.777 1093.54 170.131 1095.76 166.032C1097.98 161.932 1100.95 158.723 1104.68 156.397C1108.4 154.077 1112.48 152.911 1116.93 152.911C1120.48 152.911 1123.61 153.626 1126.3 155.062C1129 156.498 1131.03 158.345 1132.4 160.597H1133.23L1132.4 153.423V132.003H1145.72V205.401H1133.22V199.252H1132.4C1131.03 201.504 1129 203.371 1126.3 204.841C1123.59 206.311 1120.47 207.046 1116.92 207.046C1112.48 207.046 1108.4 205.886 1104.67 203.56L1104.68 203.553ZM1126.25 192.84C1128.37 191.646 1130.06 189.934 1131.32 187.715C1132.58 185.497 1133.22 182.915 1133.22 179.975C1133.22 177.035 1132.58 174.46 1131.32 172.235C1130.06 170.016 1128.37 168.304 1126.25 167.11C1124.13 165.917 1121.87 165.317 1119.49 165.317C1117.1 165.317 1114.86 165.917 1112.77 167.11C1110.69 168.304 1109.01 170.016 1107.75 172.235C1106.48 174.453 1105.86 177.035 1105.86 179.975C1105.86 182.915 1106.49 185.389 1107.75 187.614C1109.01 189.833 1110.69 191.559 1112.77 192.792C1114.86 194.02 1117.09 194.64 1119.49 194.64C1121.88 194.64 1124.13 194.04 1126.25 192.846V192.84Z"
+            fill="#1E1E1E" />
+          <path
+            d="M932.557 249.517H947.622L956.129 281.806H956.844L967.09 249.517H980.821L990.966 281.806H991.68L1000.09 249.517H1014.94L998.65 300.362H984.306L973.952 267.971H973.339L963.093 300.362H948.748L932.557 249.517Z"
+            fill="#1E1E1E" />
+          <path
+            d="M1019.21 240.907C1017.54 239.201 1016.7 237.151 1016.7 234.758C1016.7 232.364 1017.56 230.334 1019.26 228.656C1020.97 226.983 1022.99 226.147 1025.31 226.147C1027.64 226.147 1029.75 226.983 1031.46 228.656C1033.16 230.328 1034.02 232.364 1034.02 234.758C1034.02 237.151 1033.16 239.201 1031.46 240.907C1029.75 242.612 1027.7 243.469 1025.31 243.469C1022.92 243.469 1020.89 242.612 1019.21 240.907ZM1018.64 249.517H1032.07V300.362H1018.64V249.517Z"
+            fill="#1E1E1E" />
+          <path
+            d="M1056.36 300.847C1054.31 300.078 1052.56 298.966 1051.13 297.503C1047.92 294.368 1046.31 289.904 1046.31 284.112V260.992H1037.4V249.51H1046.31V234.339H1059.74V249.51H1072.25V260.992H1059.74V281.786C1059.74 284.53 1060.32 286.499 1061.48 287.699C1062.44 288.825 1064.01 289.385 1066.19 289.385C1067.35 289.385 1068.4 289.23 1069.32 288.926C1070.24 288.623 1071.28 288.124 1072.45 287.443V300.362C1069.58 301.454 1066.5 302 1063.23 302C1060.7 302 1058.41 301.616 1056.36 300.847Z"
+            fill="#1E1E1E" />
+          <path
+            d="M1079.41 226.963H1092.84V246.847L1092.02 256.07H1092.84C1094.28 253.609 1096.38 251.627 1099.14 250.124C1101.91 248.62 1104.97 247.872 1108.32 247.872C1114.67 247.872 1119.47 249.753 1122.72 253.508C1125.96 257.271 1127.58 262.53 1127.58 269.292V300.355H1114.15V270.938C1114.15 270.938 1114.15 270.938 1114.15 270.938ZM1114.15 270.938C1114.15 267.519 1113.3 264.89 1111.59 263.042C1109.89 261.195 1107.56 260.278 1104.62 260.278C1101.07 260.278 1098.22 261.714 1096.07 264.586C1093.92 267.458 1092.84 271.012 1092.84 275.246V300.362H1079.41V226.963Z"
+            fill="#1E1E1E" />
+          <path
+            d="M1174.83 226.963H1190.61L1218.18 300.362H1202.91L1196.86 282.831H1168.68L1162.53 300.362H1147.27L1174.84 226.963H1174.83ZM1192.35 270.122L1185.79 251.668L1183.13 242.848H1182.3L1179.64 251.668L1173.08 270.122H1192.35Z"
+            fill="#1E1E1E" />
+          <path d="M1223.61 226.963H1237.44V300.362H1223.61V226.963Z" fill="#1E1E1E" />
+
+          <!-- Decorative Pink Hexagon Accent on top right -->
+          <path id="hexagon"
+            d="M1237.44 182.854V154.543C1237.44 151.549 1235.85 148.778 1233.25 147.281L1208.74 133.122C1206.14 131.625 1202.95 131.625 1200.35 133.122L1175.83 147.281C1173.24 148.778 1171.64 151.549 1171.64 154.543V182.854C1171.64 185.848 1173.24 188.619 1175.83 190.116L1200.35 204.275C1202.95 205.772 1206.14 205.772 1208.74 204.275L1233.25 190.116C1235.85 188.619 1237.44 185.848 1237.44 182.854Z"
+            fill="#FFD427" stroke="#1E1E1E" stroke-width="3" stroke-miterlimit="10" />
+
+          <!-- White Star inside Pink Hexagon (Slow 360-degree rotation animation `#star`) -->
+          <path id="star"
+            d="M1221.7 170.94C1212.93 173.489 1209.33 177.083 1206.79 185.861C1206.14 188.1 1202.95 188.1 1202.3 185.861C1199.75 177.083 1196.16 173.489 1187.39 170.94C1185.15 170.293 1185.15 167.104 1187.39 166.456C1196.16 163.908 1199.75 160.314 1202.3 151.535C1202.95 149.297 1206.14 149.297 1206.79 151.535C1209.33 160.314 1212.93 163.908 1221.7 166.456C1223.94 167.104 1223.94 170.293 1221.7 170.94Z"
+            fill="white" stroke="#1E1E1E" stroke-width="3" stroke-miterlimit="10" />
+
+          <!-- Geometric Cross-Hair: translate(1704,216) puts local origin at the visual center.
+               All paths are re-expressed relative to (0,0) = (1704,216) in SVG space.
+               GSAP rotates/scales with transformOrigin "0px 0px" = guaranteed in-place spin. -->
+          <g id="compass_wrapper" transform="translate(1704, 216)" data-layout-allow-overflow="true">
+            <path d="M60.81 60.81L-60.81 -60.81" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+            <path d="M-60.81 60.81L60.81 -60.81" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+            <path d="M0.01 86V-86" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+            <path d="M-86 0.007H86" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+          </g>
+
+          <!-- Premium Rounded Capsule badge at top right -->
+          <rect id="pill" x="1381.5" y="131.5" width="183.786" height="100.428" rx="50.2139" fill="#5CDB6D" />
+          <rect x="1381.5" y="131.5" width="183.786" height="100.428" rx="50.2139" stroke="#1E1E1E" stroke-width="3" />
+
+          <!-- Dynamic Year Text inside the Pill Badge (updated via system year) -->
+          <text id="pill-text" x="1473" y="184" font-family="'Google Sans', sans-serif" font-size="42" font-weight="400"
+            fill="#1E1E1E" text-anchor="middle" dominant-baseline="central">2026</text>
+
+          <!-- Wave geometric designs under the pill badge (ordered left-to-right for stagger animation) -->
+          <path id="wave_1" class="wave-path"
+            d="M1380 264.092C1380 285.071 1393.9 302.083 1411.04 302.083C1428.18 302.083 1442.08 285.071 1442.08 264.092"
+            stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+          <path id="wave_2" class="wave-path"
+            d="M1442.09 264.092C1442.09 285.071 1455.99 302.082 1473.13 302.082C1490.27 302.082 1504.17 285.071 1504.17 264.092"
+            stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+          <path id="wave_3" class="wave-path"
+            d="M1504.17 264.092C1504.17 285.071 1518.07 302.082 1535.21 302.082C1552.36 302.082 1566.26 285.071 1566.26 264.092"
+            stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+
+          <!-- Arrow group: shaft + fletching wrapped together so the whole
+               structure can slide horizontally as the shaft grows -->
+          <g id="arrow_group">
+            <!-- Arrow Shaft Line (grows left→right via stroke-dashoffset) -->
+            <path id="arrow_shaft" d="M836 438.839L1185.98 438.839" stroke="#1E1E1E" stroke-width="3"
+              stroke-miterlimit="10" stroke-dasharray="350" stroke-dashoffset="350" />
+
+            <!-- Arrow Fletching/Tail Curves (Left side) -->
+            <path d="M836 438.503C868.474 438.503 913.063 411.94 913.662 379.039" stroke="#1E1E1E" stroke-width="3"
+              stroke-miterlimit="10" />
+            <path d="M836 438.504C868.5 438.504 913.133 465.102 913.662 498.039" stroke="#1E1E1E" stroke-width="3"
+              stroke-miterlimit="10" />
+          </g>
+
+          <!-- Globe Grid & Sphere outlines (Center right, animated spin) -->
+          <g id="globe">
+            <path
+              d="M1331.83 498.039C1367.09 498.039 1395.68 471.4 1395.68 438.539C1395.68 405.678 1367.09 379.039 1331.83 379.039C1296.56 379.039 1267.98 405.678 1267.98 438.539C1267.98 471.4 1296.56 498.039 1331.83 498.039Z"
+              stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+            <path
+              d="M1331.83 498.039C1347.05 498.039 1359.39 471.4 1359.39 438.539C1359.39 405.678 1347.05 379.039 1331.83 379.039C1316.61 379.039 1304.27 405.678 1304.27 438.539C1304.27 471.4 1316.61 498.039 1331.83 498.039Z"
+              stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+            <path d="M1272.46 416.493H1391.15" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+            <path d="M1272.46 460.484H1391.15" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+          </g>
+
+          <!-- Decorative Circle (Originally yellow #FFD427, changed to emerald green `#circle`) -->
+          <path id="circle"
+            d="M1536.18 498.039C1568.49 498.039 1594.68 471.4 1594.68 438.539C1594.68 405.678 1568.49 379.039 1536.18 379.039C1503.87 379.039 1477.68 405.678 1477.68 438.539C1477.68 471.4 1503.87 498.039 1536.18 498.039Z"
+            fill="#FF7DAF" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+
+          <!-- Decorative Arrow Elements (Right side, stays static) -->
+          <path id="heart_bottom" class="heart-path"
+            d="M1754.78 438.539C1774.59 438.461 1790.69 451.731 1790.75 468.171C1790.81 484.612 1774.81 497.999 1754.99 498.077"
+            stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+          <path id="heart_top" class="heart-path"
+            d="M1754.57 379C1774.38 378.922 1790.48 392.192 1790.54 408.633C1790.6 425.074 1774.6 438.461 1754.78 438.539"
+            stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+          <path d="M1728.78 491.549L1676.68 438.626L1728.77 385.713" stroke="#1E1E1E" stroke-width="3"
+            stroke-linejoin="round" />
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- GSAP Animation Timeline & Runtime Registration -->
+  <script>
+    /************************************************************************
+     * 🚀 QUICK CUSTOMIZATION GUIDE FOR REUSING THIS CARD
+     * 
+     * To spin up a new speaker card using this template:
+     * 
+     * 1. VIDEO: Replace 'src="assets/Video_example.mp4"' in the <video> tag
+     *    at line ~145. Note: Video must remain a direct child of #root,
+     *    have muted/playsinline, and keep object-fit:cover.
+     * 
+     * 2. TITLE LINE 1 & 2: Update the 'LINE1' and 'LINE2' constants
+     *    at lines ~368-369 below to print your custom text.
+     * 
+     * 3. NAME & ROLE: Modify the <text id="employee"> and <text id="position">
+     *    SVG elements at lines ~177-180 to set speaker details.
+     * 
+     * 4. CHECKS & RENDER:
+     *    - Run `npm run check` to validate layout and performance.
+     *    - Run `npm run render` to export the new high-quality MP4 file.
+     ************************************************************************/
+
+    // Initialize GSAP Timeline (Exactly 8 seconds)
+    window.__timelines = window.__timelines || {};
+    const tl = gsap.timeline({ paused: true });
+
+    // 1. Slow 360-degree star rotation with acceleration and deceleration
+    // Center coordinates: X = 1204.55px, Y = 168.7px
+    tl.to("#star", {
+      rotation: 360,
+      duration: 8.0,
+      ease: "power2.inOut",
+      transformOrigin: "50% 50%"
+    }, 0);
+
+    // 2. Arrow — shaft grows left→right while the whole group slides 300px from right to left.
+    //    Net effect: construction starts to the right and "lands" into final position (tree-on-stalk).
+    tl.fromTo("#arrow_group",
+      { x: 300 },
+      { x: 0, duration: 5.0, ease: "power2.inOut" },
+      0
+    );
+    tl.fromTo("#arrow_shaft",
+      { strokeDashoffset: 350 },
+      { strokeDashoffset: 0, duration: 5.0, ease: "power2.inOut" },
+      0
+    );
+
+    // 4. Compass — svgOrigin in BOTH from and to keeps the pivot locked at the visual center.
+    //    The group has translate(1704,216) baked in; svgOrigin "1704 216" references that center.
+    tl.fromTo("#compass_wrapper",
+      { scale: 0.1, rotation: -720, svgOrigin: "1704 216" },
+      {
+        scale: 1,
+        rotation: 0,
+        svgOrigin: "1704 216",
+        duration: 7.0,
+        ease: "back.out(1.5)"
+      },
+      0
+    );
+
+    // 5. Circle — pops in with a bounce, then pulses continuously (breathing heartbeat effect).
+    //    Center coordinates: X = 1536.18px, Y = 438.539px
+    tl.fromTo("#circle",
+      { scale: 0, svgOrigin: "1536.18 438.539" },
+      { scale: 1, svgOrigin: "1536.18 438.539", duration: 2.0, ease: "back.out(1.7)" },
+      0.8
+    );
+    tl.to("#circle", {
+      scale: 1.08,
+      svgOrigin: "1536.18 438.539",
+      duration: 1.0,
+      yoyo: true,
+      repeat: 4, // 4 repeats (5 half-cycles) ends perfectly at scale 1.0 at T = 7.8s
+      ease: "power1.inOut"
+    }, 2.8);
+
+    // 6. Waves under the pill badge — draw themselves dynamically left-to-right sequentially.
+    tl.to(".wave-path", {
+      strokeDashoffset: 0,
+      duration: 0.8,
+      ease: "power2.inOut",
+      stagger: 0.6
+    }, 1.5);
+
+    // 7. Video card, static image fallback, and border fade in cleanly (fixed in place)
+    tl.fromTo(["#card-video", "#card-image", "#video_border"],
+      { opacity: 0 },
+      { opacity: 1, duration: 2.5, ease: "power2.out" },
+      0.4
+    );
+
+    // 8. Title container fades in cleanly in-place as it begins typing
+    tl.fromTo("#title-box",
+      { opacity: 0 },
+      { opacity: 1, duration: 2.0, ease: "power3.out" },
+      1.0
+    );
+
+    // 9. Speaker Name slides up and fades in
+    tl.fromTo("#name",
+      { y: 60, opacity: 0 },
+      { y: 0, opacity: 1, duration: 2.0, ease: "power3.out" },
+      1.8
+    );
+
+    // 10. Speaker Position/Company slides up and fades in staggered
+    tl.fromTo("#position_company",
+      { y: 60, opacity: 0 },
+      { y: 0, opacity: 1, duration: 2.0, ease: "power3.out" },
+      2.2
+    );
+
+    // 11. Heart shape ("3" curves on the right) draws in sequentially
+    tl.to(["#heart_top", "#heart_bottom"], {
+      strokeDashoffset: 0,
+      duration: 0.8,
+      ease: "power2.inOut",
+      stagger: 0.3
+    }, 2.5);
+
+    // ========================================================================
+    // ✍️ CARD CONFIGURATION (Unified config for rapid customized reuse!)
+    // ========================================================================
+    const CARD_CONFIG = {
+      title: "How to generate cringe videos",
+      name: "Alex Engineer",
+      position_company: "AI Coach, GDG Krakow"
+    };
+
+    // Adaptive text sizing function — calculates optimal font size for any title length
+    // and eliminates typographic orphans (single short words stranded on the last line).
+    function applyAdaptiveTextSize(title) {
+      const titleBox = document.getElementById("title-box");
+      const maxWidth = 945;   // container width in px
+      const maxHeight = 280;  // max vertical space for the title before it eats into speaker info
+
+      titleBox.querySelector("#title-text").textContent = title;
+
+      // 1. Try to fit the text on a single line by scaling up (up to 110px)
+      let fontSize = 110;
+      let fitsOnSingleLine = false;
+
+      while (fontSize >= 84) {
+        titleBox.style.fontSize = fontSize + "px";
+        titleBox.style.whiteSpace = "nowrap";
+        const width = titleBox.scrollWidth;
+        titleBox.style.whiteSpace = ""; // restore to stylesheet rule (pre-wrap)
+
+        if (width <= maxWidth) {
+          fitsOnSingleLine = true;
+          break; // Found the largest font size where it fits on a single line!
+        }
+        fontSize -= 2;
+      }
+
+      // 2. If it cannot fit on a single line at >= 84px, fall back to standard multi-line search
+      if (!fitsOnSingleLine) {
+        fontSize = 84;
+        const minFontSize = 36;
+        while (fontSize > minFontSize) {
+          titleBox.style.fontSize = fontSize + "px";
+          if (titleBox.scrollHeight <= maxHeight && titleBox.scrollWidth <= maxWidth) {
+            break;
+          }
+          fontSize -= 2;
+        }
+      }
+
+      titleBox.style.fontSize = fontSize + "px";
+
+      // 3. Anti-orphan correction: detect and fix single short words stranded on the last line.
+      //    A "typographic orphan" is when the last line of wrapped text contains only one word
+      //    (e.g. "Stop using it\nwrongly!" — "wrongly!" alone looks unbalanced).
+      //    We fix this by slightly reducing the font size so the browser reflows at least
+      //    two words onto the last line, producing a visually balanced block.
+      if (!fitsOnSingleLine && title.trim().split(/\s+/).length > 2) {
+        const minOrphanFontSize = Math.max(fontSize - 12, 36); // don't shrink more than 12px
+        let orphanFixed = false;
+
+        while (fontSize > minOrphanFontSize) {
+          titleBox.style.fontSize = fontSize + "px";
+
+          // Measure orphan status: use a temporary invisible clone to count words per line.
+          // We measure by checking if the last line contains only one short word.
+          const words = title.trim().split(/\s+/);
+          const lineHeight = parseFloat(getComputedStyle(titleBox).lineHeight) || (fontSize * 1.2);
+          const totalTextHeight = titleBox.scrollHeight;
+          const lineCount = Math.round(totalTextHeight / lineHeight);
+
+          if (lineCount <= 1) break; // Single-line text has no orphan problem
+
+          // Create a temporary measurement span to find where the last line break occurs
+          const textSpan = titleBox.querySelector("#title-text");
+          const originalText = textSpan.textContent;
+          
+          // Binary approach: find the last word that starts on a new line
+          // by measuring text width incrementally
+          let lastLineWords = 0;
+          let lastLineStartIdx = 0;
+          
+          // Measure using Range API to find the actual last line
+          const range = document.createRange();
+          const textNode = textSpan.firstChild;
+          
+          if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+            let prevTop = null;
+            let lastLineStart = 0;
+            
+            for (let i = 0; i < originalText.length; i++) {
+              range.setStart(textNode, i);
+              range.setEnd(textNode, i + 1);
+              const rect = range.getBoundingClientRect();
+              const charTop = Math.round(rect.top);
+              
+              if (prevTop !== null && charTop > prevTop + 2) {
+                // New line detected at character index i
+                lastLineStart = i;
+              }
+              prevTop = charTop;
+            }
+            
+            // Extract the text on the last line and count its words
+            const lastLineText = originalText.substring(lastLineStart).trim();
+            lastLineWords = lastLineText.split(/\s+/).filter(w => w.length > 0).length;
+          }
+
+          // If the last line has 2+ words, the orphan is resolved!
+          if (lastLineWords >= 2) {
+            orphanFixed = true;
+            break;
+          }
+
+          // Shrink font to try pushing more words onto the last line
+          fontSize -= 2;
+        }
+
+        // If we couldn't fix the orphan within the allowed range, restore the best fit
+        titleBox.style.fontSize = fontSize + "px";
+      }
+      
+      // Reset text content to empty string so it doesn't flicker on start before typewriter tween plays!
+      titleBox.querySelector("#title-text").textContent = "";
+    }
+
+    // Adaptive speaker info sizing function — shrinks name and position/company text size
+    // so that the position/company line always fits in a single line.
+    function applyAdaptiveSpeakerInfoSize(name, positionCompany) {
+      const nameEl = document.getElementById("name");
+      const companyEl = document.getElementById("position_company");
+      const maxWidth = 945; // max container width in px
+
+      nameEl.textContent = name;
+      companyEl.textContent = positionCompany;
+
+      // Temporarily ensure nowrap to correctly measure single-line text width
+      nameEl.style.whiteSpace = "nowrap";
+      companyEl.style.whiteSpace = "nowrap";
+
+      let fontSize = 52;
+      const minFontSize = 24;
+
+      while (fontSize > minFontSize) {
+        nameEl.style.fontSize = fontSize + "px";
+        companyEl.style.fontSize = fontSize + "px";
+
+        if (nameEl.scrollWidth <= maxWidth && companyEl.scrollWidth <= maxWidth) {
+          break;
+        }
+        fontSize -= 1;
+      }
+
+      nameEl.style.fontSize = fontSize + "px";
+      companyEl.style.fontSize = fontSize + "px";
+    }
+
+    // Resolve video/image fallback dynamically based on whether card-image has a source
+    const videoEl = document.getElementById("card-video");
+    const imgEl = document.getElementById("card-image");
+    const imgSrc = imgEl.getAttribute("src") || "";
+    
+    if (imgSrc) {
+      imgEl.style.display = "block";
+      videoEl.style.display = "none";
+    } else {
+      imgEl.style.display = "none";
+      videoEl.style.display = "block";
+    }
+
+    // 1. Populate and size all text fields
+    applyAdaptiveSpeakerInfoSize(CARD_CONFIG.name, CARD_CONFIG.position_company);
+    applyAdaptiveTextSize(CARD_CONFIG.title);
+
+    // 3. Typewriter — single absolute HTML box.
+    //    Text wraps naturally. Cursor stays dynamically glued to the end.
+    const TOTAL_TYPING_TIME = 4.8; // Total seconds allocated for typing
+    const L1_START = 1.0;
+
+    // Cursor blinking behavior:
+    // 1. Blinks before typing starts (from T=0 to T=1.0s, 2 half-cycles of 0.5s)
+    tl.to("#cursor", {
+      opacity: 0, duration: 0.5, repeat: 1, yoyo: true, ease: "steps(1)"
+    }, 0);
+
+    // 2. Stays solid while typing is actively moving (from T=1.0s to T=5.8s)
+    tl.set("#cursor", { opacity: 1 }, L1_START);
+
+    // 3. Blinks again when typing is finished (from T=5.8s to T=7.8s, 5 half-cycles of 0.4s = 2.0s)
+    tl.to("#cursor", {
+      opacity: 0, duration: 0.4, repeat: 4, yoyo: true, ease: "steps(1)"
+    }, L1_START + TOTAL_TYPING_TIME);
+
+    // 4. Hide the cursor completely at the end of the timeline so it's invisible on final frame and snapshots!
+    tl.to("#cursor", {
+      opacity: 0, duration: 0.01, overwrite: "auto"
+    }, 7.8);
+
+    // Dynamic typewriter tween into the HTML container
+    const typeObj = { n: 0 };
+    tl.to(typeObj, {
+      n: CARD_CONFIG.title.length,
+      duration: TOTAL_TYPING_TIME,
+      ease: "none",
+      onUpdate: () => {
+        document.getElementById("title-text").textContent = CARD_CONFIG.title.slice(0, Math.floor(typeObj.n));
+      }
+    }, L1_START);
+
+    // Register timeline under the 'main' composition ID for the studio
+    window.__timelines["main"] = tl;
+
+    // Helper API to dynamically update the card texts from browser console or MCP actions
+    window.updateCard = (config) => {
+      if (config.title !== undefined) CARD_CONFIG.title = config.title;
+      if (config.name !== undefined) CARD_CONFIG.name = config.name;
+      if (config.position_company !== undefined) CARD_CONFIG.position_company = config.position_company;
+
+      // Update all text fields
+      applyAdaptiveSpeakerInfoSize(CARD_CONFIG.name, CARD_CONFIG.position_company);
+      applyAdaptiveTextSize(CARD_CONFIG.title);
+
+      // Pause timeline at the end to make sure all decorative elements are fully animated and visible
+      tl.progress(1);
+    };
+  </script>
+</body>
+
+</html>

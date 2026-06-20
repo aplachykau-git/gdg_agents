@@ -1,10 +1,57 @@
+# Virtual Environment
 .venv/
-__pycache__/
+venv/
+ENV/
+
+# Python caching
+**/__pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Local environment variables & secrets (recursive)
 .env
+**/.env
+.env.*
+
+# OS generated files
 .DS_Store
+Thumbs.db
+
+# API Credentials, tokens and keys
 token.json
-.adk/
 credentials.json
+configs/credentials.json
+configs/token.json
 service_account.json
+*.json.key
+*.key
+*.pem
+
+# ADK and other runtime cache
+.adk/
+
+# Participant Data, Scans, and Generated Outputs (to prevent GDPR/data leaks on GitHub)
+**/results/
+**/output/
+**/*.xlsx
+**/*.xls
+**/*.csv
+**/*.docx
+**/*.pdf
+
+# Generated Media and Video Editor Outputs (Renders & Outpainted Images)
+**/renders/
+**/*.mp4
+**/*.gif
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.webm
+
+# GDG Krakow Organisers lists (to keep sensitive attendee/staff data local)
+**/organisers.txt
+configs/organisers.txt
+
+
 

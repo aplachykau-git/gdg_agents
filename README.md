@@ -1,91 +1,96 @@
-# GDG Krakow Tool (Agent Development Kit)
+# GDG Kraków Tool (Agent Development Kit)
 
-This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/), written in Python. It leverages the capabilities of Vertex AI (Gemini) models to automatically extract data from receipts and invoices, convert currencies, and generate beautifully formatted Google Docs expense reports using custom templates.
-
-## Project Structure
-
-The project is decoupled into independent modules for better maintainability and portability:
-* `orchestrator/` — The main coordinating agent (`gdg_orchestrator`), running on `gemini-2.5-flash`.
-* `receipt_scanner/` — A specialized sub-agent for receipt and invoice OCR, currency conversion, and data export.
-  * `agent.py` — Configuration and systemic instructions for the sub-agent.
-  * `tools.py` — Agent tools (receipt OCR processing, Google Docs/Drive templates integration, exchange rate fetching).
-  * `utils.py` — Helper utilities for processing media files (image auto-rotation, PDF first-page rendering).
-  * `test_runner.py` — A command-line script to test the sub-agent locally without launching the web interface.
+This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/), written in Python. It leverages the capabilities of Vertex AI (Gemini and Veo) models to automate events operations, document templates compilation, receipt scanning, scheduling conflicts analysis, and social media posting.
 
 ---
 
-## Local Environment Setup
+## 🏗️ Project Structure
 
-1. Make sure you have Python installed (version 3.9+).
-2. Clone the repository:
-   ```bash
-   git clone https://github.com/aplachykau-git/gdg_agents.git
-   cd gdg_agents
-   ```
+The workspace is split into decoupled modules for high maintainability, portability, and independent development:
 
-3. Initialize a virtual environment and install the package along with its dependencies in `editable` mode:
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   pip install -e .
-   ```
-
-4. Authenticate with Google Cloud to use Vertex AI:
-   ```bash
-   bash <(curl -sSL https://storage.googleapis.com/cloud-samples-data/adc/setup_adc.sh)
-   ```
-   *When prompted, enter your Google Cloud Project ID (e.g., `gdg-agents-496611`) and complete the authentication in your web browser.*
+* **`root_agent/`** — The main coordinating Root Agent (`root_agent`), running on `gemini-2.5-flash`. It acts as an intelligent router delegating requests to specialized sub-agents.
+* **`receipt_scanner/`** — Sub-agent for receipt and invoice OCR, currency conversion, and Google Docs/Drive template compilation.
+* **`video_editor/`** — Sub-agent for speaker card outpainting (Gemini), video animation (Google Veo 3.1), and rendering layout compilation.
+* **`linkedin_post_generator/`** — Sub-agent for drafting and styling event recap posts and speaker announcements for LinkedIn.
+* **`registration_manager/`** — Sub-agent for guest registration sorting, capacity verification, and organizer list management.
+* **`event_planner/`** — Sub-agent for scanning calendars (Luma, Meetup.com) to find conflict-free, holiday-safe event dates.
+* **`agenda_generator/`** — Sub-agent for compiling and formatting clean event agendas with speaker timelines.
+* **`frontend/`** — A custom **Svelte + Vite** single-page application providing a premium, custom dashboard interface for the entire workspace.
+* **`docs/`** — Project documentation and guides (see [Setup Guide](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/setup_guide.md)).
 
 ---
 
-## Environment Variables (.env)
+## 🚀 Quick Start: Launch the Entire Project
 
-The project relies on `.env` files to store configuration parameters securely (these are ignored in Git).
-Each module (`orchestrator` and `receipt_scanner`) has its own `.env` file.
+To spin up the complete application (both the Python agent server and the custom Svelte frontend), run the following:
 
-Create a `.env` file in the corresponding directory with the following contents:
-
-```env
-# Set to 1 to use Vertex AI, or 0 to use Google AI Studio
-GOOGLE_GENAI_USE_VERTEXAI=1
-
-# Your Google Cloud Project ID
-GOOGLE_CLOUD_PROJECT=gdg-agents-496611
-
-# The Google Cloud region where models are located
-GOOGLE_CLOUD_LOCATION=europe-central2
-
-# The chosen Gemini model
-GEMINI_PRO_MODEL=gemini-2.5-pro
-
-# Google Drive and Google Docs parameters for export
-GOOGLE_DRIVE_FOLDER_ID=your_drive_folder_id
-GOOGLE_DOCS_TEMPLATE_ID=your_docs_template_id
-```
-
----
-
-## Running the Agents
-
-### 1. Launch via ADK Developer UI (Web Interface)
-1. Activate the virtual environment:
-   ```bash
-   source .venv/bin/activate
-   ```
-2. Navigate to the folder of the desired agent (e.g., the main orchestrator):
-   ```bash
-   cd orchestrator
-   ```
-3. Start the ADK web server:
-   ```bash
-   adk web --port 8000
-   ```
-4. Open `http://localhost:8000` in your web browser to interact with the agent using a rich web interface.
-
-### 2. Run Local CLI Test (Script)
-You can test the receipt scanner sub-agent directly via a command-line script:
+### 1. Start the ADK Agent Backend (Port 8080)
+Make sure your Python virtual environment is active, then run:
 ```bash
-python receipt_scanner/test_runner.py
+# From project root
+source .venv/bin/activate
+adk web --port 8080 .
 ```
-Thanks to dynamic path resolution, the script will run seamlessly on any machine.
+
+### 2. Start the Svelte Dev Server (Port 5173)
+In a separate terminal window:
+```bash
+# Go to frontend folder
+cd frontend
+
+# Install Node dependencies (first time only)
+npm install
+
+# Start the Vite server
+npm run dev
+```
+
+### 3. Open the UI
+Go to **[http://localhost:5173](http://localhost:5173)** in your browser to interact with the workspace!
+
+*For detailed setup instructions, including Google Cloud authentication and template folder mapping, check out the [Setup Guide](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/setup_guide.md).*
+
+---
+
+## 🎬 Video Editor Agent & HyperFrames Sandbox
+
+The **Video Editor sub-agent** automates the creation of high-quality, cinematic marketing video intros for event speakers. It processes portrait photos by outpainting them to 9:16 aspect ratio using Gemini, animating them via Google Veo 3.1, custom-styling a responsive GSAP vector layout, and compiling the outputs (1080p, 4K, and animated GIFs) in parallel.
+
+### Manual Developer Commands (Inside `video_editor/`)
+You can run individual HyperFrames compiler tasks directly inside `video_editor/` to preview, check, and render templates:
+```bash
+cd video_editor/
+
+# Install rendering dependencies (first time only)
+npm install
+
+# Start local dev server with hot-reload and visual preview (scrub timeline at http://localhost:3000)
+npm run dev
+
+# Run linter, Chrome validation, and layout checks
+npm run check
+
+# Render ordinary 1080p video file
+npm run render
+
+# Publish composition and get a shareable link
+npm run publish
+```
+
+---
+
+## 🧹 Code Quality & Style Formatting (Python)
+
+To keep the codebase clean, ordered, and formatted to a style guide (with a line length limit of **120 characters**), we use **Ruff** — an extremely fast Python linter and formatter configured via `pyproject.toml`.
+
+Make sure your virtual environment is active, then run:
+```bash
+# Format Python code
+ruff format .
+
+# Check for lint errors and warnings
+ruff check .
+
+# Apply auto-fixes to check issues
+ruff check --fix .
+```
