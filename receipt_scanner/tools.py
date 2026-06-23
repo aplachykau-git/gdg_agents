@@ -6,6 +6,7 @@ from pathlib import Path
 
 import requests
 from google import genai
+from google.adk.tools import ToolContext
 from google.genai import types
 
 from .utils import _auto_rotate_image, _pdf_to_png_screenshot
@@ -220,7 +221,12 @@ def read_receipt_file(file_path: str) -> dict:
 
 
 def export_summary_to_google_doc(
-    title: str, folder_id: str = None, template_id: str = None, exchange_rate: float = None, receipts_data: list = None
+    title: str,
+    folder_id: str = None,
+    template_id: str = None,
+    exchange_rate: float = None,
+    receipts_data: list = None,
+    tool_context: ToolContext = None,
 ) -> dict:
     """
     Creates a new Google Doc in your Google Drive by copying a template and populating it.
@@ -575,14 +581,64 @@ def export_summary_to_google_doc(
                         return None
 
                 if receipts_data:
+                    # Collect session attachments in chronological order
+                    session_attachments = []
+                    if tool_context and tool_context.session:
+                        events = tool_context.session.events or []
+                        for event in events:
+                            if event.author == "user" and event.content and event.content.parts:
+                                for part in event.content.parts:
+                                    if part.inline_data and part.inline_data.data:
+                                        session_attachments.append(
+                                            {
+                                                "data": part.inline_data.data,
+                                                "mime_type": part.inline_data.mime_type or "image/jpeg",
+                                            }
+                                        )
+
                     # Insert in reversed order so they appear chronologically at proofs_index
-                    for receipt in reversed(receipts_data):
+                    for i, receipt in reversed(list(enumerate(receipts_data))):
                         path_str = receipt.get("image_path")
+                        temp_file_path = None
+
+                        # Check if file exists locally
+                        file_exists = False
+                        if path_str:
+                            try:
+                                resolved = Path(path_str).expanduser().resolve()
+                                file_exists = resolved.exists()
+                            except Exception:
+                                file_exists = False
+
+                        if not file_exists and i < len(session_attachments):
+                            # Self-healing: Extract from session events!
+                            attachment = session_attachments[i]
+                            mime = attachment["mime_type"]
+                            ext_map = {
+                                "image/png": ".png",
+                                "image/jpeg": ".jpg",
+                                "image/webp": ".webp",
+                                "application/pdf": ".pdf",
+                            }
+                            ext = ext_map.get(mime, ".jpg")
+
+                            assets_dir = Path(__file__).resolve().parent / "assets"
+                            assets_dir.mkdir(exist_ok=True)
+
+                            temp_file_path = assets_dir / f"uploaded_receipt_{i}{ext}"
+                            with open(temp_file_path, "wb") as f:
+                                f.write(attachment["data"])
+
+                            path_str = str(temp_file_path)
+                            print(f"[DEBUG] Self-healed missing local file using session attachment {i}: {path_str}")
+
                         if not path_str:
                             continue
 
                         is_pdf = path_str.lower().endswith(".pdf")
                         temp_files_to_cleanup = []  # local temp files created by helpers
+                        if temp_file_path:
+                            temp_files_to_cleanup.append(str(temp_file_path))
 
                         if is_pdf:
                             # Convert PDF first page to PNG screenshot (never copies the PDF)
