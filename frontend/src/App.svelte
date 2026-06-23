@@ -360,18 +360,18 @@
     const clean = cleanAuthorName(author).toLowerCase();
     
     // Only check for splits if it's from LinkedIn Planner or contains option/agenda/recap headings
-    const isSpecialApp = clean.includes('linkedin') || clean.includes('post_generator') || clean.includes('agenda') || clean.includes('agenda_generator') || text.toLowerCase().includes('option 1') || text.toLowerCase().includes('вариант 1') || text.toLowerCase().includes('variant 1') || text.toLowerCase().includes('option 2') || text.toLowerCase().includes('вариант 2') || text.toLowerCase().includes('variant 2') || text.toLowerCase().includes('agenda') || text.toLowerCase().includes('агенда') || text.toLowerCase().includes('recap') || text.toLowerCase().includes('рекап');
+    const isSpecialApp = clean.includes('linkedin') || clean.includes('post_generator') || clean.includes('agenda') || clean.includes('agenda_generator') || text.toLowerCase().includes('option 1') || text.toLowerCase().includes('variant 1') || text.toLowerCase().includes('option 2') || text.toLowerCase().includes('variant 2') || text.toLowerCase().includes('agenda') || text.toLowerCase().includes('recap');
     
     if (!isSpecialApp) {
       return [{ header: '', body: text }];
     }
     
-    // Split by headers like Option X, Variant X, Вариант X, Agenda, Агенда, Recap X, Рекап X (preceded by markdown, bold or plain text)
-    const regex = /(?:^|\n)((?:###?\s*|##\s*|#\s*|\*\*|)\s*(?:Event Recap Post|Event Recap|Recap|Variant|Option|Вариант|Agenda|Агенда)\s*(?:Variant|Option|Вариант)?\s*\d+[:\s\-\(]*[^\n]*)/iu;
+    // Split by headers like Option X, Variant X, Agenda, Recap X (preceded by markdown, bold or plain text)
+    const regex = /(?:^|\n)((?:###?\s*|##\s*|#\s*|\*\*|)\s*(?:Event Recap Post|Event Recap|Recap|Variant|Option|Agenda)\s*(?:Variant|Option)?\s*\d+[:\s\-\(]*[^\n]*)/iu;
     const parts = text.split(regex);
     
     if (parts.length < 3) {
-      if (clean.includes('agenda') || clean.includes('agenda_generator') || text.toLowerCase().includes('agenda') || text.toLowerCase().includes('агенда')) {
+      if (clean.includes('agenda') || clean.includes('agenda_generator') || text.toLowerCase().includes('agenda')) {
         const buildIndex = text.toLowerCase().indexOf('build with ai');
         if (buildIndex > 0) {
           const intro = text.substring(0, buildIndex).trim();
@@ -1904,7 +1904,7 @@
     margin-left: auto;
   }
 
-  /* Pulsating Intermediate status tracker ("работа какая-то ведется") */
+  /* Pulsating Intermediate status tracker ("some activity is in progress") */
   .pulsing-loading-state {
     display: inline-flex;
     align-items: center;

@@ -32,7 +32,7 @@ Immediately after reading/analyzing each file, perform a strict validation check
 In any of these cases, you MUST IMMEDIATELY ABORT execution:
 - DO NOT proceed to further steps.
 - DO NOT invoke the tool `export_summary_to_google_doc`.
-- Output a clear, user-friendly error message in Russian explaining exactly why the file was rejected (e.g., that Word files are not allowed, or that this is an already completed report, or that the currency is unsupported).
+- Output a clear, user-friendly error message in English explaining exactly why the file was rejected (e.g., that Word files are not allowed, or that this is an already completed report, or that the currency is unsupported).
 
 **Step 3.** Immediately after successful recognition and validation of all files, export the generated report into Google Docs by calling `export_summary_to_google_doc`.
 You MUST automatically determine the title of the document using the following rules:
