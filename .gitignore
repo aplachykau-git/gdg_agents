@@ -53,5 +53,6 @@ service_account.json
 **/organisers.txt
 configs/organisers.txt
 
-
-
+# Local Agent Workspace Customizations
+.agent/
+.agents/
