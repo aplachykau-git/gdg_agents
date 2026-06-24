@@ -1,6 +1,6 @@
-# 🚀 GDG Kraków Tool Suite - Setup & Operations Guide
+# 🚀 GDG Agentic Workspace - Setup & Operations Guide
 
-Welcome to the comprehensive setup and operations guide for the **GDG Kraków Tool Suite**. This project is a multi-agent orchestration workspace built using the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/) in Python (powered by Vertex AI and Gemini models) paired with a high-performance, responsive **Svelte + Vite** custom frontend.
+Welcome to the comprehensive setup and operations guide for the **GDG Agentic Workspace**. This project is a multi-agent orchestration workspace built using the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/) in Python (powered by Vertex AI and Gemini models) paired with a high-performance, responsive **Svelte + Vite** custom frontend.
 
 ---
 
@@ -85,25 +85,39 @@ bash <(curl -sSL https://storage.googleapis.com/cloud-samples-data/adc/setup_adc
 
 ### 4. Configuration Settings (.env)
 
-The root agent requires a `.env` file to be present in its directory. Create or update `root_agent/.env` with the following parameters:
+The root agent requires a `.env` file to be present in the project root directory. You can use the template [.env.example](file:///Users/aplachykau/Experiments/gdg_krakow_tool/.env.example) to create it:
 
-```env
-# Vertex AI credentials and configuration
-GOOGLE_GENAI_USE_VERTEXAI=1
-GOOGLE_CLOUD_PROJECT=gdg-agents-496611
-GOOGLE_CLOUD_LOCATION=europe-central2
-GEMINI_PRO_MODEL=gemini-2.5-pro
-
-# Google Drive and Docs parameters (for receipt scanning & export templates)
-GOOGLE_DRIVE_FOLDER_ID=your_drive_folder_id
-GOOGLE_DOCS_TEMPLATE_ID=your_docs_template_id
-
-# Video Editor & HyperFrames settings
-ENABLE_VIDEO_GENERATION=true
-RENDER_ORDINARY=true
-RENDER_GIF=true
-RENDER_4K=true
+```bash
+# Copy the example configuration to .env
+cp .env.example .env
 ```
+
+Open `.env` and fill in the following parameters:
+- `GEMINI_API_KEY`: Your private API key from [Google AI Studio](https://aistudio.google.com/).
+- `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run via Vertex AI endpoints, or `0` for public API.
+- `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID from [Google Cloud Console](https://console.cloud.google.com/).
+- `GOOGLE_CLOUD_LOCATION`: The GCP region/location (e.g. `europe-central2`).
+- `GOOGLE_DRIVE_FOLDER_ID`: The ID of your target Google Drive folder (found in the folder's URL).
+- `ENABLE_VIDEO_GENERATION`: Set to `true` to run speaker video intro renders (costs tokens), or `false` for layout-only dry-runs. 
+  > [!WARNING]
+  > Video generation using Google Veo is computationally expensive and incurs high token costs. It is highly recommended to keep this `false` during local development and layout testing. Instead, generate the video manually using the **Genkit Flow tool** (UI), select the vertical video you prefer, and upload it manually to save tokens.
+
+### 5. Customizing the Expense Report Google Doc Template
+
+The **Receipt Scanner** sub-agent compiles reports by copying a Google Doc template and populating placeholders. By default, it uses a shared, read-only template.
+
+To customize the report template (e.g., adding your own styling, custom tables, headers, or organizational details):
+1. Open the default template: [Google Docs Template](https://docs.google.com/document/d/1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw/edit).
+2. Create a copy of it in your own Google Drive (**File -> Make a copy**).
+3. Modify the copied document as you like (keep the existing placeholder tags like `{{APPROVED}}` and `{{EXPENSES_TABLE}}` where you want the dynamic content to be inserted).
+4. Extract the Document ID from the URL of your new document (e.g., `https://docs.google.com/document/d/<YOUR_DOCUMENT_ID>/edit`).
+5. Open the local file [Expense_report_template.gdoc](file:///Users/aplachykau/Experiments/gdg_krakow_tool/receipt_scanner/assets/Expense_report_template.gdoc) and replace the `"doc_id"` value with your new document ID:
+   ```json
+   {
+     "doc_id": "YOUR_NEW_DOCUMENT_ID",
+     "resource_key": ""
+   }
+   ```
 
 ---
 

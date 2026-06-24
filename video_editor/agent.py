@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from typing import Any
 
 from dotenv import load_dotenv
 from google.adk import Agent
@@ -195,12 +196,38 @@ def prepare_media_input(ctx: Context) -> MediaAgentInput:
     return MediaAgentInput(photo_path=ctx.state.get("photo_path", ""))
 
 
-def process_media_result(node_input: types.Content) -> Event:
+def process_media_result(node_input: Any) -> Event:
     """Extracts the resulting video path from the media agent output."""
-    if not node_input.parts:
+    if not node_input:
         raise ValueError("Media agent returned empty content")
 
-    video_path = node_input.parts[0].text.strip()
+    # Extract text from node_input which can be types.Content, dict, or str
+    if isinstance(node_input, str):
+        text = node_input
+    elif hasattr(node_input, "parts") and node_input.parts:
+        text = node_input.parts[0].text or ""
+    elif isinstance(node_input, dict) and "parts" in node_input:
+        parts = node_input["parts"]
+        if parts:
+            first_part = parts[0]
+            if isinstance(first_part, dict):
+                text = first_part.get("text", "")
+            else:
+                text = getattr(first_part, "text", "")
+        else:
+            text = ""
+    else:
+        text = str(node_input)
+
+    # Use a robust regex to find the file path ending with a standard media extension
+    import re
+
+    match = re.search(r"([a-zA-Z0-9_\-\.\/]+\.(?:mp4|mov|png|jpg|jpeg|webp))", text)
+    if match:
+        video_path = match.group(1)
+    else:
+        video_path = text.strip()
+
     return Event(output=video_path, state={"video_path": video_path})
 
 

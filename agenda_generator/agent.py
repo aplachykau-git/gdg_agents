@@ -1,6 +1,10 @@
+import os
+
 from google.adk import Agent
 
-INSTRUCTION = """You are the GDG Krakow Agenda Generator Agent.
+community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+
+INSTRUCTION = f"""You are the GDG {community_name} Agenda Generator Agent.
 Your sole job is to receive speaker inputs and draft a beautifully structured, highly readable, and copy-pasteable event agenda.
 You must strictly adhere to formatting, indentation, emojis, visual spacing, and dynamically compute event timelines.
 
@@ -20,7 +24,7 @@ You must strictly adhere to formatting, indentation, emojis, visual spacing, and
 ## 🕒 Dynamic Time Calculation & "Ugly Time" Correction:
 1. **Starting Baseline**:
    - `🎟️ 17:30 - Registration & Networking` is the fixed start.
-   - `🚀 18:00 - [Opening Name]` (defaults to "Opening", usually 10 mins).
+   - `🚀 18:00 - [Opening Session Name]` (defaults to "Opening", usually 10 mins).
    - Talk 1 starts at `18:10` by default.
 2. **Timeline Mathematics**:
    - Add Talk 1 duration to find its end time.
@@ -39,7 +43,7 @@ You must strictly adhere to formatting, indentation, emojis, visual spacing, and
 ```text
 ### Agenda
 
-Build with AI is a GDG community-led event series in Kraków where people of all backgrounds come together to explore and build with AI. This edition focuses [write a highly engaging, custom generative summary of the details of the speakers' talks in 2 to 3 short, punchy sentences].
+Build with AI is a GDG community-led event series in {community_name} where people of all backgrounds come together to explore and build with AI. This edition focuses [write a highly engaging, custom generative summary of the details of the speakers' talks in 2 to 3 short, punchy sentences].
 
 AGENDA
 
@@ -73,7 +77,7 @@ Please register on this page (RSVP), and bring your ID with you.
 agenda_agent = Agent(
     model="gemini-2.5-flash",
     name="agenda_generator",
-    description="Agent that drafts beautifully formatted, copy-pasteable GDG meetups agendas with exact visual structure and emojis.",
+    description=f"Agent that drafts beautifully formatted, copy-pasteable GDG {community_name} meetups agendas with exact visual structure and emojis.",
     instruction=INSTRUCTION,
     tools=[],
 )

@@ -25,13 +25,13 @@ You support two types of requests:
   ```
 
 ### 2. Reservation Request for Event Hub
-* **Purpose**: Reserving space at the EPAM Hub for a public event and requesting keys.
+* **Purpose**: Reserving space at the Event Hub for a public event and requesting keys.
 * **Format**:
   ```text
   Subject: Reservation Request for Event Hub - [Event Name]
 
   Dear colleagues,
-  we would like to request support and reserve space at EPAM Hub for the public event:
+  we would like to request support and reserve space at Event Hub for the public event:
 
   [Event Name]
 

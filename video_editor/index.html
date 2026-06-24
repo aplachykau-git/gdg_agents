@@ -187,7 +187,7 @@
 </head>
 
 <body>
-  <div id="root" data-composition-id="main" data-width="1920" data-height="1080" data-start="0" data-duration="8">
+  <div id="root" data-composition-id="main" data-width="1920" data-height="1080" data-start="0" data-duration="10">
     <!-- Premium Ambient Background Visuals -->
     <div class="grid-bg"></div>
     <div class="glow-orb-orange"></div>
@@ -195,14 +195,14 @@
 
     <!-- Video: direct child of root — HyperFrames requires media NOT nested in timed containers.
            object-fit:cover + border-radius crops the 720×1280 portrait video into the card. -->
-    <video id="card-video" src="assets/Video_example.mp4" data-start="0" data-duration="8" data-track-index="0" muted
+    <video id="card-video" src="assets/Video_example.mp4" data-start="0" data-duration="10" data-track-index="0" muted
       playsinline class="clip"
       style="position:absolute;left:127px;top:130px;width:585px;height:821px;object-fit:cover;object-position:center center;border-radius:43px;z-index:5;"></video>
-    <img id="card-image" src="" data-start="0" data-duration="8" data-track-index="2" class="clip"
+    <img id="card-image" src="" data-start="0" data-duration="10" data-track-index="2" class="clip"
       style="position:absolute;left:127px;top:130px;width:585px;height:821px;object-fit:cover;object-position:center center;border-radius:43px;z-index:5;display:none;">
 
-    <!-- MAIN COMPOSITION CONTAINER (8 SECONDS) -->
-    <div id="main-scene" class="clip" data-start="0" data-duration="8" data-track-index="1">
+    <!-- MAIN COMPOSITION CONTAINER (10 SECONDS) -->
+    <div id="main-scene" class="clip" data-start="0" data-duration="10" data-track-index="1">
       <div class="svg-container">
         <!-- Unified Text Group: Title + Speaker Name + Company -->
         <div id="text-group" class="text-group" data-layout-allow-overflow="true">
@@ -231,12 +231,12 @@
           <!-- Accent Bracket 1 (Left Bracket, originally blue #57CAFF, changed to vibrant orange) -->
           <path id="break_1"
             d="M845 230.645H852.051C854.565 230.645 856.601 232.681 856.601 235.196V277.06C856.601 289.628 866.786 299.822 879.358 299.822H897.558C898.562 299.822 899.378 299.006 899.378 298.002V272.461C899.378 271.457 898.562 270.641 897.558 270.641H883.591C881.077 270.641 879.041 268.605 879.041 266.09V164.912C879.041 162.397 881.077 160.361 883.591 160.361H897.558C898.562 160.361 899.378 159.545 899.378 158.541V133C899.378 131.996 898.562 131.18 897.558 131.18H879.358C866.793 131.18 856.601 141.368 856.601 153.942V195.773C856.601 198.288 854.565 200.324 852.051 200.324H845C843.995 200.324 843.18 201.14 843.18 202.144V228.824C843.18 229.829 843.995 230.645 845 230.645Z"
-            fill="#34A853" stroke="#1E1E1E" stroke-width="3" stroke-miterlimit="10" />
+            fill="#FFD427" stroke="#1E1E1E" stroke-width="3" stroke-miterlimit="10" />
 
           <!-- Accent Bracket 2 (Right Bracket, originally blue #57CAFF, changed to vibrant orange) -->
           <path id="break_2"
             d="M1325 200.358H1317.95C1315.43 200.358 1313.4 198.321 1313.4 195.806V153.942C1313.4 141.375 1303.21 131.18 1290.64 131.18H1272.44C1271.44 131.18 1270.62 131.996 1270.62 133V158.541C1270.62 159.545 1271.44 160.361 1272.44 160.361H1286.41C1288.92 160.361 1290.96 162.397 1290.96 164.912V266.09C1290.96 268.605 1288.92 270.641 1286.41 270.641H1272.44C1271.44 270.641 1270.62 271.457 1270.62 272.461V298.002C1270.62 299.006 1271.44 299.822 1272.44 299.822H1290.64C1303.21 299.822 1313.4 289.634 1313.4 277.06V235.229C1313.4 232.715 1315.43 230.678 1317.95 230.678H1325C1326 230.678 1326.82 229.862 1326.82 228.858V202.178C1326.82 201.173 1326 200.358 1325 200.358Z"
-            fill="#34A853" stroke="#1E1E1E" stroke-width="3" stroke-miterlimit="10" />
+            fill="#FFD427" stroke="#1E1E1E" stroke-width="3" stroke-miterlimit="10" />
 
           <!-- Vector Text Paths for "BUILD WITH AI" logo title at top center -->
           <path
@@ -272,7 +272,7 @@
           <!-- Decorative Pink Hexagon Accent on top right -->
           <path id="hexagon"
             d="M1237.44 182.854V154.543C1237.44 151.549 1235.85 148.778 1233.25 147.281L1208.74 133.122C1206.14 131.625 1202.95 131.625 1200.35 133.122L1175.83 147.281C1173.24 148.778 1171.64 151.549 1171.64 154.543V182.854C1171.64 185.848 1173.24 188.619 1175.83 190.116L1200.35 204.275C1202.95 205.772 1206.14 205.772 1208.74 204.275L1233.25 190.116C1235.85 188.619 1237.44 185.848 1237.44 182.854Z"
-            fill="#FFD427" stroke="#1E1E1E" stroke-width="3" stroke-miterlimit="10" />
+            fill="#F8D8D8" stroke="#1E1E1E" stroke-width="3" stroke-miterlimit="10" />
 
           <!-- White Star inside Pink Hexagon (Slow 360-degree rotation animation `#star`) -->
           <path id="star"
@@ -290,7 +290,7 @@
           </g>
 
           <!-- Premium Rounded Capsule badge at top right -->
-          <rect id="pill" x="1381.5" y="131.5" width="183.786" height="100.428" rx="50.2139" fill="#5CDB6D" />
+          <rect id="pill" x="1381.5" y="131.5" width="183.786" height="100.428" rx="50.2139" fill="#FFE7A5" />
           <rect x="1381.5" y="131.5" width="183.786" height="100.428" rx="50.2139" stroke="#1E1E1E" stroke-width="3" />
 
           <!-- Dynamic Year Text inside the Pill Badge (updated via system year) -->
@@ -337,7 +337,7 @@
           <!-- Decorative Circle (Originally yellow #FFD427, changed to emerald green `#circle`) -->
           <path id="circle"
             d="M1536.18 498.039C1568.49 498.039 1594.68 471.4 1594.68 438.539C1594.68 405.678 1568.49 379.039 1536.18 379.039C1503.87 379.039 1477.68 405.678 1477.68 438.539C1477.68 471.4 1503.87 498.039 1536.18 498.039Z"
-            fill="#FF7DAF" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
+            fill="#4285F4" stroke="#1E1E1E" stroke-width="3" stroke-linejoin="round" />
 
           <!-- Decorative Arrow Elements (Right side, stays static) -->
           <path id="heart_bottom" class="heart-path"
@@ -383,7 +383,7 @@
     // Center coordinates: X = 1204.55px, Y = 168.7px
     tl.to("#star", {
       rotation: 360,
-      duration: 8.0,
+      duration: 10.0,
       ease: "power2.inOut",
       transformOrigin: "50% 50%"
     }, 0);
@@ -427,7 +427,7 @@
       svgOrigin: "1536.18 438.539",
       duration: 1.0,
       yoyo: true,
-      repeat: 4, // 4 repeats (5 half-cycles) ends perfectly at scale 1.0 at T = 7.8s
+      repeat: 6, // 6 repeats (7 half-cycles) ends perfectly at scale 1.0 at T = 9.8s
       ease: "power1.inOut"
     }, 2.8);
 
@@ -479,9 +479,10 @@
     // ✍️ CARD CONFIGURATION (Unified config for rapid customized reuse!)
     // ========================================================================
     const CARD_CONFIG = {
-      title: "How to generate cringe videos",
-      name: "Alex Engineer",
-      position_company: "AI Coach, GDG Krakow"
+      title: "Behind the Event Horizon: A GDG Organizer’s Guide to Perfect Execution",
+      name: "Katsiaryna Skwarek",
+      position_company: "Regional lead for DACH & CEE",
+      year: "2026"
     };
 
     // Adaptive text sizing function — calculates optimal font size for any title length
@@ -644,6 +645,7 @@
     }
 
     // 1. Populate and size all text fields
+    document.getElementById("pill-text").textContent = CARD_CONFIG.year;
     applyAdaptiveSpeakerInfoSize(CARD_CONFIG.name, CARD_CONFIG.position_company);
     applyAdaptiveTextSize(CARD_CONFIG.title);
 
@@ -661,15 +663,15 @@
     // 2. Stays solid while typing is actively moving (from T=1.0s to T=5.8s)
     tl.set("#cursor", { opacity: 1 }, L1_START);
 
-    // 3. Blinks again when typing is finished (from T=5.8s to T=7.8s, 5 half-cycles of 0.4s = 2.0s)
+    // 3. Blinks again when typing is finished (from T=5.8s to T=9.8s, 10 half-cycles of 0.4s = 4.0s)
     tl.to("#cursor", {
-      opacity: 0, duration: 0.4, repeat: 4, yoyo: true, ease: "steps(1)"
+      opacity: 0, duration: 0.4, repeat: 9, yoyo: true, ease: "steps(1)"
     }, L1_START + TOTAL_TYPING_TIME);
 
     // 4. Hide the cursor completely at the end of the timeline so it's invisible on final frame and snapshots!
     tl.to("#cursor", {
       opacity: 0, duration: 0.01, overwrite: "auto"
-    }, 7.8);
+    }, 9.8);
 
     // Dynamic typewriter tween into the HTML container
     const typeObj = { n: 0 };
@@ -690,8 +692,10 @@
       if (config.title !== undefined) CARD_CONFIG.title = config.title;
       if (config.name !== undefined) CARD_CONFIG.name = config.name;
       if (config.position_company !== undefined) CARD_CONFIG.position_company = config.position_company;
+      if (config.year !== undefined) CARD_CONFIG.year = config.year;
 
       // Update all text fields
+      document.getElementById("pill-text").textContent = CARD_CONFIG.year;
       applyAdaptiveSpeakerInfoSize(CARD_CONFIG.name, CARD_CONFIG.position_company);
       applyAdaptiveTextSize(CARD_CONFIG.title);
 

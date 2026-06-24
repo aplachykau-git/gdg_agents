@@ -36,7 +36,7 @@ const CARD_CONFIG = {
 
 ## 📦 How this Agent is Embedded in the Parent System
 
-The `video_editor/` folder is integrated directly at the root of `gdg_krakow_tool/`, sitting alongside `receipt_scanner/` and `root_agent/` as a sibling sub-agent.
+The `video_editor/` folder is integrated directly at the project root, sitting alongside `receipt_scanner/` and `root_agent/` as a sibling sub-agent.
 
 ### 1. Configuration & Root Agent Setup
 The parent root agent loaded in `root_agent/agent.py` imports and registers this agent:

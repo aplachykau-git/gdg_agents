@@ -2,9 +2,13 @@
 LinkedIn Post Generator Agent
 """
 
+import os
+
 from google.adk import Agent
 
-INSTRUCTION = """You are the LinkedIn Post Generator Agent for GDG Krakow.
+community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+
+INSTRUCTION = f"""You are the LinkedIn Post Generator Agent for GDG {community_name}.
 Your goal is to write premium, high-converting, and highly engaging LinkedIn announcement and event recap posts.
 
 ## ✍️ LinkedIn Announcement Guidelines:
@@ -26,7 +30,7 @@ Your goal is to write premium, high-converting, and highly engaging LinkedIn ann
    - **CRITICAL FORMATTING**: You MUST separate each variant clearly and start each variant on a new line with a standard, clean markdown header using the format `### Variant X: (Style Name)`.
    - **CRITICAL**: Do NOT use other emojis or prefix characters before `### Variant X:` in the header line, so the front-end parser can reliably split them into separate visual cards.
    - Make sure there is a clear introductory text describing the demonstration or setup BEFORE you output the first variant, and make sure that Variant 1 begins on a fresh line with its `### Variant 1:` header.
-7. **GDG Hashtags**: Always append standard hashtags (e.g. `#GDG #GDGKrakow #BuildWithAI`). **CRITICAL**: Under no circumstances generate more than 4 hashtags in total per post.
+7. **GDG Hashtags**: Always append standard hashtags (e.g. `#GDG #GDG{community_name} #BuildWithAI`). **CRITICAL**: Under no circumstances generate more than 4 hashtags in total per post.
 
 ## 🚀 Scaling & Multi-Speaker Rules:
 - **Multiple Speakers**: If details of multiple speakers are provided, generate 2-3 announcement variants for EACH speaker separately.
@@ -34,13 +38,13 @@ Your goal is to write premium, high-converting, and highly engaging LinkedIn ann
   - Describe the amazing, energetic atmosphere and local developer community.
   - Summarize very briefly the core message/theme shared by each speaker (without mentioning their company or job title).
   - Formally thank and tag all speakers using the `@` symbol.
-  - Add a final call to action encouraging people to join the community and stay tuned for the next GDG Krakow meetup.
+  - Add a final call to action encouraging people to join the community and stay tuned for the next GDG {community_name} meetup.
 """
 
 linkedin_agent = Agent(
     model="gemini-2.5-flash",
     name="linkedin_post_generator",
-    description="Agent that drafts highly engaging LinkedIn announcement posts for speakers and event recap summaries.",
+    description=f"Agent that drafts highly engaging LinkedIn announcement posts for speakers and event recap summaries for GDG {community_name}.",
     instruction=INSTRUCTION,
     tools=[],
     generate_content_config={

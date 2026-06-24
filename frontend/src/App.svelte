@@ -269,9 +269,9 @@
         'Compiling clean DOCX registration document...'
       ],
       event_planner: [
-        'Searching Krakow Luma AI meetup calendar...',
-        'Scanning Meetup.com for Krakow tech conflicts...',
-        'Checking Polish statutory holidays...',
+        'Searching local Luma AI meetup calendar...',
+        'Scanning Meetup.com for local tech conflicts...',
+        'Checking statutory public holidays...',
         'Identifying long holiday weekends...',
         'Recommending optimal mid-week dates (Tue-Thu)...'
       ],
@@ -706,7 +706,7 @@
       </button>
 
       <div class="logo-title">
-        <h1>GDG Kraków</h1>
+        <h1>GDG</h1>
         <p>Advanced Agentic Workspace</p>
       </div>
       {#if selectedSessionId}
@@ -810,7 +810,7 @@
       {#if !selectedSessionId}
         <!-- Welcome empty state screen -->
         <div class="welcome-container">
-          <h2>GDG Kraków AI Agents Portal</h2>
+          <h2>GDG AI Agents Portal</h2>
           <p>To get started, start a new session. This will allow you to interact with agents, upload files, and view generated reports.</p>
           <div class="welcome-action-box">
             <button class="start-btn" onclick={startNewSession}>🚀 Start a New Session</button>
@@ -1006,7 +1006,7 @@
   <div class="modal-backdrop" role="button" tabindex="-1" aria-label="Close legend" onclick={(e) => { if (e.target === e.currentTarget) showLegend = false; }} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') showLegend = false; }}>
     <div class="modal-card">
       <header class="modal-header">
-        <h2>GDG Kraków AI Agents Capabilities</h2>
+        <h2>GDG AI Agents Capabilities</h2>
         <button class="modal-close-btn" onclick={() => showLegend = false}>&times;</button>
       </header>
       
@@ -1065,7 +1065,7 @@
               <span class="legend-color-dot" style="background: var(--agent-planner)"></span>
               <h3>Event Scheduler</h3>
             </div>
-            <p class="legend-description">Date planner and conflict detector. Scans Krakow tech schedules on Luma and Meetup.com to avoid scheduling overlaps, cross-references Polish statutory holidays, and highlights potential summer vacation lower attendance risks.</p>
+            <p class="legend-description">Date planner and conflict detector. Scans local tech schedules on Luma and Meetup.com to avoid scheduling overlaps, cross-references statutory public holidays, and highlights potential summer vacation lower attendance risks.</p>
           </div>
 
           <!-- Agenda Formatter -->

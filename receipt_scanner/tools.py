@@ -92,6 +92,117 @@ def get_usd_pln_rate() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Helper: get_eur_pln_rate
+# ---------------------------------------------------------------------------
+
+
+def get_eur_pln_rate() -> dict:
+    """
+    Fetches the current EUR/PLN 'Bank kupuje' (bank buy) exchange rate
+    from Pekao bank website (https://www.pekao.com.pl/kursy-walut.html).
+    Falls back to NBP Exchange API (Table C).
+    """
+    pekao_url = "https://www.pekao.com.pl/kursy-walut.html"
+    try:
+        print("[DEBUG] Attempting to fetch EUR/PLN rate from Pekao bank...")
+        resp = requests.get(
+            pekao_url,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        html = resp.text
+
+        # Find EUR section, then extract the first cr-buy value
+        eur_idx = html.find('alt="EUR"')
+        if eur_idx == -1:
+            eur_idx = html.find(">EUR / PLN")
+        if eur_idx == -1:
+            raise ValueError("EUR block not found on Pekao page")
+
+        snippet = html[eur_idx : eur_idx + 1200]
+        match = re.search(r"cr-buy[^>]*>.*?<span[^>]*>\s*([\d,\.]+)\s*</span>", snippet, re.S)
+        if not match:
+            raise ValueError("Could not parse rate from Pekao page snippet")
+
+        rate_str = match.group(1).replace(",", ".")
+        rate = float(rate_str)
+
+        return {
+            "success": True,
+            "rate": rate,
+            "source": "Pekao Bank kupuje EUR/PLN",
+            "url": pekao_url,
+        }
+
+    except Exception as pekao_err:
+        print(f"[WARNING] Pekao EUR rate fetch failed: {pekao_err}. Falling back to NBP API...")
+
+        nbp_url = "http://api.nbp.pl/api/exchangerates/rates/c/eur/today/?format=json"
+        try:
+            resp = requests.get(nbp_url, timeout=5)
+            if resp.status_code == 404:
+                nbp_url = "http://api.nbp.pl/api/exchangerates/rates/c/eur/last/5/?format=json"
+                resp = requests.get(nbp_url, timeout=5)
+
+            resp.raise_for_status()
+            data = resp.json()
+            latest_rate = data["rates"][-1]
+            rate = float(latest_rate["bid"])
+
+            return {
+                "success": True,
+                "rate": rate,
+                "source": f"NBP Bid rate ({latest_rate['effectiveDate']})",
+                "url": nbp_url,
+            }
+        except Exception as nbp_err:
+            return {
+                "success": False,
+                "error": f"Both Pekao and NBP EUR rate fetches failed. Pekao: {pekao_err}. NBP: {nbp_err}",
+            }
+
+
+# ---------------------------------------------------------------------------
+# Helper: get_nbp_rate
+# ---------------------------------------------------------------------------
+
+
+def get_nbp_rate(currency: str) -> float:
+    """
+    Fetches the average exchange rate for the given currency code to PLN
+    from the Narodowy Bank Polski (NBP) API (Table A).
+    Returns 1.0 if the currency is PLN.
+    """
+    currency = currency.upper().strip()
+    if currency == "PLN":
+        return 1.0
+
+    # NBP API for A table (middle exchange rates)
+    nbp_url = f"http://api.nbp.pl/api/exchangerates/rates/a/{currency.lower()}/today/?format=json"
+    try:
+        resp = requests.get(nbp_url, timeout=5)
+        # If today's rates are not published (e.g. weekend or early morning)
+        if resp.status_code == 404:
+            nbp_url = f"http://api.nbp.pl/api/exchangerates/rates/a/{currency.lower()}/last/5/?format=json"
+            resp = requests.get(nbp_url, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        return float(data["rates"][-1]["mid"])
+    except Exception as err:
+        print(
+            f"[WARNING] Failed to fetch {currency}/PLN rate from NBP Table A: {err}. Falling back to default/cached values."
+        )
+        # Common defaults in case NBP is entirely offline (rough estimates)
+        defaults = {
+            "EUR": 4.30,
+            "USD": 4.00,
+            "GBP": 5.10,
+        }
+        return defaults.get(currency, 1.0)
+
+
+# ---------------------------------------------------------------------------
 # Tool: read_receipt_file
 # ---------------------------------------------------------------------------
 
@@ -197,13 +308,19 @@ def read_receipt_file(file_path: str) -> dict:
             "Perform this extraction with maximum accuracy and detail."
         )
 
-        model = os.getenv("GEMINI_PRO_MODEL", "gemini-2.5-pro")
+        model = "gemini-2.5-pro"
         response = client.models.generate_content(
             model=model, contents=[types.Part.from_bytes(data=raw_bytes, mime_type=mime_type), prompt]
         )
 
         extracted_text = response.text or ""
-        report_markers = ["1. Personal Details", "2. List of Expenses", "BWAI_report", "List of Expenses"]
+        report_markers = [
+            "1. Personal Details",
+            "2. List of Expenses",
+            "BWAI_report",
+            "Expense_report_",
+            "List of Expenses",
+        ]
         if any(marker in extracted_text for marker in report_markers):
             return {
                 "success": False,
@@ -226,6 +343,8 @@ def export_summary_to_google_doc(
     template_id: str = None,
     exchange_rate: float = None,
     receipts_data: list = None,
+    target_currency: str = "USD",
+    approved_budget: str = "",
     tool_context: ToolContext = None,
 ) -> dict:
     """
@@ -237,6 +356,7 @@ def export_summary_to_google_doc(
         template_id: Optional Google Docs Template ID.
         exchange_rate: Optional Pekao bank exchange rate.
         receipts_data: Optional structured list of dicts with keys: desc, sum_pln, sum_usd, image_path.
+        target_currency: Optional target approved currency for the report ("USD" or "EUR").
 
     Returns:
         dict: Success status, document ID, and view link.
@@ -331,7 +451,121 @@ def export_summary_to_google_doc(
         drive_service = build("drive", "v3", credentials=credentials)
 
         target_folder = folder_id or os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+
+        # Resolve active template ID from .gdoc file if not provided as argument
+        if not template_id:
+            try:
+                gdoc_path = root_dir / "receipt_scanner" / "assets" / "Expense_report_template.gdoc"
+                if gdoc_path.exists():
+                    import json
+
+                    with open(gdoc_path, "r") as f:
+                        gdoc_data = json.load(f)
+                        template_id = gdoc_data.get("doc_id")
+            except Exception as ex:
+                print(f"Warning: Failed to load doc_id from .gdoc asset: {ex}")
+
         active_template = template_id or os.getenv("GOOGLE_DOCS_TEMPLATE_ID")
+
+        # ----------------------------------------------------
+        # Python-based Currency Calculations and Normalization
+        # ----------------------------------------------------
+        target_currency = target_currency.upper().strip()
+
+        # Check if conversion is required (if any receipt is in a different currency)
+        conversion_required = False
+        local_curr_code = ""
+        if receipts_data:
+            for item in receipts_data:
+                item_curr = item.get("currency", "USD").upper().strip()
+                if item_curr != target_currency:
+                    conversion_required = True
+                    local_curr_code = item_curr
+                    break
+        if not local_curr_code:
+            local_curr_code = "PLN"
+
+        rate_val = exchange_rate
+        rate_source_name = "Manual / Provided"
+        rate_url = ""
+        if not rate_val:
+            if conversion_required:
+                if target_currency == "USD":
+                    rate_info = get_usd_pln_rate()
+                    if rate_info.get("success"):
+                        rate_val = rate_info["rate"]
+                        rate_source_name = rate_info["source"]
+                        rate_url = rate_info.get("url", "https://www.pekao.com.pl/kursy-walut.html")
+                    else:
+                        rate_val = 4.00
+                        rate_source_name = "Fallback (4.00)"
+                        rate_url = "https://www.pekao.com.pl/kursy-walut.html"
+                elif target_currency == "EUR":
+                    rate_info = get_eur_pln_rate()
+                    if rate_info.get("success"):
+                        rate_val = rate_info["rate"]
+                        rate_source_name = rate_info["source"]
+                        rate_url = rate_info.get("url", "https://www.pekao.com.pl/kursy-walut.html")
+                    else:
+                        rate_val = 4.30
+                        rate_source_name = "Fallback (4.30)"
+                        rate_url = "https://www.pekao.com.pl/kursy-walut.html"
+                elif target_currency == "PLN":
+                    rate_val = 1.0
+                    rate_source_name = "N/A"
+                    rate_url = ""
+                else:
+                    rate_val = get_nbp_rate(target_currency)
+                    rate_source_name = "NBP Table A"
+                    rate_url = f"http://api.nbp.pl/api/exchangerates/rates/a/{target_currency.lower()}/"
+            else:
+                rate_val = 1.0
+                rate_source_name = "N/A"
+                rate_url = ""
+
+        normalized_receipts = []
+        if receipts_data:
+            for item in receipts_data:
+                category = item.get("category", "")
+                desc = item.get("desc", "")
+                image_path = item.get("image_path", "")
+
+                original_amount = item.get("original_amount")
+                currency = item.get("currency")
+
+                if original_amount is not None and currency:
+                    try:
+                        amount_val = float(original_amount)
+                    except (ValueError, TypeError):
+                        amount_val = 0.0
+
+                    curr_code = str(currency).upper().strip()
+
+                    # Convert original currency to target currency
+                    if curr_code == target_currency:
+                        amount_in_target = amount_val
+                    else:
+                        pln_rate = get_nbp_rate(curr_code)
+                        amount_in_pln = amount_val * pln_rate
+                        amount_in_target = amount_in_pln / rate_val
+
+                    sum_curr_str = f"{amount_val:.2f} {curr_code}"
+                    sum_target_str = f"{amount_in_target:.2f} {target_currency}"
+                else:
+                    sum_curr_str = item.get("sum_curr") or item.get("sum_pln") or "0.00 PLN"
+                    sum_target_str = item.get("sum_target") or item.get("sum_usd") or f"0.00 {target_currency}"
+
+                normalized_receipts.append(
+                    {
+                        "category": category,
+                        "desc": desc,
+                        "sum_curr": sum_curr_str,
+                        "sum_target": sum_target_str,
+                        "image_path": image_path,
+                    }
+                )
+
+        receipts_data = normalized_receipts
 
         doc_id = None
 
@@ -365,6 +599,36 @@ def export_summary_to_google_doc(
                                 if cell_index is not None:
                                     return cell_index
                 return None
+
+            # Helper to retrieve text from paragraph element
+            def get_paragraph_text(paragraph_element):
+                return "".join(el.get("textRun", {}).get("content", "") for el in paragraph_element.get("elements", []))
+
+            # If no conversion is required, delete the currency conversion section
+            if not conversion_required:
+                delete_ranges = []
+                for element in doc_data.get("body", {}).get("content", []):
+                    if "paragraph" in element:
+                        text = get_paragraph_text(element["paragraph"])
+                        if (
+                            "currency conversion" in text.lower()
+                            or "{{current exchange rate}}" in text.lower()
+                            or "{{local currency code}}" in text.lower()
+                        ):
+                            delete_ranges.append((element["startIndex"], element["endIndex"]))
+
+                if delete_ranges:
+                    delete_ranges.sort(key=lambda r: r[0], reverse=True)
+                    requests = []
+                    for start, end in delete_ranges:
+                        requests.append({"deleteContentRange": {"range": {"startIndex": start, "endIndex": end}}})
+                    try:
+                        docs_service.documents().batchUpdate(documentId=doc_id, body={"requests": requests}).execute()
+                    except Exception as delete_err:
+                        print(f"Warning: Failed to delete conversion paragraphs: {delete_err}")
+
+                    # Refetch doc_data to update structural indices
+                    doc_data = docs_service.documents().get(documentId=doc_id).execute()
 
             # ----------------------------------------------------
             # 1. EXPENSES TABLE HANDLING (2. List of Expenses)
@@ -428,8 +692,8 @@ def export_summary_to_google_doc(
                             str(1 + k),
                             "",  # Leave Category cell empty to not override dropdown manually
                             receipts_data[k].get("desc", ""),
-                            receipts_data[k].get("sum_pln", ""),
-                            receipts_data[k].get("sum_usd", ""),
+                            receipts_data[k].get("sum_curr", ""),
+                            receipts_data[k].get("sum_target", ""),
                         ]
 
                         for col_idx, text_to_write in enumerate(texts_to_write):
@@ -463,39 +727,50 @@ def export_summary_to_google_doc(
             # 2. GLOBAL METADATA REPLACEMENTS
             # ----------------------------------------------------
             today_str = datetime.date.today().strftime("%d.%m.%Y")
-            rate_val = exchange_rate or 1.0
 
-            # Compute real totals from all receipts
-            def _parse_amount(s: str) -> float:
-                """Extract numeric value from a string like '124.50 PLN' or '31.28 USD'."""
-                try:
-                    return float(re.sub(r"[^\d.]", "", s.split()[0]))
-                except Exception:
-                    return 0.0
+            from collections import defaultdict
 
-            total_pln = 0.0
-            total_usd = 0.0
+            sums_by_currency = defaultdict(float)
+            total_target = 0.0
             if receipts_data:
                 for r in receipts_data:
-                    total_pln += _parse_amount(r.get("sum_pln", "0"))
-                    total_usd += _parse_amount(r.get("sum_usd", "0"))
+                    try:
+                        curr_str = r.get("sum_curr", "0.00 PLN")
+                        parts = curr_str.split()
+                        val = float(parts[0])
+                        cur = parts[1]
+                        sums_by_currency[cur] += val
+                    except Exception:
+                        pass
 
-            total_pln_str = f"{total_pln:.2f} PLN"
-            total_usd_str = f"{total_usd:.2f} USD"
+                    try:
+                        target_str = r.get("sum_target", f"0.00 {target_currency}")
+                        parts = target_str.split()
+                        val = float(parts[0])
+                        total_target += val
+                    except Exception:
+                        pass
+
+            total_curr_parts = [f"{amt:.2f} {cur}" for cur, amt in sums_by_currency.items()]
+            total_curr_str = ", ".join(total_curr_parts)
+            total_target_str = f"{total_target:.2f} {target_currency}"
 
             global_replaces = [
                 ("{{TITLE}}", title),
                 ("{{Current date}}", today_str),
+                ("{{EUR/USD}}", target_currency),
                 ("{{Current exchange rate}}", f"{rate_val:.4f}"),
-                ("{{TOTAL SUM USD}}", total_usd_str),
-                ("{{TOTAL SUM PL}}", total_pln_str),
+                ("{{Local Currency Code}}", local_curr_code),
+                ("{{TOTAL SUM CURR}}", total_curr_str),
+                ("{{TOTAL SUM EUR/USD}}", total_target_str),
+                ("{{APPROVED}}", approved_budget or ""),
             ]
             if receipts_data:
                 global_replaces.extend(
                     [
                         ("{{Desc}}", receipts_data[0].get("desc", "Expense")),
-                        ("{{SUM PL}}", receipts_data[0].get("sum_pln", "0.00 PLN")),
-                        ("{{SUM USD}}", receipts_data[0].get("sum_usd", "0.00 USD")),
+                        ("{{SUM CURR}}", receipts_data[0].get("sum_curr", "")),
+                        ("{{SUM EUR/USD}}", receipts_data[0].get("sum_target", "")),
                     ]
                 )
 
@@ -510,7 +785,67 @@ def export_summary_to_google_doc(
             except Exception as e:
                 print(f"Warning: Failed to replace metadata tags: {e}")
 
-            # Fetch updated doc data
+            # Refetch doc_data to get updated indices after first replacements
+            doc_data = docs_service.documents().get(documentId=doc_id).execute()
+
+            # 2.2 Linkify the {{Bank link}} placeholder
+            target_link_url = rate_url or "https://www.pekao.com.pl/kursy-walut.html"
+            link_placeholder = "{{Bank link}}"
+            link_index = find_placeholder_index(doc_data.get("body", {}).get("content", []), link_placeholder)
+            if link_index is not None:
+                link_text = target_link_url
+                try:
+                    docs_service.documents().batchUpdate(
+                        documentId=doc_id,
+                        body={
+                            "requests": [
+                                {
+                                    "deleteContentRange": {
+                                        "range": {
+                                            "startIndex": link_index,
+                                            "endIndex": link_index + len(link_placeholder),
+                                        }
+                                    }
+                                },
+                                {
+                                    "insertText": {
+                                        "location": {
+                                            "index": link_index,
+                                        },
+                                        "text": link_text,
+                                    }
+                                },
+                                {
+                                    "updateTextStyle": {
+                                        "range": {
+                                            "startIndex": link_index,
+                                            "endIndex": link_index + len(link_text),
+                                        },
+                                        "textStyle": {
+                                            "link": {
+                                                "url": target_link_url,
+                                            },
+                                            "underline": True,
+                                            "foregroundColor": {
+                                                "color": {
+                                                    "rgbColor": {
+                                                        "blue": 0.8,
+                                                        "green": 0.3,
+                                                        "red": 0.1,
+                                                    }
+                                                }
+                                            },
+                                        },
+                                        "fields": "link,underline,foregroundColor",
+                                    }
+                                },
+                            ]
+                        },
+                    ).execute()
+                except Exception as link_e:
+                    print(f"Warning: Failed to format bank link: {link_e}")
+
+            # Fetch updated doc data for subsequent steps
             doc_data = docs_service.documents().get(documentId=doc_id).execute()
 
             # ----------------------------------------------------

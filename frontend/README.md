@@ -1,6 +1,6 @@
-# GDG Kraków Tool Suite - Custom Frontend
+# GDG Agentic Workspace - Custom Frontend
 
-This is the Svelte-based frontend application for the **GDG Kraków Tool Suite**. It provides a premium, responsive dashboard that interacts with the backend agents to help orchestrate event workflows.
+This is the Svelte-based frontend application for the **GDG Agentic Workspace**. It provides a premium, responsive dashboard that interacts with the backend agents to help orchestrate event workflows.
 
 ---
 

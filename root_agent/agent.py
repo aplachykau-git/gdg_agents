@@ -2,6 +2,8 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+import os
+
 from google.adk import Agent
 
 from agenda_generator.agent import agenda_agent
@@ -12,7 +14,9 @@ from receipt_scanner.agent import receipt_agent
 from registration_manager.agent import root_agent as registration_agent
 from video_editor.agent import root_agent as video_agent
 
-INSTRUCTION = """You are the main Root Agent for GDG Krakow.
+community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+
+INSTRUCTION = f"""You are the main Root Agent for GDG {community_name}.
 Your task is to orchestrate developer tools and coordinate sub-agents to handle user requests flawlessly.
 
 ## 🤖 Direct Sub-Agent Orchestration & Routing Rules:
@@ -44,8 +48,8 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
      configuration management, delegate directly.
 
 5. **Event Planning & Date Scheduling**:
-   - If the user wants to find or plan the optimal day for holding an upcoming meetup, check Polish public
-     holidays, avoid weekends/Fridays, or scan local Krakow tech platforms (Luma, Meetup) to avoid
+   - If the user wants to find or plan the optimal day for holding an upcoming meetup, check public
+     holidays, avoid weekends/Fridays, or scan local {community_name} tech platforms (Luma, Meetup) to avoid
      scheduling conflicts, you MUST delegate to the `event_planner` sub-agent.
    - Pass the target months or timeframe preferences directly to it.
 
@@ -55,7 +59,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
      delegate to the `agenda_generator` sub-agent.
    - Gather all speaker details (name, title, details, bio) and pass them directly to it.
 
- 7. **Office Secretary & Administration Emails**:
+  7. **Office Secretary & Administration Emails**:
    - If the user wants to generate template emails/letters to the office admin team, request temporary key
      access for visitors, or request EPAM Hub space reservations for public events, you MUST
      delegate to the `office_secretary` sub-agent.
@@ -75,7 +79,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 root_agent = Agent(
     model="gemini-2.5-flash",
     name="root_agent",
-    description="Root coordinator agent of GDG Krakow",
+    description=f"Root coordinator agent of GDG {community_name}",
     instruction=INSTRUCTION,
     sub_agents=[
         receipt_agent,

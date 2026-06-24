@@ -49,7 +49,7 @@ service_account.json
 **/*.jpeg
 **/*.webm
 
-# GDG Krakow Organisers lists (to keep sensitive attendee/staff data local)
+# GDG Organisers lists (to keep sensitive attendee/staff data local)
 **/organisers.txt
 configs/organisers.txt
 

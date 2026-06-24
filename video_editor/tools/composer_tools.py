@@ -72,11 +72,13 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
         content = f.read()
 
     # 1. Update the CARD_CONFIG block dynamically using regex
+    current_year = datetime.datetime.now().year
     config_pattern = r"const CARD_CONFIG = \{.*?\};"
     new_config = f"""const CARD_CONFIG = {{
       title: "{title}",
       name: "{name}",
-      position_company: "{position_company}"
+      position_company: "{position_company}",
+      year: "{current_year}"
     }};"""
 
     if re.search(config_pattern, content, flags=re.DOTALL):
@@ -490,9 +492,9 @@ def render_composer() -> str:
                 with open(target_index_html, "w", encoding="utf-8") as f:
                     f.write(temp_content)
 
-                print("📸 [Poster] Taking high-resolution PNG snapshot of the final card state at T=7.7s...")
+                print("📸 [Poster] Taking high-resolution PNG snapshot of the final card state at T=9.7s...")
                 snapshot_result = subprocess.run(
-                    ["npx", "--yes", "hyperframes@0.6.72", "snapshot", "--at=7.7"],
+                    ["npx", "--yes", "hyperframes@0.6.72", "snapshot", "--at=9.7"],
                     capture_output=True,
                     text=True,
                     cwd=BASE_DIR,
@@ -504,7 +506,7 @@ def render_composer() -> str:
                 print("✅ [Poster] Restored original index.html sources.")
 
             if snapshot_result and snapshot_result.returncode == 0:
-                snapshot_file = resolve_path("snapshots/frame-00-at-7.7s.png")
+                snapshot_file = resolve_path("snapshots/frame-00-at-9.7s.png")
                 if os.path.exists(snapshot_file):
                     renders_folder = resolve_path("renders")
                     os.makedirs(renders_folder, exist_ok=True)

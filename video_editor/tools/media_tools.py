@@ -309,7 +309,7 @@ def animate_photo(photo_path: str, creative_prompt: str) -> str:
         image=starting_frame,
         config=types.GenerateVideosConfig(
             aspect_ratio="9:16",
-            duration_seconds=8,
+            duration_seconds=10,
             person_generation="allow_adult",
             generate_audio=None,
             resolution="720p",

@@ -1,4 +1,4 @@
-# GDG Kraków Tool (Agent Development Kit)
+# GDG Agentic Workspace (ADK)
 
 This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/), written in Python. It leverages the capabilities of Vertex AI (Gemini and Veo) models to automate events operations, document templates compilation, receipt scanning, scheduling conflicts analysis, and social media posting.
 

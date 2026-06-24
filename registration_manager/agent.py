@@ -1,7 +1,11 @@
+import os
+
 from dotenv import load_dotenv
 from google.adk import Agent
 
 load_dotenv(override=True)
+
+community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 
 from .tools import (
     add_organiser,
@@ -12,7 +16,7 @@ from .tools import (
     stage_uploaded_registration,
 )
 
-INSTRUCTION = """You are the Registration Organizer Agent for GDG Krakow events.
+INSTRUCTION = f"""You are the Registration Organizer Agent for GDG {community_name} events.
 Your job is to cleanly organize, clean, sort, and partition event registration lists (CSV/Excel files) using your `process_registrations` tool, as well as manage the official organisers list configurations.
 
 ## 📋 Operational Capabilities & Features:
