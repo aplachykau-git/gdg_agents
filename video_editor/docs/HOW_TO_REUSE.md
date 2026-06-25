@@ -23,11 +23,12 @@ To manually customize a card template, edit the centralized config block at the 
 const CARD_CONFIG = {
   title: "How To Create AI Videos That Actually Work", // Typewriter Title (max 80 chars)
   name: "Yuliya Algeri",                               // Speaker Name (max 50 chars)
-  position_company: "Designer, EPAM Systems"           // Role / Company (max 80 chars)
+  position_company: "Designer, DDD Systems"           // Role / Company (max 80 chars)
 };
 ```
 
-### Critical Rules:
+### Critical Rules
+
 1. **Dynamic Font Autoscaling:** The title font size adapts dynamically to fit within exactly 2 lines. Do not manually edit the text dimensions.
 2. **Video Cutout Mask:** The video frame is masked by a rounded SVG cutout at `z-index: 10`. To change the video position, both the `<video>` tag CSS and the SVG path cutout coordinates must match exactly.
 3. **Determinism:** Do not use `Math.random()`, `Date.now()`, or external network fetches. All animations must be registered on the paused GSAP timeline: `window.__timelines["video_editor"] = tl`.
@@ -39,7 +40,9 @@ const CARD_CONFIG = {
 The `video_editor/` folder is integrated directly at the project root, sitting alongside `receipt_scanner/` and `root_agent/` as a sibling sub-agent.
 
 ### 1. Configuration & Root Agent Setup
+
 The parent root agent loaded in `root_agent/agent.py` imports and registers this agent:
+
 ```python
 from video_editor.agent import root_agent as video_agent
 
@@ -50,7 +53,9 @@ root_agent = Agent(
 ```
 
 ### 2. Environment Variables (.env)
+
 The environment parameters are set up in the main `root_agent/.env` file:
+
 ```ini
 # --- Video Editor Configurations ---
 ENABLE_VIDEO_GENERATION=true
@@ -60,7 +65,9 @@ RENDER_4K=true
 ```
 
 ### 3. Keyless Authentication via ADC
+
 In the integrated setup, `video_editor/tools/media_tools.py` will automatically fall back to **Application Default Credentials (ADC)** if no `GEMINI_API_KEY` is present. This eliminates the need for separate, hardcoded service account keys, allowing it to naturally reuse your active GCP project authentication:
+
 ```python
 api_key = os.environ.get("GEMINI_API_KEY")
 if api_key:
