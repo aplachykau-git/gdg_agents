@@ -15,5 +15,6 @@ setup(
         "pypdfium2",
         "python-dotenv",
         "openpyxl",
+        "python-docx",
     ],
 )

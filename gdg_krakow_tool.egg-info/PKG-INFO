@@ -11,4 +11,5 @@ Requires-Dist: pillow
 Requires-Dist: pypdfium2
 Requires-Dist: python-dotenv
 Requires-Dist: openpyxl
+Requires-Dist: python-docx
 Dynamic: requires-dist
