@@ -303,6 +303,7 @@ def animate_photo(photo_path: str, creative_prompt: str) -> str:
     print(f'   └─ Final Veo Prompt: "{i2v_prompt}"')
 
     print("🚀 Submitting request to Vertex AI Veo...")
+    # 'gemini-omni-flash-preview'
     operation = veo_client.models.generate_videos(
         model="veo-3.1-fast-generate-001",
         prompt=i2v_prompt,
