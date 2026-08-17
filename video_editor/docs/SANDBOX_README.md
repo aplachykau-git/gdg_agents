@@ -18,11 +18,13 @@ To run this sandbox and agent, ensure you have the following installed:
 
 1. **Python dependencies** are already handled in the main project `requirements.txt`.
 2. **Install Node.js dependencies** for the HyperFrames rendering compiler:
+
    ```bash
    cd video_editor/
    npm install
    cd ../
    ```
+
 3. **Configure Environment:**
    All configuration settings are managed directly in the root agent's environment file `root_agent/.env` (no separate credentials file is needed as the system uses your GCP ADC credentials naturally).
 

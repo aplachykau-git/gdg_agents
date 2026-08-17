@@ -20,6 +20,13 @@ export default defineConfig({
           Origin: 'http://127.0.0.1:8080'
         }
       },
+      '/run_sse': {
+        target: 'http://127.0.0.1:8080',
+        changeOrigin: true,
+        headers: {
+          Origin: 'http://127.0.0.1:8080'
+        }
+      },
       '/apps': {
         target: 'http://127.0.0.1:8080',
         changeOrigin: true,
