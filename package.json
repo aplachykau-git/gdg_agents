@@ -2,11 +2,17 @@
   "name": "gdg-tool-workspace",
   "private": true,
   "scripts": {
+    "start": "./start_a2a_workspace.sh",
     "dev": "npm run dev --prefix frontend",
+    "dev:a2a": "./start_a2a_workspace.sh",
     "build": "npm run build --prefix frontend",
     "agents:start": "adk web --port 8080 agents",
+    "a2a:video": "uvicorn agents.video_editor.a2a_server:a2a_app --host 0.0.0.0 --port 8081",
+    "a2a:receipt": "uvicorn agents.receipt_scanner.a2a_server:a2a_app --host 0.0.0.0 --port 8082",
+    "a2a:root": "VIDEO_AGENT_A2A_URL=http://localhost:8081 RECEIPT_AGENT_A2A_URL=http://localhost:8082 adk web --port 8080 agents",
     "video:dev": "npm run dev --prefix agents/video_editor",
     "video:render": "npm run render --prefix agents/video_editor",
-    "video:check": "npm run check --prefix agents/video_editor"
+    "video:check": "npm run check --prefix agents/video_editor",
+    "test": ".venv/bin/python3 -m unittest discover tests/ -v"
   }
 }

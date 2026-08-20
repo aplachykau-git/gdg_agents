@@ -10,15 +10,20 @@ The project consists of three main layers:
 
 ```mermaid
 graph TD
-    A[Custom Svelte Frontend <br> port 5173] -->|API Proxy| B[FastAPI Backend / ADK <br> port 8080]
-    B --> C[Root Orchestrator Agent <br> agents/root_agent]
-    C --> D[Receipt Scanner <br> agents/receipt_scanner]
-    C --> E[Live Video Editor <br> agents/video_editor]
-    C --> F[LinkedIn Planner <br> agents/linkedin_post_generator]
-    C --> G[Registrations Manager <br> agents/registration_manager]
-    C --> H[Event Scheduler <br> agents/event_planner]
-    C --> I[Agenda Formatter <br> agents/agenda_generator]
-    C --> J[Office Secretary <br> agents/office_secretary]
+    A[Custom Svelte Frontend <br> port 5173] -->|API Proxy| B[Root Orchestrator Agent <br> port 8080]
+    
+    subgraph "A2A Distributed Network"
+        B -->|A2A RemoteA2aAgent <br> port 8081| E[Live Video Editor <br> agents/video_editor]
+        B -->|A2A RemoteA2aAgent <br> port 8082| D[Receipt Scanner <br> agents/receipt_scanner]
+    end
+    
+    subgraph "Local In-Process Sub-Agents"
+        B --> F[LinkedIn Planner <br> agents/linkedin_post_generator]
+        B --> G[Registrations Manager <br> agents/registration_manager]
+        B --> H[Event Scheduler <br> agents/event_planner]
+        B --> I[Agenda Formatter <br> agents/agenda_generator]
+        B --> J[Office Secretary <br> agents/office_secretary]
+    end
 ```
 
 1. **Custom Svelte Frontend (`frontend/`)**: A dark-themed, premium workspace that provides a chat interface, real-time status ticker for the agents, and capability highlights.

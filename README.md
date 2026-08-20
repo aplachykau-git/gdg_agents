@@ -59,38 +59,41 @@ The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 pri
 
 ---
 
-## 🚀 Quick Start: Launch the Entire Project
+---
 
-To spin up the complete application (both the Python agent server and the custom Svelte frontend), run the following:
+## 🚀 Quick Start: Launch the Entire Workspace (A2A Architecture)
 
-### 1. Start the ADK Agent Backend (Port 8080)
-
-Make sure your Python virtual environment is active, then run:
+To spin up the complete distributed multi-agent system (Video Editor A2A on port 8081, Receipt Scanner A2A on port 8082, Root Orchestrator on port 8080, and the Svelte 5 frontend on port 5173), run **a single command**:
 
 ```bash
-# From project root
-source .venv/bin/activate
-adk web --port 8080 agents
+# Start all A2A microservices and frontend concurrently
+./start_a2a_workspace.sh
+# or
+npm start
 ```
 
-### 2. Start the Svelte Dev Server (Port 5173)
+### 🌐 Running Services:
+* **Frontend UI Dashboard**: [http://localhost:5173](http://localhost:5173)
+* **Root Orchestrator Agent**: [http://localhost:8080](http://localhost:8080)
+* **Video Editor A2A Service**: [http://localhost:8081/.well-known/agent-card.json](http://localhost:8081/.well-known/agent-card.json)
+* **Receipt Scanner A2A Service**: [http://localhost:8082/.well-known/agent-card.json](http://localhost:8082/.well-known/agent-card.json)
 
-In a separate terminal window:
+---
 
+### Individual Service Commands (Optional):
 ```bash
-# Go to frontend folder
-cd frontend
+# 1. Video Editor A2A Server (Port 8081)
+npm run a2a:video
 
-# Install Node dependencies (first time only)
-npm install
+# 2. Receipt Scanner A2A Server (Port 8082)
+npm run a2a:receipt
 
-# Start the Vite server
+# 3. Root Orchestrator Agent (Port 8080)
+npm run a2a:root
+
+# 4. Svelte Frontend (Port 5173)
 npm run dev
 ```
-
-### 3. Open the UI
-
-Go to **[http://localhost:5173](http://localhost:5173)** in your browser to interact with the workspace!
 
 *For detailed setup instructions, including Google Cloud authentication and template folder mapping, check out the [Setup Guide](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/setup_guide.md).*
 

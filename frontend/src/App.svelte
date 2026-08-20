@@ -360,32 +360,70 @@
     }, 2200);
   }
 
+  let currentExecutingAgent = $state('root_agent');
+
+  function getSubAgentForTool(toolName) {
+    if (!toolName) return null;
+    const t = toolName.toLowerCase();
+    if (t.includes('video') || t.includes('portrait') || t.includes('composer') || t.includes('animate') || t.includes('stage_uploaded_media')) return 'video_editor';
+    if (t.includes('receipt') || t.includes('invoice') || t.includes('rate') || t.includes('pekao') || t.includes('read_receipt_file') || t.includes('export_summary')) return 'receipt_scanner';
+    if (t.includes('linkedin') || t.includes('post')) return 'linkedin_post_generator';
+    if (t.includes('registration') || t.includes('organizer')) return 'registration_manager';
+    if (t.includes('planner') || t.includes('meetup') || t.includes('holiday')) return 'event_planner';
+    if (t.includes('agenda') || t.includes('timeline')) return 'agenda_generator';
+    if (t.includes('office') || t.includes('secretary') || t.includes('email')) return 'office_secretary';
+    return null;
+  }
+
+  function shouldShowDelegationHandoff(event, idx, allEvents) {
+    if (!event || event.author === 'user') return false;
+    const currentAuthor = cleanAuthorName(event.author).toLowerCase();
+    if (!currentAuthor || currentAuthor === 'root_agent' || currentAuthor === 'root') return false;
+    
+    // Find the previous non-user event
+    for (let i = idx - 1; i >= 0; i--) {
+      const prev = allEvents[i];
+      if (prev && prev.author !== 'user') {
+        const prevAuthor = cleanAuthorName(prev.author).toLowerCase();
+        return prevAuthor !== currentAuthor;
+      }
+    }
+    return true;
+  }
+
   // Maps backend tool names to user-friendly log descriptions
   function getFriendlyToolCall(name, args) {
     const mappings = {
       // Sub-agent transfers
-      transfer_to_video_editor: () => "Delegating to Live Video Editor sub-agent...",
-      transfer_to_receipt_scanner: () => "Delegating to Receipt Scanner sub-agent...",
-      transfer_to_linkedin_post_generator: () => "Delegating to LinkedIn Planner sub-agent...",
-      transfer_to_event_planner: () => "Delegating to Event Scheduler sub-agent...",
-      transfer_to_registration_manager: () => "Delegating to Registrations Manager sub-agent...",
-      transfer_to_agenda_generator: () => "Delegating to Agenda Formatter sub-agent...",
-      transfer_to_office_secretary: () => "Delegating to Office Secretary sub-agent...",
+      transfer_to_video_editor: () => "🔄 Delegating task to Live Video Editor (A2A)...",
+      transfer_to_receipt_scanner: () => "🔄 Delegating task to Receipt Scanner (A2A)...",
+      transfer_to_linkedin_post_generator: () => "🔄 Delegating task to LinkedIn Planner...",
+      transfer_to_event_planner: () => "🔄 Delegating task to Event Scheduler...",
+      transfer_to_registration_manager: () => "🔄 Delegating task to Registrations Manager...",
+      transfer_to_agenda_generator: () => "🔄 Delegating task to Agenda Formatter...",
+      transfer_to_office_secretary: () => "🔄 Delegating task to Office Secretary...",
 
-      // Specific tool executions
-      verify_portrait_photo: () => "Running facial detection verification on photo...",
-      stage_uploaded_media: () => "Staging uploaded photo/video to workspace...",
-      animate_photo: () => "Outpainting portrait to 9:16 & generating Veo video intro...",
-      update_composer: (a) => `Updating HTML5 composition layout for "${a.name || 'speaker'}"...`,
-      render_composer: () => "Rendering final speaker card video (MP4, GIF, 4K poster)...",
-      validate_metadata: (a) => `Validating character limits for "${a.name || 'speaker'}"...`,
-      scan_receipt_with_vision: () => "Extracting items and VAT from receipt via Vision OCR...",
-      convert_currency: () => "Converting currencies to PLN using exchange rates...",
-      export_to_google_docs: () => "Exporting expense report to Google Docs template...",
-      filter_and_clean_registrations: () => "Cleaning, deduplicating, and partitioning registrations...",
-      find_optimal_meetup_date: () => "Scanning Kraków calendars, holidays, and meetup conflicts...",
-      generate_agenda: () => "Formatting structured timeline and speaker agenda...",
-      generate_office_email: () => "Drafting office access and event reservation email..."
+      // Video Editor tools
+      verify_portrait_photo: () => "🔍 Running facial detection on portrait photo...",
+      stage_uploaded_media: () => "📦 Staging uploaded media to workspace assets...",
+      animate_photo: () => "🎬 Outpainting to 9:16 & generating Veo video intro...",
+      update_composer: (a) => `🎨 Updating HTML5 composition layout for "${a.name || 'speaker'}"...`,
+      render_composer: () => "🚀 HyperFrames compiler rendering final video (MP4, GIF, 4K)...",
+      validate_metadata: (a) => `📐 Validating text character limits for "${a.name || 'speaker'}"...`,
+
+      // Receipt Scanner tools
+      get_usd_pln_rate: () => "💱 Fetching live Pekao Bank & NBP exchange rates (USD/PLN)...",
+      read_receipt_file: () => "🧾 Analyzing receipt image via Gemini 2.5 Pro Vision OCR...",
+      export_summary_to_google_doc: () => "📄 Exporting approved expense report to Google Docs...",
+      scan_receipt_with_vision: () => "🧾 Extracting items and taxes via Vision OCR...",
+      convert_currency: () => "💱 Converting currencies to PLN using exchange rates...",
+      export_to_google_docs: () => "📄 Exporting expense report to Google Docs template...",
+
+      // Other tools
+      filter_and_clean_registrations: () => "👥 Cleaning, deduplicating, and partitioning registrations...",
+      find_optimal_meetup_date: () => "📅 Scanning Kraków calendars, holidays, and meetup conflicts...",
+      generate_agenda: () => "⏱️ Formatting structured timeline and speaker agenda...",
+      generate_office_email: () => "✉️ Drafting office access and event reservation email..."
     };
 
     if (mappings[name]) {
@@ -397,13 +435,13 @@
 
   function getFriendlyToolResponse(name, response, args) {
     const mappings = {
-      transfer_to_video_editor: () => "Handed off task to Live Video Editor.",
-      transfer_to_receipt_scanner: () => "Handed off task to Receipt Scanner.",
-      transfer_to_linkedin_post_generator: () => "Handed off task to LinkedIn Planner.",
-      transfer_to_event_planner: () => "Handed off task to Event Scheduler.",
-      transfer_to_registration_manager: () => "Handed off task to Registrations Manager.",
-      transfer_to_agenda_generator: () => "Handed off task to Agenda Formatter.",
-      transfer_to_office_secretary: () => "Handed off task to Office Secretary.",
+      transfer_to_video_editor: () => "Workflow handed off to Live Video Editor (A2A).",
+      transfer_to_receipt_scanner: () => "Workflow handed off to Receipt Scanner (A2A).",
+      transfer_to_linkedin_post_generator: () => "Workflow handed off to LinkedIn Planner.",
+      transfer_to_event_planner: () => "Workflow handed off to Event Scheduler.",
+      transfer_to_registration_manager: () => "Workflow handed off to Registrations Manager.",
+      transfer_to_agenda_generator: () => "Workflow handed off to Agenda Formatter.",
+      transfer_to_office_secretary: () => "Workflow handed off to Office Secretary.",
 
       verify_portrait_photo: () => "Face verification passed successfully.",
       stage_uploaded_media: () => "Media asset staged to workspace.",
@@ -411,6 +449,9 @@
       update_composer: () => "Composition HTML canvas updated with new parameters.",
       render_composer: () => "All requested files compiled and saved to renders/ folder.",
       validate_metadata: () => "Text length validation passed.",
+      get_usd_pln_rate: () => "Pekao bank rate successfully retrieved.",
+      read_receipt_file: () => "Receipt items and amounts extracted successfully.",
+      export_summary_to_google_doc: () => "Google Doc expense report created.",
       scan_receipt_with_vision: () => "Receipt items and taxes extracted successfully.",
       convert_currency: () => "Exchange rates converted.",
       export_to_google_docs: () => "Document created in Google Docs folder.",
@@ -569,6 +610,7 @@
     }
     stagedFiles = [];
     errorMsg = '';
+    currentExecutingAgent = selectedApp || 'root_agent';
     isLoading = true;
     startStatusTicker(selectedApp);
 
@@ -663,6 +705,10 @@
                   throw new Error(errStr);
                 }
 
+                if (eventObj.author && eventObj.author !== 'user') {
+                  currentExecutingAgent = eventObj.author;
+                }
+
                 // Progressive real-time update in chat UI
                 if (eventObj.author === 'user') {
                   const lastUserIdx = events.findLastIndex(e => e.author === 'user' && !e.id);
@@ -689,13 +735,22 @@
                     const fc = part.function_call || part.functionCall;
                     const fr = part.function_response || part.functionResponse;
                     if (fc) {
-                      const agentLabel = getAgentTheme(eventObj.author).label || eventObj.author;
-                      statusText = `Agent ${agentLabel} launching ${fc.name}...`;
+                      const delegated = getSubAgentForTool(fc.name);
+                      if (delegated) {
+                        currentExecutingAgent = delegated;
+                      }
+                      const agentLabel = getAgentTheme(currentExecutingAgent || eventObj.author).label || eventObj.author;
+                      statusText = `${agentLabel}: ${getFriendlyToolCall(fc.name, fc.args)}`;
                     } else if (fr) {
-                      statusText = `Step completed: ${fr.name}`;
+                      const delegated = getSubAgentForTool(fr.name);
+                      if (delegated) {
+                        currentExecutingAgent = delegated;
+                      }
+                      const agentLabel = getAgentTheme(currentExecutingAgent || eventObj.author).label || eventObj.author;
+                      statusText = `${agentLabel}: ${getFriendlyToolResponse(fr.name, fr.response)}`;
                     } else if (part.text) {
-                      const agentLabel = getAgentTheme(eventObj.author).label || eventObj.author;
-                      statusText = `${agentLabel} responding...`;
+                      const agentLabel = getAgentTheme(eventObj.author || currentExecutingAgent).label || eventObj.author;
+                      statusText = `${agentLabel} generating response...`;
                     }
                   }
                 }
@@ -1190,6 +1245,20 @@
                   </div>
                 </div>
               {:else}
+                <!-- Explicit Sub-Agent Delegation Handoff Divider -->
+                {#if shouldShowDelegationHandoff(event, idx, filteredEvents)}
+                  {@const targetTheme = getAgentTheme(event.author)}
+                  <div class="agent-delegation-divider">
+                    <div class="delegation-line"></div>
+                    <div class="delegation-badge" style="--pill-color: {targetTheme.color}; --pill-bg: {targetTheme.bg};">
+                      <Workflow size={13} class="delegation-icon" />
+                      <span>Task routed to <strong>{targetTheme.label}</strong></span>
+                      <ArrowRight size={12} class="delegation-arrow" />
+                    </div>
+                    <div class="delegation-line"></div>
+                  </div>
+                {/if}
+
                 <!-- Model Response Card -->
                 {@const theme = getAgentTheme(event.author)}
                 <div class="message-row model-row" style="--agent-color: {theme.color}; --agent-bg: {theme.bg}">
@@ -1265,10 +1334,14 @@
             {/each}
 
             {#if isLoading}
-              <!-- Real-time Gemini Generation Stream Shimmer -->
-              <div class="generating-live-card">
+              <!-- Real-time Gemini Generation Stream Shimmer with Active Agent Badge -->
+              {@const execTheme = getAgentTheme(currentExecutingAgent || selectedApp)}
+              <div class="generating-live-card" style="--exec-color: {execTheme.color}; --exec-bg: {execTheme.bg};">
                 <div class="generating-header">
-                  <Sparkles size={16} class="generating-sparkle" />
+                  <div class="executing-agent-badge" style="background: {execTheme.bg}; color: {execTheme.color}; border: 1px solid {execTheme.color}40;">
+                    <span class="live-pulse-dot" style="background: {execTheme.color};"></span>
+                    <span class="executing-agent-label">{execTheme.label}</span>
+                  </div>
                   <span class="generating-status">{statusText}</span>
                   <span class="streaming-cursor"></span>
                 </div>
@@ -2043,18 +2116,21 @@
     flex-direction: column;
     overflow: hidden;
     position: relative;
+    width: 100%;
   }
 
-
-
-  /* Messages Area */
+  /* Messages Area - Constrained to comfortable reading width */
   .messages-container {
     flex: 1;
     overflow-y: auto;
-    padding: 20px 24px 10px;
+    padding: 24px 20px 120px;
     display: flex;
     flex-direction: column;
     gap: 20px;
+    max-width: 920px;
+    width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
   }
 
   .empty-conversation-state {
@@ -2072,6 +2148,51 @@
     margin-bottom: 12px;
   }
 
+  /* Agent Delegation / Handoff Transition Divider */
+  .agent-delegation-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 10px 0;
+    width: 100%;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .delegation-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-medium), transparent);
+  }
+
+  .delegation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    background: var(--pill-bg, rgba(138, 180, 248, 0.1));
+    border: 1px solid var(--pill-color, var(--primary-accent));
+    color: var(--pill-color, var(--primary-accent));
+    font-size: var(--font-size-label);
+    font-weight: 500;
+    box-shadow: var(--shadow-elevation-1);
+  }
+
+  :global(.delegation-icon) {
+    color: inherit;
+    animation: spinSlow 8s linear infinite;
+  }
+
+  @keyframes spinSlow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  :global(.delegation-arrow) {
+    opacity: 0.7;
+    margin-left: 2px;
+  }
+
   .message-row {
     display: flex;
     width: 100%;
@@ -2086,10 +2207,11 @@
   }
 
   .message-card {
-    max-width: 85%;
+    max-width: 88%;
     border-radius: var(--radius-xl);
     padding: 16px 20px;
     position: relative;
+    box-sizing: border-box;
   }
 
   .user-card {
@@ -2166,6 +2288,8 @@
     font-size: var(--font-size-body-sm);
     color: var(--text-primary);
     line-height: 1.5;
+    word-break: break-word;
+    font-family: var(--font-mono);
   }
 
   .error-code-chip {
@@ -2175,7 +2299,7 @@
     background: rgba(242, 139, 130, 0.15);
     border-radius: var(--radius-xs);
     font-size: 11px;
-    font-family: monospace;
+    font-family: var(--font-mono);
     color: var(--status-error);
   }
 
@@ -2187,7 +2311,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 10px;
+    padding: 4px 10px;
     border-radius: var(--radius-pill);
     font-size: var(--font-size-label);
     font-weight: 600;
@@ -2202,19 +2326,18 @@
   .user-attached-file-badge {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     margin-top: 8px;
-    padding: 4px 12px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 4px 10px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-pill);
     font-size: var(--font-size-body-xs);
-    color: var(--text-primary);
+    color: var(--text-secondary);
   }
 
   :global(.badge-paperclip) {
     color: var(--primary-accent);
-    flex-shrink: 0;
   }
 
   .badge-filename {
@@ -2296,22 +2419,54 @@
     color: var(--primary-accent);
   }
 
-  /* Loading State */
+  /* Loading Live Agent Card */
   .generating-live-card {
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
+    border-left: 3px solid var(--exec-color, var(--primary-accent));
     border-radius: var(--radius-xl);
     padding: 16px 20px;
-    max-width: 70%;
+    max-width: 85%;
+    box-shadow: var(--shadow-elevation-1);
+    box-sizing: border-box;
   }
 
   .generating-header {
     display: flex;
     align-items: center;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-bottom: 12px;
     font-size: var(--font-size-body-sm);
     color: var(--primary-accent);
+  }
+
+  .executing-agent-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-label);
+    font-weight: 600;
+  }
+
+  .live-pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    animation: livePulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes livePulse {
+    0% { transform: scale(0.9); opacity: 0.6; }
+    50% { transform: scale(1.3); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.6; }
+  }
+
+  .generating-status {
+    color: var(--text-primary);
+    font-weight: 500;
   }
 
   .streaming-cursor {
@@ -2346,20 +2501,26 @@
    * FLOATING PROMPT BAR (Google AI Studio)
    * ========================================================================= */
   .floating-prompt-wrapper {
-    padding: 12px 24px 20px;
-    background: linear-gradient(180deg, transparent 0%, var(--bg-app) 30%);
+    padding: 12px 20px 24px;
+    background: linear-gradient(180deg, transparent 0%, var(--bg-app) 35%);
     position: sticky;
     bottom: 0;
     z-index: 30;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .floating-prompt-box {
+    max-width: 920px;
+    width: 100%;
+    margin: 0 auto;
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-2xl);
     padding: 12px 18px;
     box-shadow: var(--shadow-elevation-2);
     transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+    box-sizing: border-box;
   }
 
   .floating-prompt-box:focus-within {

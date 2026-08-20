@@ -16,21 +16,34 @@ RENDER_CONFIG = {
 
 
 def resolve_path(rel_path: str) -> str:
-    """Resolves a path relative to the agent's folder, falling back to CWD."""
+    """Resolves a path relative to the agent's folder, falling back to CWD and workspace root."""
+    if not rel_path:
+        return ""
     if os.path.isabs(rel_path):
         return rel_path
 
+    # 1. Direct relative to BASE_DIR
     local_path = os.path.abspath(os.path.join(BASE_DIR, rel_path))
     if os.path.exists(local_path):
         return local_path
 
-    # Check parent directory
-    parent_dir = os.path.dirname(local_path)
-    if os.path.exists(parent_dir):
-        return local_path
+    # 2. Strip leading 'agents/video_editor/' or 'video_editor/'
+    stripped = re.sub(r"^(agents/)?video_editor/", "", rel_path)
+    stripped_path = os.path.abspath(os.path.join(BASE_DIR, stripped))
+    if os.path.exists(stripped_path):
+        return stripped_path
 
-    # Fallback to CWD
-    return os.path.abspath(rel_path)
+    # 3. Check relative to workspace root (2 levels up)
+    workspace_root = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
+    workspace_path = os.path.abspath(os.path.join(workspace_root, rel_path))
+    if os.path.exists(workspace_path):
+        return workspace_path
+
+    workspace_agents_path = os.path.abspath(os.path.join(workspace_root, "agents", rel_path))
+    if os.path.exists(workspace_agents_path):
+        return workspace_agents_path
+
+    return stripped_path
 
 
 def restore_default_placeholder():

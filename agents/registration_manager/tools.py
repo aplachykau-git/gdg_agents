@@ -18,20 +18,34 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def resolve_path(rel_path: str) -> str:
-    """Resolves a path relative to the agent's folder, falling back to CWD."""
+    """Resolves a path relative to the agent's folder, falling back to CWD and workspace root."""
+    if not rel_path:
+        return ""
     if os.path.isabs(rel_path):
         return rel_path
 
+    # 1. Direct relative to BASE_DIR
     local_path = os.path.abspath(os.path.join(BASE_DIR, rel_path))
     if os.path.exists(local_path):
         return local_path
 
-    # Check parent directory
-    parent_dir = os.path.dirname(local_path)
-    if os.path.exists(parent_dir):
-        return local_path
+    # 2. Strip leading 'agents/registration_manager/' or 'registration_manager/'
+    stripped = re.sub(r"^(agents/)?registration_manager/", "", rel_path)
+    stripped_path = os.path.abspath(os.path.join(BASE_DIR, stripped))
+    if os.path.exists(stripped_path):
+        return stripped_path
 
-    return os.path.abspath(rel_path)
+    # 3. Check relative to workspace root (2 levels up)
+    workspace_root = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
+    workspace_path = os.path.abspath(os.path.join(workspace_root, rel_path))
+    if os.path.exists(workspace_path):
+        return workspace_path
+
+    workspace_agents_path = os.path.abspath(os.path.join(workspace_root, "agents", rel_path))
+    if os.path.exists(workspace_agents_path):
+        return workspace_agents_path
+
+    return stripped_path
 
 
 async def stage_uploaded_registration(file_path: str, tool_context: Any) -> str:
@@ -71,12 +85,17 @@ async def stage_uploaded_registration(file_path: str, tool_context: Any) -> str:
 
                     save_path = os.path.join(BASE_DIR, "results", f"staged_registrations{ext}")
                     os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+                    import base64
+
+                    file_bytes = base64.b64decode(data)
                     with open(save_path, "wb") as f:
-                        f.write(data)
-                    print(f"✅ Staged user registration document to: {save_path}")
+                        f.write(file_bytes)
+
+                    print(f"✅ Successfully staged user uploaded registration file to: {save_path}")
                     return f"registration_manager/results/staged_registrations{ext}"
     except Exception as e:
-        print(f"⚠️ Error scanning session for attachments: {e}")
+        print(f"⚠️ Could not extract attachment from session events: {e}")
 
     # 2. Fallback to local file path
     print("⚠️ No chat attachment found. Checking local file path fallback...")
@@ -91,8 +110,9 @@ async def stage_uploaded_registration(file_path: str, tool_context: Any) -> str:
         print(f"✅ Staged local registration file to: {save_path}")
         return f"registration_manager/results/staged_registrations{ext}"
 
-    raise FileNotFoundError(
-        "No registration file was found in session events or local path. Please upload a CSV or Excel file."
+    return (
+        "Error: No registration file was found in session events or local path. "
+        "Please upload a CSV or Excel file or paste the participant names directly in the chat."
     )
 
 
@@ -337,7 +357,10 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
 
     abs_path = resolve_path(file_path)
     if not os.path.exists(abs_path):
-        raise FileNotFoundError(f"Registration file not found at: '{abs_path}'")
+        return (
+            f"Error: Registration file not found at '{file_path}'. "
+            "Please upload your CSV or Excel file or paste the attendee names directly into the chat."
+        )
 
     ext = os.path.splitext(abs_path.lower())[1]
 
@@ -356,12 +379,15 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
         except Exception as e:
             # Fallback to alternative encoding if utf-8 fails
             print(f"⚠️ UTF-8 read failed, trying ISO-8859-1 fallback: {e}")
-            with open(abs_path, "r", encoding="ISO-8859-1") as f:
-                reader = csv.reader(f)
-                headers = [h.strip() for h in next(reader, [])]
-                for r in reader:
-                    if r:
-                        raw_rows.append(dict(zip(headers, r)))
+            try:
+                with open(abs_path, "r", encoding="ISO-8859-1") as f:
+                    reader = csv.reader(f)
+                    headers = [h.strip() for h in next(reader, [])]
+                    for r in reader:
+                        if r:
+                            raw_rows.append(dict(zip(headers, r)))
+            except Exception as e2:
+                return f"Error: Failed to parse CSV file '{file_path}': {e2}"
     elif ext in [".xlsx", ".xls"]:
         print("📊 Reading Excel file via openpyxl...")
         try:
@@ -383,9 +409,9 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
                                 row_dict[col_name] = str(val).strip() if val is not None else ""
                     raw_rows.append(row_dict)
         except Exception as e:
-            raise RuntimeError(f"Failed to parse Excel file '{abs_path}': {e}")
+            return f"Error: Failed to parse Excel file '{file_path}': {e}"
     else:
-        raise ValueError("Unsupported file format! Please upload a .csv or .xlsx file.")
+        return f"Error: Unsupported file format '{ext}'! Please upload a .csv or .xlsx file."
 
     print(f"📊 Loaded {len(raw_rows)} total raw rows from file headers: {headers}")
 
