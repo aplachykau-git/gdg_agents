@@ -20,13 +20,13 @@ To run this sandbox and agent, ensure you have the following installed:
 2. **Install Node.js dependencies** for the HyperFrames rendering compiler:
 
    ```bash
-   cd video_editor/
+   cd agents/video_editor/
    npm install
-   cd ../
+   cd ../../
    ```
 
 3. **Configure Environment:**
-   All configuration settings are managed directly in the root agent's environment file `root_agent/.env` (no separate credentials file is needed as the system uses your GCP ADC credentials naturally).
+   All configuration settings are managed directly in the project root `.env` file (no separate credentials file is needed as the system uses your GCP ADC credentials naturally).
 
 ---
 
@@ -35,8 +35,8 @@ To run this sandbox and agent, ensure you have the following installed:
 Google Antigravity provides a web UI to test and interact with your agent locally. Launch the root agent:
 
 ```bash
-cd root_agent
-../.venv/bin/adk web --port 8000
+source .venv/bin/activate
+adk web --port 8000 agents/root_agent
 ```
 
 1. Open `http://localhost:8000` in your web browser.
@@ -46,38 +46,36 @@ cd root_agent
 
 ---
 
-## 💻 Manual Developer Commands (Inside the Agent Folder)
+## 💻 Developer Commands (From Project Root)
 
-You can run individual HyperFrames compiler tasks directly inside `video_editor/`:
+You can run individual HyperFrames compiler tasks directly via root npm scripts:
 
 ```bash
-cd video_editor/
-
-# Start local dev server with hot-reload and visual preview (scrub timeline at http://localhost:3000)
-npm run dev
+# Start local dev server with visual preview (scrub timeline at http://localhost:3000)
+npm run video:dev
 
 # Run linter, Chrome validation and layout checks
-npm run check
+npm run video:check
 
 # Render ordinary 1080p video file
-npm run render
-
-# Publish composition and get a shareable link
-npm run publish
+npm run video:render
 ```
 
 ---
 
 ## ⚙️ Configuration Overrides (`.env`)
 
-You can toggle rendering outputs and dry-run modes inside your `.env` file:
+You can toggle video generation engines and rendering outputs in your `.env` file:
 
 ```ini
-# Set to "false" to bypass Veo API calls during testing (uses static placeholder assets instead)
+# Select video generation engine: "veo" (Vertex AI Veo 3.1) or "omni" (Gemini Omni Flash preview)
+VIDEO_ENGINE=veo
+
+# Set to "false" to bypass AI video API calls during testing (uses static placeholder assets instead)
 ENABLE_VIDEO_GENERATION=false
 
 # Toggle individual render pipelines (true/false)
+RENDER_4K=true
 RENDER_ORDINARY=true
 RENDER_GIF=true
-RENDER_4K=true
 ```

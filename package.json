@@ -4,8 +4,9 @@
   "scripts": {
     "dev": "npm run dev --prefix frontend",
     "build": "npm run build --prefix frontend",
-    "video:dev": "npm run dev --prefix video_editor",
-    "video:render": "npm run render --prefix video_editor",
-    "video:check": "npm run check --prefix video_editor"
+    "agents:start": "adk web --port 8080 agents",
+    "video:dev": "npm run dev --prefix agents/video_editor",
+    "video:render": "npm run render --prefix agents/video_editor",
+    "video:check": "npm run check --prefix agents/video_editor"
   }
 }

@@ -6,13 +6,22 @@ import os
 
 from google.adk import Agent
 
-from agenda_generator.agent import agenda_agent
-from event_planner.agent import planner_agent
-from linkedin_post_generator.agent import root_agent as linkedin_agent
-from office_secretary.agent import office_agent
-from receipt_scanner.agent import receipt_agent
-from registration_manager.agent import root_agent as registration_agent
-from video_editor.agent import root_agent as video_agent
+try:
+    from agenda_generator.agent import agenda_agent
+    from event_planner.agent import planner_agent
+    from linkedin_post_generator.agent import root_agent as linkedin_agent
+    from office_secretary.agent import office_agent
+    from receipt_scanner.agent import receipt_agent
+    from registration_manager.agent import root_agent as registration_agent
+    from video_editor.agent import root_agent as video_agent
+except ModuleNotFoundError:
+    from agents.agenda_generator.agent import agenda_agent
+    from agents.event_planner.agent import planner_agent
+    from agents.linkedin_post_generator.agent import root_agent as linkedin_agent
+    from agents.office_secretary.agent import office_agent
+    from agents.receipt_scanner.agent import receipt_agent
+    from agents.registration_manager.agent import root_agent as registration_agent
+    from agents.video_editor.agent import root_agent as video_agent
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 

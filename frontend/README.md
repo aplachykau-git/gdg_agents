@@ -12,7 +12,7 @@ To run this application locally, you must first start the ADK backend server, th
 ```bash
 # From project root
 source .venv/bin/activate
-adk web --port 8080 .
+adk web --port 8080 agents
 ```
 
 ### 2. Install dependencies & launch dev server
@@ -41,6 +41,7 @@ server: {
   proxy: {
     '/list-apps': { target: 'http://127.0.0.1:8080', ... },
     '/run': { target: 'http://127.0.0.1:8080', ... },
+    '/run_sse': { target: 'http://127.0.0.1:8080', ... },
     '/apps': { target: 'http://127.0.0.1:8080', ... }
   }
 }

@@ -6,18 +6,42 @@ This project is a multi-agent system built on the [Google Agent Development Kit 
 
 ## 🏗️ Project Structure
 
-The workspace is split into decoupled modules for high maintainability, portability, and independent development:
+The workspace is organized into a clean, modular hierarchy:
 
-* **`root_agent/`** — The main coordinating Root Agent (`gemini-2.5-flash`). It acts as an intelligent router delegating requests to specialized sub-agents.
-* **`receipt_scanner/`** — Sub-agent (`gemini-2.5-pro`) for high-precision receipt and invoice OCR, currency conversion, and Google Docs/Drive template compilation.
-* **`video_editor/`** — Sub-agent (`gemini-2.5-flash`) for speaker card outpainting (Gemini), video animation (Google Veo 3.1), and 4K layout compilation.
-* **`linkedin_post_generator/`** — Sub-agent (`gemini-2.5-flash`) for drafting and styling event recap posts and speaker announcements for LinkedIn.
-* **`registration_manager/`** — Sub-agent (`gemini-2.5-flash`) for guest registration sorting, capacity verification, and organizer list management.
-* **`event_planner/`** — Sub-agent (`gemini-2.5-flash`) for scanning calendars (Luma, Meetup.com) to find conflict-free, holiday-safe event dates.
-* **`agenda_generator/`** — Sub-agent (`gemini-2.5-flash`) for compiling and formatting clean event agendas with speaker timelines.
-* **`office_secretary/`** — Sub-agent (`gemini-2.5-flash`) for drafting polite key access and Event Hub reservation request letters.
-* **`frontend/`** — A custom **Svelte + Vite** single-page application providing a premium, custom dashboard interface for the entire workspace.
-* **`docs/`** — Project documentation and guides (see [Setup Guide](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/setup_guide.md)).
+```
+gdg_krakow_tool/
+├── agents/                       # All Google ADK Agents & sub-agents
+│   ├── root_agent/               # Main coordinating Root Agent (gemini-2.5-flash)
+│   ├── receipt_scanner/          # Receipt OCR & Google Docs expense report agent (gemini-2.5-pro)
+│   ├── video_editor/             # Speaker card outpainting & Veo video generator (Veo + GSAP)
+│   ├── linkedin_post_generator/  # LinkedIn announcement & recap post agent
+│   ├── registration_manager/     # Registration sorting, capacity & organizers list agent
+│   ├── event_planner/            # Tech calendar & holiday clash analyzer agent
+│   ├── agenda_generator/         # Event timeline & speaker agenda formatting agent
+│   └── office_secretary/         # Office key access & Event Hub reservation agent
+│
+├── frontend/                     # Custom Svelte 5 + Vite single-page dashboard
+│   ├── src/
+│   ├── public/
+│   └── package.json
+│
+├── configs/                      # Configuration files (organizers list, API templates)
+│   ├── organisers.txt
+│   └── organisers.txt.example
+│
+├── docs/                         # Architecture, guides, and design specifications
+│   ├── setup_guide.md
+│   └── design.md
+│
+├── tests/                        # Evaluation datasets & test runners
+│   ├── eval/
+│   └── test_receipt_scanner.py
+│
+├── pyproject.toml                # Ruff & Python tools configuration
+├── requirements.txt              # Python dependencies
+├── setup.py                      # Python package setup
+└── package.json                  # Root npm workspace scripts
+```
 
 ---
 
@@ -46,7 +70,7 @@ Make sure your Python virtual environment is active, then run:
 ```bash
 # From project root
 source .venv/bin/activate
-adk web --port 8080 .
+adk web --port 8080 agents
 ```
 
 ### 2. Start the Svelte Dev Server (Port 5173)
@@ -72,31 +96,52 @@ Go to **[http://localhost:5173](http://localhost:5173)** in your browser to inte
 
 ---
 
-## 🎬 Video Editor Agent & HyperFrames Sandbox
+## 🎬 Video Editor Agent: Google Veo 3.1 & Gemini Omni Flash
 
-The **Video Editor sub-agent** automates the creation of high-quality, cinematic marketing video intros for event speakers. It processes portrait photos by outpainting them to 9:16 aspect ratio using Gemini, animating them via Google Veo 3.1, custom-styling a responsive GSAP vector layout, and compiling the outputs (1080p, 4K, and animated GIFs) in parallel.
+The **Video Editor sub-agent** automates the creation of high-quality, cinematic marketing video intros for event speakers. It combines generative AI models for portrait outpainting and video animation with a deterministic, code-driven GSAP + HTML vector layout engine:
 
-### Manual Developer Commands (Inside `video_editor/`)
+### 🌟 Key Capabilities & Latest Features
 
-You can run individual HyperFrames compiler tasks directly inside `video_editor/` to preview, check, and render templates:
+1. **Dual Video Generation Engines**:
+   - **Google Veo 3.1 (`veo-3.1-fast-generate-001`)**: High-fidelity video generation via Vertex AI with curated cinematic lighting, subtle head motion, and realistic bokeh.
+   - **Gemini Omni Flash (`gemini-omni-flash-preview`)**: Fast multimodal Image-to-Video generation via the Google AI Interactions API with unbroken single-shot camera dynamics.
+   - Switchable dynamically via `VIDEO_ENGINE=veo` (default) or `VIDEO_ENGINE=omni` in `.env`.
+
+2. **Speaker Portrait 9:16 Outpainting**:
+   - Outpaints static photos into vertical 9:16 aspect ratio using Gemini/Imagen, preserving face identity while expanding background context for seamless vertical video framing.
+
+3. **Dynamic Timeline & Adaptive Composition**:
+   - **Dynamic Duration Detection**: Probes media with `ffprobe` to automatically adjust the composition timeline between 8s (Veo / Omni video loops) and 10s (custom video uploads).
+   - **Adaptive Typewriter Timing**: Dynamically calculates typing speeds and easing curves based on the speaker title character count.
+   - **Autoscaling Typography**: Font size dynamically scales to ensure multi-line talk titles fit within design boundaries.
+
+4. **Multi-Format Concurrent Rendering**:
+   - **4K Ultra HD MP4** (Upscaled high-bitrate video, `RENDER_4K=true`)
+   - **1080p Full HD MP4** (Standard web video, `RENDER_ORDINARY=true`)
+   - **Animated GIF** (Optimized for Slack / Discord / email embeds, `RENDER_GIF=true`)
+   - **Avatar PNG Snapshots** (Extracted high-res frame for promotional badges)
+
+### ⚙️ Video Generation & Render Configuration (`.env`)
+
+| Variable | Values | Description |
+| :--- | :--- | :--- |
+| `VIDEO_ENGINE` | `veo` (default) \| `omni` | Selects the video generation model (`veo-3.1-fast-generate-001` or `gemini-omni-flash-preview`). |
+| `ENABLE_VIDEO_GENERATION` | `true` \| `false` | Set to `false` for instant layout/text dry-runs using local placeholder assets without consuming video tokens. |
+| `RENDER_4K` | `true` (default) \| `false` | Toggles rendering of the 4K Ultra HD MP4 video file. |
+| `RENDER_ORDINARY` | `true` \| `false` (default) | Toggles rendering of the 1080p Full HD MP4 video file. |
+| `RENDER_GIF` | `true` \| `false` (default) | Toggles automatic GIF conversion via FFmpeg. |
+
+### Developer Commands (From Project Root or inside `agents/video_editor/`)
 
 ```bash
-cd video_editor/
-
-# Install rendering dependencies (first time only)
-npm install
-
-# Start local dev server with hot-reload and visual preview (scrub timeline at http://localhost:3000)
-npm run dev
+# Start local dev server with visual preview (scrub timeline at http://localhost:3000)
+npm run video:dev
 
 # Run linter, Chrome validation, and layout checks
-npm run check
+npm run video:check
 
-# Render ordinary 1080p video file
-npm run render
-
-# Publish composition and get a shareable link
-npm run publish
+# Render video file
+npm run video:render
 ```
 
 ---

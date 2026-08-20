@@ -6,7 +6,8 @@ from pathlib import Path
 # Dynamically add project root and subfolders for clean imports
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(project_root / "receipt_scanner"))
+sys.path.insert(0, str(project_root / "agents"))
+sys.path.insert(0, str(project_root / "agents" / "receipt_scanner"))
 
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
 os.environ["GOOGLE_CLOUD_PROJECT"] = "gdg-agents-496611"
@@ -16,7 +17,7 @@ from google.adk.runners import Runner
 from google.adk.sessions.in_memory_session_service import InMemorySessionService
 from google.genai import types
 
-from receipt_scanner.agent import receipt_agent
+from agents.receipt_scanner.agent import receipt_agent
 
 
 async def main():
