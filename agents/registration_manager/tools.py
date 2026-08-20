@@ -259,10 +259,12 @@ def get_script_priority(first_name: str, last_name: str) -> Tuple[int, str]:
 def load_organisers() -> List[str]:
     """Loads GDG organisers list from organisers.txt file or returns default list if not found."""
     # Try the root configs/ folder first, then the agent's folder, then fall back to defaults
-    root_dir = os.path.dirname(BASE_DIR)
+    parent_dir = os.path.dirname(BASE_DIR)
+    project_root = os.path.dirname(parent_dir)
     org_file = None
     for path in [
-        os.path.join(root_dir, "configs", "organisers.txt"),
+        os.path.join(project_root, "configs", "organisers.txt"),
+        os.path.join(parent_dir, "configs", "organisers.txt"),
         os.path.join(BASE_DIR, "organisers.txt"),
     ]:
         if os.path.exists(path):
@@ -853,19 +855,24 @@ Successfully processed the registrations list:
 
 def _get_organisers_file_path() -> str:
     """Helper to locate or initialize configs/organisers.txt."""
-    root_dir = os.path.dirname(BASE_DIR)
-    configs_path = os.path.join(root_dir, "configs", "organisers.txt")
-    if os.path.exists(configs_path):
-        return configs_path
+    parent_dir = os.path.dirname(BASE_DIR)
+    project_root = os.path.dirname(parent_dir)
+
+    for p in [
+        os.path.join(project_root, "configs", "organisers.txt"),
+        os.path.join(parent_dir, "configs", "organisers.txt"),
+    ]:
+        if os.path.exists(p):
+            return p
 
     local_path = os.path.join(BASE_DIR, "organisers.txt")
     if os.path.exists(local_path):
         return local_path
 
-    # If neither exists, create in configs/
-    configs_dir = os.path.join(root_dir, "configs")
+    # If none exists, create in project root configs/
+    configs_dir = os.path.join(project_root, "configs")
     os.makedirs(configs_dir, exist_ok=True)
-    return configs_path
+    return os.path.join(configs_dir, "organisers.txt")
 
 
 def get_organisers_list() -> dict:

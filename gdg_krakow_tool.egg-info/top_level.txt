@@ -1,3 +1,1 @@
-receipt_scanner
-root_agent
-video_editor
+agents

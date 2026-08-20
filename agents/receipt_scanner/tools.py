@@ -367,14 +367,16 @@ def export_summary_to_google_doc(
         from googleapiclient.discovery import build
 
         # Check for service account JSON keys or personal OAuth client credentials
-        root_dir = Path(__file__).resolve().parent.parent
+        agent_dir = Path(__file__).resolve().parent
+        project_root = agent_dir.parent.parent
 
         sa_file = None
         for p in [
-            root_dir / "configs" / "service_account.json",
-            root_dir / "service_account.json",
+            project_root / "configs" / "service_account.json",
+            project_root / "service_account.json",
             Path.cwd() / "configs" / "service_account.json",
             Path.cwd() / "service_account.json",
+            agent_dir / "service_account.json",
         ]:
             if p.exists():
                 sa_file = p
@@ -382,10 +384,11 @@ def export_summary_to_google_doc(
 
         client_secrets_file = None
         for p in [
-            root_dir / "configs" / "credentials.json",
-            root_dir / "credentials.json",
+            project_root / "configs" / "credentials.json",
+            project_root / "credentials.json",
             Path.cwd() / "configs" / "credentials.json",
             Path.cwd() / "credentials.json",
+            agent_dir / "credentials.json",
         ]:
             if p.exists():
                 client_secrets_file = p
@@ -401,51 +404,41 @@ def export_summary_to_google_doc(
             from google.oauth2.credentials import Credentials
             from google_auth_oauthlib.flow import InstalledAppFlow
 
-            # Check for token.json in configs folder first, fallback to root
-            token_path = root_dir / "configs" / "token.json"
-            if not token_path.exists() and (root_dir / "token.json").exists():
-                token_path = root_dir / "token.json"
+            # Check for token.json in configs folder first, fallback to root or cwd
+            token_path = project_root / "configs" / "token.json"
+            if not token_path.exists() and (project_root / "token.json").exists():
+                token_path = project_root / "token.json"
             elif not token_path.parent.exists():
-                token_path = root_dir / "token.json"
+                token_path = project_root / "token.json"
 
             if token_path.exists():
                 try:
                     credentials = Credentials.from_authorized_user_file(str(token_path), scopes)
                 except Exception as load_err:
                     print(f"Warning: Failed to load token.json: {load_err}")
-                    credentials = None
 
             if not credentials or not credentials.valid:
                 if credentials and credentials.expired and credentials.refresh_token:
                     try:
                         credentials.refresh(Request())
-                    except Exception as refresh_err:
-                        print(f"Warning: Failed to refresh token: {refresh_err}")
-                        credentials = None
-                        if token_path.exists():
-                            try:
-                                os.unlink(token_path)
-                                print("Stale configs/token.json deleted successfully.")
-                            except Exception as del_err:
-                                print(f"Warning: Failed to delete stale token.json: {del_err}")
-
-                if not credentials:
-                    try:
-                        flow = InstalledAppFlow.from_client_secrets_file(str(client_secrets_file), scopes=scopes)
+                    except Exception as ref_err:
+                        print(f"Warning: Failed to refresh token: {ref_err}")
+                        try:
+                            token_path.unlink(missing_ok=True)
+                            print(f"Stale {token_path} deleted successfully.")
+                        except Exception:
+                            pass
+                        flow = InstalledAppFlow.from_client_secrets_file(str(client_secrets_file), scopes)
                         credentials = flow.run_local_server(port=0)
-                        # Cache authorized credentials to token.json
-                        with open(token_path, "w") as token_file:
-                            token_file.write(credentials.to_json())
-                    except Exception as flow_err:
-                        print(f"Warning: OAuth flow failed: {flow_err}")
-                        credentials = None
+                else:
+                    flow = InstalledAppFlow.from_client_secrets_file(str(client_secrets_file), scopes)
+                    credentials = flow.run_local_server(port=0)
 
-            # Fallback to default credentials if client secrets flow is unconfigured or failed
-            if not credentials:
-                print("Falling back to default credentials (gcloud application-default)...")
-                credentials, project = google.auth.default(scopes=scopes)
+                token_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(token_path, "w") as token:
+                    token.write(credentials.to_json())
         else:
-            credentials, project = google.auth.default(scopes=scopes)
+            credentials, _ = google.auth.default(scopes=scopes)
 
         docs_service = build("docs", "v1", credentials=credentials)
         drive_service = build("drive", "v3", credentials=credentials)
@@ -455,7 +448,7 @@ def export_summary_to_google_doc(
         # Resolve active template ID from .gdoc file if not provided as argument
         if not template_id:
             try:
-                gdoc_path = root_dir / "receipt_scanner" / "assets" / "Expense_report_template.gdoc"
+                gdoc_path = agent_dir / "assets" / "Expense_report_template.gdoc"
                 if gdoc_path.exists():
                     import json
 

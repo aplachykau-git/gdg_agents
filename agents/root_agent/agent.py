@@ -6,13 +6,22 @@ import os
 
 from google.adk import Agent
 
-from agenda_generator.agent import agenda_agent
-from event_planner.agent import planner_agent
-from linkedin_post_generator.agent import root_agent as linkedin_agent
-from office_secretary.agent import office_agent
-from receipt_scanner.agent import receipt_agent
-from registration_manager.agent import root_agent as registration_agent
-from video_editor.agent import root_agent as video_agent
+try:
+    from agenda_generator.agent import agenda_agent
+    from event_planner.agent import planner_agent
+    from linkedin_post_generator.agent import root_agent as linkedin_agent
+    from office_secretary.agent import office_agent
+    from receipt_scanner.agent import receipt_agent
+    from registration_manager.agent import root_agent as registration_agent
+    from video_editor.agent import root_agent as video_agent
+except ModuleNotFoundError:
+    from agents.agenda_generator.agent import agenda_agent
+    from agents.event_planner.agent import planner_agent
+    from agents.linkedin_post_generator.agent import root_agent as linkedin_agent
+    from agents.office_secretary.agent import office_agent
+    from agents.receipt_scanner.agent import receipt_agent
+    from agents.registration_manager.agent import root_agent as registration_agent
+    from agents.video_editor.agent import root_agent as video_agent
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 
@@ -27,11 +36,10 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
    - Pass any files, links, or text-inputs directly to it and return its response cleanly.
 
 2. **Speaker Cards & Avatars (Video / Image)**:
-   - If the user asks to create a speaker card, a marketing video intro, a speaker avatar, or any task
-     involving image outpainting, video animation, and rendering, you MUST delegate to the
-     `video_editor` sub-agent.
-   - Collect and pass the portrait photo/video and text details (Title, Speaker Name,
-     Position/Company) to it.
+   - If the user asks to create a speaker card, a marketing video intro, a speaker avatar, or provides
+     speaker details (Title, Name, Company) with or without media attachments, you MUST IMMEDIATELY delegate
+     to the `video_editor` sub-agent without re-asking questions.
+   - Do NOT ask the user to re-provide details that are already given in the message.
 
 3. **LinkedIn Announcement & Recap Posts**:
    - If the user wants to generate LinkedIn promotional posts, speaker announcements, or event recap
@@ -53,13 +61,13 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
      scheduling conflicts, you MUST delegate to the `event_planner` sub-agent.
    - Pass the target months or timeframe preferences directly to it.
 
- 6. **Event Agenda Formatting & Generation**:
+6. **Event Agenda Formatting & Generation**:
    - If the user wants to draft, generate, or format a beautiful copy-pasteable event agenda with
      a structured timeline of multiple speakers, presentation titles, details, and biographies, you MUST
      delegate to the `agenda_generator` sub-agent.
    - Gather all speaker details (name, title, details, bio) and pass them directly to it.
 
-  7. **Office Secretary & Administration Emails**:
+7. **Office Secretary & Administration Emails**:
    - If the user wants to generate template emails/letters to the office admin team, request temporary key
      access for visitors, or request Event Hub space reservations for public events, you MUST
      delegate to the `office_secretary` sub-agent.
@@ -79,7 +87,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 root_agent = Agent(
     model="gemini-2.5-flash",
     name="root_agent",
-    description=f"Root coordinator agent of GDG {community_name}",
+    description="Root coordinator agent of GDG {community_name}",
     instruction=INSTRUCTION,
     sub_agents=[
         receipt_agent,

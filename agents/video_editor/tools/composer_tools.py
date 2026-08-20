@@ -9,8 +9,8 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Toggles to enable/disable specific rendering outputs.
 RENDER_CONFIG = {
-    "ordinary": os.environ.get("RENDER_ORDINARY", "true").lower() in ("true", "1", "yes"),
-    "gif": os.environ.get("RENDER_GIF", "true").lower() in ("true", "1", "yes"),
+    "ordinary": os.environ.get("RENDER_ORDINARY", "false").lower() in ("true", "1", "yes"),
+    "gif": os.environ.get("RENDER_GIF", "false").lower() in ("true", "1", "yes"),
     "4k": os.environ.get("RENDER_4K", "true").lower() in ("true", "1", "yes"),
 }
 
@@ -52,15 +52,46 @@ def restore_default_placeholder():
 
 
 def update_composer(video_path: str, title: str, name: str, position_company: str) -> str:
-    """Updates index.html with the new video path, title, speaker name, and position/company texts."""
+    """Updates index.html with the new video path, title, speaker name, position/company texts, and sets timeline duration (8s for Veo, 10s for user uploads)."""
     # Ensure video_path is a relative path inside index.html for correct HTTP serving in headless Chrome
     if os.path.isabs(video_path):
         video_path = os.path.relpath(video_path, BASE_DIR)
+
+    # 1. Determine timeline duration: 8.0s for Veo generated video, 10.0s for uploaded custom video
+    target_duration = 10
+    abs_video_path = resolve_path(video_path)
+
+    # Probe duration if ffprobe is installed
+    if shutil.which("ffprobe") and os.path.exists(abs_video_path):
+        try:
+            cmd = [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                abs_video_path,
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            if res.returncode == 0 and res.stdout.strip():
+                dur = float(res.stdout.strip())
+                if dur <= 8.5:
+                    target_duration = 8
+                else:
+                    target_duration = 10
+        except Exception:
+            pass
+    elif "video_example" in video_path.lower():
+        # Generated from Veo
+        target_duration = 8
 
     print("\n✍️ [Tool: update_composer] Inserting new details into index.html")
     print(f'   ├─ Title: "{title}"')
     print(f'   ├─ Name: "{name}"')
     print(f'   ├─ Position & Company: "{position_company}"')
+    print(f"   ├─ Duration: {target_duration}s ({'Veo 8s' if target_duration == 8 else 'Custom Upload 10s'})")
     print(f'   └─ Video: "{video_path}"')
 
     target_file = resolve_path("index.html")
@@ -86,6 +117,13 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
     else:
         raise ValueError("Could not locate 'const CARD_CONFIG' block in index.html.")
 
+    # Update data-duration attributes for all timed elements
+    content = re.sub(r'data-duration="\d+"', f'data-duration="{target_duration}"', content)
+    # Update GSAP star rotation duration
+    content = re.sub(
+        r"rotation:\s*360,\s*duration:\s*[\d.]+", f"rotation: 360,\n      duration: {float(target_duration)}", content
+    )
+
     # 2. Update the video and image tag src and inline display style attributes based on media type
     is_image = any(video_path.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"])
 
@@ -97,7 +135,6 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
 
     if is_image:
         # It's an image card!
-        # Statically add display:none; to video and remove display:none; from image to let HyperFrames render the image layer!
         video_full_pattern = r'(<video\s+id="card-video"[^>]*?style="[^"]*?)(display:none;)?(")'
         content = re.sub(video_full_pattern, r"\g<1>display:none;\g<3>", content)
         content = re.sub(video_pattern, 'id="card-video" src="assets/Video_example.mp4"', content)
@@ -107,7 +144,6 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
         content = re.sub(image_pattern, f'id="card-image" src="{video_path}"', content)
     else:
         # It's a video card!
-        # Statically remove display:none; from video and add display:none; to image
         video_full_pattern = r'(<video\s+id="card-video"[^>]*?style="[^"]*?)(display:none;)\s*(;?)(")'
         content = re.sub(video_full_pattern, r"\g<1>\g<4>", content)
         content = re.sub(video_pattern, f'id="card-video" src="{video_path}"', content)
@@ -119,7 +155,7 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
     # 3. Randomize colors for breaks, circle, pill, and hexagon using Google brand palette
     import random
 
-    GOOGLE_COLORS = [
+    GDG_COLORS = [
         "#4285F4",
         "#34A853",
         "#F9AB00",
@@ -134,7 +170,7 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
         "#F8D8D8",  # Pastels
     ]
 
-    selected_colors = random.sample(GOOGLE_COLORS, 4)
+    selected_colors = random.sample(GDG_COLORS, 4)
     break_color = selected_colors[0]
     circle_color = selected_colors[1]
     pill_color = selected_colors[2]
@@ -168,14 +204,14 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
     content, count_year = re.subn(year_pattern, rf"\g<1>{current_year}\g<3>", content)
 
     print(
-        f"   └─ Updated elements: break_1 ({count1}), break_2 ({count2}), circle ({count3}), pill badge ({count4}), hexagon ({count5}), year text ({count_year} -> {current_year})"
+        f"   └─ Updated elements: break_1 ({count1}), break_2 ({count2}), circle ({count3}), pill badge ({count4}), hexagon ({count5}), year text ({count_year} -> {current_year}), duration: {target_duration}s"
     )
 
     # Write the updated composition
     with open(target_file, "w", encoding="utf-8") as f:
         f.write(content)
 
-    return f"Successfully updated index.html with random colors (breaks: {break_color}, circle: {circle_color}, pill: {pill_color}, hexagon: {hexagon_color}, year: {current_year}) and video asset."
+    return f"Successfully updated index.html with duration ({target_duration}s), colors (breaks: {break_color}, circle: {circle_color}, pill: {pill_color}, hexagon: {hexagon_color}, year: {current_year}) and video asset."
 
 
 def render_composer() -> str:
@@ -475,6 +511,13 @@ def render_composer() -> str:
 
         # Swap video and image sources temporarily for high-res snapshot
         if temp_image_src and os.path.exists(resolve_path(temp_image_src)):
+            # Determine snapshot timestamp based on composition duration (7.8s for 8s duration, 9.7s for 10s duration)
+            current_duration = 10
+            dur_match = re.search(r'data-duration="(\d+)"', html_backup)
+            if dur_match:
+                current_duration = int(dur_match.group(1))
+            snapshot_time = "7.8" if current_duration <= 8 else "9.7"
+
             snapshot_result = None
             try:
                 print(
@@ -492,9 +535,11 @@ def render_composer() -> str:
                 with open(target_index_html, "w", encoding="utf-8") as f:
                     f.write(temp_content)
 
-                print("📸 [Poster] Taking high-resolution PNG snapshot of the final card state at T=9.7s...")
+                print(
+                    f"📸 [Poster] Taking high-resolution PNG snapshot of the final card state at T={snapshot_time}s..."
+                )
                 snapshot_result = subprocess.run(
-                    ["npx", "--yes", "hyperframes@0.6.72", "snapshot", "--at=9.7"],
+                    ["npx", "--yes", "hyperframes@0.6.72", "snapshot", f"--at={snapshot_time}"],
                     capture_output=True,
                     text=True,
                     cwd=BASE_DIR,
@@ -506,7 +551,13 @@ def render_composer() -> str:
                 print("✅ [Poster] Restored original index.html sources.")
 
             if snapshot_result and snapshot_result.returncode == 0:
-                snapshot_file = resolve_path("snapshots/frame-00-at-9.7s.png")
+                import glob
+
+                snapshot_file = resolve_path(f"snapshots/frame-00-at-{snapshot_time}s.png")
+                if not os.path.exists(snapshot_file):
+                    found_snaps = glob.glob(os.path.join(BASE_DIR, "snapshots", "*.png"))
+                    if found_snaps:
+                        snapshot_file = max(found_snaps, key=os.path.getmtime)
                 if os.path.exists(snapshot_file):
                     renders_folder = resolve_path("renders")
                     os.makedirs(renders_folder, exist_ok=True)

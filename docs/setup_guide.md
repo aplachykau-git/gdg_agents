@@ -11,18 +11,19 @@ The project consists of three main layers:
 ```mermaid
 graph TD
     A[Custom Svelte Frontend <br> port 5173] -->|API Proxy| B[FastAPI Backend / ADK <br> port 8080]
-    B --> C[Root Orchestrator Agent <br> root_agent]
-    C --> D[Receipt Scanner <br> receipt_scanner]
-    C --> E[Live Video Editor <br> video_editor]
-    C --> F[LinkedIn Planner <br> linkedin_post_generator]
-    C --> G[Registrations Manager <br> registration_manager]
-    C --> H[Event Scheduler <br> event_planner]
-    C --> I[Agenda Formatter <br> agenda_generator]
+    B --> C[Root Orchestrator Agent <br> agents/root_agent]
+    C --> D[Receipt Scanner <br> agents/receipt_scanner]
+    C --> E[Live Video Editor <br> agents/video_editor]
+    C --> F[LinkedIn Planner <br> agents/linkedin_post_generator]
+    C --> G[Registrations Manager <br> agents/registration_manager]
+    C --> H[Event Scheduler <br> agents/event_planner]
+    C --> I[Agenda Formatter <br> agents/agenda_generator]
+    C --> J[Office Secretary <br> agents/office_secretary]
 ```
 
 1. **Custom Svelte Frontend (`frontend/`)**: A dark-themed, premium workspace that provides a chat interface, real-time status ticker for the agents, and capability highlights.
-2. **Root Orchestrator Agent (`root_agent/`)**: The main coordinating Python agent that receives user requests, determines the correct domain, and delegates tasks to the appropriate specialized sub-agents.
-3. **Sub-Agents Core**: Six specialized sub-agents covering receipts/expense reporting, speaker video generation, social media management, guest lists, meetup scheduling, and agendas.
+2. **Root Orchestrator Agent (`agents/root_agent/`)**: The main coordinating Python agent that receives user requests, determines the correct domain, and delegates tasks to the appropriate specialized sub-agents.
+3. **Sub-Agents Core (`agents/`)**: Seven specialized sub-agents covering receipts/expense reporting, speaker video generation, social media management, guest lists, meetup scheduling, agenda formatting, and office access letters.
 
 ---
 
@@ -69,9 +70,9 @@ npm install
 cd ..
 
 # Install HyperFrames rendering dependencies
-cd video_editor
+cd agents/video_editor
 npm install
-cd ..
+cd ../..
 ```
 
 ### 3. Google Cloud Authentication
@@ -93,14 +94,19 @@ cp .env.example .env
 ```
 
 Open `.env` and fill in the following parameters:
-- `GEMINI_API_KEY`: Your private API key from [Google AI Studio](https://aistudio.google.com/).
+- `GEMINI_API_KEY`: Your private API key from [Google AI Studio](https://aistudio.google.com/) (required for public API and Gemini Omni Flash).
 - `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run via Vertex AI endpoints, or `0` for public API.
 - `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID from [Google Cloud Console](https://console.cloud.google.com/).
 - `GOOGLE_CLOUD_LOCATION`: The GCP region/location (e.g. `europe-central2`).
 - `GOOGLE_DRIVE_FOLDER_ID`: The ID of your target Google Drive folder (found in the folder's URL).
-- `ENABLE_VIDEO_GENERATION`: Set to `true` to run speaker video intro renders (costs tokens), or `false` for layout-only dry-runs. 
-  > [!WARNING]
-  > Video generation using Google Veo is computationally expensive and incurs high token costs. It is highly recommended to keep this `false` during local development and layout testing. Instead, generate the video manually using the **Genkit Flow tool** (UI), select the vertical video you prefer, and upload it manually to save tokens.
+- `VIDEO_ENGINE`: Video generation engine — set to `veo` (Vertex AI Google Veo 3.1) or `omni` (Google AI Gemini Omni Flash preview via Interactions API).
+- `ENABLE_VIDEO_GENERATION`: Set to `true` to run live AI video animation, or `false` for layout-only dry-runs using local placeholder media.
+- `RENDER_4K`: Set to `true` (default) to render high-resolution 4K Ultra-HD MP4 compositions.
+- `RENDER_ORDINARY`: Set to `true` to render 1080p Full-HD MP4 compositions.
+- `RENDER_GIF`: Set to `true` to generate animated GIF previews via FFmpeg.
+
+> [!TIP]
+> **Cost & Token Optimization**: Video generation using Google Veo or Gemini Omni Flash consumes significant quotas. During layout tweaking and text debugging, keep `ENABLE_VIDEO_GENERATION=false`. The system will automatically use the high-quality local placeholder and execute the full GSAP layout and rendering pipeline instantly.
 
 ### 5. Customizing the Expense Report Google Doc Template
 
@@ -111,7 +117,7 @@ To customize the report template (e.g., adding your own styling, custom tables, 
 2. Create a copy of it in your own Google Drive (**File -> Make a copy**).
 3. Modify the copied document as you like (keep the existing placeholder tags like `{{APPROVED}}` and `{{EXPENSES_TABLE}}` where you want the dynamic content to be inserted).
 4. Extract the Document ID from the URL of your new document (e.g., `https://docs.google.com/document/d/<YOUR_DOCUMENT_ID>/edit`).
-5. Open the local file [Expense_report_template.gdoc](file:///Users/aplachykau/Experiments/gdg_krakow_tool/receipt_scanner/assets/Expense_report_template.gdoc) and replace the `"doc_id"` value with your new document ID:
+5. Open the local file [Expense_report_template.gdoc](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/receipt_scanner/assets/Expense_report_template.gdoc) and replace the `"doc_id"` value with your new document ID:
    ```json
    {
      "doc_id": "YOUR_NEW_DOCUMENT_ID",
@@ -133,8 +139,8 @@ The backend agent server must run on port `8080` (as Vite is configured to proxy
 # Make sure virtual environment is active
 source .venv/bin/activate
 
-# Run the ADK web server mapping all local agents in the current folder
-adk web --port 8080 .
+# Run the ADK web server mapping all local agents in the agents/ folder
+adk web --port 8080 agents
 ```
 
 ### Terminal 2: Launch Frontend (Svelte Dev Server)
@@ -160,31 +166,28 @@ Here you will find the **Advanced Agentic Workspace** where you can select the a
 If you want to use the default web playground provided out-of-the-box by ADK:
 ```bash
 source .venv/bin/activate
-cd root_agent
-adk web --port 8000
+adk web --port 8000 agents/root_agent
 ```
 Open **`http://localhost:8000`** in your browser.
 
 ### 2. Testing Receipt Scanner via CLI
-You can bypass web servers entirely to test the receipt OCR scanner and currency converter using the CLI:
+You can test the receipt OCR scanner and currency converter directly using the test runner:
 ```bash
 source .venv/bin/activate
-python receipt_scanner/test_runner.py
+python tests/test_receipt_scanner.py
 ```
 
 ### 3. HyperFrames Development & Preview Sandbox
 To preview the video composition layout, debug GSAP timelines, or check visual spacing:
 ```bash
-cd video_editor
-
 # Run local dev server with hot-reload and visual preview (scrub timeline at http://localhost:3000)
-npm run dev
+npm run video:dev
 
 # Run linter, Chrome validation and layout checks
-npm run check
+npm run video:check
 
 # Render composition to an MP4 video file locally
-npm run render
+npm run video:render
 ```
 
 ---

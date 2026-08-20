@@ -1,101 +1,155 @@
 :root {
-  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  font-weight: 400;
+  /* =========================================================================
+   * Clean Google Brand Accents
+   * ========================================================================= */
+  --gemini-primary: #1a73e8;
+  --gemini-primary-hover: #1557b0;
+  --gemini-active-glow: rgba(26, 115, 232, 0.12);
+  --gemini-subtle-border: rgba(26, 115, 232, 0.25);
 
-  /* Theme variables - Light Mode */
-  --bg-color: #f8fafc;
-  --panel-bg: rgba(255, 255, 255, 0.75);
-  --panel-border: rgba(15, 23, 42, 0.06);
-  --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #64748b;
-  
-  --accent-color: #4f46e5;
-  --accent-hover: #4338ca;
-  --accent-glow: rgba(79, 70, 229, 0.08);
-  
-  --agent-root: #059669;
-  --agent-receipt: #0891b2;
-  --agent-video: #7c3aed;
-  --agent-linkedin: #2563eb;
-  --agent-registration: #d97706;
-  --agent-planner: #e11d48;
-  --agent-agenda: #0d9488;
-  --agent-office: #db2777;
-  
-  --bg-root: rgba(5, 150, 105, 0.06);
-  --bg-receipt: rgba(8, 145, 178, 0.06);
-  --bg-video: rgba(124, 58, 237, 0.06);
-  --bg-linkedin: rgba(37, 99, 235, 0.06);
-  --bg-registration: rgba(217, 119, 6, 0.06);
-  --bg-planner: rgba(225, 29, 72, 0.06);
-  --bg-agenda: rgba(13, 148, 136, 0.06);
-  --bg-office: rgba(219, 39, 119, 0.06);
+  /* =========================================================================
+   * Typography Tokens
+   * ========================================================================= */
+  --font-family-base: 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-display: 'Google Sans Display', 'Google Sans', 'Outfit', sans-serif;
+  --font-family-mono: 'Google Sans Mono', 'JetBrains Mono', 'Fira Code', monospace;
 
-  --chat-bubble-user: rgba(15, 23, 42, 0.05);
-  --chat-bubble-user-text: #0f172a;
-  --chat-bubble-agent: transparent;
-  --input-bg: rgba(255, 255, 255, 0.85);
-  
-  --danger-color: #ef4444;
-  --danger-bg: rgba(239, 68, 68, 0.05);
+  --font-size-display-lg: 2.25rem;
+  --font-size-display-md: 1.75rem;
+  --font-size-title-lg: 1.375rem;
+  --font-size-title-md: 1rem;
+  --font-size-body-lg: 1rem;
+  --font-size-body-md: 0.875rem;
+  --font-size-body-sm: 0.75rem;
+  --font-size-label: 0.6875rem;
 
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.02);
-  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.04);
-  --shadow-lg: 0 12px 30px -4px rgba(15, 23, 42, 0.08);
-  
-  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* =========================================================================
+   * Radii Tokens (M3 Expressive)
+   * ========================================================================= */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-pill: 9999px;
+
+  /* =========================================================================
+   * Agent Semantic Color Accents (Subtle tags & border accents)
+   * ========================================================================= */
+  --agent-root: #38bdf8;
+  --agent-receipt: #2dd4bf;
+  --agent-video: #a855f7;
+  --agent-linkedin: #60a5fa;
+  --agent-registration: #fbbf24;
+  --agent-planner: #f43f5e;
+  --agent-agenda: #34d399;
+  --agent-office: #ec4899;
+
+  --bg-root: rgba(56, 189, 248, 0.08);
+  --bg-receipt: rgba(45, 212, 191, 0.08);
+  --bg-video: rgba(168, 85, 247, 0.08);
+  --bg-linkedin: rgba(96, 165, 250, 0.08);
+  --bg-registration: rgba(251, 191, 36, 0.08);
+  --bg-planner: rgba(244, 63, 94, 0.08);
+  --bg-agenda: rgba(52, 211, 153, 0.08);
+  --bg-office: rgba(236, 72, 153, 0.08);
 }
 
-:root.dark {
-  /* Theme variables - Dark Mode */
-  --bg-color: #06070a;
-  --panel-bg: rgba(10, 11, 18, 0.8);
-  --panel-border: rgba(255, 255, 255, 0.05);
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #475569;
-  
-  --accent-color: #818cf8;
-  --accent-hover: #a5b4fc;
-  --accent-glow: rgba(129, 140, 248, 0.15);
-  
-  --bg-root: rgba(16, 185, 129, 0.08);
-  --bg-receipt: rgba(6, 182, 212, 0.08);
-  --bg-video: rgba(168, 85, 247, 0.08);
-  --bg-linkedin: rgba(59, 130, 246, 0.08);
-  --bg-registration: rgba(245, 158, 11, 0.08);
-  --bg-planner: rgba(244, 63, 94, 0.08);
-  --bg-agenda: rgba(20, 184, 166, 0.08);
-  --bg-office: rgba(219, 39, 119, 0.08);
+/* =========================================================================
+ * Dark Theme (Default AI Studio Canvas)
+ * ========================================================================= */
+:root, [data-theme="dark"], :root.dark {
+  --bg-app: #131314;
+  --bg-surface: #1e1f20;
+  --bg-surface-elevated: #282a2c;
+  --bg-surface-variant: #333538;
+  --bg-input: #1e1f20;
+  --bg-input-focus: #282a2c;
 
-  --chat-bubble-user: rgba(255, 255, 255, 0.06);
-  --chat-bubble-user-text: #f1f5f9;
-  --chat-bubble-agent: transparent;
-  --input-bg: rgba(15, 17, 26, 0.75);
+  --text-primary: #e3e3e3;
+  --text-secondary: #c4c7c5;
+  --text-tertiary: #8e918f;
+  --text-inverse: #131314;
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+  --border-subtle: #2d2f31;
+  --border-medium: #444746;
+  --border-focus: #8ab4f8;
+
+  --primary-accent: #8ab4f8;
+  --primary-accent-hover: #aecbfa;
+  --primary-accent-container: #004a77;
+  --primary-accent-text: #c2e7ff;
+
+  --status-success: #81c995;
+  --status-warning: #fdd663;
+  --status-error: #f28b82;
+  --status-info: #8ab4f8;
+
+  --shadow-elevation-1: 0 1px 3px 1px rgba(0, 0, 0, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.30);
+  --shadow-elevation-2: 0 2px 6px 2px rgba(0, 0, 0, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.30);
+  --shadow-elevation-3: 0 4px 8px 3px rgba(0, 0, 0, 0.25), 0 1px 3px 0 rgba(0, 0, 0, 0.30);
+  --shadow-glow: 0 0 24px rgba(66, 133, 244, 0.18);
+}
+
+/* =========================================================================
+ * Light Theme
+ * ========================================================================= */
+[data-theme="light"], :root:not(.dark):not([data-theme="dark"]) {
+  --bg-app: #f8fafd;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #f0f4f9;
+  --bg-surface-variant: #e1e3e1;
+  --bg-input: #ffffff;
+  --bg-input-focus: #f0f4f9;
+
+  --text-primary: #1f1f1f;
+  --text-secondary: #444746;
+  --text-tertiary: #747775;
+  --text-inverse: #ffffff;
+
+  --border-subtle: #e0e2e0;
+  --border-medium: #c4c7c5;
+  --border-focus: #1a73e8;
+
+  --primary-accent: #1a73e8;
+  --primary-accent-hover: #1557b0;
+  --primary-accent-container: #d3e3fd;
+  --primary-accent-text: #041e49;
+
+  --status-success: #1e8e3e;
+  --status-warning: #f9ab00;
+  --status-error: #d93025;
+  --status-info: #1a73e8;
+
+  --shadow-elevation-1: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  --shadow-elevation-2: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.15);
+  --shadow-elevation-3: 0 4px 8px 3px rgba(60, 64, 67, 0.15), 0 1px 3px 0 rgba(60, 64, 67, 0.30);
+  --shadow-glow: 0 0 20px rgba(26, 115, 232, 0.15);
+}
+
+/* =========================================================================
+ * Base Reset & Typography
+ * ========================================================================= */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
-  background-color: var(--bg-color);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-body-md);
+  line-height: 1.5;
+  background-color: var(--bg-app);
   color: var(--text-primary);
   min-height: 100vh;
-  box-sizing: border-box;
-  transition: background-color var(--transition-normal), color var(--transition-normal);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-/* Custom Scrollbar styling */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -104,14 +158,45 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--panel-border);
-  border-radius: 4px;
+  background: var(--border-medium);
+  border-radius: var(--radius-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--text-tertiary);
 }
 
-/* Code fonts formatting */
 code, pre {
-  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  font-family: var(--font-family-mono);
+}
+
+/* =========================================================================
+ * Animations
+ * ========================================================================= */
+@keyframes gemini-pulse {
+  0% {
+    filter: drop-shadow(0 0 2px rgba(66, 133, 244, 0.4));
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(155, 114, 203, 0.8));
+    transform: scale(1.1) rotate(6deg);
+  }
+  100% {
+    filter: drop-shadow(0 0 2px rgba(66, 133, 244, 0.4));
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.generating-sparkle {
+  animation: gemini-pulse 2.2s infinite ease-in-out;
 }

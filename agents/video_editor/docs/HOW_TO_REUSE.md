@@ -37,14 +37,14 @@ const CARD_CONFIG = {
 
 ## 📦 How this Agent is Embedded in the Parent System
 
-The `video_editor/` folder is integrated directly at the project root, sitting alongside `receipt_scanner/` and `root_agent/` as a sibling sub-agent.
+The `video_editor/` folder is integrated inside `agents/`, sitting alongside `receipt_scanner/` and `root_agent/` as a sibling sub-agent package.
 
 ### 1. Configuration & Root Agent Setup
 
-The parent root agent loaded in `root_agent/agent.py` imports and registers this agent:
+The parent root agent loaded in `agents/root_agent/agent.py` imports and registers this agent:
 
 ```python
-from video_editor.agent import root_agent as video_agent
+from agents.video_editor.agent import root_agent as video_agent
 
 root_agent = Agent(
     ...
@@ -54,7 +54,7 @@ root_agent = Agent(
 
 ### 2. Environment Variables (.env)
 
-The environment parameters are set up in the main `root_agent/.env` file:
+The environment parameters are set up in the main project root `.env` file:
 
 ```ini
 # --- Video Editor Configurations ---

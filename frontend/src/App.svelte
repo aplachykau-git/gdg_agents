@@ -1,20 +1,69 @@
 <script>
   import { onMount } from 'svelte';
   import { marked } from 'marked';
+  import { 
+    Sparkles, 
+    History, 
+    Plus, 
+    Trash2, 
+    Paperclip, 
+    Sun, 
+    Moon, 
+    Check, 
+    Copy, 
+    ChevronDown, 
+    ChevronRight, 
+    Bot, 
+    User, 
+    CornerDownLeft, 
+    FileText, 
+    Image as ImageIcon, 
+    RefreshCw, 
+    X, 
+    Sparkle, 
+    Braces, 
+    Layers,
+    HelpCircle,
+    Play,
+    Terminal,
+    ArrowRight,
+    Receipt,
+    Video,
+    Share2,
+    Users,
+    Calendar,
+    Clock,
+    Mail,
+    Workflow,
+    ArrowUpRight,
+    AlertCircle
+  } from '@lucide/svelte';
 
   // Markdown rendering helper
   function renderMarkdown(text) {
     if (!text) return '';
     try {
-      return marked.parse(text, { gfm: true, breaks: true });
+      return marked.parse(text);
     } catch (e) {
       console.error("Failed to parse markdown:", e);
       return text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
   }
 
+  // Default GDG Agents
+  const DEFAULT_APPS = [
+    { name: 'root_agent', root_agent_name: 'Root Orchestrator' },
+    { name: 'receipt_scanner', root_agent_name: 'Receipt Scanner' },
+    { name: 'video_editor', root_agent_name: 'Live Video Editor' },
+    { name: 'linkedin_post_generator', root_agent_name: 'LinkedIn Planner' },
+    { name: 'registration_manager', root_agent_name: 'Registrations Manager' },
+    { name: 'event_planner', root_agent_name: 'Event Scheduler' },
+    { name: 'agenda_generator', root_agent_name: 'Agenda Formatter' },
+    { name: 'office_secretary', root_agent_name: 'Office Secretary' }
+  ];
+
   // State Variables
-  let apps = $state.raw([]);
+  let apps = $state.raw(DEFAULT_APPS);
   let selectedApp = $state('root_agent');
   let userId = $state('user');
   let sessions = $state.raw([]);
@@ -25,9 +74,9 @@
   let errorMsg = $state('');
   let isDarkMode = $state(true);
   
-  // Custom interface toggles
-  let showSessions = $state(false); // Hidden/collapsed by default
-  let showLegend = $state(false);   // Color legend modal toggle
+  // Layout Panels & Drawers
+  let showSessions = $state(true); // Left panel
+  let showLegend = $state(false);   // Capabilities modal
   
   // Staged files
   let isDragging = $state(false);
@@ -43,17 +92,18 @@
     isDarkMode = !isDarkMode;
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
     }
   }
 
   // Load Apps from ADK backend
   async function loadApps() {
     try {
-      errorMsg = '';
       const res = await fetch('/list-apps');
-      if (!res.ok) throw new Error(`Failed to fetch apps: ${res.statusText}`);
+      if (!res.ok) throw new Error(`Status ${res.status}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         const nonAgents = ['configs', 'docs', 'frontend'];
@@ -73,21 +123,13 @@
             name,
             root_agent_name: appNameMapping[name] || name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
           }));
-      } else {
-        apps = data.apps || [];
-      }
-      if (apps.length > 0) {
-        const hasRoot = apps.some(a => a.name === 'root_agent');
-        if (hasRoot) {
-          selectedApp = 'root_agent';
-        } else if (!apps.some(a => a.name === selectedApp)) {
-          selectedApp = apps[0].name;
-        }
+      } else if (data.apps) {
+        apps = data.apps;
       }
       await loadSessions();
     } catch (e) {
-      console.error(e);
-      errorMsg = `Backend Connection Error: Make sure your ADK server is running on port 8080! Details: ${e.message}`;
+      console.warn("Backend not active on port 8080. Loaded default agent catalog.");
+      apps = DEFAULT_APPS;
     }
   }
 
@@ -142,7 +184,6 @@
       if (!res.ok) throw new Error(`Failed to create session: ${res.statusText}`);
       await loadSessions();
       selectSession(newSessionId);
-      showSessions = false; // Keep sessions panel collapsed by default as requested
     } catch (e) {
       console.error(e);
       errorMsg = `Failed to start session: ${e.message}`;
@@ -164,6 +205,10 @@
       if (!res.ok) throw new Error(`Failed to load session details: ${res.statusText}`);
       const data = await res.json();
       events = data.events || [];
+      const lastErr = events.slice().reverse().find(e => e.errorMessage || e.error || e.errorCode);
+      if (lastErr) {
+        errorMsg = lastErr.errorMessage || (typeof lastErr.error === 'object' ? lastErr.error.message : lastErr.error) || lastErr.errorCode;
+      }
       scrollToBottom();
     } catch (e) {
       console.error(e);
@@ -191,20 +236,34 @@
     }
   }
 
-  // Handle Drag & Drop
-  function handleDragOver(e) {
+  // Handle Drag & Drop with counter to prevent child-element flicker
+  let dragCounter = 0;
+
+  function handleDragEnter(e) {
     e.preventDefault();
+    dragCounter++;
     isDragging = true;
   }
 
-  function handleDragLeave() {
-    isDragging = false;
+  function handleDragOver(e) {
+    e.preventDefault();
+    if (!isDragging) isDragging = true;
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      isDragging = false;
+    }
   }
 
   function handleDrop(e) {
     e.preventDefault();
+    dragCounter = 0;
     isDragging = false;
-    const files = e.dataTransfer.files;
+    const files = e.dataTransfer ? e.dataTransfer.files : null;
     if (files && files.length > 0) {
       Array.from(files).forEach(file => processFile(file));
     }
@@ -235,7 +294,7 @@
     stagedFiles = stagedFiles.filter((_, i) => i !== index);
   }
 
-  // Cycle through intermediate agent status text while loading to show progress
+  // Cycle through intermediate agent status text while loading
   function startStatusTicker(app) {
     const statuses = {
       root_agent: [
@@ -246,18 +305,18 @@
       ],
       receipt_scanner: [
         'Fetching Pekao Bank exchange rates...',
-        'Scanning attachment with Gemini Vision...',
+        'Scanning attachment with Vision OCR...',
         'Converting expenses to EUR/USD/PLN...',
         'Checking historical structures (Anti-re-processing)...',
         'Translating item details to English...',
-        'Generating Google Docs Expense Report...'
+        'Generating Docs Expense Report...'
       ],
       video_editor: [
         'Staging uploaded portrait in staged_media...',
-        'Detecting face landmarks via Gemini...',
+        'Detecting face landmarks...',
         'Executing smart Outpainting to 9:16 aspect ratio...',
-        'Crafting cinematic Google Veo video prompt...',
-        'Generating 8s video intro via Vertex AI Veo...',
+        'Crafting cinematic Veo video prompt...',
+        'Generating 8s video intro via Veo...',
         'Compiling high-fidelity 4K media cards...'
       ],
       registration_manager: [
@@ -290,7 +349,7 @@
       ]
     };
     
-    const list = statuses[app] || ['Processing intermediate step...', 'Executing agent logic...', 'Invoking external API connectors...'];
+    const list = statuses[app] || ['Processing request...', 'Executing agent logic...', 'Invoking external tool pipeline...'];
     let idx = 0;
     statusText = list[0];
     
@@ -304,49 +363,69 @@
   // Maps backend tool names to user-friendly log descriptions
   function getFriendlyToolCall(name, args) {
     const mappings = {
-      verify_portrait_photo: () => "Running face detection on portrait photo...",
-      stage_uploaded_media: () => "Staging uploaded media file to workspace...",
-      animate_photo: () => "Generating background video intro via Google Veo...",
-      update_composer: (a) => `Updating HTML template composition with details for ${a.name || 'speaker'}...`,
-      render_composer: () => "Compiling card rendering pipelines (1080p, 4K, GIF, Poster PNG)...",
+      // Sub-agent transfers
+      transfer_to_video_editor: () => "Delegating to Live Video Editor sub-agent...",
+      transfer_to_receipt_scanner: () => "Delegating to Receipt Scanner sub-agent...",
+      transfer_to_linkedin_post_generator: () => "Delegating to LinkedIn Planner sub-agent...",
+      transfer_to_event_planner: () => "Delegating to Event Scheduler sub-agent...",
+      transfer_to_registration_manager: () => "Delegating to Registrations Manager sub-agent...",
+      transfer_to_agenda_generator: () => "Delegating to Agenda Formatter sub-agent...",
+      transfer_to_office_secretary: () => "Delegating to Office Secretary sub-agent...",
+
+      // Specific tool executions
+      verify_portrait_photo: () => "Running facial detection verification on photo...",
+      stage_uploaded_media: () => "Staging uploaded photo/video to workspace...",
+      animate_photo: () => "Outpainting portrait to 9:16 & generating Veo video intro...",
+      update_composer: (a) => `Updating HTML5 composition layout for "${a.name || 'speaker'}"...`,
+      render_composer: () => "Rendering final speaker card video (MP4, GIF, 4K poster)...",
       validate_metadata: (a) => `Validating character limits for "${a.name || 'speaker'}"...`,
-      
-      // Receipt Scanner tools
-      scan_receipt_with_vision: () => "Analyzing receipt scan via Gemini Vision OCR...",
-      convert_currency: () => "Converting currency values using exchange rates...",
-      export_to_google_docs: () => "Creating Google Docs expense report from template..."
+      scan_receipt_with_vision: () => "Extracting items and VAT from receipt via Vision OCR...",
+      convert_currency: () => "Converting currencies to PLN using exchange rates...",
+      export_to_google_docs: () => "Exporting expense report to Google Docs template...",
+      filter_and_clean_registrations: () => "Cleaning, deduplicating, and partitioning registrations...",
+      find_optimal_meetup_date: () => "Scanning Kraków calendars, holidays, and meetup conflicts...",
+      generate_agenda: () => "Formatting structured timeline and speaker agenda...",
+      generate_office_email: () => "Drafting office access and event reservation email..."
     };
 
     if (mappings[name]) {
       return mappings[name](args || {});
     }
-    // Fallback: convert snake_case to Title Case
     const formatted = name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     return `Executing ${formatted}...`;
   }
 
   function getFriendlyToolResponse(name, response, args) {
     const mappings = {
-      verify_portrait_photo: () => "Face verification passed successfully! A clear face was detected.",
-      stage_uploaded_media: (r) => `File successfully staged to workspace.`,
-      animate_photo: () => "Google Veo video generation completed successfully.",
-      update_composer: () => "Composition HTML updated with new layout parameters.",
+      transfer_to_video_editor: () => "Handed off task to Live Video Editor.",
+      transfer_to_receipt_scanner: () => "Handed off task to Receipt Scanner.",
+      transfer_to_linkedin_post_generator: () => "Handed off task to LinkedIn Planner.",
+      transfer_to_event_planner: () => "Handed off task to Event Scheduler.",
+      transfer_to_registration_manager: () => "Handed off task to Registrations Manager.",
+      transfer_to_agenda_generator: () => "Handed off task to Agenda Formatter.",
+      transfer_to_office_secretary: () => "Handed off task to Office Secretary.",
+
+      verify_portrait_photo: () => "Face verification passed successfully.",
+      stage_uploaded_media: () => "Media asset staged to workspace.",
+      animate_photo: () => "Veo video generation and outpainting completed.",
+      update_composer: () => "Composition HTML canvas updated with new parameters.",
       render_composer: () => "All requested files compiled and saved to renders/ folder.",
-      validate_metadata: () => "Text validation passed successfully.",
-      
-      // Receipt Scanner tools
+      validate_metadata: () => "Text length validation passed.",
       scan_receipt_with_vision: () => "Receipt items and taxes extracted successfully.",
       convert_currency: () => "Exchange rates converted.",
-      export_to_google_docs: (r) => `Google Doc generated successfully.`
+      export_to_google_docs: () => "Document created in Google Docs folder.",
+      filter_and_clean_registrations: () => "Registrations verified and partitioned.",
+      find_optimal_meetup_date: () => "Calendar dates analyzed.",
+      generate_agenda: () => "Agenda timeline created.",
+      generate_office_email: () => "Email template generated."
     };
 
     if (mappings[name]) {
       return mappings[name](response || {}, args || {});
     }
-    return "Completed successfully.";
+    return "Step completed successfully.";
   }
 
-  // Helper to remove "Active Context: " prefix
   function cleanAuthorName(author) {
     if (!author) return '';
     return author.replace(/^Active Context:\s*/i, '').trim();
@@ -359,15 +438,13 @@
     if (!text) return [];
     const clean = cleanAuthorName(author).toLowerCase();
     
-    // Only check for splits if it's from LinkedIn Planner or contains option/agenda/recap headings
-    const isSpecialApp = clean.includes('linkedin') || clean.includes('post_generator') || clean.includes('agenda') || clean.includes('agenda_generator') || text.toLowerCase().includes('option 1') || text.toLowerCase().includes('variant 1') || text.toLowerCase().includes('option 2') || text.toLowerCase().includes('variant 2') || text.toLowerCase().includes('agenda') || text.toLowerCase().includes('recap');
+    const isSpecialApp = clean.includes('linkedin') || clean.includes('post_generator') || clean.includes('agenda') || clean.includes('agenda_generator') || /variant\s*\d+/i.test(text) || /option\s*\d+/i.test(text) || text.toLowerCase().includes('recap');
     
     if (!isSpecialApp) {
       return [{ header: '', body: text }];
     }
     
-    // Split by headers like Option X, Variant X, Agenda, Recap X (preceded by markdown, bold or plain text)
-    const regex = /(?:^|\n)((?:###?\s*|##\s*|#\s*|\*\*|)\s*(?:Event Recap Post|Event Recap|Recap|Variant|Option|Agenda)\s*(?:Variant|Option)?\s*\d+[:\s\-\(]*[^\n]*)/iu;
+    const regex = /(?:^|\n)((?:###?\s*|##\s*|#\s*|\*\*|)\s*(?:Event Recap Post|Event Recap|Recap|Variant|Option|Agenda)\s*(?:Variant|Option)?\s*\d*[:\s\-\(]*[^\n]*)/iu;
     const parts = text.split(regex);
     
     if (parts.length < 3) {
@@ -394,13 +471,10 @@
     
     for (let i = 1; i < parts.length; i += 2) {
       let header = parts[i] ? parts[i].trim() : '';
-      // Clean up leading markdown markers and bold markers from the header for UI badge representation
       header = header.replace(/^(?:###?|##|#)\s*/, '').trim();
       header = header.replace(/^\*\*|\*\*$/g, '').trim();
       const body = parts[i + 1] ? parts[i + 1].trim() : '';
       
-      // Look for lines introducing the next speaker or section
-      // E.g., "Introducing Speaker:", "Speaker:", "Event Recap:" (or similar structures)
       const introRegex = /(?:\n|^)(Introducing Speaker:|Speaker:|Event Recap:|[^\n]*Introducing Speaker:[^\n]*|[^\n]*Event Recap:[^\n]*)/i;
       const match = body.match(introRegex);
       
@@ -428,10 +502,9 @@
       }
     }
     
-    return variants;
+    return variants.length > 0 ? variants : [{ header: '', body: text }];
   }
 
-  // Copy plain text to clipboard safely
   function copyToClipboard(text, id) {
     if (!navigator.clipboard) return;
     navigator.clipboard.writeText(text).then(() => {
@@ -444,9 +517,11 @@
     });
   }
 
-  // Focus and pre-fill input with selected variant for free-mode refinements
   function refineVariant(bodyText) {
-    queryText = `Refine this option:\n---\n${bodyText}\n---\nMy adjustments: `;
+    const cleanBody = bodyText.trim();
+    // Quote lines with markdown blockquote to prevent accidental Setext header parsing
+    const quoted = cleanBody.split('\n').map(l => `> ${l}`).join('\n');
+    queryText = `Please refine the following option:\n\n${quoted}\n\nMy adjustments:\n`;
     setTimeout(() => {
       if (textareaElement) {
         textareaElement.style.height = 'auto';
@@ -456,29 +531,38 @@
     }, 50);
   }
 
-  // Check if an event is an intermediate event (no text, only function calls/responses)
   function isIntermediateEvent(event) {
     if (!event) return true;
     if (event.author === 'user') return false;
+    if (event.errorMessage || event.errorCode || event.error) return false;
     if (!event.content || !event.content.parts) return true;
-    // Show all events containing content parts (including tool calls and responses)
     return false;
   }
 
   let filteredEvents = $derived(events.filter(e => !isIntermediateEvent(e)));
 
-  // Run orchestrator / Send message (using SSE stream with fallback)
+  // Run orchestrator / Send message
   async function sendMessage() {
-    if (!selectedSessionId) {
-      errorMsg = 'Please select or create a session first!';
-      return;
-    }
     if (!queryText.trim() && stagedFiles.length === 0) return;
+
+    if (!selectedSessionId) {
+      const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      try {
+        await fetch(`/apps/${selectedApp}/users/${userId}/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: newSessionId })
+        });
+        selectedSessionId = newSessionId;
+        loadSessions();
+      } catch (err) {
+        selectedSessionId = newSessionId;
+      }
+    }
 
     const currentText = queryText;
     const currentFiles = [...stagedFiles];
     
-    // Clear inputs and start loading
     queryText = '';
     if (textareaElement) {
       textareaElement.style.height = 'auto';
@@ -491,7 +575,6 @@
     try {
       const parts = [];
       
-      // Stage files
       currentFiles.forEach(f => {
         parts.push({
           inline_data: {
@@ -501,10 +584,20 @@
         });
       });
 
-      // Prompt
       if (currentText.trim()) {
         parts.push({ text: currentText });
       }
+
+      // Immediately display user message & attachments in the chat stream
+      events = [
+        ...events,
+        {
+          author: 'user',
+          content: { parts: parts },
+          timestamp: Date.now() / 1000
+        }
+      ];
+      scrollToBottom();
 
       const payload = {
         app_name: selectedApp,
@@ -534,7 +627,6 @@
       }
 
       if (!useSSE) {
-        // Fallback to traditional /run
         payload.streaming = false;
         res = await fetch('/run', {
           method: 'POST',
@@ -547,7 +639,6 @@
         }
         await selectSession(selectedSessionId);
       } else {
-        // Stream chunk parser for real-time progress tickers!
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -567,12 +658,32 @@
               if (!dataStr) continue;
               try {
                 const eventObj = JSON.parse(dataStr);
-                if (eventObj.error) {
-                  const errStr = typeof eventObj.error === 'object' ? (eventObj.error.message || JSON.stringify(eventObj.error)) : eventObj.error;
+                if (eventObj.error || eventObj.errorMessage || eventObj.errorCode) {
+                  const errStr = eventObj.errorMessage || (typeof eventObj.error === 'object' ? (eventObj.error.message || JSON.stringify(eventObj.error)) : eventObj.error) || eventObj.errorCode;
                   throw new Error(errStr);
                 }
 
-                // Dynamically update status text based on intermediate tool calls or active agent
+                // Progressive real-time update in chat UI
+                if (eventObj.author === 'user') {
+                  const lastUserIdx = events.findLastIndex(e => e.author === 'user' && !e.id);
+                  if (lastUserIdx !== -1) {
+                    events[lastUserIdx] = eventObj;
+                    events = [...events];
+                  }
+                } else if (eventObj.id) {
+                  const existingIdx = events.findIndex(e => e.id === eventObj.id);
+                  if (existingIdx !== -1) {
+                    events[existingIdx] = eventObj;
+                    events = [...events];
+                  } else {
+                    events = [...events, eventObj];
+                  }
+                  scrollToBottom();
+                } else if (eventObj.content || eventObj.errorMessage) {
+                  events = [...events, eventObj];
+                  scrollToBottom();
+                }
+
                 if (eventObj.content && eventObj.content.parts) {
                   for (const part of eventObj.content.parts) {
                     const fc = part.function_call || part.functionCall;
@@ -589,12 +700,13 @@
                   }
                 }
               } catch (parseErr) {
-                // Ignore parsing errors for partial/malformed data chunks
+                if (parseErr.message && !parseErr.message.includes('JSON')) {
+                  throw parseErr;
+                }
               }
             }
           }
         }
-        // Finally, fetch clean completed session history
         await selectSession(selectedSessionId);
       }
     } catch (e) {
@@ -606,37 +718,6 @@
           displayError = parsed.detail;
         } else if (parsed.errorMessage) {
           displayError = parsed.errorMessage;
-          // Try to recursively find nested JSON messages or details to clean up API errors
-          try {
-            const innerMatch = displayError.match(/'message':\s*'({[\s\S]*?})'/);
-            if (innerMatch) {
-              const cleanJsonStr = innerMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
-              const innerJson = JSON.parse(cleanJsonStr);
-              if (innerJson.error && innerJson.error.message) {
-                displayError = innerJson.error.message;
-              }
-            } else {
-              const jsonCandidates = displayError.match(/\{[\s\S]*\}/);
-              if (jsonCandidates) {
-                const normalizedStr = jsonCandidates[0].replace(/'/g, '"');
-                const candidate = JSON.parse(normalizedStr);
-                if (candidate.error && candidate.error.message) {
-                  displayError = candidate.error.message;
-                } else if (candidate.message) {
-                  displayError = candidate.message;
-                }
-              }
-            }
-          } catch (innerErr) {
-            console.error('Failed to parse nested error details:', innerErr);
-          }
-          if (parsed.errorCode && !displayError.includes(parsed.errorCode)) {
-            displayError = `${parsed.errorCode}: ${displayError}`;
-          }
-        } else if (parsed.error) {
-          displayError = typeof parsed.error === 'object' ? (parsed.error.message || JSON.stringify(parsed.error)) : parsed.error;
-        } else if (parsed.message) {
-          displayError = parsed.message;
         }
       } catch(_) {}
       errorMsg = `Execution Error: ${displayError}`;
@@ -647,7 +728,6 @@
     }
   }
 
-  // Scroll
   let chatBodyElement = $state();
   function scrollToBottom() {
     setTimeout(() => {
@@ -661,7 +741,7 @@
   }
 
   function handleKeyPress(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
       e.preventDefault();
       sendMessage();
     }
@@ -669,10 +749,10 @@
 
   onMount(() => {
     document.documentElement.classList.add('dark');
+    document.documentElement.setAttribute('data-theme', 'dark');
     loadApps();
   });
 
-  // Dynamic helper to identify agents style colors
   function getAgentTheme(author) {
     if (!author) return {};
     const clean = cleanAuthorName(author);
@@ -686,1580 +766,1999 @@
     if (lower.includes('agenda')) return { color: 'var(--agent-agenda)', bg: 'var(--bg-agenda)', label: 'Agenda Formatter' };
     if (lower.includes('office') || lower.includes('secretary')) return { color: 'var(--agent-office)', bg: 'var(--bg-office)', label: 'Office Secretary' };
     
-    // Format other names beautifully
     const formatted = clean.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    return { color: 'var(--text-secondary)', bg: 'var(--panel-border)', label: formatted };
+    return { color: 'var(--primary-accent)', bg: 'rgba(138, 180, 248, 0.1)', label: formatted };
   }
+
+  const activeAgentTheme = $derived(getAgentTheme(selectedApp));
 </script>
 
-<div class="app-layout" class:thinking-active={isLoading} style="--active-agent-color: {getAgentTheme(selectedApp).color}">
-  <!-- Top premium navigation bar -->
-  <header class="app-header">
-    <div class="header-logo">
-      <!-- Sidebar Drawer Toggle Button (Hamburger style) -->
-      <button class="sidebar-toggle-btn" class:active={showSessions} onclick={() => showSessions = !showSessions} aria-label="Toggle Sessions">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
+<div class="studio-layout" class:thinking-active={isLoading} style="--active-agent-color: {activeAgentTheme.color}">
+  
+  <!-- =========================================================================
+   * TOP APP BAR (Google AI Studio Header)
+   * ========================================================================= -->
+  <header class="studio-header">
+    <div class="header-left">
+      <!-- Left sidebar toggle -->
+      <button 
+        class="icon-btn" 
+        class:active={showSessions} 
+        onclick={() => showSessions = !showSessions} 
+        title="Toggle History Drawer"
+      >
+        <History size={18} strokeWidth={1.75} />
       </button>
 
-      <div class="logo-title">
-        <h1>GDG</h1>
-        <p>Advanced Agentic Workspace</p>
+      <!-- GDG Agents Logo -->
+      <div class="brand-badge">
+        <div class="brand-gemini-icon">
+          <Sparkles size={16} strokeWidth={2} class={isLoading ? 'generating-sparkle' : ''} />
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">GDG Agents</span>
+          <span class="brand-sub">Autonomous Platform</span>
+        </div>
       </div>
+
+      <div class="header-divider"></div>
+
+      <!-- Breadcrumbs & Active App -->
+      <div class="app-picker">
+        <span class="picker-label">Agent:</span>
+        <div class="select-wrapper">
+          <select id="appSelect" bind:value={selectedApp} onchange={() => { selectedSessionId = ''; loadSessions(); }}>
+            {#each apps as app}
+              <option value={app.name}>{app.root_agent_name || app.name}</option>
+            {/each}
+          </select>
+          <ChevronDown size={14} class="select-chevron" />
+        </div>
+      </div>
+
       {#if selectedSessionId}
-        <div class="active-session-indicator" title="Active Session">
-          <span class="pulse-indicator-dot"></span>
-          <span>Active</span>
+        <div class="session-chip">
+          <span class="pulse-dot"></span>
+          <span>Online</span>
         </div>
       {/if}
     </div>
 
-    <!-- Main Navigation Actions -->
-    <div class="header-actions">
-      <!-- Active App selector -->
-      <div class="app-selector-wrapper">
-        <span class="selector-label">agent:</span>
-        <select id="appSelect" bind:value={selectedApp} onchange={() => { selectedSessionId = ''; loadSessions(); }}>
-          {#each apps as app}
-            <option value={app.name}>{app.root_agent_name || app.name}</option>
-          {/each}
-        </select>
-      </div>
-
-      <!-- Legend of colors toggle -->
-      <button class="legend-trigger-btn" onclick={() => showLegend = true} aria-label="Show capabilities">
-        <span class="btn-text">Capabilities</span>
+    <!-- Header Actions -->
+    <div class="header-right">
+      <button class="header-pill-btn" onclick={() => showLegend = true} title="View Agent System Architecture">
+        <HelpCircle size={15} strokeWidth={1.75} />
+        <span>Capabilities</span>
       </button>
 
-      <!-- Theme Switcher -->
-      <button class="theme-toggle-btn" onclick={toggleTheme} aria-label="Toggle theme">
-        {#if isDarkMode}☀️{:else}🌙{/if}
+      <button class="icon-btn" onclick={toggleTheme} title="Toggle Theme">
+        {#if isDarkMode}
+          <Sun size={18} strokeWidth={1.75} />
+        {:else}
+          <Moon size={18} strokeWidth={1.75} />
+        {/if}
       </button>
     </div>
   </header>
 
-  <!-- Error display box -->
-  {#if errorMsg}
-    <div class="error-banner">
-      <span class="error-icon">⚠️</span>
-      <div class="error-content">
-        <p>{errorMsg}</p>
-      </div>
-      <button class="error-close" onclick={() => errorMsg = ''}>&times;</button>
-    </div>
-  {/if}
-
-  <div class="main-body">
-    <!-- Collapsible Sidebar (Drawer panel) -->
+  <div class="studio-body">
+    <!-- =========================================================================
+     * LEFT PANEL: Sessions & Prompt History
+     * ========================================================================= -->
     {#if showSessions}
-      <aside class="sidebar">
-        <div class="sidebar-section">
-          <div class="section-header">
-            <h2>Sessions</h2>
-            <button class="new-session-btn" onclick={startNewSession} disabled={isLoading}>
-              + New
-            </button>
-          </div>
-          
-          <div class="sessions-list">
-            {#if sessions.length === 0}
-              <p class="empty-list-text">No sessions yet. Create a new one.</p>
-            {:else}
-              {#each sessions as session, idx}
-                <div class="session-card" class:active={selectedSessionId === session.session_id}>
-                  <button class="session-select-btn" onclick={() => selectSession(session.session_id)}>
-                    <div class="session-info">
-                      <span class="session-name">Chat {sessions.length - idx}</span>
-                      <span class="session-date">{selectedSessionId === session.session_id ? 'Active' : 'Past Chat'}</span>
-                    </div>
-                  </button>
-                  <button class="session-delete-btn" onclick={() => deleteSession(session.session_id)} aria-label="Delete Session">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="3 6 5 6 21 6"></polyline>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                  </button>
-                </div>
-              {/each}
-            {/if}
+      <aside class="studio-sidebar">
+        <div class="sidebar-top">
+          <button class="btn-new-prompt" onclick={startNewSession} disabled={isLoading}>
+            <Plus size={18} strokeWidth={2} />
+            <span>New Session</span>
+          </button>
+        </div>
+
+        <div class="sidebar-section-title">
+          <History size={13} strokeWidth={1.75} />
+          <span>SESSION HISTORY</span>
+        </div>
+
+        <div class="sessions-stream">
+          {#if sessions.length === 0}
+            <div class="empty-sessions">
+              <p>No recent chats.</p>
+              <span>Click "+ New Session" to begin.</span>
+            </div>
+          {:else}
+            {#each sessions as session, idx}
+              <div class="session-item" class:active={selectedSessionId === session.session_id}>
+                <button class="session-nav-btn" onclick={() => selectSession(session.session_id)}>
+                  <span class="session-dot" class:active-dot={selectedSessionId === session.session_id}></span>
+                  <div class="session-text-group">
+                    <span class="session-title">Chat Session #{sessions.length - idx}</span>
+                    <span class="session-meta">{selectedSessionId === session.session_id ? 'Current session' : 'Previous history'}</span>
+                  </div>
+                </button>
+                <button 
+                  class="session-del-btn" 
+                  onclick={() => deleteSession(session.session_id)} 
+                  title="Delete Session"
+                >
+                  <Trash2 size={14} strokeWidth={1.75} />
+                </button>
+              </div>
+            {/each}
+          {/if}
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="quota-pill">
+            <span class="quota-dot"></span>
+            <span>Agents Runtime Active</span>
           </div>
         </div>
       </aside>
     {/if}
 
-    <!-- Right Workspace: Interactive Chat Window -->
-    <main class="chat-workspace" 
+    <!-- =========================================================================
+     * CENTRAL WORKSPACE: Prompt Stream & Floating Input
+     * ========================================================================= -->
+    <main class="studio-main" 
+          ondragenter={handleDragEnter}
           ondragover={handleDragOver}
           ondragleave={handleDragLeave}
           ondrop={handleDrop}>
       
-      <!-- Drag & Drop overlay indicator -->
+      <!-- Drag & Drop Overlay -->
       {#if isDragging}
-        <div class="drag-overlay">
-          <div class="drag-message">
-            <span class="drag-emoji">📥</span>
-            <h3>Drag & Drop Files Here</h3>
-            <p>Accepts receipt scans, PDFs, and participant spreadsheets</p>
+        <div class="drag-zone-overlay">
+          <div class="drag-zone-card">
+            <Paperclip size={36} class="drag-icon" />
+            <h3>Drop Files for Multimodal Inference</h3>
+            <p>Accepts receipts, invoice images, portrait photos, spreadsheets, and PDFs</p>
           </div>
         </div>
       {/if}
 
       {#if !selectedSessionId}
-        <!-- Welcome empty state screen -->
-        <div class="welcome-container">
-          <h2>GDG AI Agents Portal</h2>
-          <p>To get started, start a new session. This will allow you to interact with agents, upload files, and view generated reports.</p>
-          <div class="welcome-action-box">
-            <button class="start-btn" onclick={startNewSession}>🚀 Start a New Session</button>
+        <!-- Informative Agent Hub Dashboard -->
+        <div class="hub-welcome-view">
+          <div class="hub-hero">
+            <div class="hub-pill">
+              <span class="hub-pill-dot"></span>
+              <span>GDG Krakow Operations & Event Platform</span>
+            </div>
+            <h2>Autonomous Agent Orchestration</h2>
+            <p>Select a specialized agent below or use the <strong>Root Orchestrator</strong> to automatically analyze your prompt and dispatch tasks across pipelines.</p>
+          </div>
+
+          <!-- Quick 3-Step Guide -->
+          <div class="workflow-steps-strip">
+            <div class="step-badge">
+              <span class="step-num">1</span>
+              <span>Select agent or attach docs</span>
+            </div>
+            <div class="step-separator"></div>
+            <div class="step-badge">
+              <span class="step-num">2</span>
+              <span>Run prompt (Ctrl+Enter)</span>
+            </div>
+            <div class="step-separator"></div>
+            <div class="step-badge">
+              <span class="step-num">3</span>
+              <span>Inspect tool calls & copy outputs</span>
+            </div>
+          </div>
+
+          <!-- Agents Catalog Grid -->
+          <div class="agents-catalog-grid">
+            <!-- Root Orchestrator -->
+            <button 
+              class="agent-catalog-card" 
+              style="--card-border: var(--agent-root);"
+              onclick={() => { selectedApp = 'root_agent'; startNewSession(); queryText = "Analyze current task requirements and coordinate suitable agents."; }}
+            >
+              <div class="agent-card-header">
+                <div class="agent-icon-box">
+                  <Workflow size={18} strokeWidth={1.75} />
+                </div>
+                <div class="agent-title-col">
+                  <strong>Root Orchestrator</strong>
+                  <span class="agent-type-tag">Router & Coordinator</span>
+                </div>
+              </div>
+              <p class="agent-card-desc">Parses complex multi-step requests, verifies prerequisites, and delegates tasks to sub-agents.</p>
+              <div class="card-footer-action">
+                <span>Start workflow</span>
+                <ArrowRight size={14} />
+              </div>
+            </button>
+
+            <!-- Receipt Scanner -->
+            <button 
+              class="agent-catalog-card" 
+              style="--card-border: var(--agent-receipt);"
+              onclick={() => { selectedApp = 'receipt_scanner'; startNewSession(); queryText = "Scan attached receipt, extract VAT & line items, convert currency and create expense report."; }}
+            >
+              <div class="agent-card-header">
+                <div class="agent-icon-box">
+                  <Receipt size={18} strokeWidth={1.75} />
+                </div>
+                <div class="agent-title-col">
+                  <strong>Receipt Scanner</strong>
+                  <span class="agent-type-tag">OCR & Financials</span>
+                </div>
+              </div>
+              <p class="agent-card-desc">Extracts line items, queries NBP/Pekao exchange rates, and exports formatted expense reports.</p>
+              <div class="card-footer-action">
+                <span>Scan receipts</span>
+                <ArrowRight size={14} />
+              </div>
+            </button>
+
+            <!-- Live Video Editor -->
+            <button 
+              class="agent-catalog-card" 
+              style="--card-border: var(--agent-video);"
+              onclick={() => { selectedApp = 'video_editor'; startNewSession(); queryText = "Outpaint speaker portrait to 9:16 aspect ratio and generate animated intro via Veo."; }}
+            >
+              <div class="agent-card-header">
+                <div class="agent-icon-box">
+                  <Video size={18} strokeWidth={1.75} />
+                </div>
+                <div class="agent-title-col">
+                  <strong>Live Video Editor</strong>
+                  <span class="agent-type-tag">Veo & Media AI</span>
+                </div>
+              </div>
+              <p class="agent-card-desc">Detects face landmarks, executes 9:16 outpainting, and generates cinematic speaker intro videos.</p>
+              <div class="card-footer-action">
+                <span>Generate video</span>
+                <ArrowRight size={14} />
+              </div>
+            </button>
+
+            <!-- LinkedIn Planner -->
+            <button 
+              class="agent-catalog-card" 
+              style="--card-border: var(--agent-linkedin);"
+              onclick={() => { selectedApp = 'linkedin_post_generator'; startNewSession(); queryText = "Draft 3 engaging LinkedIn post variants for upcoming speaker session and event recap."; }}
+            >
+              <div class="agent-card-header">
+                <div class="agent-icon-box">
+                  <Share2 size={18} strokeWidth={1.75} />
+                </div>
+                <div class="agent-title-col">
+                  <strong>LinkedIn Planner</strong>
+                  <span class="agent-type-tag">Social Copy</span>
+                </div>
+              </div>
+              <p class="agent-card-desc">Drafts speaker announcements and structured multi-option event recap posts ready for copy-pasting.</p>
+              <div class="card-footer-action">
+                <span>Draft posts</span>
+                <ArrowRight size={14} />
+              </div>
+            </button>
+
+            <!-- Registrations Manager -->
+            <button 
+              class="agent-catalog-card" 
+              style="--card-border: var(--agent-registration);"
+              onclick={() => { selectedApp = 'registration_manager'; startNewSession(); queryText = "Deduplicate attendee registrations, clean multilingual names and cross-reference organizer list."; }}
+            >
+              <div class="agent-card-header">
+                <div class="agent-icon-box">
+                  <Users size={18} strokeWidth={1.75} />
+                </div>
+                <div class="agent-title-col">
+                  <strong>Registrations Manager</strong>
+                  <span class="agent-type-tag">Data Cleaning</span>
+                </div>
+              </div>
+              <p class="agent-card-desc">Filters test entries, performs phonetic fuzzy name matching, and compiles verified registration lists.</p>
+              <div class="card-footer-action">
+                <span>Process list</span>
+                <ArrowRight size={14} />
+              </div>
+            </button>
+
+            <!-- Event Scheduler -->
+            <button 
+              class="agent-catalog-card" 
+              style="--card-border: var(--agent-planner);"
+              onclick={() => { selectedApp = 'event_planner'; startNewSession(); queryText = "Check local meetup conflicts and public holiday risks for our next GDG event date."; }}
+            >
+              <div class="agent-card-header">
+                <div class="agent-icon-box">
+                  <Calendar size={18} strokeWidth={1.75} />
+                </div>
+                <div class="agent-title-col">
+                  <strong>Event Scheduler</strong>
+                  <span class="agent-type-tag">Calendar Intelligence</span>
+                </div>
+              </div>
+              <p class="agent-card-desc">Scans Meetup.com and Luma for tech clashes, cross-references Polish public holidays and vacations.</p>
+              <div class="card-footer-action">
+                <span>Check dates</span>
+                <ArrowRight size={14} />
+              </div>
+            </button>
+
+            <!-- Agenda Formatter -->
+            <button 
+              class="agent-catalog-card" 
+              style="--card-border: var(--agent-agenda);"
+              onclick={() => { selectedApp = 'agenda_generator'; startNewSession(); queryText = "Format meetup timeline starting at 17:30 with 2 speaker slots (35min each) and pizza pause."; }}
+            >
+              <div class="agent-card-header">
+                <div class="agent-icon-box">
+                  <Clock size={18} strokeWidth={1.75} />
+                </div>
+                <div class="agent-title-col">
+                  <strong>Agenda Formatter</strong>
+                  <span class="agent-type-tag">Timeline Logistics</span>
+                </div>
+              </div>
+              <p class="agent-card-desc">Calculates minute-by-minute schedules with talks, coffee breaks, and pizza pauses with clean time rounding.</p>
+              <div class="card-footer-action">
+                <span>Build agenda</span>
+                <ArrowRight size={14} />
+              </div>
+            </button>
+
+            <!-- Office Secretary -->
+            <button 
+              class="agent-catalog-card" 
+              style="--card-border: var(--agent-office);"
+              onclick={() => { selectedApp = 'office_secretary'; startNewSession(); queryText = "Draft polite email request for visitor key access cards and Event Hub space reservation."; }}
+            >
+              <div class="agent-card-header">
+                <div class="agent-icon-box">
+                  <Mail size={18} strokeWidth={1.75} />
+                </div>
+                <div class="agent-title-col">
+                  <strong>Office Secretary</strong>
+                  <span class="agent-type-tag">Venue Administration</span>
+                </div>
+              </div>
+              <p class="agent-card-desc">Composes formal reservation and visitor keycard request emails with mandatory date verification.</p>
+              <div class="card-footer-action">
+                <span>Compose email</span>
+                <ArrowRight size={14} />
+              </div>
+            </button>
           </div>
         </div>
       {:else}
-        <!-- Session chat container -->
-        <div class="chat-container">
+        <!-- Chat & Output Stream -->
+        <div class="chat-viewport">
           {#if isLoading}
-            <div class="loading-progress-bar"></div>
+            <div class="studio-progress-line"></div>
           {/if}
-          <!-- Chat Messages Body -->
-          <div class="chat-body" bind:this={chatBodyElement}>
-            <div class="chat-feed-wrapper">
-              {#if events.length === 0}
-                <div class="chat-empty-state">
-                  <p>Session is active. Send a request or drag documents (receipt scans, participant lists) directly into this window.</p>
-                </div>
-              {/if}
 
-              {#each filteredEvents as event, idx}
-                {#if event.author === 'user'}
-                  <!-- User Message -->
-                  <div class="message-wrapper user-msg">
-                    <div class="message-bubble">
-                      {#if event.content && event.content.parts}
-                        {#each event.content.parts as part}
-                          {#if part.text}
-                            <div class="msg-text markdown-body">{@html renderMarkdown(part.text)}</div>
-                          {/if}
-                          {#if part.inline_data}
-                            <div class="uploaded-part-preview">
-                              <span class="file-icon">📎</span>
-                              <span class="file-name">Attachment ({part.inline_data.mime_type})</span>
-                            </div>
-                          {/if}
-                        {/each}
-                      {/if}
-                    </div>
-                    <span class="avatar-lbl">You</span>
-                  </div>
-                {:else}
-                  <!-- Agent / Tool / Orchestrator Message -->
-                  {@const theme = getAgentTheme(event.author)}
-                  <div class="message-wrapper agent-msg" style="--agent-color: {theme.color}; --agent-bg: {theme.bg}">
-                    
-                    <!-- Flow Visualization Indicator (Simplified) -->
-                    {#if idx === 0 || filteredEvents[idx - 1].author !== event.author}
-                      <div class="delegation-badge" style="background: {theme.bg}; color: {theme.color}">
-                        <span class="badge-dot" style="background: {theme.color}"></span>
-                        <span class="badge-label">{theme.label}</span>
-                      </div>
-                    {/if}
-
-                    <div class="message-bubble" class:thinking={event.author && event.author.toLowerCase().includes('thinking')}>
-                      {#if event.content && event.content.parts}
-                        {#each event.content.parts as part}
-                          {#if part.text}
-                            {@const variants = parseResponseVariants(part.text, event.author)}
-                            {#if variants.length === 1}
-                              <div class="msg-text markdown-body">{@html renderMarkdown(part.text)}</div>
-                            {:else}
-                              <div class="variants-container">
-                                {#each variants as variant, vIdx}
-                                  <div class="variant-card">
-                                    <div class="variant-card-header">
-                                      <span class="variant-badge">{variant.header}</span>
-                                      <div class="card-header-actions">
-                                        {#if variant.header.toLowerCase() !== 'introduction'}
-                                          <button class="action-card-btn copy-btn" title="Copy text only" onclick={() => copyToClipboard(variant.body, 'v_' + idx + '_' + vIdx)}>
-                                            {copiedId === 'v_' + idx + '_' + vIdx ? 'Copied!' : 'Copy'}
-                                          </button>
-                                          <button class="action-card-btn refine-btn" title="Refine option in free mode" onclick={() => refineVariant(variant.body)}>
-                                            Refine
-                                          </button>
-                                        {/if}
-                                      </div>
-                                    </div>
-                                    <div class="variant-card-body markdown-body">
-                                      {@html renderMarkdown(variant.body)}
-                                    </div>
-                                  </div>
-                                {/each}
-                              </div>
-                            {/if}
-                          {/if}
-                          
-                          <!-- Tool Call Formatting -->
-                          {#if part.function_call || part.functionCall}
-                            {@const fc = part.function_call || part.functionCall}
-                            <div class="tool-call-box">
-                              <details class="tool-details">
-                                <summary class="tool-header">
-                                  <span class="tool-badge">Step</span>
-                                  <span class="tool-title">{getFriendlyToolCall(fc.name, fc.args)}</span>
-                                  <span class="details-toggle-icon">▼</span>
-                                </summary>
-                                <pre class="tool-args">{JSON.stringify(fc.args || {}, null, 2)}</pre>
-                              </details>
-                            </div>
-                          {/if}
-
-                          <!-- Tool Response Formatting -->
-                          {#if part.function_response || part.functionResponse}
-                            {@const fr = part.function_response || part.functionResponse}
-                            <div class="tool-response-box">
-                              <details class="tool-details">
-                                <summary class="tool-header">
-                                  <span class="tool-response-badge">Done</span>
-                                  <span class="tool-title">{getFriendlyToolResponse(fr.name, fr.response)}</span>
-                                  <span class="details-toggle-icon">▼</span>
-                                </summary>
-                                <pre class="tool-output">{JSON.stringify(fr.response || {}, null, 2)}</pre>
-                              </details>
-                            </div>
-                          {/if}
-                        {/each}
-                      {/if}
-                    </div>
-                  </div>
-                {/if}
-              {/each}
-
-              {#if isLoading}
-                <!-- Blinking/flickering intermediate status ticker -->
-                <div class="pulsing-loading-state">
-                  <span class="pulse-dot-indicator"></span>
-                  <p class="pulse-status-text">{statusText}</p>
-                </div>
-              {/if}
-            </div>
-          </div>
-
-          <!-- Floating Chat Input Controls -->
-          <footer class="chat-input-bar">
-            {#if stagedFiles.length > 0}
-              <div class="staged-files-bar">
-                {#each stagedFiles as file, index}
-                  <div class="staged-file-card">
-                    {#if file.preview}
-                      <img class="staged-preview-img" src={file.preview} alt="staged img" />
-                    {:else}
-                      <span class="staged-preview-doc">📄</span>
-                    {/if}
-                    <div class="staged-info">
-                      <span class="staged-name">{file.name}</span>
-                    </div>
-                    <button class="staged-remove-btn" onclick={() => removeStagedFile(index)}>&times;</button>
-                  </div>
-                {/each}
+          <!-- Messages Body -->
+          <div class="messages-container" bind:this={chatBodyElement}>
+            {#if events.length === 0}
+              <div class="empty-conversation-state">
+                <Sparkle size={32} class="empty-sparkle" />
+                <h3>Prompt Session Initialized</h3>
+                <p>Type your query or drag media files into the floating bar below to start.</p>
               </div>
             {/if}
 
-            <div class="chat-input-row">
-              <div class="input-actions">
-                <label class="attach-btn" title="Attach files">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                  </svg>
-                  <input type="file" multiple onchange={handleFileSelect} style="display: none;" />
-                </label>
+            {#each filteredEvents as event, idx}
+              {#if event.errorMessage || event.errorCode || event.error}
+                {@const theme = getAgentTheme(event.author)}
+                <!-- Error Event Card -->
+                <div class="message-row error-row">
+                  <div class="message-card error-card">
+                    <div class="error-card-header">
+                      <div class="error-badge-pill">
+                        <AlertCircle size={14} />
+                        <span>Execution Error ({theme.label || event.author || 'Agent'})</span>
+                      </div>
+                    </div>
+                    <div class="error-body">
+                      <p class="error-text-main">{event.errorMessage || (typeof event.error === 'object' ? (event.error.message || JSON.stringify(event.error)) : event.error) || 'An error occurred during execution.'}</p>
+                      {#if event.errorCode}
+                        <div class="error-code-chip">{event.errorCode}</div>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              {:else if event.author === 'user'}
+                <!-- User Prompt Bubble -->
+                <div class="message-row user-row">
+                  <div class="message-card user-card">
+                    <div class="card-author">
+                      <User size={14} />
+                      <span>You</span>
+                    </div>
+                    {#if event.content && event.content.parts}
+                      {#each event.content.parts as part}
+                        {#if part.text}
+                          <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
+                        {/if}
+                        {#if part.inline_data || part.inlineData}
+                          {@const inline = part.inline_data || part.inlineData}
+                          {@const mime = inline.mime_type || inline.mimeType || ''}
+                          <div class="user-attached-file-badge">
+                            <Paperclip size={13} class="badge-paperclip" />
+                            <span class="badge-filename">Attached Media ({mime.replace('image/', 'img:').replace('video/', 'video:').replace('application/', '') || 'file'})</span>
+                            <span class="badge-status-dot"></span>
+                            <span class="badge-status-label">Transferred</span>
+                          </div>
+                        {/if}
+                      {/each}
+                    {/if}
+                  </div>
+                </div>
+              {:else}
+                <!-- Model Response Card -->
+                {@const theme = getAgentTheme(event.author)}
+                <div class="message-row model-row" style="--agent-color: {theme.color}; --agent-bg: {theme.bg}">
+                  <div class="message-card model-card">
+                    <div class="model-author-header">
+                      <div class="agent-badge-pill" style="background: {theme.bg}; color: {theme.color}; border: 1px solid {theme.color}40;">
+                        <span class="badge-dot" style="background: {theme.color}"></span>
+                        <span>{theme.label}</span>
+                      </div>
+                    </div>
+
+                    {#if event.content && event.content.parts}
+                      {#each event.content.parts as part}
+                        {#if part.text}
+                          {@const variants = parseResponseVariants(part.text, event.author)}
+                          {#if variants.length === 1}
+                            <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
+                          {:else}
+                            <div class="variants-deck">
+                              {#each variants as variant, vIdx}
+                                <div class="variant-item-card">
+                                  <div class="variant-top-bar">
+                                    <span class="variant-tag">{variant.header || 'Option'}</span>
+                                    <div class="variant-actions">
+                                      {#if variant.header.toLowerCase() !== 'introduction'}
+                                        <button class="variant-btn" onclick={() => copyToClipboard(variant.body, 'v_' + idx + '_' + vIdx)}>
+                                          {#if copiedId === 'v_' + idx + '_' + vIdx}
+                                            <Check size={13} />
+                                            <span>Copied</span>
+                                          {:else}
+                                            <Copy size={13} />
+                                            <span>Copy</span>
+                                          {/if}
+                                        </button>
+                                        <button class="variant-btn refine-btn" onclick={() => refineVariant(variant.body)}>
+                                          <RefreshCw size={13} />
+                                          <span>Refine</span>
+                                        </button>
+                                      {/if}
+                                    </div>
+                                  </div>
+                                  <div class="variant-markdown markdown-body">
+                                    {@html renderMarkdown(variant.body)}
+                                  </div>
+                                </div>
+                              {/each}
+                            </div>
+                          {/if}
+                        {/if}
+
+                        <!-- Tool Call Activity Step (Clean, No Raw JSON) -->
+                        {#if part.function_call || part.functionCall}
+                          {@const fc = part.function_call || part.functionCall}
+                          <div class="activity-step-chip">
+                            <div class="activity-pulse-dot"></div>
+                            <span class="activity-label">{getFriendlyToolCall(fc.name, fc.args)}</span>
+                          </div>
+                        {/if}
+
+                        <!-- Tool Response Activity Step (Clean, No Raw JSON) -->
+                        {#if part.function_response || part.functionResponse}
+                          {@const fr = part.function_response || part.functionResponse}
+                          <div class="activity-step-chip activity-done">
+                            <Check size={13} class="activity-check-icon" />
+                            <span class="activity-label">{getFriendlyToolResponse(fr.name, fr.response)}</span>
+                          </div>
+                        {/if}
+                      {/each}
+                    {/if}
+                  </div>
+                </div>
+              {/if}
+            {/each}
+
+            {#if isLoading}
+              <!-- Real-time Gemini Generation Stream Shimmer -->
+              <div class="generating-live-card">
+                <div class="generating-header">
+                  <Sparkles size={16} class="generating-sparkle" />
+                  <span class="generating-status">{statusText}</span>
+                  <span class="streaming-cursor"></span>
+                </div>
+                <div class="skeleton-shimmer-group">
+                  <div class="skeleton-line" style="width: 85%;"></div>
+                  <div class="skeleton-line" style="width: 65%;"></div>
+                </div>
               </div>
-              
-              <textarea 
-                bind:this={textareaElement}
-                bind:value={queryText}
-                onkeydown={handleKeyPress}
-                oninput={(e) => {
-                  const target = /** @type {HTMLTextAreaElement} */ (e.target);
-                  target.style.height = 'auto';
-                  target.style.height = (target.scrollHeight) + 'px';
-                }}
-                placeholder=""
-                rows="1"
-                disabled={isLoading}
-              ></textarea>
-              
-              <button class="send-btn-large" aria-label="Send Message" onclick={sendMessage} disabled={isLoading || (!queryText.trim() && stagedFiles.length === 0)}>
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-                </svg>
-              </button>
-            </div>
-          </footer>
+            {/if}
+          </div>
         </div>
       {/if}
+
+      <!-- =========================================================================
+       * FLOATING PROMPT INPUT BAR (Google AI Studio Standard)
+       * ========================================================================= -->
+      <div class="floating-prompt-wrapper">
+        <div class="floating-prompt-box">
+          <!-- Top Attachment & Context Strip -->
+          <div class="prompt-meta-top">
+            <label class="chip-action-btn" title="Add Multimodal Attachments">
+              <Plus size={15} strokeWidth={2} />
+              <span>Add files</span>
+              <input type="file" multiple onchange={handleFileSelect} style="display: none;" />
+            </label>
+
+            <div class="token-telemetry">
+              <span class="token-val">{(queryText.length * 0.25).toFixed(0)}</span>
+              <span class="token-max">/ 1,048,576 tokens</span>
+            </div>
+          </div>
+
+          <!-- Staged Attachments Carousel -->
+          {#if stagedFiles.length > 0}
+            <div class="staged-media-row">
+              {#each stagedFiles as file, index}
+                <div class="staged-card">
+                  {#if file.preview}
+                    <img class="staged-img" src={file.preview} alt="staged upload" />
+                  {:else}
+                    <FileText size={20} class="staged-doc-icon" />
+                  {/if}
+                  <span class="staged-filename">{file.name}</span>
+                  <button class="staged-del-btn" onclick={() => removeStagedFile(index)}>&times;</button>
+                </div>
+              {/each}
+            </div>
+          {/if}
+
+          <!-- Textarea Field -->
+          <textarea 
+            bind:this={textareaElement}
+            bind:value={queryText}
+            onkeydown={handleKeyPress}
+            oninput={(e) => {
+              const target = /** @type {HTMLTextAreaElement} */ (e.target);
+              target.style.height = 'auto';
+              target.style.height = (target.scrollHeight) + 'px';
+            }}
+            placeholder="Type your prompt here, or press Ctrl+Enter to execute..."
+            rows="1"
+            disabled={isLoading}
+          ></textarea>
+
+          <!-- Bottom Action Toolbar -->
+          <div class="prompt-meta-bottom">
+            <div class="prompt-quick-tags">
+              <span class="tag-hint">Ctrl + ↵ to Run</span>
+            </div>
+
+            <button 
+              class="btn-run-gemini" 
+              onclick={sendMessage} 
+              disabled={isLoading || (!queryText.trim() && stagedFiles.length === 0)}
+            >
+              <Sparkles size={16} strokeWidth={2} class={isLoading ? 'generating-sparkle' : ''} />
+              <span>Run</span>
+              <CornerDownLeft size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </div>
 
-<!-- Premium capabilities modal legend -->
+<!-- =========================================================================
+ * CAPABILITIES MODAL (M3 Dialog & Theme Specs)
+ * ========================================================================= -->
 {#if showLegend}
-  <div class="modal-backdrop" role="button" tabindex="-1" aria-label="Close legend" onclick={(e) => { if (e.target === e.currentTarget) showLegend = false; }} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') showLegend = false; }}>
+  <div class="modal-backdrop" role="button" tabindex="-1" onclick={(e) => { if (e.target === e.currentTarget) showLegend = false; }} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') showLegend = false; }}>
     <div class="modal-card">
       <header class="modal-header">
-        <h2>GDG AI Agents Capabilities</h2>
-        <button class="modal-close-btn" onclick={() => showLegend = false}>&times;</button>
+        <div class="modal-title-group">
+          <Sparkles size={20} class="modal-gemini-icon" />
+          <h2>GDG Agent System Architecture</h2>
+        </div>
+        <button class="icon-btn" onclick={() => showLegend = false}>
+          <X size={18} />
+        </button>
       </header>
       
-      <div class="modal-body-content">
-        <p class="legend-intro">Each AI agent is assigned a unique color marker. During task execution, you will see how they seamlessly coordinate and delegate context to each other:</p>
+      <div class="modal-content">
+        <p class="modal-intro">Each specialized agent operates autonomously or in coordination with the Root Orchestrator using dedicated toolkits and verified outputs:</p>
         
-        <div class="legend-grid">
+        <div class="capabilities-grid">
           <!-- Root Orchestrator -->
-          <div class="legend-item" style="--border-color: var(--agent-root); --bg-tint: var(--bg-root)">
-            <div class="legend-agent-header">
-              <span class="legend-color-dot" style="background: var(--agent-root)"></span>
+          <div class="capability-card" style="--card-accent: var(--agent-root); --card-bg: var(--bg-root)">
+            <div class="capability-top">
+              <span class="cap-indicator" style="background: var(--agent-root)"></span>
               <h3>Root Orchestrator</h3>
             </div>
-            <p class="legend-description">Main agent coordinator. Receives user requests, analyzes user intent, and delegates tasks to specialized sub-agents. Handles general orchestration and instant error processing.</p>
+            <p>Main agent coordinator. Parses user intent, plans workflow execution, and delegates execution steps to sub-agents.</p>
           </div>
 
           <!-- Receipt Scanner -->
-          <div class="legend-item" style="--border-color: var(--agent-receipt); --bg-tint: var(--bg-receipt)">
-            <div class="legend-agent-header">
-              <span class="legend-color-dot" style="background: var(--agent-receipt)"></span>
+          <div class="capability-card" style="--card-accent: var(--agent-receipt); --card-bg: var(--bg-receipt)">
+            <div class="capability-top">
+              <span class="cap-indicator" style="background: var(--agent-receipt)"></span>
               <h3>Receipt Scanner</h3>
             </div>
-            <p class="legend-description">Receipt and invoice parser. Natively analyzes images and PDFs, identifies line items, calculates taxes, queries Pekao/NBP exchange rates, and exports clean expense reports directly to Google Docs using official templates.</p>
+            <p>Vision OCR analyzer. Extracts line items, VAT, fetches Pekao/NBP exchange rates, and exports formatted expense reports.</p>
           </div>
 
           <!-- Video Editor -->
-          <div class="legend-item" style="--border-color: var(--agent-video); --bg-tint: var(--bg-video)">
-            <div class="legend-agent-header">
-              <span class="legend-color-dot" style="background: var(--agent-video)"></span>
+          <div class="capability-card" style="--card-accent: var(--agent-video); --card-bg: var(--bg-video)">
+            <div class="capability-top">
+              <span class="cap-indicator" style="background: var(--agent-video)"></span>
               <h3>Live Video Editor</h3>
             </div>
-            <p class="legend-description">Media engineer for speaker card intros. Detects faces in portraits, executes intelligent outpainting to 9:16 ratio, and generates high-fidelity, premium animated video intros using Google Veo.</p>
+            <p>Speaker portrait outpainting and cinematic video animation generation using Veo models.</p>
           </div>
 
           <!-- LinkedIn Planner -->
-          <div class="legend-item" style="--border-color: var(--agent-linkedin); --bg-tint: var(--bg-linkedin)">
-            <div class="legend-agent-header">
-              <span class="legend-color-dot" style="background: var(--agent-linkedin)"></span>
+          <div class="capability-card" style="--card-accent: var(--agent-linkedin); --card-bg: var(--bg-linkedin)">
+            <div class="capability-top">
+              <span class="cap-indicator" style="background: var(--agent-linkedin)"></span>
               <h3>LinkedIn Planner</h3>
             </div>
-            <p class="legend-description">Viral social media post generator. Drafts engaging individual speaker announcements (excluding company/position details to preserve anticipation) and comprehensive multi-speaker event recap posts.</p>
+            <p>Generates high-engagement speaker announcements and structured multi-option event recap posts.</p>
           </div>
 
           <!-- Registrations Manager -->
-          <div class="legend-item" style="--border-color: var(--agent-registration); --bg-tint: var(--bg-registration)">
-            <div class="legend-agent-header">
-              <span class="legend-color-dot" style="background: var(--agent-registration)"></span>
+          <div class="capability-card" style="--card-accent: var(--agent-registration); --card-bg: var(--bg-registration)">
+            <div class="capability-top">
+              <span class="cap-indicator" style="background: var(--agent-registration)"></span>
               <h3>Registrations Manager</h3>
             </div>
-            <p class="legend-description">Participant list manager. Cleans participant lists, filters duplicates, sorts names across multilingual scripts, and performs phonetic fuzzy matching for organizer directories.</p>
+            <p>Cleans participant datasets, filters duplicates, normalizes names across scripts, and generates clean DOCX files.</p>
           </div>
 
           <!-- Event Scheduler -->
-          <div class="legend-item" style="--border-color: var(--agent-planner); --bg-tint: var(--bg-planner)">
-            <div class="legend-agent-header">
-              <span class="legend-color-dot" style="background: var(--agent-planner)"></span>
+          <div class="capability-card" style="--card-accent: var(--agent-planner); --card-bg: var(--bg-planner)">
+            <div class="capability-top">
+              <span class="cap-indicator" style="background: var(--agent-planner)"></span>
               <h3>Event Scheduler</h3>
             </div>
-            <p class="legend-description">Date planner and conflict detector. Scans local tech schedules on Luma and Meetup.com to avoid scheduling overlaps, cross-references statutory public holidays, and highlights potential summer vacation lower attendance risks.</p>
+            <p>Detects meetup schedule conflicts against Luma and Meetup.com, checks statutory Polish holidays, and flags risk dates.</p>
           </div>
 
           <!-- Agenda Formatter -->
-          <div class="legend-item" style="--border-color: var(--agent-agenda); --bg-tint: var(--bg-agenda)">
-            <div class="legend-agent-header">
-              <span class="legend-color-dot" style="background: var(--agent-agenda)"></span>
+          <div class="capability-card" style="--card-accent: var(--agent-agenda); --card-bg: var(--bg-agenda)">
+            <div class="capability-top">
+              <span class="cap-indicator" style="background: var(--agent-agenda)"></span>
               <h3>Agenda Formatter</h3>
             </div>
-            <p class="legend-description">Timeline scheduler and visual formatter. Computes precise, minute-by-minute meetup schedules based on speaker slots, coffee breaks, and pizza pauses, automatically rounds finish times, and outputs copy-pasteable summaries.</p>
+            <p>Computes minute-by-minute meetup schedules with speaker talks, networking, and pizza breaks, formatted for copy-pasting.</p>
           </div>
 
           <!-- Office Secretary -->
-          <div class="legend-item" style="--border-color: var(--agent-office); --bg-tint: var(--bg-office)">
-            <div class="legend-agent-header">
-              <span class="legend-color-dot" style="background: var(--agent-office)"></span>
+          <div class="capability-card" style="--card-accent: var(--agent-office); --card-bg: var(--bg-office)">
+            <div class="capability-top">
+              <span class="cap-indicator" style="background: var(--agent-office)"></span>
               <h3>Office Secretary</h3>
             </div>
-            <p class="legend-description">Administrative assistant. Drafts polite, template-based email requests to the office team for visitor key access cards and Event Hub space reservations, enforcing mandatory date checks.</p>
+            <p>Drafts polite visitor keys access card and Event Hub reservation request emails with mandatory date validation.</p>
           </div>
         </div>
       </div>
       
-      <footer class="modal-footer">
-        <button class="legend-close-btn" onclick={() => showLegend = false}>Got it</button>
+      <footer class="modal-actions">
+        <button class="btn-primary" onclick={() => showLegend = false}>Close</button>
       </footer>
     </div>
   </div>
 {/if}
 
 <style>
-  /* Premium layout structure */
-  .app-layout {
+  /* =========================================================================
+   * GOOGLE AI STUDIO 3-COLUMN LAYOUT
+   * ========================================================================= */
+  .studio-layout {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background-color: var(--bg-color);
+    width: 100vw;
+    background-color: var(--bg-app);
     color: var(--text-primary);
-    transition: background-color var(--transition-normal);
-    position: relative;
     overflow: hidden;
   }
 
-  /* Animated aurora mesh gradient that activates when agent is thinking */
-  .app-layout::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(circle at 10% 20%, var(--active-agent-color, transparent) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, var(--accent-color) 0%, transparent 45%),
-                radial-gradient(circle at 50% 50%, var(--active-agent-color, transparent) 0%, transparent 35%);
-    background-size: 200% 200%;
-    filter: blur(120px);
-    opacity: 0;
-    pointer-events: none;
-    z-index: 0;
-    transition: opacity 1.8s ease-in-out;
-  }
-
-  .app-layout.thinking-active::before {
-    opacity: 0.16;
-    animation: aurora-mesh 14s ease-in-out infinite alternate;
-  }
-
-  @keyframes aurora-mesh {
-    0% {
-      transform: translate(0, 0) scale(1) rotate(0deg);
-      background-position: 0% 0%;
-    }
-    50% {
-      transform: translate(3%, 4%) scale(1.06) rotate(3deg);
-      background-position: 50% 100%;
-    }
-    100% {
-      transform: translate(-2%, 2%) scale(0.96) rotate(-2deg);
-      background-position: 100% 0%;
-    }
-  }
-
-  .app-header {
+  /* Header / Top App Bar */
+  .studio-header {
+    height: 56px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: center;
-    padding: 16px 24px;
-    background-color: var(--panel-bg);
-    border-bottom: 1px solid var(--panel-border);
-    backdrop-filter: blur(10px);
-    z-index: 10;
+    padding: 0 16px;
+    z-index: 50;
   }
 
-  .header-logo {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-  }
-
-  .logo-title h1 {
-    font-size: 22px;
-    font-weight: 700;
-    margin: 0;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-  }
-
-  .logo-title p {
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin: 4px 0 0;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .active-session-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background: var(--bg-root);
-    border: 1px solid var(--agent-root);
-    color: var(--agent-root);
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    animation: fadeIn var(--transition-normal);
-  }
-
-  .pulse-indicator-dot {
-    width: 6.5px;
-    height: 6.5px;
-    border-radius: 50%;
-    background-color: var(--agent-root);
-    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4);
-    animation: pulseCircleDot 1.6s infinite ease-in-out;
-  }
-
-  @keyframes pulseCircleDot {
-    0% {
-      transform: scale(0.95);
-      box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7);
-    }
-    70% {
-      transform: scale(1.1);
-      box-shadow: 0 0 0 6px rgba(5, 150, 105, 0);
-    }
-    100% {
-      transform: scale(0.95);
-      box-shadow: 0 0 0 0 rgba(5, 150, 105, 0);
-    }
-  }
-
-  .header-actions {
+  .header-left, .header-right {
     display: flex;
     align-items: center;
     gap: 12px;
   }
 
-  .sidebar-toggle-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px;
-    border-radius: 50%;
-    transition: background var(--transition-fast), color var(--transition-fast);
-    margin-right: 8px;
-  }
-
-  .sidebar-toggle-btn:hover, .sidebar-toggle-btn.active {
-    background: var(--panel-border);
-    color: var(--text-primary);
-  }
-
-  .legend-trigger-btn {
-    padding: 6px 12px;
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--panel-border);
-    border-radius: 20px;
-    font-weight: 500;
-    font-size: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-  }
-
-  .legend-trigger-btn:hover {
-    background: var(--panel-border);
-    border-color: var(--text-muted);
-    color: var(--text-primary);
-  }
-
-  .app-selector-wrapper {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11.5px;
-    color: var(--text-muted);
-    background: transparent;
-    padding: 5px 12px;
-    border-radius: 20px;
-    border: 1px solid var(--panel-border);
-  }
-
-  .selector-label {
-    opacity: 0.7;
-    font-weight: 500;
-  }
-
-  .app-selector-wrapper select {
-    background: transparent;
-    color: var(--text-secondary);
-    border: none;
-    font-weight: 600;
-    font-size: 11.5px;
-    outline: none;
-    cursor: pointer;
-    padding: 0 4px;
-    margin: 0;
-    appearance: none;
-    -webkit-appearance: none;
-    transition: color var(--transition-fast);
-  }
-
-  .app-selector-wrapper select:hover {
-    color: var(--text-primary);
-  }
-
-  .theme-toggle-btn {
-    width: 30px;
-    height: 30px;
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--panel-border);
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-  }
-
-  .theme-toggle-btn:hover {
-    background: var(--panel-border);
-    border-color: var(--text-muted);
-    color: var(--text-primary);
-  }
-
-  .main-body {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-  }
-
-  /* Sidebar */
-  .sidebar {
-    width: 300px;
-    background-color: var(--panel-bg);
-    border-right: 1px solid var(--panel-border);
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    padding: 20px;
-    gap: 24px;
-    animation: slideInSidebar var(--transition-normal);
-  }
-
-  @keyframes slideInSidebar {
-    from { width: 0; opacity: 0; }
-    to { width: 300px; opacity: 1; }
-  }
-
-  .sidebar-section h2 {
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-secondary);
-    margin: 0;
-  }
-
-  .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-  }
-
-  .new-session-btn {
-    padding: 6px 12px;
-    background-color: var(--accent-color);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background var(--transition-fast);
-  }
-
-  .new-session-btn:hover {
-    background-color: var(--accent-hover);
-  }
-
-  .sessions-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .session-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--bg-color);
-    border: 1px solid var(--panel-border);
-    border-radius: 10px;
-    padding: 2px;
-    transition: border-color var(--transition-fast);
-  }
-
-  .session-card.active {
-    border-color: var(--accent-color);
-  }
-
-  .session-select-btn {
-    flex: 1;
-    background: transparent;
-    border: none;
+  .brand-badge {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px;
-    cursor: pointer;
-    text-align: left;
+  }
+
+  .brand-gemini-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-accent);
+  }
+
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .brand-name {
+    font-weight: 600;
+    font-size: var(--font-size-body-md);
     color: var(--text-primary);
   }
 
+  .brand-sub {
+    font-size: var(--font-size-label);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
 
+  .header-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border-subtle);
+  }
 
-  .session-info {
+  .app-picker {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 8px;
   }
 
-  .session-name {
+  .picker-label {
+    font-size: var(--font-size-body-sm);
+    color: var(--text-tertiary);
+  }
+
+  .select-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .select-wrapper select {
+    background: var(--bg-surface-elevated);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    padding: 6px 30px 6px 14px;
+    font-size: var(--font-size-body-sm);
     font-weight: 500;
-    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
   }
 
-  .session-date {
-    font-size: 10px;
+  .select-wrapper select:focus {
+    border-color: var(--border-focus);
+  }
+
+  :global(.select-chevron) {
+    position: absolute;
+    right: 10px;
+    pointer-events: none;
     color: var(--text-secondary);
   }
 
-  .session-delete-btn {
-    background: transparent;
-    border: none;
-    padding: 6px;
-    cursor: pointer;
-    opacity: 0.5;
-    transition: opacity var(--transition-fast);
+  .session-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(129, 201, 149, 0.12);
+    border: 1px solid rgba(129, 201, 149, 0.3);
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-body-sm);
+    color: var(--status-success);
   }
 
-  .session-delete-btn:hover {
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--status-success);
+    box-shadow: 0 0 8px var(--status-success);
+  }
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .icon-btn:hover {
+    background: var(--bg-surface-elevated);
+    color: var(--text-primary);
+    border-color: var(--border-subtle);
+  }
+
+  .icon-btn.active {
+    background: var(--primary-accent-container);
+    color: var(--primary-accent-text);
+  }
+
+  .header-pill-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    color: var(--text-secondary);
+    font-size: var(--font-size-body-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .header-pill-btn:hover {
+    background: var(--bg-surface-variant);
+    color: var(--text-primary);
+  }
+
+  /* Body 3-column container */
+  .studio-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* =========================================================================
+   * LEFT SIDEBAR
+   * ========================================================================= */
+  .studio-sidebar {
+    width: 270px;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .sidebar-top {
+    padding: 16px;
+  }
+
+  .btn-new-prompt {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: var(--radius-pill);
+    background: var(--primary-accent);
+    color: var(--text-inverse);
+    border: none;
+    font-weight: 500;
+    font-size: var(--font-size-body-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-new-prompt:hover {
+    background: var(--primary-accent-hover);
+    box-shadow: var(--shadow-elevation-1);
+  }
+
+  .sidebar-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: var(--font-size-label);
+    font-weight: 600;
+    color: var(--text-tertiary);
+    letter-spacing: 0.6px;
+  }
+
+  .sessions-stream {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .session-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    transition: all 0.15s ease;
+  }
+
+  .session-item:hover {
+    background: var(--bg-surface-elevated);
+  }
+
+  .session-item.active {
+    background: var(--bg-surface-variant);
+    border-left: 3px solid var(--primary-accent);
+  }
+
+  .session-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .session-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-medium);
+    flex-shrink: 0;
+  }
+
+  .session-dot.active-dot {
+    background: var(--primary-accent);
+    box-shadow: 0 0 6px var(--primary-accent);
+  }
+
+  .session-text-group {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .session-title {
+    font-size: var(--font-size-body-sm);
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .session-meta {
+    font-size: var(--font-size-label);
+    color: var(--text-tertiary);
+  }
+
+  .session-del-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    opacity: 0;
+    padding: 4px;
+    border-radius: var(--radius-xs);
+    transition: all 0.15s ease;
+  }
+
+  .session-item:hover .session-del-btn {
     opacity: 1;
   }
 
-  .empty-list-text {
-    font-size: 12px;
-    color: var(--text-secondary);
-    text-align: center;
-    margin: 16px 0;
+  .session-del-btn:hover {
+    color: var(--status-error);
+    background: rgba(242, 139, 130, 0.12);
   }
 
-  /* Chat workspace main styling */
-  .chat-workspace {
+  .empty-sessions {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: var(--font-size-body-sm);
+  }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .quota-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--font-size-label);
+    color: var(--text-tertiary);
+  }
+
+  .quota-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--status-info);
+  }
+
+  /* =========================================================================
+   * CENTRAL MAIN WORKSPACE
+   * ========================================================================= */
+  .studio-main {
     flex: 1;
-    background-color: var(--bg-color);
-    position: relative;
     display: flex;
     flex-direction: column;
+    position: relative;
+    background: var(--bg-app);
     overflow: hidden;
   }
 
-  .drag-overlay {
-    position: absolute;
-    inset: 0;
-    background: var(--accent-glow);
-    backdrop-filter: blur(4px);
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 3px dashed var(--accent-color);
-    margin: 12px;
-    border-radius: 16px;
-    pointer-events: none;
-  }
-
-  .drag-message {
-    text-align: center;
-    color: var(--accent-color);
-  }
-
-  .drag-emoji {
-    font-size: 48px;
-  }
-
-  .drag-message h3 {
-    margin: 12px 0 4px;
-    font-size: 20px;
-    font-weight: 600;
-  }
-
-  .welcome-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-    text-align: center;
-    max-width: 600px;
-    margin: 0 auto;
-  }
-
-  .welcome-container h2 {
-    font-size: 32px;
-    font-weight: 700;
-    margin: 0 0 12px;
-    letter-spacing: -0.02em;
-  }
-
-  .welcome-container p {
-    color: var(--text-secondary);
-    margin-bottom: 32px;
-    line-height: 1.5;
-    font-size: 15px;
-  }
-
-  .start-btn {
-    padding: 12px 28px;
-    background-color: var(--accent-color);
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 15px;
-    box-shadow: 0 4px 12px var(--accent-glow);
-    transition: background var(--transition-fast);
-  }
-
-  .start-btn:hover {
-    background-color: var(--accent-hover);
-  }
-
-  /* Chat workspace scroll */
-  .chat-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: hidden;
-    position: relative;
-  }
-
-  .loading-progress-bar {
+  .studio-progress-line {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 3.5px;
-    background: linear-gradient(90deg, transparent 0%, var(--active-agent-color, var(--accent-color)) 50%, transparent 100%);
-    background-size: 200% 100%;
-    animation: progressMove 1.8s infinite linear;
-    z-index: 5;
+    height: 2px;
+    background: var(--primary-accent);
+    z-index: 20;
   }
 
-  @keyframes progressMove {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-
-  .chat-body {
+  /* =========================================================================
+   * INFORMATIVE AGENTS HUB (Welcome View)
+   * ========================================================================= */
+  .hub-welcome-view {
     flex: 1;
     overflow-y: auto;
-    padding: 32px 32px 140px 32px;
+    padding: 24px 28px 10px;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 20px;
   }
 
-  .chat-feed-wrapper {
-    max-width: 720px;
-    width: 100%;
-    margin: 0 auto;
+  .hub-hero {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    position: relative;
-    z-index: 1;
-  }
-
-  .chat-empty-state {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    font-size: 14px;
-    text-align: center;
-    max-width: 420px;
-    margin: auto;
-    line-height: 1.5;
-  }
-
-  .message-wrapper {
-    display: flex;
-    flex-direction: column;
-    max-width: 90%;
-    animation: fadeIn var(--transition-normal);
-  }
-
-  .user-msg {
-    align-self: flex-end;
-    align-items: flex-end;
-  }
-
-  .agent-msg {
-    align-self: flex-start;
     align-items: flex-start;
+    gap: 8px;
+    max-width: 800px;
   }
 
-  .message-bubble {
-    font-size: 14.5px;
-    line-height: 1.6;
-  }
-
-  .user-msg .message-bubble {
-    background-color: var(--chat-bubble-user);
-    color: var(--chat-bubble-user-text);
-    border-radius: 20px;
-    padding: 12px 18px;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .agent-msg .message-bubble {
-    background-color: var(--panel-bg);
-    color: var(--text-primary);
-    border: 1px solid var(--panel-border);
-    border-radius: 18px;
-    padding: 16px 20px;
-    box-shadow: var(--shadow-sm);
-    width: 100%;
-    transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
-  }
-
-  .agent-msg .message-bubble:hover {
-    border-color: var(--agent-color);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  }
-
-  .avatar-lbl {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-top: 4px;
-  }
-
-  /* Simplified delegation badge */
-  .delegation-badge {
+  .hub-pill {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 5px 12px;
-    border-radius: 20px;
-    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    font-size: var(--font-size-label);
     font-weight: 500;
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    border: 1px solid rgba(0,0,0,0.03);
-    animation: slideIn var(--transition-fast);
+    color: var(--primary-accent);
+    letter-spacing: 0.3px;
   }
 
-  .badge-label {
+  .hub-pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary-accent);
+  }
+
+  .hub-hero h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+  }
+
+  .hub-hero p {
+    font-size: var(--font-size-body-md);
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .hub-hero p strong {
+    color: var(--primary-accent);
+  }
+
+  /* Workflow Steps */
+  .workflow-steps-strip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-body-sm);
+    color: var(--text-secondary);
+  }
+
+  .step-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--bg-surface-variant);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .step-separator {
+    flex: 1;
+    height: 1px;
+    background: var(--border-subtle);
+  }
+
+  /* Agents Catalog Grid (4 cols on desktop) */
+  .agents-catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  @media (max-width: 1300px) {
+    .agents-catalog-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .agent-catalog-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-top: 2px solid var(--card-border, var(--border-medium));
+    border-radius: var(--radius-md);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+  }
+
+  .agent-catalog-card:hover {
+    background: var(--bg-surface-elevated);
+    border-color: var(--card-border, var(--border-medium));
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevation-1);
+  }
+
+  .agent-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    width: 100%;
+  }
+
+  .agent-icon-box {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color 0.15s ease;
+  }
+
+  .agent-catalog-card:hover .agent-icon-box {
+    color: var(--text-primary);
+  }
+
+  .agent-title-col {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    gap: 2px;
+  }
+
+  .agent-title-col strong {
+    font-size: var(--font-size-body-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .agent-type-tag {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .agent-card-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    flex: 1;
+    margin-bottom: 12px;
+  }
+
+  .card-footer-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
     font-weight: 500;
+    color: var(--text-tertiary);
+    transition: all 0.15s ease;
+  }
+
+  .agent-catalog-card:hover .card-footer-action {
+    color: var(--primary-accent);
+    gap: 8px;
+  }
+
+  /* Chat Viewport */
+  .chat-viewport {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+
+
+  /* Messages Area */
+  .messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .empty-conversation-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--text-tertiary);
+    text-align: center;
+  }
+
+  :global(.empty-sparkle) {
+    color: var(--primary-accent);
+    margin-bottom: 12px;
+  }
+
+  .message-row {
+    display: flex;
+    width: 100%;
+  }
+
+  .user-row {
+    justify-content: flex-end;
+  }
+
+  .model-row {
+    justify-content: flex-start;
+  }
+
+  .message-card {
+    max-width: 85%;
+    border-radius: var(--radius-xl);
+    padding: 16px 20px;
+    position: relative;
+  }
+
+  .user-card {
+    background: var(--bg-surface-variant);
+    border: 1px solid var(--border-subtle);
+    border-bottom-right-radius: 4px;
+  }
+
+  .model-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-bottom-left-radius: 4px;
+    box-shadow: var(--shadow-elevation-1);
+  }
+
+  .model-card::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 16px;
+    bottom: 16px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--agent-color, var(--primary-accent));
+  }
+
+  .card-author {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--font-size-label);
+    color: var(--text-tertiary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Error Card In Message Stream */
+  .error-row {
+    justify-content: flex-start;
+  }
+
+  .error-card {
+    background: rgba(242, 139, 130, 0.08);
+    border: 1px solid rgba(242, 139, 130, 0.35);
+    border-radius: var(--radius-xl);
+    padding: 16px 20px;
+    max-width: 80%;
+  }
+
+  .error-card-header {
+    margin-bottom: 8px;
+  }
+
+  .error-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    background: rgba(242, 139, 130, 0.2);
+    color: var(--status-error);
+    font-size: var(--font-size-label);
+    font-weight: 600;
+  }
+
+  .error-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .error-text-main {
+    font-size: var(--font-size-body-sm);
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
+  .error-code-chip {
+    display: inline-block;
+    align-self: flex-start;
+    padding: 2px 8px;
+    background: rgba(242, 139, 130, 0.15);
+    border-radius: var(--radius-xs);
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--status-error);
+  }
+
+  .model-author-header {
+    margin-bottom: 10px;
+  }
+
+  .agent-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-label);
+    font-weight: 600;
   }
 
   .badge-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    display: inline-block;
-    animation: pulseGlow 1.5s infinite ease-in-out;
   }
 
-  /* Tool blocks */
-  .tool-call-box, .tool-response-box {
-    margin-top: 10px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid var(--panel-border);
-    font-size: 13px;
-    width: 100%;
-  }
-
-  .tool-details {
-    width: 100%;
-  }
-
-  .tool-header {
-    cursor: pointer;
-    user-select: none;
-    list-style: none;
-    display: flex;
+  .user-attached-file-badge {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: var(--bg-color);
-  }
-
-  .tool-header::-webkit-details-marker {
-    display: none;
-  }
-
-  .tool-details[open] .tool-header {
-    border-bottom: 1px solid var(--panel-border);
-  }
-
-  .tool-title {
-    flex: 1;
-    font-weight: 500;
+    gap: 7px;
+    margin-top: 8px;
+    padding: 4px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-body-xs);
     color: var(--text-primary);
   }
 
-  .details-toggle-icon {
-    font-size: 10px;
-    color: var(--text-muted);
-    transition: transform var(--transition-fast);
+  :global(.badge-paperclip) {
+    color: var(--primary-accent);
+    flex-shrink: 0;
   }
 
-  .tool-details[open] .details-toggle-icon {
-    transform: rotate(180deg);
+  .badge-filename {
+    font-weight: 500;
   }
 
-  .tool-badge, .tool-response-badge {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 4px;
-    color: white;
+  .badge-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--status-success);
   }
 
-  .tool-badge {
-    background: #4b5563;
+  .badge-status-label {
+    color: var(--status-success);
+    font-size: 11px;
+    font-weight: 500;
   }
 
-  .tool-response-badge {
-    background: #059669;
-  }
-
-  .tool-args, .tool-output {
-    margin: 0;
-    padding: 10px;
-    overflow-x: auto;
-    background: var(--bg-color);
-    color: var(--text-secondary);
-    max-height: 200px;
-  }
-
-  /* Staged Files Bar styling */
-  .staged-files-bar {
+  /* Variants Card Grid */
+  .variants-deck {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--panel-border);
-    margin-bottom: 8px;
-    width: 100%;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
   }
 
-  .staged-file-card {
+  .variant-item-card {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 14px 16px;
+  }
+
+  .variant-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .variant-tag {
+    font-size: var(--font-size-label);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--primary-accent);
+    background: rgba(138, 180, 248, 0.12);
+    padding: 3px 8px;
+    border-radius: var(--radius-xs);
+  }
+
+  .variant-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .variant-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-label);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .variant-btn:hover {
+    background: var(--bg-surface-variant);
+    color: var(--text-primary);
+  }
+
+  .refine-btn {
+    color: var(--primary-accent);
+  }
+
+  /* Loading State */
+  .generating-live-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    padding: 16px 20px;
+    max-width: 70%;
+  }
+
+  .generating-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: var(--font-size-body-sm);
+    color: var(--primary-accent);
+  }
+
+  .streaming-cursor {
+    display: inline-block;
+    width: 6px;
+    height: 15px;
+    background: var(--primary-accent);
+    border-radius: 1px;
+    animation: cursor-blink 0.8s infinite;
+  }
+
+  .skeleton-shimmer-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .skeleton-line {
+    height: 12px;
+    border-radius: var(--radius-xs);
+    background: linear-gradient(
+      90deg,
+      var(--bg-surface-variant) 25%,
+      var(--bg-surface-elevated) 50%,
+      var(--bg-surface-variant) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s infinite ease-in-out;
+  }
+
+  /* =========================================================================
+   * FLOATING PROMPT BAR (Google AI Studio)
+   * ========================================================================= */
+  .floating-prompt-wrapper {
+    padding: 12px 24px 20px;
+    background: linear-gradient(180deg, transparent 0%, var(--bg-app) 30%);
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+  }
+
+  .floating-prompt-box {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-2xl);
+    padding: 12px 18px;
+    box-shadow: var(--shadow-elevation-2);
+    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .floating-prompt-box:focus-within {
+    border-color: rgba(138, 180, 248, 0.6);
+    box-shadow: var(--shadow-elevation-3), var(--shadow-glow);
+    background: var(--bg-surface-elevated);
+  }
+
+  .prompt-meta-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .chip-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-label);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .chip-action-btn:hover {
+    background: var(--bg-surface-variant);
+    color: var(--text-primary);
+  }
+
+  .token-telemetry {
+    font-size: var(--font-size-label);
+    color: var(--text-tertiary);
+  }
+
+  .token-val {
+    color: var(--primary-accent);
+    font-weight: 500;
+  }
+
+  .staged-media-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .staged-card {
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 4px 8px;
-    border: 1px solid var(--panel-border);
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 8px;
-    font-size: 11px;
+    background: var(--bg-surface-variant);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-label);
   }
 
-  .staged-preview-img {
-    width: 20px;
-    height: 20px;
-    object-fit: cover;
+  .staged-img {
+    width: 24px;
+    height: 24px;
     border-radius: 4px;
+    object-fit: cover;
   }
 
-  .staged-preview-doc {
+  .staged-filename {
+    max-width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .staged-del-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
     font-size: 14px;
   }
 
-  .staged-info {
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .staged-del-btn:hover {
+    color: var(--status-error);
   }
 
-  .staged-remove-btn {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    font-size: 12px;
-    opacity: 0.6;
-    padding: 0 2px;
-  }
-
-  .staged-remove-btn:hover {
-    opacity: 1;
-  }
-
-  /* Chat Input footer styling (Floating glass pill) */
-  .chat-input-bar {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    bottom: 28px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 48px);
-    max-width: 720px;
-    background-color: var(--input-bg);
-    border: 1px solid var(--panel-border);
-    border-radius: 24px;
-    padding: 8px 12px;
-    box-shadow: var(--shadow-lg);
-    backdrop-filter: blur(20px);
-    z-index: 10;
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-  }
-
-  .chat-input-bar:focus-within {
-    border-color: var(--accent-color);
-    box-shadow: 0 12px 30px -10px var(--accent-glow), var(--shadow-lg);
-  }
-
-  .chat-input-row {
-    display: flex;
-    align-items: center;
+  .floating-prompt-box textarea {
     width: 100%;
-    gap: 8px;
-  }
-
-  .attach-btn {
-    font-size: 20px;
-    cursor: pointer;
-    opacity: 0.6;
-    transition: opacity var(--transition-fast);
-    padding: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .attach-btn:hover {
-    opacity: 1;
-  }
-
-  .chat-input-bar textarea {
-    flex: 1;
+    min-height: 48px;
+    max-height: 260px;
     background: transparent;
-    color: var(--text-primary);
     border: none;
-    padding: 8px 12px;
-    resize: none;
     outline: none;
-    font-size: 14.5px;
+    color: var(--text-primary);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-body-lg);
     line-height: 1.5;
-    max-height: 160px;
-    font-family: inherit;
+    resize: none;
   }
 
-  .send-btn-large {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background-color: var(--accent-color);
-    border: none;
-    color: white;
-    cursor: pointer;
+  .prompt-meta-bottom {
     display: flex;
     align-items: center;
-    justify-content: center;
-    transition: background var(--transition-fast), transform var(--transition-fast);
-    flex-shrink: 0;
+    justify-content: space-between;
+    margin-top: 8px;
   }
 
-  .send-btn-large:hover:not(:disabled) {
-    background-color: var(--accent-hover);
-    transform: scale(1.05);
+  .tag-hint {
+    font-size: var(--font-size-label);
+    color: var(--text-tertiary);
   }
 
-  .send-btn-large:disabled {
+  .btn-run-gemini {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--primary-accent);
+    color: var(--text-inverse);
+    font-weight: 500;
+    font-size: var(--font-size-body-sm);
+    border: none;
+    border-radius: var(--radius-pill);
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-run-gemini:hover:not(:disabled) {
+    background: var(--primary-accent-hover);
+    box-shadow: var(--shadow-elevation-1);
+  }
+
+  .btn-run-gemini:disabled {
     opacity: 0.4;
     cursor: not-allowed;
   }
 
-  /* Errors Banner styling */
-  .error-banner {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 24px;
-    background-color: var(--danger-bg);
-    border-bottom: 1px solid var(--danger-color);
-    color: var(--danger-color);
-    font-size: 14px;
-    animation: fadeIn var(--transition-fast);
-  }
-
-  .error-close {
-    background: transparent;
-    border: none;
-    color: var(--danger-color);
-    font-size: 20px;
-    cursor: pointer;
-    margin-left: auto;
-  }
-
-  /* Pulsating Intermediate status tracker ("some activity is in progress") */
-  .pulsing-loading-state {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 18px;
-    background: var(--panel-bg);
-    border: 1px solid var(--panel-border);
-    border-radius: 12px;
-    max-width: max-content;
-    animation: fadeIn var(--transition-fast);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .pulse-dot-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: var(--active-agent-color, var(--accent-color));
-    animation: pulseCircle 1.2s infinite ease-in-out;
-  }
-
-  .pulse-status-text {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    margin: 0;
-    animation: statusBlink 1.8s infinite ease-in-out;
-  }
-
-  /* Modal Capabilities Legend styles */
+  /* =========================================================================
+   * MODALS & OVERLAYS
+   * ========================================================================= */
   .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(8px);
-    z-index: 1000;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: fadeIn var(--transition-fast);
-    padding: 24px;
+    z-index: 100;
   }
 
   .modal-card {
-    background: var(--panel-bg);
-    border: 1px solid var(--panel-border);
-    border-radius: 20px;
-    width: 840px;
-    max-width: 100%;
-    max-height: 90vh;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    width: 90%;
+    max-width: 820px;
+    max-height: 85vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    box-shadow: var(--shadow-lg);
-    animation: modalSlideIn var(--transition-normal);
-  }
-
-  @keyframes modalSlideIn {
-    from { transform: scale(0.95) translateY(12px); opacity: 0; }
-    to { transform: scale(1) translateY(0); opacity: 1; }
+    box-shadow: var(--shadow-elevation-3);
   }
 
   .modal-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--panel-border);
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
   }
 
-  .modal-header h2 {
-    font-size: 20px;
-    font-weight: 700;
-    margin: 0;
-  }
-
-  .modal-close-btn {
-    background: transparent;
-    border: none;
-    font-size: 28px;
-    cursor: pointer;
-    color: var(--text-secondary);
-    line-height: 0.8;
-  }
-
-  .modal-body-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-  }
-
-  .legend-intro {
-    font-size: 14.5px;
-    color: var(--text-secondary);
-    margin: 0 0 24px;
-    line-height: 1.5;
-  }
-
-  .legend-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    @media (max-width: 768px) {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .legend-item {
-    padding: 16px;
-    border-radius: 12px;
-    border: 1px solid var(--panel-border);
-    border-left: 5px solid var(--border-color);
-    background: var(--bg-tint);
-  }
-
-  .legend-agent-header {
+  .modal-title-group {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 8px;
   }
 
-  .legend-color-dot {
+  :global(.modal-gemini-icon) {
+    color: var(--primary-accent);
+  }
+
+  .modal-header h2 {
+    font-size: var(--font-size-title-lg);
+    font-weight: 600;
+  }
+
+  .modal-content {
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .modal-intro {
+    font-size: var(--font-size-body-md);
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  .capabilities-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .capability-card {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    border-left: 3px solid var(--card-accent);
+  }
+
+  .capability-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .cap-indicator {
     width: 8px;
     height: 8px;
     border-radius: 50%;
   }
 
-  .legend-agent-header h3 {
-    font-size: 15px;
+  .capability-top h3 {
+    font-size: var(--font-size-body-sm);
     font-weight: 600;
-    margin: 0;
   }
 
-  .legend-description {
-    font-size: 13px;
+  .capability-card p {
+    font-size: var(--font-size-label);
     color: var(--text-secondary);
-    margin: 0;
-    line-height: 1.45;
+    line-height: 1.4;
   }
 
-  .modal-footer {
-    padding: 16px 24px;
-    border-top: 1px solid var(--panel-border);
+  .modal-actions {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-subtle);
     display: flex;
     justify-content: flex-end;
   }
 
-  .legend-close-btn {
-    padding: 10px 24px;
-    background-color: var(--accent-color);
-    color: white;
+  .btn-primary {
+    background: var(--primary-accent);
+    color: var(--text-inverse);
     border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 14.5px;
-    transition: background var(--transition-fast);
-  }
-
-  .legend-close-btn:hover {
-    background-color: var(--accent-hover);
-  }
-
-  /* Keyframe animations */
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes pulseGlow {
-    0%, 100% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.15); }
-  }
-
-  @keyframes slideIn {
-    from { transform: scale(0.9) translateY(2px); opacity: 0; }
-    to { transform: scale(1) translateY(0); opacity: 1; }
-  }
-
-  @keyframes pulseCircle {
-    0%, 100% { transform: scale(0.95); opacity: 0.65; }
-    50% { transform: scale(1.15); opacity: 1; }
-  }
-
-  @keyframes statusBlink {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
-  }
-
-  /* Premium Markdown Body Styles inside Chat Bubbles */
-  .markdown-body {
-    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 14.5px;
-    line-height: 1.625;
-    color: var(--text-primary);
-  }
-  .markdown-body :global(p) {
-    margin: 0 0 10px 0;
-    line-height: 1.625;
-    font-weight: 400;
-  }
-  .markdown-body :global(p:last-child) {
-    margin-bottom: 0;
-  }
-  .markdown-body :global(strong) {
-    font-weight: 600;
-  }
-  .markdown-body :global(em) {
-    font-style: italic;
-  }
-  .markdown-body :global(ul), .markdown-body :global(ol) {
-    margin: 8px 0;
-    padding-left: 20px;
-    line-height: 1.45;
-  }
-  .markdown-body :global(li) {
-    margin-bottom: 4px;
-  }
-  .markdown-body :global(h1), .markdown-body :global(h2), .markdown-body :global(h3),
-  .markdown-body :global(h4), .markdown-body :global(h5), .markdown-body :global(h6) {
-    margin: 16px 0 8px 0;
-    font-weight: 600;
-    line-height: 1.25;
-    color: var(--text-primary);
-  }
-  .markdown-body :global(h1) { font-size: 1.4em; }
-  .markdown-body :global(h2) { font-size: 1.25em; }
-  .markdown-body :global(h3) { font-size: 1.15em; }
-  .markdown-body :global(h4) { font-size: 1em; }
-  
-  .markdown-body :global(code) {
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
-    font-size: 0.9em;
-    padding: 3px 6px;
-    background-color: var(--panel-border);
-    border-radius: 6px;
-    color: var(--accent-color);
-  }
-  .markdown-body :global(pre) {
-    margin: 12px 0;
-    padding: 14px;
-    background-color: var(--bg-color);
-    border: 1px solid var(--panel-border);
-    border-radius: 8px;
-    overflow-x: auto;
-  }
-  .markdown-body :global(pre code) {
-    padding: 0;
-    background-color: transparent;
-    border-radius: 0;
-    color: var(--text-primary);
-    font-size: 13.5px;
-  }
-  .markdown-body :global(blockquote) {
-    margin: 12px 0;
-    padding-left: 14px;
-    border-left: 4px solid var(--accent-color);
-    color: var(--text-secondary);
-    font-style: italic;
-  }
-  .markdown-body :global(a) {
-    color: var(--accent-color);
-    text-decoration: none;
+    border-radius: var(--radius-pill);
+    padding: 8px 20px;
     font-weight: 500;
-  }
-  .markdown-body :global(a:hover) {
-    text-decoration: underline;
-  }
-  .markdown-body :global(table) {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 12px 0;
-    font-size: 13.5px;
-  }
-  .markdown-body :global(th), .markdown-body :global(td) {
-    border: 1px solid var(--panel-border);
-    padding: 8px 12px;
-    text-align: left;
-  }
-  .markdown-body :global(th) {
-    background-color: var(--panel-bg);
-    font-weight: 600;
+    cursor: pointer;
   }
 
-  /* Variant Card Styles inside Chat Bubbles */
-  .variants-container {
+  /* Drag overlay */
+  .drag-zone-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(19, 19, 20, 0.85);
+    backdrop-filter: blur(8px);
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-    width: 100%;
-    margin-top: 8px;
-  }
-
-  .variant-card {
-    background: var(--panel-bg);
-    border: 1px solid var(--panel-border);
-    border-radius: 12px;
-    padding: 16px 20px;
-    box-shadow: var(--shadow-sm);
-    transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
-  }
-
-  .variant-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--accent-color);
-    box-shadow: var(--shadow-md);
-  }
-
-  .variant-card-header {
-    display: flex;
-    justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid var(--panel-border);
-    padding-bottom: 10px;
+    justify-content: center;
+    z-index: 80;
+    pointer-events: none;
+  }
+
+  .drag-zone-card {
+    background: var(--bg-surface);
+    border: 2px dashed var(--primary-accent);
+    border-radius: var(--radius-2xl);
+    padding: 40px;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  :global(.drag-icon) {
+    color: var(--primary-accent);
     margin-bottom: 12px;
   }
 
-  .variant-badge {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--agent-color, var(--accent-color));
-    background: var(--agent-bg, var(--accent-glow));
-    padding: 4px 10px;
-    border-radius: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-
-  .card-header-actions {
-    display: flex;
+  /* Activity Step Chips (Clean Execution Logs) */
+  .activity-step-chip {
+    display: inline-flex;
+    align-items: center;
     gap: 8px;
+    padding: 6px 12px;
+    margin: 4px 0;
+    background: var(--bg-surface-variant);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-body-xs);
+    color: var(--text-secondary);
   }
 
-  .action-card-btn {
-    background: var(--bg-color);
-    border: 1px solid var(--panel-border);
-    border-radius: 6px;
-    padding: 4px 10px;
-    font-size: 12px;
-    font-weight: 500;
+  .activity-pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary-accent);
+  }
+
+  .activity-step-chip.activity-done {
+    background: rgba(129, 201, 149, 0.08);
+    border-color: rgba(129, 201, 149, 0.25);
     color: var(--text-primary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
   }
 
-  .action-card-btn:hover {
-    background: var(--panel-border);
-    border-color: var(--accent-color);
-    color: var(--accent-hover);
+  :global(.activity-check-icon) {
+    color: var(--status-success);
+    flex-shrink: 0;
   }
 
+  /* Markdown prose styling */
+  :global(.markdown-body) {
+    font-size: var(--font-size-body-md);
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+
+  :global(.markdown-body p) {
+    margin-bottom: 8px;
+  }
+
+  :global(.markdown-body h1, .markdown-body h2, .markdown-body h3) {
+    margin-top: 12px;
+    margin-bottom: 6px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  :global(.markdown-body blockquote) {
+    margin: 8px 0;
+    padding: 8px 14px;
+    border-left: 3px solid var(--accent-primary);
+    background: var(--bg-surface-variant);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: var(--text-secondary);
+    font-style: normal;
+  }
+
+  :global(.markdown-body blockquote p) {
+    margin-bottom: 4px;
+  }
+
+  :global(.markdown-body blockquote p:last-child) {
+    margin-bottom: 0;
+  }
+
+  :global(.markdown-body hr) {
+    border: none;
+    border-top: 1px solid var(--border-subtle);
+    margin: 12px 0;
+  }
+
+  :global(.markdown-body ul, .markdown-body ol) {
+    margin-left: 20px;
+    margin-bottom: 8px;
+  }
+
+  :global(.markdown-body code) {
+    background: var(--bg-surface-variant);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+
+  :global(.markdown-body pre) {
+    background: #0d0d0e;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    margin: 8px 0;
+    border: 1px solid var(--border-subtle);
+  }
+
+  :global(.markdown-body pre code) {
+    background: transparent;
+    padding: 0;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 768px) {
+    .studio-sidebar {
+      position: absolute;
+      left: 0;
+      top: 56px;
+      bottom: 0;
+      z-index: 45;
+      box-shadow: var(--shadow-elevation-3);
+    }
+    .agents-catalog-grid {
+      grid-template-columns: 1fr;
+    }
+    .capabilities-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
