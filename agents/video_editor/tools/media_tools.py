@@ -16,6 +16,7 @@ ENABLE_VIDEO_GENERATION = os.environ.get("ENABLE_VIDEO_GENERATION", "true").lowe
 
 import re
 
+
 def resolve_path(rel_path: str) -> str:
     """Resolves a path relative to the agent's folder, falling back to CWD and workspace root."""
     if not rel_path:

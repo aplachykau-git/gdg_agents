@@ -4,6 +4,7 @@ Exposes the video_editor agent as a standalone A2A microservice.
 """
 
 import os
+
 import uvicorn
 from dotenv import load_dotenv
 

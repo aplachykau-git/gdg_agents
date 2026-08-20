@@ -28,6 +28,7 @@ video_a2a_url = os.getenv("VIDEO_AGENT_A2A_URL")
 if video_a2a_url:
     try:
         from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
+
         card_url = f"{video_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}"
         print(f"🔗 [A2A Connected] video_editor agent linked via A2A at: {card_url}")
         video_agent = RemoteA2aAgent(
@@ -42,6 +43,7 @@ receipt_a2a_url = os.getenv("RECEIPT_AGENT_A2A_URL")
 if receipt_a2a_url:
     try:
         from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
+
         card_url = f"{receipt_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}"
         print(f"🔗 [A2A Connected] receipt_scanner agent linked via A2A at: {card_url}")
         receipt_agent = RemoteA2aAgent(
