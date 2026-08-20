@@ -78,7 +78,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 root_agent = Agent(
     model="gemini-2.5-flash",
     name="root_agent",
-    description=f"Root coordinator agent of GDG {community_name}",
+    description="Root coordinator agent of GDG {community_name}",
     instruction=INSTRUCTION,
     sub_agents=[
         receipt_agent,
