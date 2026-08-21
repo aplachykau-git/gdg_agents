@@ -144,8 +144,9 @@ The backend agent server must run on port `8080` (as Vite is configured to proxy
 # Make sure virtual environment is active
 source .venv/bin/activate
 
-# Run the root coordinator. Its declared sub-agents are loaded as one workspace.
-adk web --port 8080 agents/root_agent
+# Run the full ADK workspace so each agent is addressable directly.
+# This exposes root_agent plus all specialized sub-agents in /list-apps.
+adk web --port 8080 agents
 ```
 
 ### Terminal 2: Launch Frontend (Svelte Dev Server)
@@ -171,7 +172,7 @@ Here you will find the **Advanced Agentic Workspace** where you can select the a
 If you want to use the default web playground provided out-of-the-box by ADK:
 ```bash
 source .venv/bin/activate
-adk web --port 8000 agents/root_agent
+adk web --port 8000 agents
 ```
 Open **`http://localhost:8000`** in your browser.
 

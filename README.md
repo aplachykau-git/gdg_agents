@@ -197,12 +197,14 @@ npm run a2a:video
 # 2. Receipt Scanner A2A Server (Port 8082)
 npm run a2a:receipt
 
-# 3. Root Orchestrator Agent (Port 8080)
+# 3. ADK workspace server with direct access to all agents (Port 8080)
 npm run a2a:root
 
 # 4. Svelte Frontend (Port 5173)
 npm run dev
 ```
+
+> `npm run a2a:root` serves the whole `agents/` workspace, so the frontend can open `root_agent` **or** any specialized sub-agent directly.
 
 *For detailed setup instructions, including Google Cloud authentication and template folder mapping, check out the [Setup Guide](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/setup_guide.md).*
 

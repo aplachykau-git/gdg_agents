@@ -36,11 +36,11 @@ Google Antigravity provides a web UI to test and interact with your agent locall
 
 ```bash
 source .venv/bin/activate
-adk web --port 8000 agents/root_agent
+adk web --port 8000 agents
 ```
 
 1. Open `http://localhost:8000` in your web browser.
-2. Select the main **root_agent** agent.
+2. Select **root_agent** for orchestration or choose **video_editor** directly.
 3. Upload a speaker portrait or a custom background video in the chat, and describe the speaker details.
 4. The root agent will delegate to `video_editor`, which outpaints, animates, and renders the cards!
 

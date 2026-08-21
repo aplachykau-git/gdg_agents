@@ -63,7 +63,7 @@ echo "🧠 [3/4] Starting Root Orchestrator Agent on http://127.0.0.1:8080..."
 VIDEO_AGENT_A2A_URL="http://localhost:8081" \
 RECEIPT_AGENT_A2A_URL="http://localhost:8082" \
 ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS="true" \
-$ADK_BIN web --port 8080 agents/root_agent &
+$ADK_BIN web --port 8080 agents &
 PIDS+=($!)
 
 # 4. Start Svelte Frontend (Port 5173)

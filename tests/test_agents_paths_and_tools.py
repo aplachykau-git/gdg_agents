@@ -21,6 +21,32 @@ sys.path.insert(0, str(WORKSPACE_ROOT))
 class TestAgentImportsAndDeclarations(unittest.TestCase):
     """Verifies all sub-agents and root_agent load without import/configuration errors."""
 
+    def test_workspace_loader_lists_all_agents_for_direct_access(self):
+        script = """
+from google.adk.cli.utils._nested_agent_loader import NestedAgentLoader
+loader = NestedAgentLoader('agents')
+agents = set(loader.list_agents())
+expected = {
+    'root_agent',
+    'receipt_scanner',
+    'video_editor',
+    'linkedin_post_generator',
+    'registration_manager',
+    'event_planner',
+    'agenda_generator',
+    'office_secretary',
+}
+assert expected.issubset(agents), (agents, expected)
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=WORKSPACE_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_root_agent_import(self):
         from agents.root_agent.agent import root_agent
 
