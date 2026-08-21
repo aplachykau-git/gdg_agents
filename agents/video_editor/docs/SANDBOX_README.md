@@ -68,7 +68,8 @@ npm run video:render
 You can toggle video generation engines and rendering outputs in your `.env` file:
 
 ```ini
-# Select video generation engine: "veo" (Vertex AI Veo 3.1) or "omni" (Gemini Omni Flash preview)
+# Select video generation engine: "veo" (Vertex AI Veo 3.1) or "omni" (Gemini Omni Flash preview).
+# With GOOGLE_GENAI_USE_VERTEXAI=0, use "omni".
 VIDEO_ENGINE=veo
 
 # Set to "false" to bypass AI video API calls during testing (uses static placeholder assets instead)

@@ -30,6 +30,8 @@ except ImportError:
 
 from agents.common.storage import upload_bytes_to_storage
 
+from agents.gemini_config import get_gemini_client
+
 from .utils import _auto_rotate_image, _pdf_to_png_screenshot
 
 # ---------------------------------------------------------------------------
@@ -318,8 +320,8 @@ def read_receipt_file(file_path: str) -> dict:
     try:
         raw_bytes = path.read_bytes()
 
-        # Initialize Google GenAI client
-        client = genai.Client()
+        # Initialize a client for the workspace-selected Gemini backend.
+        client = get_gemini_client()
 
         # Perform native multimodal OCR and data extraction using gemini-2.5-pro
         prompt = (

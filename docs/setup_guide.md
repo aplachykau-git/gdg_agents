@@ -80,14 +80,14 @@ npm install
 cd ../..
 ```
 
-### 3. Google Cloud Authentication
+### 3. Vertex AI Authentication (only for Vertex mode)
 
-Authenticate your local environment with Google Cloud to grant Vertex AI API access:
+If `GOOGLE_GENAI_USE_VERTEXAI=1`, authenticate your local environment with Google Cloud to grant Vertex AI API access:
 
 ```bash
 bash <(curl -sSL https://storage.googleapis.com/cloud-samples-data/adc/setup_adc.sh)
 ```
-*Provide your GCP Project ID (e.g., `gdg-agents-496611`) when prompted and complete authentication in your browser.*
+*Provide your GCP Project ID (e.g., `gdg-agents-496611`) when prompted and complete authentication in your browser. When using `GOOGLE_GENAI_USE_VERTEXAI=0`, skip this step and configure `GEMINI_API_KEY` instead.*
 
 ### 4. Configuration Settings (.env)
 
@@ -99,12 +99,12 @@ cp .env.example .env
 ```
 
 Open `.env` and fill in the following parameters:
-- `GEMINI_API_KEY`: Your private API key from [Google AI Studio](https://aistudio.google.com/) (required for public API and Gemini Omni Flash).
-- `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run via Vertex AI endpoints, or `0` for public API.
+- `GEMINI_API_KEY`: Your private API key from [Google AI Studio](https://aistudio.google.com/). It is required when `GOOGLE_GENAI_USE_VERTEXAI=0`; all Gemini model calls then use this key instead of Vertex credentials.
+- `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run Gemini calls through Vertex AI endpoints, or `0` to run Gemini calls through the Gemini Developer API. In API mode, `GEMINI_API_KEY` must be set.
 - `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID from [Google Cloud Console](https://console.cloud.google.com/).
 - `GOOGLE_CLOUD_LOCATION`: The GCP region/location (e.g. `europe-central2`).
 - `GOOGLE_DRIVE_FOLDER_ID`: The ID of your target Google Drive folder (found in the folder's URL).
-- `VIDEO_ENGINE`: Video generation engine — set to `veo` (Vertex AI Google Veo 3.1) or `omni` (Google AI Gemini Omni Flash preview via Interactions API).
+- `VIDEO_ENGINE`: Video generation engine — set to `veo` (Vertex AI Google Veo 3.1) or `omni` (Google AI Gemini Omni Flash preview via Interactions API). API mode requires `omni`; `veo` is rejected because it requires Vertex AI.
 - `ENABLE_VIDEO_GENERATION`: Set to `true` to run live AI video animation, or `false` for layout-only dry-runs using local placeholder media.
 - `RENDER_4K`: Set to `true` (default) to render high-resolution 4K Ultra-HD MP4 compositions.
 - `RENDER_ORDINARY`: Set to `true` to render 1080p Full-HD MP4 compositions.
@@ -144,8 +144,8 @@ The backend agent server must run on port `8080` (as Vite is configured to proxy
 # Make sure virtual environment is active
 source .venv/bin/activate
 
-# Run the ADK web server mapping all local agents in the agents/ folder
-adk web --port 8080 agents
+# Run the root coordinator. Its declared sub-agents are loaded as one workspace.
+adk web --port 8080 agents/root_agent
 ```
 
 ### Terminal 2: Launch Frontend (Svelte Dev Server)

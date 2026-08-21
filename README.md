@@ -217,7 +217,7 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
 1. **Dual Video Generation Engines**:
    - **Google Veo 3.1 (`veo-3.1-fast-generate-001`)**: High-fidelity video generation via Vertex AI with curated cinematic lighting, subtle head motion, and realistic bokeh.
    - **Gemini Omni Flash (`gemini-omni-flash-preview`)**: Fast multimodal Image-to-Video generation via the Google AI Interactions API with unbroken single-shot camera dynamics.
-   - Switchable dynamically via `VIDEO_ENGINE=veo` (default) or `VIDEO_ENGINE=omni` in `.env`.
+   - Switchable dynamically via `VIDEO_ENGINE=veo` (default) or `VIDEO_ENGINE=omni` in `.env`. `veo` requires Vertex AI; when `GOOGLE_GENAI_USE_VERTEXAI=0`, select `omni`.
 
 2. **Speaker Portrait 9:16 Outpainting**:
    - Outpaints static photos into vertical 9:16 aspect ratio using Gemini/Imagen, preserving face identity while expanding background context for seamless vertical video framing.
@@ -237,7 +237,9 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
 
 | Variable | Values | Description |
 | :--- | :--- | :--- |
-| `VIDEO_ENGINE` | `veo` (default) \| `omni` | Selects the video generation model (`veo-3.1-fast-generate-001` or `gemini-omni-flash-preview`). |
+| `GOOGLE_GENAI_USE_VERTEXAI` | `1` (default) \| `0` | Uses Vertex AI credentials for Gemini calls when `1`; uses `GEMINI_API_KEY` for all Gemini calls when `0`. |
+| `GEMINI_API_KEY` | API key | Required when `GOOGLE_GENAI_USE_VERTEXAI=0`; also required by the Omni video engine. |
+| `VIDEO_ENGINE` | `veo` (default) \| `omni` | Selects the video generation model (`veo-3.1-fast-generate-001` or `gemini-omni-flash-preview`). `veo` is available only in Vertex AI mode. |
 | `ENABLE_VIDEO_GENERATION` | `true` \| `false` | Set to `false` for instant layout/text dry-runs using local placeholder assets without consuming video tokens. |
 | `RENDER_4K` | `true` (default) \| `false` | Toggles rendering of the 4K Ultra HD MP4 video file. |
 | `RENDER_ORDINARY` | `true` \| `false` (default) | Toggles rendering of the 1080p Full HD MP4 video file. |

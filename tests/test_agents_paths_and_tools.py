@@ -4,6 +4,7 @@ Tests agent initialization, path resolution, tool resilience, and A2A cards.
 """
 
 import os
+import subprocess
 import sys
 import unittest
 import warnings
@@ -70,6 +71,24 @@ class TestAgentImportsAndDeclarations(unittest.TestCase):
 
         self.assertIsNotNone(linkedin_agent)
         self.assertEqual(linkedin_agent.name, "linkedin_post_generator")
+
+    def test_adk_root_loader_keeps_declared_subagents(self):
+        script = """
+from google.adk.cli.utils._nested_agent_loader import NestedAgentLoader
+loader = NestedAgentLoader('agents/root_agent')
+assert loader.list_agents() == ['root_agent']
+root_agent = loader.load_agent('root_agent')
+assert root_agent.name == 'root_agent'
+assert len(root_agent.sub_agents) == 7
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=WORKSPACE_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class TestPathResolutions(unittest.TestCase):
