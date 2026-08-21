@@ -246,15 +246,11 @@ def verify_portrait_photo(photo_path: str = "") -> str:
         mime_type = "image/png" if photo_path.lower().endswith(".png") else "image/jpeg"
         part = types.Part.from_bytes(data=img_bytes, mime_type=mime_type)
 
-        api_key = os.environ.get("GEMINI_API_KEY")
-        if api_key:
-            client = genai.Client(api_key=api_key, vertexai=False)
-        else:
-            client = genai.Client()
+        client = get_gemini_client()
 
-        print("🚀 Sending face detection verification call to Gemini-2.5-Flash...")
+        print("🚀 Sending face detection verification call to Gemini-3.5-Flash-Lite...")
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash-lite",
             contents=[
                 part,
                 types.Part.from_text(

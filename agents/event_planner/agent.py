@@ -54,7 +54,7 @@ You MUST analyze calendar parameters, public holidays for the country where the 
 """
 
 planner_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="event_planner",
     description=f"Agent that analyzes local tech calendars and holidays to recommend the optimal date for GDG {community_name} meetups.",
     instruction=INSTRUCTION,

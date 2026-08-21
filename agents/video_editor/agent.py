@@ -119,7 +119,7 @@ Your goal is to autonomously generate high-quality live speaker video/GIF cards 
 """
 
 video_editor_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="video_editor",
     description="Live Video Editor agent that validates speaker metadata, verifies portrait face, outpaints/animates background video with Veo, updates HTML5 canvas composer, and renders final video/GIF speaker cards.",
     instruction=INSTRUCTION,

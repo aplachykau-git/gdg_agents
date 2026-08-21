@@ -2,9 +2,6 @@ import os
 import sys
 import warnings
 
-from dotenv import load_dotenv
-
-load_dotenv(override=True)
 
 # Suppress upstream Google ADK BaseAgentConfig deprecation warning
 warnings.filterwarnings(
@@ -14,6 +11,10 @@ warnings.filterwarnings(
 )
 
 from google.adk import Agent
+
+from agents.gemini_config import load_gemini_environment
+
+load_gemini_environment()
 
 # Ensure agents directory is in sys.path for direct imports
 _agents_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -136,7 +137,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 """
 
 root_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="root_agent",
     description=f"Root coordinator agent of GDG {community_name}",
     instruction=INSTRUCTION,
