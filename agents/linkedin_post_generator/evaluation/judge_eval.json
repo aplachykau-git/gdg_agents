@@ -1,0 +1,54 @@
+{
+  "dataset_id": "linkedin_judge_held_out_eval_v1",
+  "description": "Human-labeled held-out examples. Never include these examples in the few-shot judge prompt.",
+  "examples": [
+    {
+      "criterion": "topic_alignment",
+      "source": {"talk_title": "Building Reliable RAG Applications", "talk_description": "Covers retrieval evaluation, grounding, and production monitoring for retrieval-augmented generation.", "speaker_bio": "Eva is an ML engineer and community organiser."},
+      "post_body": "@Eva Nowak will take us inside retrieval evaluation, grounding, and monitoring practices that make RAG applications dependable in production.\n\nSecure your spot. #GDGKrakow #AI #RAG #MLOps",
+      "verdict": "pass",
+      "score": 95,
+      "reason": "The body directly reflects the supplied RAG description."
+    },
+    {
+      "criterion": "topic_alignment",
+      "source": {"talk_title": "Building Reliable RAG Applications", "talk_description": "Covers retrieval evaluation, grounding, and production monitoring for retrieval-augmented generation.", "speaker_bio": "Eva is an ML engineer and community organiser."},
+      "post_body": "Discover CSS container queries and modern responsive layout techniques for your next frontend project.\n\nSave your seat. #GDGKrakow #CSS #Frontend #WebDev",
+      "verdict": "fail",
+      "score": 0,
+      "reason": "The body is unrelated to RAG."
+    },
+    {
+      "criterion": "topic_alignment",
+      "source": {"talk_title": "Engineering Stories", "talk_description": "Speaker reflections.", "speaker_bio": "Eva is an ML engineer."},
+      "post_body": "Explore advanced retrieval metrics and production grounding strategies for AI assistants.\n\nJoin us. #GDGKrakow #AI #RAG #MLOps",
+      "verdict": "unknown",
+      "score": null,
+      "reason": "The source topic is too broad to determine whether these detailed RAG claims are aligned."
+    },
+    {
+      "criterion": "bio_topic_separation",
+      "source": {"talk_title": "Kubernetes Cost Controls", "talk_description": "Practical techniques for measuring cluster spend, rightsizing workloads, and setting budget alerts.", "speaker_bio": "Lena is a former Android developer and platform engineer."},
+      "post_body": "@Lena Kowalska, a platform engineer with an Android background, will cover workload rightsizing, spend measurement, and budget alerts for Kubernetes teams.\n\nRegister today. #GDGKrakow #Kubernetes #Cloud #FinOps",
+      "verdict": "pass",
+      "score": 93,
+      "reason": "Android is clearly a credential, while all session content is supported by the description."
+    },
+    {
+      "criterion": "bio_topic_separation",
+      "source": {"talk_title": "Kubernetes Cost Controls", "talk_description": "Practical techniques for measuring cluster spend, rightsizing workloads, and setting budget alerts.", "speaker_bio": "Lena is a former Android developer and platform engineer."},
+      "post_body": "@Lena Kowalska will explain Android battery optimization and Compose performance patterns for Kubernetes teams.\n\nRegister today. #GDGKrakow #AndroidDev #Kubernetes #Compose",
+      "verdict": "fail",
+      "score": 4,
+      "reason": "Android/Compose session content is taken from the bio and unsupported by the Kubernetes cost-controls description."
+    },
+    {
+      "criterion": "bio_topic_separation",
+      "source": {"talk_title": "", "talk_description": "", "speaker_bio": "Lena is a platform engineer with Android experience."},
+      "post_body": "@Lena Kowalska will teach Android Compose performance techniques.\n\nJoin us. #GDGKrakow #AndroidDev #Compose #Performance",
+      "verdict": "unknown",
+      "score": null,
+      "reason": "No session source exists to establish whether the topic is supported."
+    }
+  ]
+}

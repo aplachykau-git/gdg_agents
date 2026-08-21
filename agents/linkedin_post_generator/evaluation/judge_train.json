@@ -1,0 +1,54 @@
+{
+  "dataset_id": "linkedin_judge_few_shot_train_v1",
+  "description": "Human-labeled few-shot examples inserted into the semantic judge prompt.",
+  "examples": [
+    {
+      "criterion": "topic_alignment",
+      "source": {"talk_title": "Scaling Kotlin Apps Across Wear OS and Android Auto", "talk_description": "How shared Kotlin domain logic and modular architecture support Android phones, Wear OS, TV, and Auto.", "speaker_bio": "Maya is a Flutter engineer and Kotlin developer."},
+      "post_body": "From watches to dashboards, Android products need architecture that can grow beyond a single screen. @Maya Chen will explore shared Kotlin domain logic and modular boundaries for connected Android experiences.\n\nJoin us to discuss practical cross-device architecture and reserve your spot. #GDGKrakow #AndroidDev #Kotlin #MobileArchitecture",
+      "verdict": "pass",
+      "score": 94,
+      "reason": "The post is grounded in the supplied cross-device Kotlin architecture description."
+    },
+    {
+      "criterion": "topic_alignment",
+      "source": {"talk_title": "Practical Observability for Serverless APIs", "talk_description": "Learn tracing, actionable alerts, and debugging workflows for production serverless APIs.", "speaker_bio": "Omar is a cloud engineer and hackathon mentor."},
+      "post_body": "Build your next mobile UI with Flutter animations and pixel-perfect design systems. @Omar Ali will share his favourite widget patterns.\n\nRegister now. #GDGKrakow #Flutter #Mobile #Design",
+      "verdict": "fail",
+      "score": 3,
+      "reason": "The post describes Flutter UI rather than observability for serverless APIs."
+    },
+    {
+      "criterion": "topic_alignment",
+      "source": {"talk_title": "The Future", "talk_description": "A broad discussion.", "speaker_bio": "Nina is a software engineer."},
+      "post_body": "A practical evening about improving production incident response and API tracing.\n\nSave your seat. #GDGKrakow #Cloud #DevOps #Engineering",
+      "verdict": "unknown",
+      "score": null,
+      "reason": "The title and description are too vague to determine whether this specific topic aligns. Do not convert this to fail merely because the post contains a specific unsupported topic."
+    },
+    {
+      "criterion": "bio_topic_separation",
+      "source": {"talk_title": "Practical Observability for Serverless APIs", "talk_description": "Learn tracing, actionable alerts, and debugging workflows for production serverless APIs.", "speaker_bio": "Omar is a Google Developer Expert for Flutter and a cloud engineer."},
+      "post_body": "@Omar Ali, a cloud engineer and Google Developer Expert for Flutter, joins us to unpack tracing, alerts, and debugging workflows for serverless APIs.\n\nRegister to sharpen your production visibility. #GDGKrakow #Cloud #Serverless #Observability",
+      "verdict": "pass",
+      "score": 96,
+      "reason": "Flutter is presented as a credential, while the session claims stay within the supplied observability description."
+    },
+    {
+      "criterion": "bio_topic_separation",
+      "source": {"talk_title": "Practical Observability for Serverless APIs", "talk_description": "Learn tracing, actionable alerts, and debugging workflows for production serverless APIs.", "speaker_bio": "Omar is a Google Developer Expert for Flutter and a cloud engineer."},
+      "post_body": "@Omar Ali will teach Flutter state management and widget testing for serverless APIs, drawing on his Google Developer Expert experience.\n\nRegister now. #GDGKrakow #Flutter #Cloud #Testing",
+      "verdict": "fail",
+      "score": 5,
+      "reason": "Flutter session content is invented from the bio; the talk description does not support it."
+    },
+    {
+      "criterion": "bio_topic_separation",
+      "source": {"talk_title": "Production Engineering", "talk_description": "", "speaker_bio": "Omar is a Flutter and cloud engineer."},
+      "post_body": "@Omar Ali will share a production-ready Flutter testing workflow.\n\nJoin us. #GDGKrakow #Flutter #Testing #Engineering",
+      "verdict": "unknown",
+      "score": null,
+      "reason": "There is no usable talk description to determine whether Flutter testing is session content or an unsupported bio-derived claim."
+    }
+  ]
+}
