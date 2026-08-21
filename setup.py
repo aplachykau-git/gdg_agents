@@ -6,6 +6,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "google-adk",
+        "a2a-sdk",
         "google-genai",
         "google-api-python-client",
         "google-auth-oauthlib",
@@ -16,5 +17,7 @@ setup(
         "python-dotenv",
         "openpyxl",
         "python-docx",
+        "uvicorn",
+        "sse-starlette",
     ],
 )
