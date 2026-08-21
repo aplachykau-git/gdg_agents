@@ -86,9 +86,13 @@
   let stagedFiles = $state([]); 
   let textareaElement = $state();
 
-  // Intermediate status ticker variables
   let statusText = $state('Orchestrating agents...');
   let statusInterval;
+
+  // Maximum Input Token Limit (Configured for optimal agent reasoning & cost control)
+  const MAX_INPUT_TOKENS = 8192;
+  const currentTokens = $derived(Math.ceil(queryText.length * 0.25));
+  const isTokenLimitExceeded = $derived(currentTokens > MAX_INPUT_TOKENS);
 
   // Theme Toggler
   function toggleTheme() {
@@ -651,6 +655,10 @@
   // Run orchestrator / Send message
   async function sendMessage() {
     if (!queryText.trim() && stagedFiles.length === 0) return;
+    if (isTokenLimitExceeded) {
+      errorMsg = `⚠️ Prompt exceeds the maximum allowed limit (${currentTokens.toLocaleString()} / ${MAX_INPUT_TOKENS.toLocaleString()} tokens). Please shorten your request.`;
+      return;
+    }
 
     if (!selectedSessionId) {
       const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -1508,9 +1516,12 @@
               <input type="file" multiple onchange={handleFileSelect} style="display: none;" />
             </label>
 
-            <div class="token-telemetry">
-              <span class="token-val">{(queryText.length * 0.25).toFixed(0)}</span>
-              <span class="token-max">/ 1,048,576 tokens</span>
+            <div class="token-telemetry" class:token-limit-warning={isTokenLimitExceeded}>
+              <span class="token-val" class:token-val-exceeded={isTokenLimitExceeded}>{currentTokens.toLocaleString()}</span>
+              <span class="token-max">/ {MAX_INPUT_TOKENS.toLocaleString()} tokens</span>
+              {#if isTokenLimitExceeded}
+                <span class="token-exceeded-badge">Limit Exceeded</span>
+              {/if}
             </div>
           </div>
 
@@ -1549,13 +1560,17 @@
           <!-- Bottom Action Toolbar -->
           <div class="prompt-meta-bottom">
             <div class="prompt-quick-tags">
-              <span class="tag-hint">Ctrl + ↵ to Run</span>
+              {#if isTokenLimitExceeded}
+                <span class="tag-hint tag-error">⚠️ Please trim your prompt below {MAX_INPUT_TOKENS.toLocaleString()} tokens</span>
+              {:else}
+                <span class="tag-hint">Ctrl + ↵ to Run</span>
+              {/if}
             </div>
 
             <button 
               class="btn-run-gemini" 
               onclick={sendMessage} 
-              disabled={isLoading || (!queryText.trim() && stagedFiles.length === 0)}
+              disabled={isLoading || (!queryText.trim() && stagedFiles.length === 0) || isTokenLimitExceeded}
             >
               <Sparkles size={16} strokeWidth={2} class={isLoading ? 'generating-sparkle' : ''} />
               <span>Run</span>
@@ -2768,12 +2783,42 @@
   }
 
   .token-telemetry {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: var(--font-size-label);
     color: var(--text-tertiary);
+    transition: color 0.15s ease;
+  }
+
+  .token-telemetry.token-limit-warning {
+    color: var(--status-error);
   }
 
   .token-val {
     color: var(--primary-accent);
+    font-weight: 500;
+  }
+
+  .token-val.token-val-exceeded {
+    color: var(--status-error);
+    font-weight: 700;
+  }
+
+  .token-exceeded-badge {
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: rgba(242, 139, 130, 0.15);
+    color: var(--status-error);
+    border: 1px solid rgba(242, 139, 130, 0.4);
+    border-radius: var(--radius-xs);
+    margin-left: 2px;
+  }
+
+  .tag-hint.tag-error {
+    color: var(--status-error);
     font-weight: 500;
   }
 
