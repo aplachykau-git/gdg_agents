@@ -87,7 +87,7 @@ If `GOOGLE_GENAI_USE_VERTEXAI=1`, authenticate your local environment with Googl
 ```bash
 bash <(curl -sSL https://storage.googleapis.com/cloud-samples-data/adc/setup_adc.sh)
 ```
-*Provide your GCP Project ID (e.g., `gdg-agents-496611`) when prompted and complete authentication in your browser. When using `GOOGLE_GENAI_USE_VERTEXAI=0`, skip this step and configure `GEMINI_API_KEY` instead.*
+*Provide your GCP Project ID (e.g., `gdg-agents-496611`) when prompted and complete authentication in your browser. When using `GOOGLE_GENAI_USE_VERTEXAI=0`, skip this step and configure `GOOGLE_API_KEY` instead.*
 
 ### 4. Configuration Settings (.env)
 
@@ -99,8 +99,9 @@ cp .env.example .env
 ```
 
 Open `.env` and fill in the following parameters:
-- `GEMINI_API_KEY`: Your private API key from [Google AI Studio](https://aistudio.google.com/). It is required when `GOOGLE_GENAI_USE_VERTEXAI=0`; all Gemini model calls then use this key instead of Vertex credentials.
-- `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run Gemini calls through Vertex AI endpoints, or `0` to run Gemini calls through the Gemini Developer API. In API mode, `GEMINI_API_KEY` must be set.
+- `GOOGLE_API_KEY`: Your preferred API key from [Google AI Studio](https://aistudio.google.com/). It is used when `GOOGLE_GENAI_USE_VERTEXAI=0`; all Gemini model calls then use this key instead of Vertex credentials.
+- `GEMINI_API_KEY`: Backwards-compatible fallback when `GOOGLE_API_KEY` is not configured.
+- `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run Gemini calls through Vertex AI endpoints, or `0` to run Gemini calls through the Gemini Developer API. In API mode, `GOOGLE_API_KEY` or `GEMINI_API_KEY` must be set.
 - `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID from [Google Cloud Console](https://console.cloud.google.com/).
 - `GOOGLE_CLOUD_LOCATION`: The GCP region/location (e.g. `europe-central2`).
 - `GOOGLE_DRIVE_FOLDER_ID`: The ID of your target Google Drive folder (found in the folder's URL).

@@ -13,6 +13,13 @@ from google.cloud import storage
 from google.genai import types
 
 from agents.common.storage import upload_bytes_to_storage, upload_file_to_storage
+from agents.gemini_config import (
+    GeminiConfigurationError,
+    get_gemini_api_key,
+    get_gemini_client,
+    require_vertex_ai,
+    use_vertex_ai,
+)
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -268,7 +275,20 @@ def verify_portrait_photo(photo_path: str = "") -> str:
 
 
 # Video Generation Engine: "veo" (Vertex AI Veo 3.1) or "omni" (Google AI Gemini Omni Flash)
-VIDEO_ENGINE = os.environ.get("VIDEO_ENGINE", "veo").strip().lower()
+def get_video_engine() -> str:
+    """Return the configured video engine, defaulting invalid values to Veo."""
+    engine = os.environ.get("VIDEO_ENGINE", "veo").strip().lower()
+    return engine if engine in {"omni", "veo"} else "veo"
+
+
+def validate_video_generation_backend(engine: str) -> None:
+    """Ensure live video generation does not invoke Vertex while Gemini API mode is active."""
+    if engine == "veo" and not use_vertex_ai():
+        raise GeminiConfigurationError(
+            "VIDEO_ENGINE=veo requires Vertex AI. With GOOGLE_GENAI_USE_VERTEXAI=0, "
+            "set VIDEO_ENGINE=omni and configure GOOGLE_API_KEY or GEMINI_API_KEY."
+        )
+
 
 
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:

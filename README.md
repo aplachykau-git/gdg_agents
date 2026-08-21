@@ -239,8 +239,9 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
 
 | Variable | Values | Description |
 | :--- | :--- | :--- |
-| `GOOGLE_GENAI_USE_VERTEXAI` | `1` (default) \| `0` | Uses Vertex AI credentials for Gemini calls when `1`; uses `GEMINI_API_KEY` for all Gemini calls when `0`. |
-| `GEMINI_API_KEY` | API key | Required when `GOOGLE_GENAI_USE_VERTEXAI=0`; also required by the Omni video engine. |
+| `GOOGLE_GENAI_USE_VERTEXAI` | `1` (default) \| `0` | Uses Vertex AI credentials for Gemini calls when `1`; uses an API key when `0`. |
+| `GOOGLE_API_KEY` | API key | Preferred API key when `GOOGLE_GENAI_USE_VERTEXAI=0`; also supported by the Omni video engine. |
+| `GEMINI_API_KEY` | API key | Backwards-compatible fallback when `GOOGLE_API_KEY` is not set. |
 | `VIDEO_ENGINE` | `veo` (default) \| `omni` | Selects the video generation model (`veo-3.1-fast-generate-001` or `gemini-omni-flash-preview`). `veo` is available only in Vertex AI mode. |
 | `ENABLE_VIDEO_GENERATION` | `true` \| `false` | Set to `false` for instant layout/text dry-runs using local placeholder assets without consuming video tokens. |
 | `RENDER_4K` | `true` (default) \| `false` | Toggles rendering of the 4K Ultra HD MP4 video file. |

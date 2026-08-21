@@ -15,9 +15,6 @@ def load_gemini_environment() -> None:
     load_dotenv(override=True)
     if not use_vertex_ai():
         get_gemini_api_key()
-        # google-genai otherwise prioritizes GOOGLE_API_KEY over GEMINI_API_KEY.
-        # Removing it guarantees that ADK model calls use GEMINI_API_KEY in API mode.
-        os.environ.pop("GOOGLE_API_KEY", None)
 
 
 def use_vertex_ai() -> bool:
@@ -33,12 +30,12 @@ def use_vertex_ai() -> bool:
 
 
 def get_gemini_api_key() -> str:
-    """Return the required Gemini API key for Gemini Developer API mode."""
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    """Return the configured Gemini Developer API key."""
+    api_key = os.getenv("GOOGLE_API_KEY", "").strip() or os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise GeminiConfigurationError(
-            "GEMINI_API_KEY is required when GOOGLE_GENAI_USE_VERTEXAI=0. "
-            "Set a Gemini API key or enable Vertex AI with GOOGLE_GENAI_USE_VERTEXAI=1."
+            "GOOGLE_API_KEY or GEMINI_API_KEY is required when GOOGLE_GENAI_USE_VERTEXAI=0. "
+            "Set an API key or enable Vertex AI with GOOGLE_GENAI_USE_VERTEXAI=1."
         )
     return api_key
 
@@ -63,5 +60,5 @@ def require_vertex_ai(feature_name: str) -> None:
     if not use_vertex_ai():
         raise GeminiConfigurationError(
             f"{feature_name} requires Vertex AI. Set GOOGLE_GENAI_USE_VERTEXAI=1, "
-            "or use VIDEO_ENGINE=omni with GEMINI_API_KEY."
+            "or use VIDEO_ENGINE=omni with GOOGLE_API_KEY or GEMINI_API_KEY."
         )

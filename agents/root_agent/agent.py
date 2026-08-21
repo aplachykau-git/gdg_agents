@@ -10,11 +10,13 @@ warnings.filterwarnings(
     message=r".*BaseAgentConfig is deprecated.*",
 )
 
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
 from google.adk import Agent
 
-from agents.gemini_config import load_gemini_environment
-
-load_gemini_environment()
+initialise_agent_environment()
 
 # Ensure agents directory is in sys.path for direct imports
 _agents_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

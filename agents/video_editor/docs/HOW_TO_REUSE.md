@@ -69,12 +69,12 @@ RENDER_4K=true
 The workspace selects one inference backend for all Gemini model calls with
 `GOOGLE_GENAI_USE_VERTEXAI`. Set it to `1` to use **Application Default
 Credentials (ADC)** through Vertex AI, or set it to `0` and provide
-`GEMINI_API_KEY` to use the Gemini Developer API. API mode never falls back to
+`GOOGLE_API_KEY` to use the Gemini Developer API. API mode never falls back to
 ADC or Vertex AI.
 
 ```python
 if os.environ["GOOGLE_GENAI_USE_VERTEXAI"] == "0":
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"], vertexai=False)
+    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"], vertexai=False)
 else:
     client = genai.Client(vertexai=True)  # Resolves ADC/Vertex AI
 ```

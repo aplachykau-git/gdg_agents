@@ -28,15 +28,21 @@ def valid_response(title_in_body=False):
     return f"""### Variant 1: Architectural Perspective
 🚀 @{FIELDS["speaker_name"]}, {FIELDS["position"]} at {FIELDS["company"]}, will unpack {title} through shared Kotlin domain logic.
 
-Join us and secure your spot. #GDGKrakow #AndroidDev #Kotlin #Architecture
+Join us and secure your spot.
+
+#GDGKrakow #AndroidDev #Kotlin #Architecture
 ### Variant 2: Engineering Focus
 💻 @{FIELDS["speaker_name"]}, {FIELDS["position"]} at {FIELDS["company"]}, will explore modular boundaries for Android experiences beyond one screen.
 
-Register today and save your seat. #GDGKrakow #AndroidDev #Kotlin #Mobile
+Register today and save your seat.
+
+#GDGKrakow #AndroidDev #Kotlin #Mobile
 ### Variant 3: Community Focus
 🧠 Meet @{FIELDS["speaker_name"]}, {FIELDS["position"]} at {FIELDS["company"]}, for a practical discussion of reusable domain logic across devices.
 
-Sign up now to reserve your spot. #GDGKrakow #AndroidDev #Engineering #Community"""
+Sign up now to reserve your spot.
+
+#GDGKrakow #AndroidDev #Engineering #Community"""
 
 
 def failures(results):
@@ -73,11 +79,22 @@ class LinkedInPostGeneratorEvaluationTests(unittest.TestCase):
             failures(evaluate_missing_input_response(optional_request, fields)),
         )
 
+    def test_cta_can_appear_before_the_final_paragraph(self):
+        response = valid_response().replace(
+            "Join us and secure your spot.\n\n#GDGKrakow",
+            "Join us and secure your spot.\n\nLearn more about the session before the meetup.\n\n#GDGKrakow",
+        )
+        self.assertNotIn("cta", failures(evaluate_response(response, FIELDS)))
+
     def test_hashtag_footer_does_not_invalidate_cta_or_paragraph_count(self):
         results = evaluate_response(valid_response(), FIELDS)
         failed = failures(results)
-        self.assertNotIn("final_cta", failed)
+        self.assertNotIn("cta", failed)
         self.assertNotIn("narrative_format", failed)
+
+    def test_missing_cta_fails(self):
+        response = valid_response().replace("Join us and secure your spot.", "Learn more about the session.")
+        self.assertIn("cta", failures(evaluate_response(response, FIELDS)))
 
     def test_multi_speaker_announcements_accept_three_variants_per_speaker(self):
         request = """Create separate LinkedIn speaker announcements.

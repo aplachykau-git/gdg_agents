@@ -4,8 +4,14 @@ LinkedIn Post Generator Agent
 
 import os
 
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
 from google.adk import Agent
 from google.genai import types
+
+initialise_agent_environment()
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 
@@ -49,9 +55,9 @@ Your goal is to write natural, engaging, and well-developed LinkedIn announcemen
    - **CRITICAL HEADER FORMATTING**: Each variant MUST begin with `### Variant 1: Style Name`, `### Variant 2: Style Name`, etc. on a fresh line without emoji prefixes before `### Variant X:`. Do NOT wrap the style name in parentheses.
    - The style name is a creative variant label, not the talk title.
    - Every variant body MUST mention that speaker's `@Firstname Lastname`, position, and company.
-   - Use exactly 2–3 prose paragraphs per variant. Every variant MUST contain at least one of these exact emoji characters: 🚀, 💻, 🧠, ⚡, or 📱. Keep the CTA in the final prose paragraph. A CTA must explicitly say register, sign up, secure your spot, reserve your seat/place, grab your ticket, or save your seat. Do NOT put a registration link or hashtags in the same paragraph as the CTA: each must be its own footer line/block after the CTA.
+   - Use exactly 2–3 prose paragraphs per variant. Every variant MUST contain at least one of these exact emoji characters: 🚀, 💻, 🧠, ⚡, or 📱 and an inviting CTA to register or secure a spot.
    - Include `#GDG{community_name}` exactly once per variant, even when a registration link is provided. Do not use `#GDG{community_name}` inside the prose or CTA; use it only in the final hashtag block.
-   - Before sending, run this checklist for every variant: exactly 2–3 prose paragraphs; at least one of 🚀/💻/🧠/⚡/📱 appears in the prose; one explicit CTA; one final hashtag block with 3–4 hashtags and exactly one `#GDG{community_name}`.
+   - Before sending, run this checklist for every variant: exactly 2–3 prose paragraphs; at least one of 🚀/💻/🧠/⚡/📱 appears in the prose; one CTA; 3–4 hashtags with exactly one `#GDG{community_name}`.
    - Do not send a draft that fails any item in that checklist. Silently revise it until every variant passes.
 
 ## 🔄 Task Delegation & Root Orchestrator Handoff:

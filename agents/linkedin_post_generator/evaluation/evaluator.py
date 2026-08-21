@@ -203,7 +203,7 @@ def _is_hashtag_or_link_block(paragraph: str) -> bool:
     return not without_markers
 
 
-def _final_paragraph_has_cta(body: str) -> bool:
+def _has_cta(body: str) -> bool:
     cta_terms = (
         "register",
         "sign up",
@@ -221,8 +221,7 @@ def _final_paragraph_has_cta(body: str) -> bool:
         "dont miss",
         "join the conversation",
     )
-    paragraphs = _paragraphs(body)
-    return bool(paragraphs) and any(term in paragraphs[-1].casefold() for term in cta_terms)
+    return any(term in body.casefold() for term in cta_terms)
 
 
 def _has_forbidden_heading(body: str) -> bool:
@@ -329,9 +328,9 @@ def evaluate_response(
                 "Every variant must contain exactly 3–4 hashtags.",
             ),
             _rule(
-                "final_cta",
-                all(_final_paragraph_has_cta(variant.body) for variant in variants),
-                "The final paragraph of every variant must include a registration-oriented CTA.",
+                "cta",
+                all(_has_cta(variant.body) for variant in variants),
+                "Every variant must include an inviting registration-oriented CTA.",
             ),
             _rule(
                 "narrative_format",

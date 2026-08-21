@@ -1,9 +1,12 @@
 import os
 
-from dotenv import load_dotenv
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
 from google.adk import Agent
 
-load_dotenv(override=True)
+initialise_agent_environment()
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 

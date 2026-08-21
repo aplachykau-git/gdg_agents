@@ -1,9 +1,15 @@
 import datetime
 import os
 
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
 from google.adk import Agent
 
 from .tools import export_summary_to_google_doc, get_usd_pln_rate, read_receipt_file
+
+initialise_agent_environment()
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 current_year = datetime.date.today().year

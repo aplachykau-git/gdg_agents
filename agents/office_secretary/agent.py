@@ -1,5 +1,12 @@
 import os
 
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
+
+initialise_agent_environment()
+
 from google.adk import Agent
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
