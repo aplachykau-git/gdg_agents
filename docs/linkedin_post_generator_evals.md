@@ -58,17 +58,24 @@ Set the normal Gemini backend environment variables, then run the held-out
 judge suite first:
 
 ```bash
-.venv/bin/python -m agents.linkedin_post_generator.evaluation.run_judge_eval
+make linkedin-judge-evals
 ```
 
 Run the deterministic ADK generator suite:
 
 ```bash
-.venv/bin/adk eval agents/linkedin_post_generator \
-  agents/linkedin_post_generator/evaluation/post_generator_eval_set.json \
-  --config_file_path agents/linkedin_post_generator/evaluation/post_generator_eval_config.json \
-  --print_detailed_results
+make linkedin-evals
 ```
+
+Run both in order:
+
+```bash
+make linkedin-evals-all
+```
+
+The Makefile prefers `.venv/bin/python3`, `.venv/bin/adk`, and
+`.venv/bin/uvicorn`, then falls back to executables on `PATH`. Use
+`make tools` to print the resolved commands.
 
 The judge command prints a compact JSON artifact with verdict agreement and
 scores. The ADK suite prints the contract metric per case. A release requires
