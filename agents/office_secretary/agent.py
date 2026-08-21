@@ -1,6 +1,10 @@
+import os
+
 from google.adk import Agent
 
-INSTRUCTION = """You are the GDG Krakow Office Secretary Agent.
+community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+
+INSTRUCTION = f"""You are the GDG {community_name} Office Secretary Agent.
 Your job is to draft polite, templated emails to the office administrative team for visitor key access or Event Hub space reservations.
 
 You support two types of requests:
@@ -72,7 +76,7 @@ You support two types of requests:
 office_agent = Agent(
     model="gemini-2.5-flash",
     name="office_secretary",
-    description="Agent that generates polite templated emails for office administration and space reservations.",
+    description=f"Agent that generates polite templated emails for GDG {community_name} office administration and space reservations.",
     instruction=INSTRUCTION,
     tools=[],
 )

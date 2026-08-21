@@ -4,6 +4,112 @@ This project is a multi-agent system built on the [Google Agent Development Kit 
 
 ---
 
+---
+
+## 🏛️ System Architecture
+
+```mermaid
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'darkMode': true,
+    'background': '#0f172a',
+    'primaryColor': '#1e293b',
+    'primaryTextColor': '#f8fafc',
+    'primaryBorderColor': '#475569',
+    'lineColor': '#38bdf8',
+    'textColor': '#f8fafc',
+    'fontSize': '13px',
+    'fontFamily': 'Inter, system-ui, -apple-system, sans-serif',
+    'clusterBkg': '#131926',
+    'clusterBorder': '#334155',
+    'edgeLabelBackground': '#1e293b',
+    'tertiaryColor': '#1e293b',
+    'tertiaryBorderColor': '#334155'
+  }
+}}%%
+
+flowchart TB
+    subgraph CLIENT_LAYER["🖥️ 1. CLIENT & INTERACTION LAYER (A2UI)"]
+        direction LR
+        UI["<b>Svelte 5 Workspace Dashboard</b><br/><i>Port :5173 (Vite + Runes)</i><br/>• Floating Prompt Bar & Stager<br/>• Interactive Agenda Timeline<br/>• Multi-variant Post Deck<br/>• Multi-Agent DAG Topology"]
+    end
+
+    subgraph GATEWAY_LAYER["🌐 2. INGRESS & ADK ORCHESTRATION GATEWAY"]
+        direction LR
+        GW["<b>ADK Web Server / Reverse Proxy</b><br/><i>Port :8080 (FastAPI Engine)</i><br/>• SSE Streaming: <code>/run_sse</code><br/>• Apps & State Hub: <code>/list-apps</code>"]
+        ROOT["<b>Root Orchestrator Agent</b><br/><i>gemini-2.5-flash</i><br/>• Intent Parsing & Decomposition<br/>• Sub-agent Routing & State Handoff"]
+        GW <-->|Bidirectional SSE / REST| ROOT
+    end
+
+    subgraph AGENT_LAYER["🤖 3. SPECIALIZED WORKER AGENTS (Local & Remote A2A)"]
+        direction TB
+        
+        subgraph LOCAL_AGENTS["⚡ Local Sub-Agents (In-Process Delegation)"]
+            direction LR
+            A_LINKEDIN["📱 <b>LinkedIn Post Generator</b><br/><i>gemini-2.5-flash</i><br/>• 3 Style Post Variants<br/>• Anti-Hallucination Guard"]
+            A_REG["📋 <b>Registration Manager</b><br/><i>Data Partitioning Engine</i><br/>• CSV Parsing & Dedup<br/>• VIP & DOCX Exporter"]
+            A_PLANNER["📅 <b>Event Planner</b><br/><i>gemini-2.5-flash</i><br/>• Tech Calendar Conflicts<br/>• Nager.Date Polish Holidays"]
+            A_AGENDA["⏱️ <b>Agenda Formatter</b><br/><i>gemini-2.5-flash</i><br/>• Dynamic Slot Snapping<br/>• Interactive UI Timeline"]
+            A_OFFICE["🔑 <b>Office Secretary</b><br/><i>gemini-2.5-flash</i><br/>• Key Access Management<br/>• Event Hub Reservations"]
+        end
+
+        subgraph REMOTE_A2A["🔗 Distributed A2A Microservices (Agent-to-Agent Protocol)"]
+            direction LR
+            A_VIDEO["🎬 <b>Live Video Editor A2A</b><br/><i>Port :8081 (Uvicorn / A2A App)</i><br/>• Face Landmark Verification<br/>• 9:16 Portrait Outpainting<br/>• Veo 3.1 / Omni Video Engine<br/>• HyperFrames GSAP 4K Render"]
+            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>Port :8082 (Uvicorn / A2A App)</i><br/>• gemini-2.5-pro OCR Engine<br/>• Pekao & NBP FX Rate Fetcher<br/>• Google Docs Report Exporter"]
+        end
+    end
+
+    subgraph FOUNDATION_LAYER["☁️ 4. EXTERNAL AI FOUNDATION & ENTERPRISE SERVICES"]
+        direction LR
+        CLOUD_AI["<b>Google Vertex AI & GenAI</b><br/>• Gemini 2.5 Pro / Flash<br/>• Google Veo 3.1 & Omni Flash<br/>• Imagen Portrait Outpainting"]
+        G_SUITE["<b>Google Workspace APIs</b><br/>• Google Drive API<br/>• Google Docs Engine"]
+        FIN_APIS["<b>Public Financial & Calendar APIs</b><br/>• Pekao Bank FX Scraper<br/>• NBP Exchange Rate API<br/>• Nager.Date Holiday API"]
+    end
+
+    subgraph STORAGE_LAYER["💾 5. STORAGE, ARTIFACTS & STATE STORE"]
+        direction LR
+        S_STATE["<b>ADK Session Memory</b><br/>• InMemory / LocalStorage<br/>• Per-Agent Session State"]
+        S_FILES["<b>Local Artifact File Store</b><br/>• <code>renders/</code> (4K MP4, GIF)<br/>• <code>assets/</code> (Staged Media)<br/>• <code>results/</code> (Generated DOCX)"]
+    end
+
+    %% Flows & Connections
+    UI -->|1. User Prompt, Files & Commands| GW
+    GW -->|2. Stream Real-time Events & Shimmer| UI
+    
+    ROOT -->|3a. Direct Transfer| LOCAL_AGENTS
+    ROOT -->|3b. JSON-RPC Agent Card| REMOTE_A2A
+
+    LOCAL_AGENTS -->|4a. Multimodal Prompt & Tools| CLOUD_AI
+    LOCAL_AGENTS -->|4b. Public APIs| FIN_APIS
+    LOCAL_AGENTS -->|4c. Save Documents| S_FILES
+
+    REMOTE_A2A -->|5a. Veo / OCR Inference| CLOUD_AI
+    REMOTE_A2A -->|5b. Auto-Export Expense Report| G_SUITE
+    REMOTE_A2A -->|5c. Real-time FX Rates| FIN_APIS
+    REMOTE_A2A -->|5d. Output 4K Video & Logs| S_FILES
+
+    ROOT -.->|Read / Write State| S_STATE
+
+    %% ByteByteGo Dark Mode Styling
+    classDef clientStyle fill:#0c2340,stroke:#38bdf8,stroke-width:2px,color:#f0f9ff,rx:8px,ry:8px;
+    classDef gwStyle fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fef3c7,rx:8px,ry:8px;
+    classDef localAgentStyle fill:#2e1065,stroke:#a855f7,stroke-width:2px,color:#faf5ff,rx:8px,ry:8px;
+    classDef a2aStyle fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ecfdf5,rx:8px,ry:8px;
+    classDef cloudStyle fill:#4c0519,stroke:#f43f5e,stroke-width:2px,color:#fff1f2,rx:8px,ry:8px;
+    classDef storageStyle fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#f8fafc,rx:8px,ry:8px;
+
+    class UI clientStyle;
+    class GW,ROOT gwStyle;
+    class A_LINKEDIN,A_REG,A_PLANNER,A_AGENDA,A_OFFICE localAgentStyle;
+    class A_VIDEO,A_RECEIPT a2aStyle;
+    class CLOUD_AI,G_SUITE,FIN_APIS cloudStyle;
+    class S_STATE,S_FILES storageStyle;
+```
+
+---
+
 ## 🏗️ Project Structure
 
 The workspace is organized into a clean, modular hierarchy:
@@ -48,6 +154,7 @@ gdg_krakow_tool/
 ## 🧠 ADK Architecture: Session State & Artifacts Management
 
 The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 primitives:
+
 1. **Model Tiering Strategy**:
    - **`gemini-2.5-pro`** is allocated to complex reasoning & dense document OCR (`receipt_scanner`).
    - **`gemini-2.5-flash`** is deployed across orchestrators and tool-calling agents for fast execution, high concurrency, and zero function-calling errors.
@@ -72,15 +179,17 @@ To spin up the complete distributed multi-agent system (Video Editor A2A on port
 npm start
 ```
 
-### 🌐 Running Services:
+### 🌐 Running Services
+
 * **Frontend UI Dashboard**: [http://localhost:5173](http://localhost:5173)
-* **Root Orchestrator Agent**: [http://localhost:8080](http://localhost:8080)
-* **Video Editor A2A Service**: [http://localhost:8081/.well-known/agent-card.json](http://localhost:8081/.well-known/agent-card.json)
-* **Receipt Scanner A2A Service**: [http://localhost:8082/.well-known/agent-card.json](http://localhost:8082/.well-known/agent-card.json)
+- **Root Orchestrator Agent**: [http://localhost:8080](http://localhost:8080)
+- **Video Editor A2A Service**: [http://localhost:8081/.well-known/agent-card.json](http://localhost:8081/.well-known/agent-card.json)
+- **Receipt Scanner A2A Service**: [http://localhost:8082/.well-known/agent-card.json](http://localhost:8082/.well-known/agent-card.json)
 
 ---
 
-### Individual Service Commands (Optional):
+### Individual Service Commands (Optional)
+
 ```bash
 # 1. Video Editor A2A Server (Port 8081)
 npm run a2a:video

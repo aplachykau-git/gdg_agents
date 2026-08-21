@@ -83,11 +83,9 @@ def validate_metadata(title: str, name: str, position_company: str) -> str:
     return json.dumps(result)
 
 
-# ============================================================================
-# 🤖 LIVE VIDEO EDITOR AGENT
-# ============================================================================
+community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 
-INSTRUCTION = """You are the Live Video Editor Agent for GDG Krakow.
+INSTRUCTION = f"""You are the Live Video Editor Agent for GDG {community_name}.
 Your goal is to autonomously generate high-quality live speaker video/GIF cards and promotional avatars from speaker portrait photos/videos and presentation details.
 
 ## ⚡ MANDATORY PROACTIVE EXECUTION:
@@ -138,3 +136,4 @@ video_editor_agent = Agent(
 
 # ADK entry point registration
 root_agent = video_editor_agent
+video_agent = video_editor_agent

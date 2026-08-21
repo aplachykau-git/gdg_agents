@@ -1,7 +1,10 @@
 import tempfile
 from pathlib import Path
 
-import pypdfium2 as pdfium
+try:
+    import pypdfium2 as pdfium
+except ImportError:
+    pdfium = None
 from PIL import ExifTags, Image
 
 
@@ -40,6 +43,9 @@ def _pdf_to_png_screenshot(pdf_path: str) -> str | None:
     Renders the first page of a PDF to a PNG temp file and returns its path.
     Returns None on failure. The original PDF is never copied or moved.
     """
+    if pdfium is None:
+        print("[WARNING] pypdfium2 is not installed. Cannot render PDF to image.")
+        return None
     try:
         doc = pdfium.PdfDocument(pdf_path)
         page = doc[0]

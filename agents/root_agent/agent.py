@@ -1,20 +1,34 @@
+import os
+import sys
+import warnings
+
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-import os
+# Suppress upstream Google ADK BaseAgentConfig deprecation warning
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message=r".*BaseAgentConfig is deprecated.*",
+)
 
 from google.adk import Agent
+
+# Ensure agents directory is in sys.path for direct imports
+_agents_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _agents_dir not in sys.path:
+    sys.path.insert(0, _agents_dir)
 
 try:
     from agenda_generator.agent import agenda_agent
     from event_planner.agent import planner_agent
-    from linkedin_post_generator.agent import root_agent as linkedin_agent
+    from linkedin_post_generator.agent import linkedin_agent
     from office_secretary.agent import office_agent
     from receipt_scanner.agent import receipt_agent
-    from registration_manager.agent import root_agent as registration_agent
-    from video_editor.agent import root_agent as video_agent
-except ModuleNotFoundError:
+    from registration_manager.agent import registration_agent
+    from video_editor.agent import video_editor_agent as video_agent
+except (ModuleNotFoundError, ImportError):
     from agents.agenda_generator.agent import agenda_agent
     from agents.event_planner.agent import planner_agent
     from agents.linkedin_post_generator.agent import root_agent as linkedin_agent
@@ -124,7 +138,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 root_agent = Agent(
     model="gemini-2.5-flash",
     name="root_agent",
-    description="Root coordinator agent of GDG {community_name}",
+    description=f"Root coordinator agent of GDG {community_name}",
     instruction=INSTRUCTION,
     sub_agents=[
         receipt_agent,

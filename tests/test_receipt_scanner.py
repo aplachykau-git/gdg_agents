@@ -1,7 +1,11 @@
 import asyncio
 import os
 import sys
+import warnings
 from pathlib import Path
+
+# Suppress upstream Google ADK BaseAgentConfig deprecation warning
+warnings.filterwarnings("ignore", message=".*BaseAgentConfig.*")
 
 # Dynamically add project root and subfolders for clean imports
 project_root = Path(__file__).resolve().parent.parent

@@ -8,10 +8,14 @@ import os
 import re
 from typing import Any, List, Tuple
 
-from docx import Document
-from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import nsdecls, qn
-from docx.shared import Inches, Pt, RGBColor
+try:
+    from docx import Document
+    from docx.oxml import OxmlElement, parse_xml
+    from docx.oxml.ns import nsdecls, qn
+    from docx.shared import Inches, Pt, RGBColor
+except ImportError:
+    Document = None
+    OxmlElement = parse_xml = nsdecls = qn = Inches = Pt = RGBColor = None
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

@@ -38,6 +38,8 @@
     ArrowUpRight,
     AlertCircle
   } from '@lucide/svelte';
+  import AgendaTimeline from './lib/AgendaTimeline.svelte';
+  import AgentGraph from './lib/AgentGraph.svelte';
 
   // Markdown rendering helper
   function renderMarkdown(text) {
@@ -77,6 +79,7 @@
   // Layout Panels & Drawers
   let showSessions = $state(true); // Left panel
   let showLegend = $state(false);   // Capabilities modal
+  let showAgentGraph = $state(false); // Multi-agent DAG modal
   
   // Staged files
   let isDragging = $state(false);
@@ -205,9 +208,10 @@
       if (!res.ok) throw new Error(`Failed to load session details: ${res.statusText}`);
       const data = await res.json();
       events = data.events || [];
-      const lastErr = events.slice().reverse().find(e => e.errorMessage || e.error || e.errorCode);
-      if (lastErr) {
-        errorMsg = lastErr.errorMessage || (typeof lastErr.error === 'object' ? lastErr.error.message : lastErr.error) || lastErr.errorCode;
+      const lastErrEvent = events.slice().reverse().find(e => getEventError(e));
+      if (lastErrEvent) {
+        const err = getEventError(lastErrEvent);
+        errorMsg = err.message;
       }
       scrollToBottom();
     } catch (e) {
@@ -433,7 +437,56 @@
     return `Executing ${formatted}...`;
   }
 
+  function getEventError(event) {
+    if (!event) return null;
+    const errMsg = event.errorMessage || event.error_message || (typeof event.error === 'object' ? (event.error?.message || event.error?.detail || event.error?.error || JSON.stringify(event.error)) : event.error);
+    const errCode = event.errorCode || event.error_code || (typeof event.error === 'object' ? event.error?.code : null);
+    if (errMsg || errCode) {
+      return {
+        message: errMsg || 'An error occurred during execution.',
+        code: errCode || ''
+      };
+    }
+    if (event.status === 'error') {
+      return {
+        message: event.status_message || event.statusMessage || event.detail || 'Execution failed with error status.',
+        code: 'ERROR_STATUS'
+      };
+    }
+    return null;
+  }
+
+  function isToolResponseError(response) {
+    if (!response) return false;
+    if (typeof response === 'object') {
+      if (response.error || response.error_message || response.errorMessage || response.exception) {
+        return true;
+      }
+      if (response.status === 'error' || response.success === false) {
+        return true;
+      }
+    }
+    if (typeof response === 'string') {
+      const lower = response.toLowerCase();
+      if (lower.startsWith('error:') || lower.startsWith('exception:') || lower.includes('traceback (most recent call last)')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function getToolErrorMessage(response) {
+    if (!response) return 'Tool execution failed';
+    if (typeof response === 'object') {
+      return response.error || response.error_message || response.errorMessage || response.exception || response.detail || JSON.stringify(response);
+    }
+    return String(response);
+  }
+
   function getFriendlyToolResponse(name, response, args) {
+    if (isToolResponseError(response)) {
+      return `❌ Tool error: ${getToolErrorMessage(response)}`;
+    }
     const mappings = {
       transfer_to_video_editor: () => "Workflow handed off to Live Video Editor (A2A).",
       transfer_to_receipt_scanner: () => "Workflow handed off to Receipt Scanner (A2A).",
@@ -474,6 +527,19 @@
 
   let copiedId = $state('');
   
+  // Detect if text output is an agenda timeline from agenda_generator or root_agent delegation
+  function isAgendaOutput(text, author) {
+    if (!text) return false;
+    const clean = cleanAuthorName(author).toLowerCase();
+    const hasAgendaKeyword = text.toUpperCase().includes('AGENDA');
+    const hasTimePattern = /\d{1,2}:\d{2}\s*[-–—]/.test(text);
+    const hasAgendaEmojis = text.includes('🎟️') || text.includes('🚀') || text.includes('🎤') || text.includes('🍕');
+    
+    if (clean.includes('agenda') && (hasTimePattern || hasAgendaKeyword)) return true;
+    if (hasAgendaKeyword && hasTimePattern && hasAgendaEmojis) return true;
+    return false;
+  }
+
   // Parse response into separate variants/options if they exist
   function parseResponseVariants(text, author) {
     if (!text) return [];
@@ -575,7 +641,7 @@
   function isIntermediateEvent(event) {
     if (!event) return true;
     if (event.author === 'user') return false;
-    if (event.errorMessage || event.errorCode || event.error) return false;
+    if (getEventError(event)) return false;
     if (!event.content || !event.content.parts) return true;
     return false;
   }
@@ -662,10 +728,25 @@
           body: JSON.stringify(payload)
         });
         if (!res.ok) {
-          useSSE = false;
+          if (res.status === 404) {
+            useSSE = false;
+          } else {
+            let errDetail = '';
+            try {
+              const errJson = await res.json();
+              errDetail = errJson.detail || errJson.message || errJson.errorMessage || errJson.error_message || JSON.stringify(errJson);
+            } catch (_) {
+              errDetail = await res.text().catch(() => '');
+            }
+            throw new Error(errDetail || `Backend server error (${res.status} ${res.statusText})`);
+          }
         }
       } catch (err) {
-        useSSE = false;
+        if (!useSSE) {
+          // fallback to non-streaming /run
+        } else {
+          throw err;
+        }
       }
 
       if (!useSSE) {
@@ -676,8 +757,14 @@
           body: JSON.stringify(payload)
         });
         if (!res.ok) {
-          const errDetail = await res.text();
-          throw new Error(errDetail || res.statusText);
+          let errDetail = '';
+          try {
+            const errJson = await res.json();
+            errDetail = errJson.detail || errJson.message || errJson.errorMessage || errJson.error_message || JSON.stringify(errJson);
+          } catch (_) {
+            errDetail = await res.text().catch(() => '');
+          }
+          throw new Error(errDetail || `Backend server error (${res.status} ${res.statusText})`);
         }
         await selectSession(selectedSessionId);
       } else {
@@ -700,9 +787,14 @@
               if (!dataStr) continue;
               try {
                 const eventObj = JSON.parse(dataStr);
-                if (eventObj.error || eventObj.errorMessage || eventObj.errorCode) {
-                  const errStr = eventObj.errorMessage || (typeof eventObj.error === 'object' ? (eventObj.error.message || JSON.stringify(eventObj.error)) : eventObj.error) || eventObj.errorCode;
-                  throw new Error(errStr);
+                const eventErr = getEventError(eventObj);
+                if (eventErr) {
+                  eventObj.errorMessage = eventErr.message;
+                  eventObj.errorCode = eventErr.code;
+                  errorMsg = `Execution Error (${eventObj.author || 'Agent'}): ${eventErr.message}`;
+                  events = [...events, eventObj];
+                  scrollToBottom();
+                  continue;
                 }
 
                 if (eventObj.author && eventObj.author !== 'user') {
@@ -725,7 +817,7 @@
                     events = [...events, eventObj];
                   }
                   scrollToBottom();
-                } else if (eventObj.content || eventObj.errorMessage) {
+                } else if (eventObj.content || getEventError(eventObj)) {
                   events = [...events, eventObj];
                   scrollToBottom();
                 }
@@ -748,6 +840,9 @@
                       }
                       const agentLabel = getAgentTheme(currentExecutingAgent || eventObj.author).label || eventObj.author;
                       statusText = `${agentLabel}: ${getFriendlyToolResponse(fr.name, fr.response)}`;
+                      if (isToolResponseError(fr.response)) {
+                        errorMsg = `Tool Error (${fr.name}): ${getToolErrorMessage(fr.response)}`;
+                      }
                     } else if (part.text) {
                       const agentLabel = getAgentTheme(eventObj.author || currentExecutingAgent).label || eventObj.author;
                       statusText = `${agentLabel} generating response...`;
@@ -755,27 +850,40 @@
                   }
                 }
               } catch (parseErr) {
-                if (parseErr.message && !parseErr.message.includes('JSON')) {
-                  throw parseErr;
-                }
+                console.warn('SSE event parse warning:', parseErr);
               }
             }
           }
         }
-        await selectSession(selectedSessionId);
       }
     } catch (e) {
       console.error(e);
-      let displayError = e.message;
+      let displayError = e.message || 'An unexpected execution error occurred.';
       try {
         const parsed = JSON.parse(e.message);
         if (parsed.detail) {
           displayError = parsed.detail;
         } else if (parsed.errorMessage) {
           displayError = parsed.errorMessage;
+        } else if (parsed.error_message) {
+          displayError = parsed.error_message;
         }
       } catch(_) {}
-      errorMsg = `Execution Error: ${displayError}`;
+      
+      errorMsg = displayError.startsWith('Execution Error:') ? displayError : `Execution Error: ${displayError}`;
+      
+      // Append an error card to chat thread if not already there
+      const lastEvt = events[events.length - 1];
+      const lastErr = getEventError(lastEvt);
+      if (!lastErr || lastErr.message !== displayError) {
+        const errorEvent = {
+          author: currentExecutingAgent || selectedApp || 'system',
+          errorMessage: displayError,
+          errorCode: 'EXECUTION_ERROR',
+          timestamp: Date.now() / 1000
+        };
+        events = [...events, errorEvent];
+      }
     } finally {
       isLoading = false;
       clearInterval(statusInterval);
@@ -881,6 +989,11 @@
 
     <!-- Header Actions -->
     <div class="header-right">
+      <button class="header-pill-btn" onclick={() => showAgentGraph = true} title="View Multi-Agent DAG Architecture & Protocol Graph">
+        <Workflow size={15} strokeWidth={1.75} />
+        <span>Agent Graph</span>
+      </button>
+
       <button class="header-pill-btn" onclick={() => showLegend = true} title="View Agent System Architecture">
         <HelpCircle size={15} strokeWidth={1.75} />
         <span>Capabilities</span>
@@ -968,6 +1081,19 @@
             <h3>Drop Files for Multimodal Inference</h3>
             <p>Accepts receipts, invoice images, portrait photos, spreadsheets, and PDFs</p>
           </div>
+        </div>
+      {/if}
+
+      <!-- Global Error Notification Banner -->
+      {#if errorMsg}
+        <div class="global-error-banner">
+          <div class="global-error-content">
+            <AlertCircle size={18} class="error-banner-icon" />
+            <span class="error-banner-text">{errorMsg}</span>
+          </div>
+          <button class="error-banner-close" onclick={() => errorMsg = ''} title="Dismiss error">
+            <X size={15} />
+          </button>
         </div>
       {/if}
 
@@ -1198,7 +1324,8 @@
             {/if}
 
             {#each filteredEvents as event, idx}
-              {#if event.errorMessage || event.errorCode || event.error}
+              {@const errInfo = getEventError(event)}
+              {#if errInfo}
                 {@const theme = getAgentTheme(event.author)}
                 <!-- Error Event Card -->
                 <div class="message-row error-row">
@@ -1210,9 +1337,9 @@
                       </div>
                     </div>
                     <div class="error-body">
-                      <p class="error-text-main">{event.errorMessage || (typeof event.error === 'object' ? (event.error.message || JSON.stringify(event.error)) : event.error) || 'An error occurred during execution.'}</p>
-                      {#if event.errorCode}
-                        <div class="error-code-chip">{event.errorCode}</div>
+                      <p class="error-text-main">{errInfo.message}</p>
+                      {#if errInfo.code}
+                        <div class="error-code-chip">{errInfo.code}</div>
                       {/if}
                     </div>
                   </div>
@@ -1273,10 +1400,17 @@
                     {#if event.content && event.content.parts}
                       {#each event.content.parts as part}
                         {#if part.text}
-                          {@const variants = parseResponseVariants(part.text, event.author)}
-                          {#if variants.length === 1}
-                            <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
+                          {#if isAgendaOutput(part.text, event.author)}
+                            <AgendaTimeline 
+                              rawText={part.text} 
+                              author={event.author} 
+                              onRefine={(refinedText) => refineVariant(refinedText)} 
+                            />
                           {:else}
+                            {@const variants = parseResponseVariants(part.text, event.author)}
+                            {#if variants.length === 1}
+                              <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
+                            {:else}
                             <div class="variants-deck">
                               {#each variants as variant, vIdx}
                                 <div class="variant-item-card">
@@ -1308,6 +1442,7 @@
                             </div>
                           {/if}
                         {/if}
+                      {/if}
 
                         <!-- Tool Call Activity Step (Clean, No Raw JSON) -->
                         {#if part.function_call || part.functionCall}
@@ -1321,8 +1456,13 @@
                         <!-- Tool Response Activity Step (Clean, No Raw JSON) -->
                         {#if part.function_response || part.functionResponse}
                           {@const fr = part.function_response || part.functionResponse}
-                          <div class="activity-step-chip activity-done">
-                            <Check size={13} class="activity-check-icon" />
+                          {@const isErr = isToolResponseError(fr.response)}
+                          <div class="activity-step-chip {isErr ? 'activity-error' : 'activity-done'}">
+                            {#if isErr}
+                              <AlertCircle size={13} class="activity-error-icon" />
+                            {:else}
+                              <Check size={13} class="activity-check-icon" />
+                            {/if}
                             <span class="activity-label">{getFriendlyToolResponse(fr.name, fr.response)}</span>
                           </div>
                         {/if}
@@ -1527,6 +1667,23 @@
       </footer>
     </div>
   </div>
+{/if}
+
+<!-- =========================================================================
+ * MULTI-AGENT DAG GRAPH MODAL (A2A Architecture Canvas)
+ * ========================================================================= -->
+{#if showAgentGraph}
+  <AgentGraph 
+    {currentExecutingAgent} 
+    {isLoading} 
+    {selectedApp} 
+    onSelectAgent={(agentId) => {
+      selectedApp = agentId;
+      selectedSessionId = '';
+      loadSessions();
+    }}
+    onClose={() => showAgentGraph = false}
+  />
 {/if}
 
 <style>
@@ -2249,6 +2406,61 @@
     letter-spacing: 0.5px;
   }
 
+  /* Global Error Banner */
+  .global-error-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    margin: 12px 24px 0 24px;
+    background: rgba(242, 139, 130, 0.15);
+    border: 1px solid rgba(242, 139, 130, 0.4);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    animation: fadeIn 0.2s ease-in-out;
+  }
+
+  .global-error-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: var(--font-size-body-sm);
+  }
+
+  :global(.error-banner-icon) {
+    color: var(--status-error);
+    flex-shrink: 0;
+  }
+
+  .error-banner-text {
+    font-weight: 500;
+    word-break: break-word;
+  }
+
+  .error-banner-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: var(--radius-xs);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .error-banner-close:hover {
+    background: rgba(242, 139, 130, 0.2);
+    color: var(--text-primary);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   /* Error Card In Message Stream */
   .error-row {
     justify-content: flex-start;
@@ -2831,8 +3043,19 @@
     color: var(--text-primary);
   }
 
+  .activity-step-chip.activity-error {
+    background: rgba(242, 139, 130, 0.12);
+    border-color: rgba(242, 139, 130, 0.35);
+    color: var(--status-error);
+  }
+
   :global(.activity-check-icon) {
     color: var(--status-success);
+    flex-shrink: 0;
+  }
+
+  :global(.activity-error-icon) {
+    color: var(--status-error);
     flex-shrink: 0;
   }
 
