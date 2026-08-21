@@ -394,7 +394,9 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
             import openpyxl
 
             wb = openpyxl.load_workbook(abs_path, data_only=True)
-            sheet = wb.active
+            sheet = wb.active or (wb.worksheets[0] if wb.worksheets else None)
+            if sheet is None:
+                return f"Error: No sheets found in Excel file '{file_path}'."
             rows_iter = sheet.iter_rows(values_only=True)
             headers = [str(h).strip() if h is not None else "" for h in next(rows_iter, [])]
             for r in rows_iter:
@@ -765,7 +767,7 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
                 return
 
             table = doc.add_table(rows=0, cols=3)
-            table.allow_autofit = False
+            table.autofit = False
 
             # Setup columns widths (Sum equals exactly 2.3 inches, fitting 3-column layout width perfectly!)
             # No. (0.2 in), Full Name (1.55 in), Status (0.55 in)
