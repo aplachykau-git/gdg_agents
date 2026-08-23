@@ -65,7 +65,7 @@ if receipt_a2a_url:
         print(f"🔗 [A2A Connected] receipt_scanner agent linked via A2A at: {card_url}")
         receipt_agent = RemoteA2aAgent(
             name="receipt_scanner",
-            description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-2.5-pro, converts to PLN and USD using the Pekao rate, exports reports to Google Docs.",
+            description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-3.6-flash, converts to PLN and USD using the Pekao rate, exports reports to Google Docs.",
             agent_card=card_url,
         )
     except Exception as e:

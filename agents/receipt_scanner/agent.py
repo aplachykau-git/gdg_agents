@@ -16,7 +16,7 @@ current_year = datetime.date.today().year
 
 INSTRUCTION = f"""
 You are an advanced agent designed to recognize receipts and invoices and structure them for reporting.
-You run on the gemini-2.5-pro model.
+You run on the gemini-3.6-flash model.
 
 ⚠️ IMPORTANT: You HAVE a direct tool called `export_summary_to_google_doc` for creating and writing reports in Google Docs. You CAN export reports directly. Never tell the user that you cannot do this! If the user requests an export or document creation, immediately invoke `export_summary_to_google_doc`.
 
@@ -65,11 +65,11 @@ You MUST automatically determine the title of the document using the following r
 """
 
 receipt_agent = Agent(
-    model="gemini-2.5-pro",
+    model="gemini-3.6-flash",
     name="receipt_scanner",
     description=(
         "Agent for recognizing receipts and invoices. "
-        "Natively analyzes images and PDFs using gemini-2.5-pro, "
+        "Natively analyzes images and PDFs using gemini-3.6-flash, "
         "converts to PLN and USD using the Pekao rate, exports reports to Google Docs."
     ),
     instruction=INSTRUCTION,

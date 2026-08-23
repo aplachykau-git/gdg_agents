@@ -10,8 +10,12 @@ NPM_BIN := $(shell command -v npm || true)
 LINKEDIN_EVAL_DIR := agents/linkedin_post_generator/evaluation
 LINKEDIN_EVAL_SET := $(LINKEDIN_EVAL_DIR)/post_generator_eval_set.json
 LINKEDIN_EVAL_CONFIG := $(LINKEDIN_EVAL_DIR)/post_generator_eval_config.json
+RECEIPT_EVAL_DIR := agents/receipt_scanner/evaluation
+RECEIPT_EVAL_MODEL ?= gemini-3.6-flash
 
-.PHONY: help tools linkedin-evals linkedin-judge-evals linkedin-evals-all run-all
+.PHONY: help tools linkedin-evals linkedin-judge-evals linkedin-evals-all \
+	receipt-eval-discover receipt-eval-fixtures receipt-extraction-evals \
+	receipt-conversion-evals receipt-evals-all run-all
 
 help: ## Show available commands.
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -33,6 +37,30 @@ linkedin-evals: ## Run the ADK end-to-end LinkedIn post-generator evaluation.
 linkedin-evals-all: ## Run judge evaluation first, then the ADK LinkedIn evaluation.
 	@$(MAKE) linkedin-judge-evals
 	@$(MAKE) linkedin-evals
+
+receipt-eval-discover: ## Discover receipt fixture candidates from OCR metadata.
+	@test -n "$(PYTHON_BIN)" || { echo "Python was not found. Create .venv or install python3."; exit 1; }
+	"$(PYTHON_BIN)" -m agents.receipt_scanner.evaluation.prepare_fixtures discover
+
+receipt-eval-fixtures: ## Download and verify pinned receipt evaluation images.
+	@test -n "$(PYTHON_BIN)" || { echo "Python was not found. Create .venv or install python3."; exit 1; }
+	"$(PYTHON_BIN)" -m agents.receipt_scanner.evaluation.prepare_fixtures download
+
+receipt-extraction-evals: ## Run live Gemini receipt extraction evaluations.
+	@test -n "$(PYTHON_BIN)" || { echo "Python was not found. Create .venv or install python3."; exit 1; }
+	@test -n "$(ADK_BIN)" || { echo "ADK was not found. Create .venv or install google-adk."; exit 1; }
+	"$(PYTHON_BIN)" -m agents.receipt_scanner.evaluation.prepare_fixtures verify
+	RECEIPT_EVAL_MODEL="$(RECEIPT_EVAL_MODEL)" RECEIPT_SCANNER_MODEL="$(RECEIPT_EVAL_MODEL)" \
+		"$(PYTHON_BIN)" -m agents.receipt_scanner.evaluation.run_extraction_eval --adk "$(ADK_BIN)"
+
+receipt-conversion-evals: ## Run deterministic receipt currency conversion evaluations.
+	@test -n "$(PYTHON_BIN)" || { echo "Python was not found. Create .venv or install python3."; exit 1; }
+	"$(PYTHON_BIN)" -m agents.receipt_scanner.evaluation.run_conversion_eval
+
+receipt-evals-all: ## Prepare fixtures, then run conversion and extraction evaluations.
+	@$(MAKE) receipt-eval-fixtures
+	@$(MAKE) receipt-conversion-evals
+	@$(MAKE) receipt-extraction-evals
 
 run-all: ## Start Video A2A, Receipt A2A, ADK web, and the frontend; Ctrl+C stops all.
 	@test -n "$(PYTHON_BIN)" || { echo "Python was not found. Create .venv or install python3."; exit 1; }

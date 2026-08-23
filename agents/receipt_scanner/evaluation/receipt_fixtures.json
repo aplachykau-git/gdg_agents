@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0",
+  "fixtures": [
+    {
+      "fixture_id": "receipts_google_ocr_test_96",
+      "dataset": "amaye15/receipts-google-ocr",
+      "revision": "ec151509b2d5ca3d90ffa8b6d8d80c940305e8c7",
+      "split": "test",
+      "row_id": 96,
+      "image_column": "pixel_values",
+      "receipt_label": 3,
+      "file_name": "receipts_google_ocr_test_96.jpg",
+      "sha256": "ee3df3ecfc35a6faf9f4918f4ddcabd357c7301034ef6f6539b20905dda4a554",
+      "expected": {
+        "total": "11.50",
+        "currency": "EUR",
+        "date": "2013-11-05"
+      },
+      "coverage": ["long", "retail", "comma_decimal", "small_total"]
+    },
+    {
+      "fixture_id": "receipts_google_ocr_test_603",
+      "dataset": "amaye15/receipts-google-ocr",
+      "revision": "ec151509b2d5ca3d90ffa8b6d8d80c940305e8c7",
+      "split": "test",
+      "row_id": 603,
+      "image_column": "pixel_values",
+      "receipt_label": 3,
+      "file_name": "receipts_google_ocr_test_603.jpg",
+      "sha256": "5c1bee1e8b9fbe7078957e4eb2dc6a639e9e136896f14da1e66ebe1e301a3165",
+      "expected": {
+        "total": "45.00",
+        "currency": "EUR",
+        "date": "2018-10-07"
+      },
+      "coverage": ["medium", "restaurant", "comma_decimal"]
+    },
+    {
+      "fixture_id": "receipts_google_ocr_test_106",
+      "dataset": "amaye15/receipts-google-ocr",
+      "revision": "ec151509b2d5ca3d90ffa8b6d8d80c940305e8c7",
+      "split": "test",
+      "row_id": 106,
+      "image_column": "pixel_values",
+      "receipt_label": 3,
+      "file_name": "receipts_google_ocr_test_106.jpg",
+      "sha256": "7eac2282e1cd707490500fad0dcc810bc63516993442c25db5582630f681a8cc",
+      "expected": {
+        "total": "78.00",
+        "currency": "EUR",
+        "date": "2018-06-12"
+      },
+      "coverage": ["medium", "restaurant", "comma_decimal"]
+    },
+    {
+      "fixture_id": "receipts_google_ocr_test_1668",
+      "dataset": "amaye15/receipts-google-ocr",
+      "revision": "ec151509b2d5ca3d90ffa8b6d8d80c940305e8c7",
+      "split": "test",
+      "row_id": 1668,
+      "image_column": "pixel_values",
+      "receipt_label": 3,
+      "file_name": "receipts_google_ocr_test_1668.jpg",
+      "sha256": "1e669fe82493829a23900bb054e976af14c67ec7a6fa4c3ee24ab3f5de64f6d7",
+      "expected": {
+        "total": "144.50",
+        "currency": "CHF",
+        "date": "2015-08-09"
+      },
+      "coverage": ["medium", "restaurant", "comma_decimal"]
+    },
+    {
+      "fixture_id": "receipts_google_ocr_test_1773",
+      "dataset": "amaye15/receipts-google-ocr",
+      "revision": "ec151509b2d5ca3d90ffa8b6d8d80c940305e8c7",
+      "split": "test",
+      "row_id": 1773,
+      "image_column": "pixel_values",
+      "receipt_label": 3,
+      "file_name": "receipts_google_ocr_test_1773.jpg",
+      "sha256": "5c2a673ebdfd6a1670a76f5e8da1f2f458372ad7dc79c0e381031a856b4128cb",
+      "expected": {
+        "total": "15.40",
+        "currency": "EUR",
+        "date": "2012-07-16"
+      },
+      "coverage": ["short", "restaurant", "comma_decimal", "small_total"]
+    }
+  ]
+}

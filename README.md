@@ -118,7 +118,7 @@ The workspace is organized into a clean, modular hierarchy:
 gdg_krakow_tool/
 ├── agents/                       # All Google ADK Agents & sub-agents
 │   ├── root_agent/               # Main coordinating Root Agent (gemini-3.5-flash-lite)
-│   ├── receipt_scanner/          # Receipt OCR & Google Docs expense report agent (gemini-2.5-pro)
+│   ├── receipt_scanner/          # Receipt OCR & Google Docs expense report agent (gemini-3.6-flash)
 │   ├── video_editor/             # Speaker card outpainting & Veo video generator (Veo + GSAP)
 │   ├── linkedin_post_generator/  # LinkedIn announcement & recap post agent
 │   ├── registration_manager/     # Registration sorting, capacity & organizers list agent
@@ -156,7 +156,7 @@ gdg_krakow_tool/
 The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 primitives:
 
 1. **Model Tiering Strategy**:
-   - **`gemini-2.5-pro`** is allocated to complex reasoning & dense document OCR (`receipt_scanner`).
+   - **`gemini-3.6-flash`** is allocated to receipt OCR and expense reporting (`receipt_scanner`).
    - **`gemini-3.5-flash-lite`** is deployed across orchestrators and tool-calling agents for fast execution, high concurrency, and zero function-calling errors.
 2. **Session State & Data Passing (`session.state`)**:
    - Rather than bloating prompt contexts with raw binary payloads or giant text tables across sub-agent transfers, agents communicate via workspace files and structured session state.

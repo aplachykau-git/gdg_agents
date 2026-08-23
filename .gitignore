@@ -72,6 +72,7 @@ session.db
 **/*.mp4
 **/*.gif
 **/*.webm
+agents/receipt_scanner/evaluation/fixtures/downloaded/
 
 # GDG Organisers lists (to keep sensitive attendee/staff data local)
 **/organisers.txt
