@@ -60,7 +60,9 @@ def run(model: str, score_tolerance: int) -> int:
         if example["verdict"] == "unknown":
             score_match = actual["score"] is None
         else:
-            score_match = isinstance(actual["score"], int) and abs(actual["score"] - example["score"]) <= score_tolerance
+            score_match = (
+                isinstance(actual["score"], int) and abs(actual["score"] - example["score"]) <= score_tolerance
+            )
         results.append(
             {
                 "criterion": example["criterion"],

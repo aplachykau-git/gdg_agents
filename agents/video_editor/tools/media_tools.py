@@ -290,7 +290,6 @@ def validate_video_generation_backend(engine: str) -> None:
         )
 
 
-
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-flash-preview) via Interactions API."""
     api_key = os.environ.get("GEMINI_API_KEY")

@@ -157,9 +157,7 @@ def _verify_image(path: Path, expected_sha256: str) -> None:
         raise FileNotFoundError(f"Fixture is missing: {path}")
     actual_sha256 = _sha256(path)
     if actual_sha256 != expected_sha256:
-        raise ValueError(
-            f"Checksum mismatch for {path.name}: expected {expected_sha256}, got {actual_sha256}."
-        )
+        raise ValueError(f"Checksum mismatch for {path.name}: expected {expected_sha256}, got {actual_sha256}.")
     with Image.open(path) as image:
         image.verify()
 
@@ -170,18 +168,14 @@ def download() -> int:
         row = _get_row(fixture)
         expected_label = fixture.get("receipt_label")
         if expected_label is not None and row.get("label") != expected_label:
-            raise ValueError(
-                f"{fixture['fixture_id']} has label {row.get('label')}, expected {expected_label}."
-            )
+            raise ValueError(f"{fixture['fixture_id']} has label {row.get('label')}, expected {expected_label}.")
 
         image = row.get(fixture["image_column"]) or {}
         row_image_url = image.get("src")
         if not row_image_url:
             raise ValueError(f"{fixture['fixture_id']} has no image URL.")
         if fixture["revision"] not in row_image_url:
-            raise ValueError(
-                f"{fixture['fixture_id']} is no longer served from revision {fixture['revision']}."
-            )
+            raise ValueError(f"{fixture['fixture_id']} is no longer served from revision {fixture['revision']}.")
 
         target = DOWNLOAD_DIRECTORY / fixture["file_name"]
         temporary = target.with_suffix(f"{target.suffix}.tmp")
@@ -216,11 +210,7 @@ def _full_ocr_text(row: dict[str, Any]) -> str:
     except (TypeError, json.JSONDecodeError):
         return ""
     lines = parsed.get("valid_line") or []
-    return " ".join(
-        str(word.get("text", ""))
-        for line in lines
-        for word in line.get("words", [])
-    )
+    return " ".join(str(word.get("text", "")) for line in lines for word in line.get("words", []))
 
 
 def _cord_total(row: dict[str, Any]) -> str | None:

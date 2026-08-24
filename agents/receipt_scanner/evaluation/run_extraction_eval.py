@@ -16,11 +16,7 @@ EVAL_HISTORY = EVALUATION_DIRECTORY / ".adk" / "eval_history"
 
 
 def _latest_result(started_at: float) -> Path | None:
-    candidates = [
-        path
-        for path in EVAL_HISTORY.glob("*.evalset_result.json")
-        if path.stat().st_mtime >= started_at
-    ]
+    candidates = [path for path in EVAL_HISTORY.glob("*.evalset_result.json") if path.stat().st_mtime >= started_at]
     return max(candidates, key=lambda path: path.stat().st_mtime, default=None)
 
 
@@ -48,15 +44,8 @@ def run(adk_binary: str) -> int:
         result = json.load(file)
     with EVAL_SET.open(encoding="utf-8") as file:
         expected_ids = {case["eval_id"] for case in json.load(file)["eval_cases"]}
-    actual_statuses = {
-        case["eval_id"]: case.get("final_eval_status")
-        for case in result.get("eval_case_results", [])
-    }
-    failures = sorted(
-        eval_id
-        for eval_id in expected_ids
-        if actual_statuses.get(eval_id) != PASSED_STATUS
-    )
+    actual_statuses = {case["eval_id"]: case.get("final_eval_status") for case in result.get("eval_case_results", [])}
+    failures = sorted(eval_id for eval_id in expected_ids if actual_statuses.get(eval_id) != PASSED_STATUS)
     if failures:
         print(f"Receipt extraction evaluations failed: {', '.join(failures)}")
         return 1

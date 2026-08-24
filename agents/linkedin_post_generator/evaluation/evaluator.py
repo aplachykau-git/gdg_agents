@@ -36,9 +36,7 @@ FORBIDDEN_HEADINGS = (
     "speaker bio",
     "session value",
 )
-VARIANT_PATTERN = re.compile(
-    r"(?m)^### Variant ([1-9]\d*): ([^\n]+)\s*$"
-)
+VARIANT_PATTERN = re.compile(r"(?m)^### Variant ([1-9]\d*): ([^\n]+)\s*$")
 HASHTAG_PATTERN = re.compile(r"(?<!\w)#\w+")
 
 
@@ -183,9 +181,7 @@ def _paragraphs(body: str) -> list[str]:
     return [
         paragraph.strip()
         for paragraph in re.split(r"\n\s*\n", body)
-        if paragraph.strip()
-        and paragraph.strip() not in {"---", "***"}
-        and not _is_hashtag_or_link_block(paragraph)
+        if paragraph.strip() and paragraph.strip() not in {"---", "***"} and not _is_hashtag_or_link_block(paragraph)
     ]
 
 
@@ -225,10 +221,7 @@ def _has_cta(body: str) -> bool:
 
 
 def _has_forbidden_heading(body: str) -> bool:
-    return any(
-        re.search(rf"(?im)^\s*(?:#+\s*)?{re.escape(heading)}\s*:", body)
-        for heading in FORBIDDEN_HEADINGS
-    )
+    return any(re.search(rf"(?im)^\s*(?:#+\s*)?{re.escape(heading)}\s*:", body) for heading in FORBIDDEN_HEADINGS)
 
 
 def _rule(rule_id: str, condition: bool, explanation: str) -> RuleResult:
@@ -267,10 +260,7 @@ def evaluate_response(
             len(variants) == expected_count
             and [variant.number for variant in variants] == expected_numbers
             and all(
-                variant.name
-                and not (
-                    variant.name.startswith("(") and variant.name.endswith(")")
-                )
+                variant.name and not (variant.name.startswith("(") and variant.name.endswith(")"))
                 for variant in variants
             ),
             "Expected exactly three `### Variant N: <Variant name>` headers per requested speaker, or three for a recap.",
@@ -280,19 +270,13 @@ def evaluate_response(
         return rules
 
     normalized_bodies = [normalize_text(variant.body) for variant in variants]
-    variant_speakers = [
-        _speaker_for_variant_group(speakers, index, is_recap)
-        for index in range(len(variants))
-    ]
+    variant_speakers = [_speaker_for_variant_group(speakers, index, is_recap) for index in range(len(variants))]
     rules.extend(
         [
             _rule(
                 "talk_title_not_in_body",
                 all(
-                    all(
-                        normalize_text(speaker["talk_title"]) not in body
-                        for speaker in speaker_group
-                    )
+                    all(normalize_text(speaker["talk_title"]) not in body for speaker in speaker_group)
                     for body, speaker_group in zip(normalized_bodies, variant_speakers, strict=True)
                 ),
                 "The normalized full talk title must not appear in any variant body.",
@@ -358,11 +342,7 @@ def evaluate_missing_input_response(response: str, fields: dict[str, str]) -> li
     response_lower = response.casefold()
     variants = parse_variants(response)
     mentions_all_missing = all(
-        field.replace("_", " ") in response_lower
-        or (
-            field == "speaker_bio"
-            and "bio" in response_lower
-        )
+        field.replace("_", " ") in response_lower or (field == "speaker_bio" and "bio" in response_lower)
         for field in missing
     )
     return [
@@ -444,13 +424,8 @@ def linkedin_contract_metric_info() -> MetricInfo:
     """Describe the 0–100 aggregate metric exposed by the ADK config."""
     return MetricInfo(
         metric_name="linkedin_contract_score",
-        description=(
-            "LinkedIn deterministic contract score: 100 when every release "
-            "gate passes, otherwise 0."
-        ),
-        metric_value_info=MetricValueInfo(
-            interval=Interval(min_value=0.0, max_value=100.0)
-        ),
+        description=("LinkedIn deterministic contract score: 100 when every release gate passes, otherwise 0."),
+        metric_value_info=MetricValueInfo(interval=Interval(min_value=0.0, max_value=100.0)),
     )
 
 

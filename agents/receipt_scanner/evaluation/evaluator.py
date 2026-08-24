@@ -31,10 +31,7 @@ def _fixture_manifest() -> dict[str, Any]:
 
 
 def load_fixtures() -> dict[str, dict[str, Any]]:
-    return {
-        fixture["file_name"]: fixture
-        for fixture in _fixture_manifest()["fixtures"]
-    }
+    return {fixture["file_name"]: fixture for fixture in _fixture_manifest()["fixtures"]}
 
 
 def extract_text(content: Any) -> str:
@@ -42,8 +39,7 @@ def extract_text(content: Any) -> str:
         return ""
     parts = content.get("parts", []) if isinstance(content, dict) else getattr(content, "parts", []) or []
     return "".join(
-        part.get("text", "") if isinstance(part, dict) else getattr(part, "text", "") or ""
-        for part in parts
+        part.get("text", "") if isinstance(part, dict) else getattr(part, "text", "") or "" for part in parts
     )
 
 
@@ -161,9 +157,7 @@ def critical_extraction_metric(
     for invocation in actual_invocations:
         fixture = fixture_for_user_text(extract_text(invocation.user_content))
         export_calls = [
-            call
-            for call in get_all_tool_calls(invocation.intermediate_data)
-            if call.name == EXPORT_TOOL_NAME
+            call for call in get_all_tool_calls(invocation.intermediate_data) if call.name == EXPORT_TOOL_NAME
         ]
         rules = evaluate_export_arguments(export_calls, fixture)
         all_rules.extend(rules)

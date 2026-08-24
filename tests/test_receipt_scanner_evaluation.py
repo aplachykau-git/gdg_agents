@@ -154,11 +154,7 @@ class ReceiptConversionTests(unittest.TestCase):
 
     def test_all_locked_conversion_cases_pass(self):
         case_path = (
-            Path(__file__).parents[1]
-            / "agents"
-            / "receipt_scanner"
-            / "evaluation"
-            / "conversion_eval_cases.json"
+            Path(__file__).parents[1] / "agents" / "receipt_scanner" / "evaluation" / "conversion_eval_cases.json"
         )
         with case_path.open(encoding="utf-8") as file:
             cases = json.load(file)["cases"]
@@ -192,13 +188,7 @@ class ReceiptExtractionRunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             result = Path(directory) / "result.json"
             result.write_text(
-                json.dumps(
-                    {
-                        "eval_case_results": [
-                            {"eval_id": "failed_case", "final_eval_status": 2}
-                        ]
-                    }
-                ),
+                json.dumps({"eval_case_results": [{"eval_id": "failed_case", "final_eval_status": 2}]}),
                 encoding="utf-8",
             )
             latest_result.return_value = result
@@ -209,11 +199,7 @@ class ReceiptExtractionRunnerTests(unittest.TestCase):
     def test_passing_adk_result_returns_zero(self, subprocess_run, latest_result):
         subprocess_run.return_value.returncode = 0
         eval_set_path = (
-            Path(__file__).parents[1]
-            / "agents"
-            / "receipt_scanner"
-            / "evaluation"
-            / "receipt_scanner_eval_set.json"
+            Path(__file__).parents[1] / "agents" / "receipt_scanner" / "evaluation" / "receipt_scanner_eval_set.json"
         )
         with eval_set_path.open(encoding="utf-8") as file:
             eval_ids = [case["eval_id"] for case in json.load(file)["eval_cases"]]
@@ -221,12 +207,7 @@ class ReceiptExtractionRunnerTests(unittest.TestCase):
             result = Path(directory) / "result.json"
             result.write_text(
                 json.dumps(
-                    {
-                        "eval_case_results": [
-                            {"eval_id": eval_id, "final_eval_status": 1}
-                            for eval_id in eval_ids
-                        ]
-                    }
+                    {"eval_case_results": [{"eval_id": eval_id, "final_eval_status": 1} for eval_id in eval_ids]}
                 ),
                 encoding="utf-8",
             )
