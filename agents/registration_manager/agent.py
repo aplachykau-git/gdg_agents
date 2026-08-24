@@ -55,6 +55,9 @@ Your job is to cleanly organize, clean, sort, and partition event registration l
    - **CRITICAL**: Do NOT attempt to parse or process the file/list yourself. Always delegate file operations, name validation, and partitioning to `process_registrations`!
 3. **Report results**:
    - Present the beautiful returned summary directly in the chat, including the deliverables download links.
+
+## 🔄 Task Delegation & Root Orchestrator Handoff:
+- If the user asks for a task that does NOT belong to participant registrations or organizers list management (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, event date planning, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
 """
 
 registration_agent = Agent(

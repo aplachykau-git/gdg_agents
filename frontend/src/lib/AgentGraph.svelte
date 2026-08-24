@@ -17,10 +17,16 @@
     Cpu, 
     ExternalLink,
     Maximize2,
-    Layers
+    Layers,
+    Terminal,
+    Radio,
+    FileCode2,
+    Clock3,
+    ArrowUpRight
   } from '@lucide/svelte';
 
   let { 
+    events = [],
     currentExecutingAgent = 'root_agent', 
     isLoading = false, 
     selectedApp = 'root_agent', 
@@ -29,6 +35,7 @@
   } = $props();
 
   let inspectedAgentId = $state('root_agent');
+  let activeTab = $state('telemetry'); // 'telemetry' | 'spec'
 
   const AGENTS_META = [
     {
@@ -36,14 +43,14 @@
       name: 'Root Orchestrator',
       role: 'Main Router & Coordinator',
       model: 'gemini-2.5-flash',
-      color: 'var(--agent-root)',
-      bg: 'var(--bg-root)',
+      color: '#38BDF8',
+      bg: 'rgba(56, 189, 248, 0.12)',
       icon: Workflow,
       isRoot: true,
       port: 8080,
       protocol: 'Local / SSE Hub',
-      desc: 'Central dispatcher. Evaluates user intent, verifies execution prerequisites, and delegates tasks to specialized sub-agents via A2A or direct transfer.',
-      tools: ['transfer_to_video_editor', 'transfer_to_receipt_scanner', 'transfer_to_linkedin_post_generator', 'transfer_to_registration_manager', 'transfer_to_event_planner', 'transfer_to_agenda_generator', 'transfer_to_office_secretary'],
+      desc: 'Central dispatcher. Evaluates user intent, coordinates sub-agents, and manages multi-agent handoffs across local agents and A2A microservices.',
+      tools: ['transfer_to_agent (video_editor)', 'transfer_to_agent (receipt_scanner)', 'transfer_to_agent (linkedin_post_generator)', 'transfer_to_agent (registration_manager)', 'transfer_to_agent (event_planner)', 'transfer_to_agent (agenda_generator)', 'transfer_to_agent (office_secretary)'],
       x: 50,
       y: 50
     },
@@ -52,14 +59,14 @@
       name: 'Live Video Editor',
       role: 'Speaker Video & Outpainting',
       model: 'Veo 3.1 / Omni Flash',
-      color: 'var(--agent-video)',
-      bg: 'var(--bg-video)',
+      color: '#C084FC',
+      bg: 'rgba(192, 132, 252, 0.12)',
       icon: Video,
       isA2A: true,
-      port: 8081,
-      protocol: 'A2A Protocol (gRPC/HTTP)',
-      desc: 'Validates facial landmarks, outpaints portrait photos to 9:16 vertical ratio, generates 8s Veo video loops, and renders 4K MP4 / GIF cards.',
-      tools: ['verify_portrait_photo', 'stage_uploaded_media', 'animate_photo', 'update_composer', 'render_composer'],
+      port: 8080,
+      protocol: 'A2A Protocol (JSON-RPC)',
+      desc: 'Validates facial landmarks, outpaints portrait photos to 9:16 vertical ratio, generates 8s Veo video loops, and renders 1080p MP4 / GIF cards to GCS.',
+      tools: ['verify_portrait_photo', 'stage_uploaded_media', 'animate_photo', 'update_composer', 'render_composer', 'extend_portrait_canvas'],
       x: 18,
       y: 20
     },
@@ -68,12 +75,12 @@
       name: 'Receipt Scanner',
       role: 'Vision OCR & Pekao Rates',
       model: 'gemini-2.5-pro',
-      color: 'var(--agent-receipt)',
-      bg: 'var(--bg-receipt)',
+      color: '#34D399',
+      bg: 'rgba(52, 211, 153, 0.12)',
       icon: Receipt,
       isA2A: true,
-      port: 8082,
-      protocol: 'A2A Protocol (gRPC/HTTP)',
+      port: 8080,
+      protocol: 'A2A Protocol (JSON-RPC)',
       desc: 'High-reasoning Vision OCR for receipts and invoices. Fetches live Pekao Bank & NBP exchange rates, converts currencies, and populates Google Docs expense reports.',
       tools: ['read_receipt_file', 'get_usd_pln_rate', 'export_summary_to_google_doc', 'scan_receipt_with_vision'],
       x: 82,
@@ -84,8 +91,8 @@
       name: 'LinkedIn Planner',
       role: 'Announcements & Recaps',
       model: 'gemini-2.5-flash',
-      color: 'var(--agent-linkedin)',
-      bg: 'var(--bg-linkedin)',
+      color: '#0A66C2',
+      bg: 'rgba(10, 102, 194, 0.12)',
       icon: Share2,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
@@ -99,28 +106,28 @@
       name: 'Registrations Manager',
       role: 'Capacity & Duplicate Filter',
       model: 'gemini-2.5-flash',
-      color: 'var(--agent-registration)',
-      bg: 'var(--bg-registration)',
+      color: '#FB923C',
+      bg: 'rgba(251, 146, 60, 0.12)',
       icon: Users,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
       desc: 'Performs fuzzy phonetic deduplication, capacity thresholding, organizer verification, and exports clean DOCX participant lists.',
-      tools: ['filter_and_clean_registrations', 'manage_organisers_config'],
+      tools: ['process_registrations', 'stage_uploaded_registration', 'stage_manual_text_registrations', 'get_organisers_list', 'add_organiser', 'remove_organiser'],
       x: 86,
       y: 56
     },
     {
       id: 'event_planner',
       name: 'Event Scheduler',
-      role: 'Meetup & Holiday Conflict Radar',
+      role: 'Meetup & Holiday Radar',
       model: 'gemini-2.5-flash',
-      color: 'var(--agent-planner)',
-      bg: 'var(--bg-planner)',
+      color: '#F472B6',
+      bg: 'rgba(244, 114, 182, 0.12)',
       icon: Calendar,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
-      desc: 'Scans Kraków tech meetups on Luma and Meetup.com, checks statutory Polish holiday clashes, and recommends optimal mid-week dates.',
-      tools: ['find_optimal_meetup_date', 'check_holiday_clashes'],
+      desc: 'Scans tech meetups on Luma and Meetup.com, checks statutory holiday clashes, and recommends optimal mid-week dates.',
+      tools: ['get_public_holidays', 'google_search'],
       x: 24,
       y: 84
     },
@@ -129,8 +136,8 @@
       name: 'Agenda Formatter',
       role: 'Timeline Math & 5m Snapping',
       model: 'gemini-2.5-flash',
-      color: 'var(--agent-agenda)',
-      bg: 'var(--bg-agenda)',
+      color: '#FBBF24',
+      bg: 'rgba(251, 191, 36, 0.12)',
       icon: Clock,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
@@ -144,8 +151,8 @@
       name: 'Office Secretary',
       role: 'Visitor Access & Event Hub',
       model: 'gemini-2.5-flash',
-      color: 'var(--agent-office)',
-      bg: 'var(--bg-office)',
+      color: '#2DD4BF',
+      bg: 'rgba(45, 212, 191, 0.12)',
       icon: Mail,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
@@ -160,10 +167,142 @@
     return AGENTS_META.find(a => a.id === inspectedAgentId) || AGENTS_META[0];
   });
 
-  function isAgentActive(agentId) {
+  // Determine which agents have actively participated in the current session events
+  const participatedAgentIds = $derived.by(() => {
+    const ids = new Set(['root_agent']);
+    if (selectedApp && selectedApp !== 'root_agent') {
+      ids.add(selectedApp);
+    }
+    if (currentExecutingAgent && currentExecutingAgent !== 'root_agent') {
+      ids.add(currentExecutingAgent);
+    }
+    for (const ev of events) {
+      if (ev.author && ev.author !== 'user') {
+        const a = ev.author.toLowerCase();
+        for (const meta of AGENTS_META) {
+          if (a.includes(meta.id) || a.includes(meta.id.replace('_agent', ''))) {
+            ids.add(meta.id);
+          }
+        }
+      }
+      if (ev.actions?.transferToAgent) {
+        ids.add(ev.actions.transferToAgent);
+      }
+      if (ev.nodeInfo?.path) {
+        const p = ev.nodeInfo.path.toLowerCase();
+        for (const meta of AGENTS_META) {
+          if (p.includes(meta.id)) {
+            ids.add(meta.id);
+          }
+        }
+      }
+      if (ev.content?.parts) {
+        for (const part of ev.content.parts) {
+          const fc = part.function_call || part.functionCall;
+          if (fc) {
+            if (fc.name === 'transfer_to_agent' && fc.args?.agent_name) {
+              ids.add(fc.args.agent_name);
+            }
+            for (const meta of AGENTS_META) {
+              if (meta.tools.some(t => t.includes(fc.name))) {
+                ids.add(meta.id);
+              }
+            }
+          }
+        }
+      }
+    }
+    return Array.from(ids);
+  });
+
+  // Filter telemetry items for the currently inspected agent
+  const agentTelemetryItems = $derived.by(() => {
+    const items = [];
+    let stepNum = 1;
+    for (const ev of events) {
+      if (ev.author === 'user') continue;
+
+      const authorClean = (ev.author || '').toLowerCase();
+      const nodePath = (ev.nodeInfo?.path || '').toLowerCase();
+      const isForInspected = inspectedAgentId === 'root_agent' 
+        ? true 
+        : (authorClean.includes(inspectedAgentId) || nodePath.includes(inspectedAgentId) || ev.actions?.transferToAgent === inspectedAgentId);
+
+      if (ev.actions?.transferToAgent) {
+        if (isForInspected || ev.actions.transferToAgent === inspectedAgentId) {
+          items.push({
+            id: `transfer-${stepNum++}`,
+            type: 'transfer',
+            title: `Transfer to ${ev.actions.transferToAgent}`,
+            desc: `Delegated execution to ${ev.actions.transferToAgent}`,
+            author: ev.author || 'root_agent',
+            target: ev.actions.transferToAgent,
+            timestamp: ev.timestamp ? new Date(ev.timestamp * 1000).toLocaleTimeString() : 'Now',
+            raw: ev.actions
+          });
+        }
+      }
+
+      if (ev.content?.parts) {
+        for (const part of ev.content.parts) {
+          const fc = part.function_call || part.functionCall;
+          const fr = part.function_response || part.functionResponse;
+
+          if (fc) {
+            const isFcForAgent = inspectedAgentId === 'root_agent' || isForInspected || (fc.args?.agent_name === inspectedAgentId);
+            if (isFcForAgent) {
+              items.push({
+                id: `fc-${stepNum++}`,
+                type: 'call',
+                title: `Tool Call: ${fc.name}`,
+                desc: JSON.stringify(fc.args || {}),
+                author: ev.author || inspectedAgentId,
+                timestamp: ev.timestamp ? new Date(ev.timestamp * 1000).toLocaleTimeString() : 'Now',
+                raw: fc
+              });
+            }
+          }
+
+          if (fr) {
+            const isFrForAgent = inspectedAgentId === 'root_agent' || isForInspected;
+            if (isFrForAgent) {
+              items.push({
+                id: `fr-${stepNum++}`,
+                type: 'response',
+                title: `Tool Result: ${fr.name}`,
+                desc: typeof fr.response === 'string' ? fr.response.slice(0, 160) + '...' : JSON.stringify(fr.response || {}).slice(0, 160) + '...',
+                author: ev.author || inspectedAgentId,
+                timestamp: ev.timestamp ? new Date(ev.timestamp * 1000).toLocaleTimeString() : 'Now',
+                raw: fr
+              });
+            }
+          }
+
+          if (part.text && isForInspected) {
+            items.push({
+              id: `text-${stepNum++}`,
+              type: 'text',
+              title: `Agent Response Output`,
+              desc: part.text.slice(0, 180) + (part.text.length > 180 ? '...' : ''),
+              author: ev.author || inspectedAgentId,
+              timestamp: ev.timestamp ? new Date(ev.timestamp * 1000).toLocaleTimeString() : 'Now',
+              raw: part.text
+            });
+          }
+        }
+      }
+    }
+    return items.reverse(); // Newest first
+  });
+
+  function isAgentRunning(agentId) {
     if (!isLoading) return false;
     const cleanCurrent = (currentExecutingAgent || selectedApp || '').toLowerCase();
-    return cleanCurrent.includes(agentId) || (agentId === 'root_agent' && cleanCurrent === 'root');
+    return cleanCurrent.includes(agentId) || (agentId === 'root_agent' && (cleanCurrent === 'root' || cleanCurrent === 'root_agent'));
+  }
+
+  function isAgentParticipated(agentId) {
+    return participatedAgentIds.includes(agentId);
   }
 
   function handleSelect(agentId) {
@@ -180,19 +319,28 @@
     <header class="graph-modal-header">
       <div class="header-title-group">
         <div class="graph-header-icon">
-          <Workflow size={18} />
+          <Workflow size={20} />
         </div>
         <div>
-          <h3>Multi-Agent DAG Architecture</h3>
-          <span class="header-sub">ADK 2.0 Autonomous Network &bull; Agent-to-Agent (A2A) Protocols</span>
+          <div class="header-title-row">
+            <h3>Multi-Agent DAG Architecture</h3>
+            <span class="active-badge-counter">{AGENTS_META.length} Active Nodes</span>
+          </div>
+          <span class="header-sub">Google ADK 2.0 Network &bull; Live Agent-to-Agent (A2A) Protocols</span>
         </div>
       </div>
 
       <div class="header-actions">
         {#if isLoading}
-          <div class="live-pulse-badge">
-            <span class="pulse-dot"></span>
-            <span>Live Execution Active</span>
+          {@const runningAgent = AGENTS_META.find(a => isAgentRunning(a.id)) || AGENTS_META[0]}
+          <div class="live-pulse-badge" style="border-color: {runningAgent.color}; color: {runningAgent.color}">
+            <span class="pulse-dot" style="background: {runningAgent.color}"></span>
+            <span>Running: {runningAgent.name}</span>
+          </div>
+        {:else}
+          <div class="idle-badge">
+            <span class="idle-dot"></span>
+            <span>DAG Standby ({events.length} Telemetry Events)</span>
           </div>
         {/if}
 
@@ -208,41 +356,114 @@
     <div class="graph-body-layout">
       <!-- Left / Top: Interactive Topology Canvas -->
       <div class="graph-canvas-container">
-        <!-- SVG Connection Lines -->
+        <!-- Background Grid Effect -->
+        <div class="canvas-grid-pattern"></div>
+
+        <!-- SVG Connection Lines Layer with Animated Packets -->
         <svg class="graph-svg-layer" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <defs>
+            {#each AGENTS_META as agent}
+              <filter id="glow-{agent.id}" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="0.8" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            {/each}
+          </defs>
+
           <!-- Edges from Root (50, 50) to all sub-agents -->
           {#each AGENTS_META as agent}
             {#if !agent.isRoot}
-              {@const active = isAgentActive(agent.id)}
+              {@const isRunning = isAgentRunning(agent.id)}
+              {@const isParticipated = isAgentParticipated(agent.id)}
+              {@const isSelected = inspectedAgentId === agent.id}
+
+              <!-- Base / Background Edge Line -->
               <line 
                 x1="50" 
                 y1="50" 
                 x2={agent.x} 
                 y2={agent.y} 
                 class="graph-edge-line" 
-                class:edge-active={active}
+                class:edge-running={isRunning}
+                class:edge-participated={isParticipated}
+                class:edge-selected={isSelected}
                 class:edge-a2a={agent.isA2A}
                 style="--edge-color: {agent.color};"
               />
+
+              <!-- Flowing Packet Animation on Active / Participated Edges -->
+              {#if isRunning || (isLoading && isParticipated)}
+                <!-- Outer Glow Packet -->
+                <circle r="1.4" fill={agent.color} filter="url(#glow-{agent.id})">
+                  <animateMotion 
+                    path="M 50 50 L {agent.x} {agent.y}" 
+                    dur={isRunning ? "0.9s" : "2.2s"} 
+                    repeatCount="indefinite" 
+                  />
+                </circle>
+                <!-- Core White Particle -->
+                <circle r="0.8" fill="#FFFFFF">
+                  <animateMotion 
+                    path="M 50 50 L {agent.x} {agent.y}" 
+                    dur={isRunning ? "0.9s" : "2.2s"} 
+                    repeatCount="indefinite" 
+                  />
+                </circle>
+              {/if}
             {/if}
           {/each}
         </svg>
 
+        <!-- Floating Protocol Chips on Canvas Midpoints -->
+        {#each AGENTS_META as agent}
+          {#if !agent.isRoot}
+            {@const isRunning = isAgentRunning(agent.id)}
+            {@const isParticipated = isAgentParticipated(agent.id)}
+            {@const midX = (50 + agent.x) / 2}
+            {@const midY = (50 + agent.y) / 2}
+
+            <div 
+              class="edge-protocol-chip"
+              class:chip-a2a={agent.isA2A}
+              class:chip-active={isRunning || isParticipated}
+              style="left: {midX}%; top: {midY}%; --chip-color: {agent.color}"
+            >
+              {#if agent.isA2A}
+                <Zap size={9} />
+                <span>A2A ⚡</span>
+              {:else}
+                <ArrowRight size={9} />
+                <span>LOCAL</span>
+              {/if}
+            </div>
+          {/if}
+        {/each}
+
         <!-- HTML Interactive Nodes Layer -->
         <div class="graph-nodes-layer">
           {#each AGENTS_META as agent}
-            {@const active = isAgentActive(agent.id)}
+            {@const isRunning = isAgentRunning(agent.id)}
+            {@const isParticipated = isAgentParticipated(agent.id)}
             {@const isSelected = inspectedAgentId === agent.id}
             {@const Icon = agent.icon}
 
             <button 
               class="agent-node-card" 
               class:node-root={agent.isRoot}
-              class:node-active={active}
+              class:node-running={isRunning}
+              class:node-participated={isParticipated && !isRunning}
               class:node-selected={isSelected}
               style="left: {agent.x}%; top: {agent.y}%; --node-color: {agent.color}; --node-bg: {agent.bg};"
               onclick={() => handleSelect(agent.id)}
             >
+              <!-- Pulsing Aura for active running agent -->
+              {#if isRunning}
+                <div class="node-pulse-aura" style="background: {agent.color}"></div>
+              {/if}
+
               <div class="node-icon-box">
                 <Icon size={agent.isRoot ? 22 : 16} />
               </div>
@@ -257,10 +478,15 @@
                 <span class="node-role">{agent.role}</span>
               </div>
 
-              {#if active}
-                <div class="active-badge-tag">
-                  <Activity size={10} />
+              {#if isRunning}
+                <div class="active-badge-tag running-badge" style="background: {agent.color}">
+                  <Activity size={10} class="spin-icon" />
                   <span>RUNNING</span>
+                </div>
+              {:else if isParticipated && !agent.isRoot}
+                <div class="active-badge-tag active-history-badge">
+                  <CheckCircle2 size={9} />
+                  <span>READY</span>
                 </div>
               {/if}
             </button>
@@ -268,8 +494,9 @@
         </div>
       </div>
 
-      <!-- Right / Bottom: Agent Inspector Drawer -->
+      <!-- Right: Live Telemetry & Inspector Drawer -->
       <aside class="agent-inspector-panel">
+        <!-- Inspector Agent Header -->
         <div class="inspector-header" style="border-left: 4px solid {inspectedAgent.color}">
           <div class="inspector-title-row">
             <div class="inspector-icon-wrap" style="background: {inspectedAgent.bg}; color: {inspectedAgent.color}">
@@ -277,7 +504,16 @@
             </div>
             <div>
               <h4>{inspectedAgent.name}</h4>
-              <span class="inspector-protocol-tag">{inspectedAgent.protocol}</span>
+              <div class="inspector-meta-sub">
+                <span class="protocol-chip">{inspectedAgent.protocol}</span>
+                {#if isAgentRunning(inspectedAgent.id)}
+                  <span class="live-status-pill running">⚡ ACTIVE NOW</span>
+                {:else if isAgentParticipated(inspectedAgent.id)}
+                  <span class="live-status-pill ready">✓ PARTICIPATED</span>
+                {:else}
+                  <span class="live-status-pill standby">STANDBY</span>
+                {/if}
+              </div>
             </div>
           </div>
 
@@ -287,38 +523,96 @@
           </div>
         </div>
 
-        <div class="inspector-body">
-          <div class="inspector-section">
-            <span class="section-label">Capabilities & Description</span>
-            <p class="section-desc">{inspectedAgent.desc}</p>
-          </div>
+        <!-- Inspector Tabs -->
+        <div class="inspector-tabs">
+          <button 
+            class="tab-btn" 
+            class:active={activeTab === 'telemetry'}
+            onclick={() => activeTab = 'telemetry'}
+          >
+            <Radio size={13} />
+            <span>Live Telemetry</span>
+            <span class="tab-badge">{agentTelemetryItems.length}</span>
+          </button>
+          <button 
+            class="tab-btn" 
+            class:active={activeTab === 'spec'}
+            onclick={() => activeTab = 'spec'}
+          >
+            <FileCode2 size={13} />
+            <span>Capabilities & Tools</span>
+          </button>
+        </div>
 
-          <div class="inspector-section">
-            <span class="section-label">Registered Tools ({inspectedAgent.tools.length})</span>
-            <div class="tools-chips-grid">
-              {#each inspectedAgent.tools as tool}
-                <div class="tool-chip">
-                  <Zap size={11} />
-                  <span>{tool}</span>
-                </div>
-              {/each}
-            </div>
+        <!-- Tab 1: Live Event Stream & Tool Call Trace -->
+        {#if activeTab === 'telemetry'}
+          <div class="inspector-body telemetry-scroll-pane">
+            {#if agentTelemetryItems.length === 0}
+              <div class="empty-telemetry">
+                <Clock3 size={24} />
+                <p>No active execution events in current session for <strong>{inspectedAgent.name}</strong>.</p>
+                <span class="empty-hint">Send a message or delegate a task to see live A2A and ADK telemetry events.</span>
+              </div>
+            {:else}
+              <div class="telemetry-stream-list">
+                {#each agentTelemetryItems as item (item.id)}
+                  <div class="telemetry-card type-{item.type}">
+                    <div class="telemetry-card-top">
+                      <div class="card-type-badge">
+                        {#if item.type === 'call'}
+                          <Zap size={11} />
+                        {:else if item.type === 'response'}
+                          <CheckCircle2 size={11} />
+                        {:else if item.type === 'transfer'}
+                          <ArrowUpRight size={11} />
+                        {:else}
+                          <Sparkles size={11} />
+                        {/if}
+                        <span>{item.title}</span>
+                      </div>
+                      <span class="telemetry-time">{item.timestamp}</span>
+                    </div>
+                    <div class="telemetry-card-desc">{item.desc}</div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
           </div>
-
-          {#if inspectedAgent.port}
+        {:else}
+          <!-- Tab 2: Capabilities & Registered Tools -->
+          <div class="inspector-body">
             <div class="inspector-section">
-              <span class="section-label">Service Port & Endpoints</span>
-              <div class="endpoint-card">
-                <span class="port-label">Port {inspectedAgent.port}</span>
-                {#if inspectedAgent.isA2A}
-                  <span class="agent-card-link">/.well-known/agent-card.json</span>
-                {:else}
-                  <span class="agent-card-link">Local Process Execution</span>
-                {/if}
+              <span class="section-label">Capabilities & Description</span>
+              <p class="section-desc">{inspectedAgent.desc}</p>
+            </div>
+
+            <div class="inspector-section">
+              <span class="section-label">Registered Tools ({inspectedAgent.tools.length})</span>
+              <div class="tools-chips-grid">
+                {#each inspectedAgent.tools as tool}
+                  <div class="tool-chip">
+                    <Zap size={11} />
+                    <span>{tool}</span>
+                  </div>
+                {/each}
               </div>
             </div>
-          {/if}
-        </div>
+
+            {#if inspectedAgent.port}
+              <div class="inspector-section">
+                <span class="section-label">Service Port & Endpoints</span>
+                <div class="endpoint-card">
+                  <span class="port-label">Port {inspectedAgent.port}</span>
+                  {#if inspectedAgent.isA2A}
+                    <span class="agent-card-link">/.well-known/agent-card.json</span>
+                  {:else}
+                    <span class="agent-card-link">Local Process Execution</span>
+                  {/if}
+                </div>
+              </div>
+            {/if}
+          </div>
+        {/if}
 
         <div class="inspector-footer">
           <button 
@@ -342,13 +636,19 @@
   .agent-graph-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(10px);
     z-index: 100;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 24px;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
   }
 
   .agent-graph-modal {
@@ -356,18 +656,18 @@
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     width: 95vw;
-    max-width: 1200px;
-    height: 85vh;
+    max-width: 1240px;
+    height: 86vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: var(--shadow-elevation-3);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   }
 
   /* Header */
   .graph-modal-header {
-    height: 60px;
-    padding: 0 20px;
+    height: 64px;
+    padding: 0 24px;
     border-bottom: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
@@ -378,25 +678,40 @@
   .header-title-group {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
   }
 
   .graph-header-icon {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-sm);
-    background: var(--bg-root);
-    color: var(--agent-root);
+    background: rgba(56, 189, 248, 0.15);
+    color: #38BDF8;
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
+  .header-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
   .header-title-group h3 {
     font-size: var(--font-size-title-md);
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-primary);
     margin: 0;
+  }
+
+  .active-badge-counter {
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(56, 189, 248, 0.15);
+    color: #38BDF8;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
   }
 
   .header-sub {
@@ -407,17 +722,35 @@
   .header-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
   }
 
   .live-pulse-badge {
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: rgba(56, 189, 248, 0.15);
-    color: var(--agent-root);
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    padding: 4px 10px;
+    gap: 8px;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid;
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    font-size: var(--font-size-label);
+    font-weight: 700;
+    animation: badge-glow 1.5s infinite alternate;
+  }
+
+  @keyframes badge-glow {
+    from { opacity: 0.85; }
+    to { opacity: 1; filter: drop-shadow(0 0 6px currentColor); }
+  }
+
+  .idle-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    padding: 5px 12px;
     border-radius: var(--radius-pill);
     font-size: var(--font-size-label);
     font-weight: 600;
@@ -427,7 +760,19 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--agent-root);
+    animation: pulse 1s infinite alternate;
+  }
+
+  .idle-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10B981;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(0.8); opacity: 0.5; }
+    100% { transform: scale(1.3); opacity: 1; }
   }
 
   .close-btn {
@@ -440,6 +785,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.15s ease;
   }
 
   .close-btn:hover {
@@ -451,15 +797,24 @@
   .graph-body-layout {
     flex: 1;
     display: grid;
-    grid-template-columns: 1fr 340px;
+    grid-template-columns: 1fr 380px;
     overflow: hidden;
   }
 
   /* Canvas */
   .graph-canvas-container {
     position: relative;
-    background: radial-gradient(circle at 50% 50%, rgba(26, 115, 232, 0.04) 0%, transparent 70%), var(--bg-app);
+    background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.05) 0%, transparent 70%), var(--bg-app);
     overflow: hidden;
+  }
+
+  .canvas-grid-pattern {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
   }
 
   .graph-svg-layer {
@@ -471,24 +826,30 @@
   }
 
   .graph-edge-line {
-    stroke: var(--border-medium);
+    stroke: rgba(255, 255, 255, 0.12);
     stroke-width: 0.35;
     stroke-dasharray: 1 1;
     transition: all 0.3s ease;
   }
 
   .graph-edge-line.edge-a2a {
-    stroke: var(--agent-video);
+    stroke: rgba(192, 132, 252, 0.35);
     stroke-width: 0.45;
     stroke-dasharray: 1.5 1;
   }
 
-  .graph-edge-line.edge-active {
+  .graph-edge-line.edge-participated {
     stroke: var(--edge-color);
-    stroke-width: 0.8;
+    stroke-opacity: 0.6;
+    stroke-width: 0.6;
+  }
+
+  .graph-edge-line.edge-running {
+    stroke: var(--edge-color);
+    stroke-width: 1.0;
     stroke-dasharray: 2 1;
     animation: dash-flow 0.8s linear infinite;
-    filter: drop-shadow(0 0 2px var(--edge-color));
+    filter: drop-shadow(0 0 3px var(--edge-color));
   }
 
   @keyframes dash-flow {
@@ -496,7 +857,41 @@
     to { stroke-dashoffset: 0; }
   }
 
-  /* Nodes */
+  /* Protocol Chips at Midpoints */
+  .edge-protocol-chip {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-tertiary);
+    font-size: 9px;
+    font-weight: 700;
+    font-family: var(--font-family-mono);
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    pointer-events: none;
+    z-index: 2;
+    transition: all 0.3s ease;
+  }
+
+  .edge-protocol-chip.chip-a2a {
+    background: rgba(192, 132, 252, 0.12);
+    border-color: rgba(192, 132, 252, 0.3);
+    color: #C084FC;
+  }
+
+  .edge-protocol-chip.chip-active {
+    background: var(--chip-color);
+    color: #121314;
+    border-color: var(--chip-color);
+    font-weight: 800;
+    box-shadow: 0 0 10px var(--chip-color);
+  }
+
+  /* Nodes Layer */
   .graph-nodes-layer {
     position: absolute;
     inset: 0;
@@ -513,40 +908,61 @@
     align-items: center;
     gap: 10px;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--shadow-elevation-1);
     max-width: 220px;
+    z-index: 4;
   }
 
   .agent-node-card:hover {
-    transform: translate(-50%, -54%) scale(1.04);
+    transform: translate(-50%, -54%) scale(1.05);
     border-color: var(--node-color);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), 0 0 8px var(--node-color);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 12px var(--node-color);
     z-index: 10;
   }
 
   .agent-node-card.node-root {
     padding: 12px 16px;
     border-width: 2px;
-    border-color: var(--agent-root);
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+    border-color: #38BDF8;
+    box-shadow: 0 0 24px rgba(56, 189, 248, 0.25);
     z-index: 5;
   }
 
   .agent-node-card.node-selected {
     border-color: var(--node-color);
     background: var(--bg-surface-elevated);
-    box-shadow: 0 0 12px var(--node-color);
+    box-shadow: 0 0 14px var(--node-color);
   }
 
-  .agent-node-card.node-active {
+  .agent-node-card.node-participated {
     border-color: var(--node-color);
-    animation: active-node-pulse 1.5s infinite ease-in-out;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+  }
+
+  .agent-node-card.node-running {
+    border-color: var(--node-color);
+    box-shadow: 0 0 24px var(--node-color);
+    animation: active-node-pulse 1.4s infinite ease-in-out;
+  }
+
+  .node-pulse-aura {
+    position: absolute;
+    inset: -6px;
+    border-radius: var(--radius-md);
+    opacity: 0.3;
+    animation: aura-expand 1.4s infinite ease-out;
+    pointer-events: none;
+  }
+
+  @keyframes aura-expand {
+    0% { transform: scale(0.95); opacity: 0.5; }
+    100% { transform: scale(1.15); opacity: 0; }
   }
 
   @keyframes active-node-pulse {
-    0%, 100% { box-shadow: 0 0 8px var(--node-color); }
-    50% { box-shadow: 0 0 24px var(--node-color); }
+    0%, 100% { box-shadow: 0 0 10px var(--node-color); }
+    50% { box-shadow: 0 0 28px var(--node-color); }
   }
 
   .node-icon-box {
@@ -593,9 +1009,9 @@
 
   .a2a-pill {
     font-size: 9px;
-    font-weight: 700;
-    background: rgba(168, 85, 247, 0.2);
-    color: var(--agent-video);
+    font-weight: 800;
+    background: rgba(192, 132, 252, 0.2);
+    color: #C084FC;
     padding: 1px 4px;
     border-radius: var(--radius-pill);
   }
@@ -604,8 +1020,6 @@
     position: absolute;
     top: -8px;
     right: -8px;
-    background: var(--node-color);
-    color: #121314;
     font-size: 9px;
     font-weight: 800;
     padding: 2px 6px;
@@ -613,6 +1027,26 @@
     display: flex;
     align-items: center;
     gap: 3px;
+    z-index: 10;
+  }
+
+  .running-badge {
+    color: #121314;
+    box-shadow: 0 0 10px var(--node-color);
+  }
+
+  .active-history-badge {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-medium);
+    color: var(--text-secondary);
+  }
+
+  :global(.spin-icon) {
+    animation: spin 2s linear infinite;
+  }
+
+  @keyframes spin {
+    100% { transform: rotate(360deg); }
   }
 
   /* Inspector Panel */
@@ -621,27 +1055,27 @@
     border-left: 1px solid var(--border-subtle);
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .inspector-header {
-    padding: 16px;
+    padding: 16px 20px;
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border-subtle);
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
 
   .inspector-title-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
   }
 
   .inspector-icon-wrap {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
@@ -650,13 +1084,41 @@
 
   .inspector-title-row h4 {
     font-size: var(--font-size-body-md);
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-primary);
-    margin: 0;
+    margin: 0 0 3px 0;
   }
 
-  .inspector-protocol-tag {
-    font-size: var(--font-size-label);
+  .inspector-meta-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .protocol-chip {
+    font-size: 10px;
+    color: var(--text-tertiary);
+  }
+
+  .live-status-pill {
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: var(--radius-pill);
+  }
+
+  .live-status-pill.running {
+    background: rgba(56, 189, 248, 0.2);
+    color: #38BDF8;
+  }
+
+  .live-status-pill.ready {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10B981;
+  }
+
+  .live-status-pill.standby {
+    background: rgba(255, 255, 255, 0.06);
     color: var(--text-tertiary);
   }
 
@@ -674,12 +1136,143 @@
     width: fit-content;
   }
 
+  /* Inspector Tabs */
+  .inspector-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+  }
+
+  .tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-tertiary);
+    font-size: var(--font-size-label);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .tab-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .tab-btn.active {
+    color: var(--primary-accent);
+    border-bottom-color: var(--primary-accent);
+    background: var(--bg-surface-elevated);
+  }
+
+  .tab-badge {
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+  }
+
   .inspector-body {
-    padding: 16px;
+    padding: 16px 20px;
     display: flex;
     flex-direction: column;
     gap: 16px;
     flex: 1;
+    overflow-y: auto;
+  }
+
+  .telemetry-scroll-pane {
+    padding: 12px;
+  }
+
+  .empty-telemetry {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 16px;
+    gap: 10px;
+    color: var(--text-tertiary);
+  }
+
+  .empty-telemetry p {
+    font-size: var(--font-size-body-sm);
+    margin: 0;
+    color: var(--text-secondary);
+  }
+
+  .empty-hint {
+    font-size: var(--font-size-label);
+    color: var(--text-tertiary);
+  }
+
+  .telemetry-stream-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .telemetry-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .telemetry-card.type-transfer {
+    border-left: 3px solid #38BDF8;
+  }
+
+  .telemetry-card.type-call {
+    border-left: 3px solid #C084FC;
+  }
+
+  .telemetry-card.type-response {
+    border-left: 3px solid #10B981;
+  }
+
+  .telemetry-card.type-text {
+    border-left: 3px solid #FB923C;
+  }
+
+  .telemetry-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-type-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .telemetry-time {
+    font-family: var(--font-family-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+  }
+
+  .telemetry-card-desc {
+    font-family: var(--font-family-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    word-break: break-all;
   }
 
   .inspector-section {
@@ -743,7 +1336,7 @@
   }
 
   .inspector-footer {
-    padding: 14px;
+    padding: 14px 20px;
     border-top: 1px solid var(--border-subtle);
     background: var(--bg-surface);
   }
@@ -754,11 +1347,11 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 8px 14px;
+    padding: 9px 14px;
     border-radius: var(--radius-pill);
     border: none;
     color: #121314;
-    font-weight: 600;
+    font-weight: 700;
     font-size: var(--font-size-body-sm);
     cursor: pointer;
     transition: opacity 0.15s ease;

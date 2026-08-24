@@ -43,6 +43,9 @@ Your goal is to write natural, engaging, and well-developed LinkedIn announcemen
 ## 🚀 Multiple Speakers & Event Recaps:
 - **Multiple Speakers**: Generate 2-3 variants for EACH speaker separately.
 - **Event Recaps**: If there are 2 or more speakers in the prompt, generate 2-3 variants of an event recap post summarizing the evening, thanking each `@Speaker Name`, and including `#GDG{community_name}`.
+
+## 🔄 Task Delegation & Root Orchestrator Handoff:
+- If the user asks for a task that does NOT belong to LinkedIn post generation (e.g. video speaker cards/avatars, receipts/expenses, agenda formatting, event scheduling, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
 """
 
 linkedin_agent = Agent(

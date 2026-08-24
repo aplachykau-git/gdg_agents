@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 try:
     import pypdfium2 as pdfium
@@ -38,7 +39,7 @@ def _auto_rotate_image(img_path: str) -> str:
         return img_path
 
 
-def _pdf_to_png_screenshot(pdf_path: str) -> str | None:
+def _pdf_to_png_screenshot(pdf_path: str) -> Optional[str]:
     """
     Renders the first page of a PDF to a PNG temp file and returns its path.
     Returns None on failure. The original PDF is never copied or moved.

@@ -1,0 +1,54 @@
+# Python / Virtual Environment
+.venv/
+venv/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ruff_cache/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.git/
+.vscode/
+.idea/
+
+# Secrets, API keys, tokens & credentials
+.env
+.env.*
+**/.env
+**/.env.*
+credentials.json
+token.json
+service_account.json
+configs/credentials.json
+configs/token.json
+configs/service_account*.json
+*.key
+*.pem
+*.json.key
+
+# ADK session databases & runtime cache
+**/.adk/
+*.db
+session.db
+
+# Private organizer & participant data
+configs/organisers.txt
+**/organisers.txt
+**/results/
+**/output/
+**/renders/
+**/*.xlsx
+**/*.xls
+**/*.csv
+**/*.docx
+**/*.pdf
+
+# Frontend build cache & tests
+frontend/node_modules/
+node_modules/
+tests/
+

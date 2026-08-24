@@ -28,8 +28,34 @@ service_account.json
 *.key
 *.pem
 
+# Firebase & Cloud cache
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# Node / Frontend build artifacts
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+**/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing & Coverage cache
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
 # ADK and other runtime cache
 .adk/
+**/.adk/
+*.db
+session.db
 
 # Participant Data, Scans, and Generated Outputs (to prevent GDPR/data leaks on GitHub)
 **/results/
@@ -44,12 +70,8 @@ service_account.json
 **/renders/
 **/*.mp4
 **/*.gif
-**/*.png
-**/*.jpg
-**/*.jpeg
 **/*.webm
 
 # GDG Organisers lists (to keep sensitive attendee/staff data local)
 **/organisers.txt
 configs/organisers.txt
-

@@ -52,6 +52,9 @@
     }
   }
 
+  // Backend API Base URL (Direct Cloud Run URL in production to bypass Firebase 60s proxy timeouts)
+  const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && (window.location.hostname.includes('web.app') || window.location.hostname.includes('firebaseapp.com')) ? 'https://gdg-root-agent-sb6iim4giq-ew.a.run.app' : '');
+
   // Default GDG Agents
   const DEFAULT_APPS = [
     { name: 'root_agent', root_agent_name: 'Root Orchestrator' },
@@ -109,7 +112,7 @@
   // Load Apps from ADK backend
   async function loadApps() {
     try {
-      const res = await fetch('/list-apps');
+      const res = await fetch(`${API_BASE}/list-apps`);
       if (!res.ok) throw new Error(`Status ${res.status}`);
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -145,7 +148,7 @@
     if (!selectedApp) return;
     try {
       errorMsg = '';
-      const res = await fetch(`/apps/${selectedApp}/users/${userId}/sessions`);
+      const res = await fetch(`${API_BASE}/apps/${selectedApp}/users/${userId}/sessions`);
       if (!res.ok) {
         if (res.status === 404) {
           sessions = [];
@@ -183,7 +186,7 @@
     try {
       errorMsg = '';
       isLoading = true;
-      const res = await fetch(`/apps/${selectedApp}/users/${userId}/sessions`, {
+      const res = await fetch(`${API_BASE}/apps/${selectedApp}/users/${userId}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: newSessionId })
@@ -208,7 +211,7 @@
     }
     try {
       errorMsg = '';
-      const res = await fetch(`/apps/${selectedApp}/users/${userId}/sessions/${selectedSessionId}`);
+      const res = await fetch(`${API_BASE}/apps/${selectedApp}/users/${userId}/sessions/${selectedSessionId}`);
       if (!res.ok) throw new Error(`Failed to load session details: ${res.statusText}`);
       const data = await res.json();
       events = data.events || [];
@@ -229,7 +232,7 @@
     if (!confirm('Are you sure you want to delete this session and its history?')) return;
     try {
       errorMsg = '';
-      const res = await fetch(`/apps/${selectedApp}/users/${userId}/sessions/${sessionId}`, {
+      const res = await fetch(`${API_BASE}/apps/${selectedApp}/users/${userId}/sessions/${sessionId}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error(`Failed to delete session: ${res.statusText}`);
@@ -663,7 +666,7 @@
     if (!selectedSessionId) {
       const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
       try {
-        await fetch(`/apps/${selectedApp}/users/${userId}/sessions`, {
+        await fetch(`${API_BASE}/apps/${selectedApp}/users/${userId}/sessions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ session_id: newSessionId })
@@ -730,7 +733,7 @@
       let useSSE = true;
 
       try {
-        res = await fetch('/run_sse', {
+        res = await fetch(`${API_BASE}/run_sse`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -759,7 +762,7 @@
 
       if (!useSSE) {
         payload.streaming = false;
-        res = await fetch('/run', {
+        res = await fetch(`${API_BASE}/run`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -805,8 +808,37 @@
                   continue;
                 }
 
+                // 1. Detect agent delegation from ADK actions
+                if (eventObj.actions?.transferToAgent) {
+                  currentExecutingAgent = eventObj.actions.transferToAgent;
+                }
+
+                // 2. Detect agent from nodeInfo path
+                if (eventObj.nodeInfo?.path) {
+                  const np = eventObj.nodeInfo.path.toLowerCase();
+                  if (np.includes('video_editor') || np.includes('video')) currentExecutingAgent = 'video_editor';
+                  else if (np.includes('receipt_scanner') || np.includes('receipt')) currentExecutingAgent = 'receipt_scanner';
+                  else if (np.includes('linkedin')) currentExecutingAgent = 'linkedin_post_generator';
+                  else if (np.includes('registration')) currentExecutingAgent = 'registration_manager';
+                  else if (np.includes('planner')) currentExecutingAgent = 'event_planner';
+                  else if (np.includes('agenda')) currentExecutingAgent = 'agenda_generator';
+                  else if (np.includes('office')) currentExecutingAgent = 'office_secretary';
+                }
+
+                // 3. Detect agent from author
                 if (eventObj.author && eventObj.author !== 'user') {
-                  currentExecutingAgent = eventObj.author;
+                  const cleanedAuth = cleanAuthorName(eventObj.author).toLowerCase();
+                  if (cleanedAuth && cleanedAuth !== 'user' && cleanedAuth !== 'system') {
+                    if (cleanedAuth.includes('video')) currentExecutingAgent = 'video_editor';
+                    else if (cleanedAuth.includes('receipt')) currentExecutingAgent = 'receipt_scanner';
+                    else if (cleanedAuth.includes('linkedin')) currentExecutingAgent = 'linkedin_post_generator';
+                    else if (cleanedAuth.includes('registration')) currentExecutingAgent = 'registration_manager';
+                    else if (cleanedAuth.includes('planner')) currentExecutingAgent = 'event_planner';
+                    else if (cleanedAuth.includes('agenda')) currentExecutingAgent = 'agenda_generator';
+                    else if (cleanedAuth.includes('office')) currentExecutingAgent = 'office_secretary';
+                    else if (cleanedAuth.includes('root')) currentExecutingAgent = 'root_agent';
+                    else currentExecutingAgent = eventObj.author;
+                  }
                 }
 
                 // Progressive real-time update in chat UI
@@ -835,14 +867,28 @@
                     const fc = part.function_call || part.functionCall;
                     const fr = part.function_response || part.functionResponse;
                     if (fc) {
-                      const delegated = getSubAgentForTool(fc.name);
+                      let delegated = null;
+                      if (fc.name === 'transfer_to_agent' && fc.args?.agent_name) {
+                        delegated = fc.args.agent_name;
+                      } else if (fc.name?.startsWith('transfer_to_')) {
+                        delegated = fc.name.replace('transfer_to_', '');
+                      } else {
+                        delegated = getSubAgentForTool(fc.name);
+                      }
                       if (delegated) {
                         currentExecutingAgent = delegated;
                       }
                       const agentLabel = getAgentTheme(currentExecutingAgent || eventObj.author).label || eventObj.author;
                       statusText = `${agentLabel}: ${getFriendlyToolCall(fc.name, fc.args)}`;
                     } else if (fr) {
-                      const delegated = getSubAgentForTool(fr.name);
+                      let delegated = null;
+                      if (fr.name === 'transfer_to_agent' && fr.response?.agent_name) {
+                        delegated = fr.response.agent_name;
+                      } else if (fr.name?.startsWith('transfer_to_')) {
+                        delegated = fr.name.replace('transfer_to_', '');
+                      } else {
+                        delegated = getSubAgentForTool(fr.name);
+                      }
                       if (delegated) {
                         currentExecutingAgent = delegated;
                       }
@@ -1689,6 +1735,7 @@
  * ========================================================================= -->
 {#if showAgentGraph}
   <AgentGraph 
+    {events}
     {currentExecutingAgent} 
     {isLoading} 
     {selectedApp} 

@@ -72,6 +72,9 @@ Please register on this page (RSVP), and bring your ID with you.
 1. **No Markdown formatting in output blocks**: Output the text cleanly so it can be easily copied and pasted directly into event platform description textareas (like Meetup or Luma) without raw Markdown asterisks/hashes. Do NOT wrap the agenda sections in Markdown bold (`**`) or headers (`###`).
 2. **Spacing**: Keep exactly one blank line between the introductory paragraph, the AGENDA heading, and each event on the timeline.
 3. **Flow**: Ensure the generative summary is highly inviting, developer-friendly, and professional.
+
+## 🔄 Task Delegation & Root Orchestrator Handoff:
+- If the user asks for a task that does NOT belong to agenda generation (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, event date planning, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
 """
 
 agenda_agent = Agent(

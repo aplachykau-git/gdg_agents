@@ -1,13 +1,34 @@
 import datetime
+import json
 import mimetypes
 import os
 import re
+from collections import defaultdict
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
+import google.auth
 import requests
 from google import genai
 from google.adk.tools import ToolContext
+from google.auth.transport.requests import Request
 from google.genai import types
+from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+
+try:
+    from google_auth_oauthlib.flow import InstalledAppFlow
+except ImportError:
+    InstalledAppFlow = None
+
+try:
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+except ImportError:
+    build = None
+    MediaFileUpload = None
+
+from agents.common.storage import upload_bytes_to_storage
 
 from .utils import _auto_rotate_image, _pdf_to_png_screenshot
 
@@ -310,7 +331,11 @@ def read_receipt_file(file_path: str) -> dict:
 
         model = "gemini-2.5-pro"
         response = client.models.generate_content(
-            model=model, contents=[types.Part.from_bytes(data=raw_bytes, mime_type=mime_type), prompt]
+            model=model,
+            contents=[
+                types.Part.from_bytes(data=raw_bytes, mime_type=mime_type),
+                types.Part.from_text(text=prompt),
+            ],
         )
 
         extracted_text = response.text or ""
@@ -339,13 +364,13 @@ def read_receipt_file(file_path: str) -> dict:
 
 def export_summary_to_google_doc(
     title: str,
-    folder_id: str = None,
-    template_id: str = None,
-    exchange_rate: float = None,
-    receipts_data: list = None,
+    folder_id: Optional[str] = None,
+    template_id: Optional[str] = None,
+    exchange_rate: Optional[float] = None,
+    receipts_data: Optional[List[dict]] = None,
     target_currency: str = "USD",
     approved_budget: str = "",
-    tool_context: ToolContext = None,
+    tool_context: Optional[ToolContext] = None,
 ) -> dict:
     """
     Creates a new Google Doc in your Google Drive by copying a template and populating it.
@@ -363,9 +388,6 @@ def export_summary_to_google_doc(
     """
     scopes = ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive"]
     try:
-        import google.auth
-        from googleapiclient.discovery import build
-
         # Check for service account JSON keys or personal OAuth client credentials
         agent_dir = Path(__file__).resolve().parent
         project_root = agent_dir.parent.parent
@@ -396,14 +418,8 @@ def export_summary_to_google_doc(
 
         credentials = None
         if sa_file:
-            from google.oauth2 import service_account
-
             credentials = service_account.Credentials.from_service_account_file(str(sa_file), scopes=scopes)
         elif client_secrets_file:
-            from google.auth.transport.requests import Request
-            from google.oauth2.credentials import Credentials
-            from google_auth_oauthlib.flow import InstalledAppFlow
-
             # Check for token.json in configs folder first, fallback to root or cwd
             token_path = project_root / "configs" / "token.json"
             if not token_path.exists() and (project_root / "token.json").exists():
@@ -450,8 +466,6 @@ def export_summary_to_google_doc(
             try:
                 gdoc_path = agent_dir / "assets" / "Expense_report_template.gdoc"
                 if gdoc_path.exists():
-                    import json
-
                     with open(gdoc_path, "r") as f:
                         gdoc_data = json.load(f)
                         template_id = gdoc_data.get("doc_id")
@@ -721,8 +735,6 @@ def export_summary_to_google_doc(
             # ----------------------------------------------------
             today_str = datetime.date.today().strftime("%d.%m.%Y")
 
-            from collections import defaultdict
-
             sums_by_currency = defaultdict(float)
             total_target = 0.0
             if receipts_data:
@@ -867,10 +879,6 @@ def export_summary_to_google_doc(
 
                 # Helper to upload local scan files to Google Drive
                 def upload_file_to_drive(drive_service, file_path, folder_dest=None):
-                    import mimetypes
-
-                    from googleapiclient.http import MediaFileUpload
-
                     f_path = Path(file_path)
                     if not f_path.exists():
                         return None
@@ -1046,12 +1054,36 @@ def export_summary_to_google_doc(
             return {"success": False, "error": "No template ID provided. Raw text export is disabled."}
 
         doc_url = f"https://docs.google.com/document/d/{doc_id}/edit"
-        return {
+        cloud_file_url = None
+        try:
+            if receipts_data:
+                csv_lines = ["Description,Original Amount,Target Currency Amount (" + target_currency + ")"]
+                for r in receipts_data:
+                    d = r.get("desc", "Expense").replace('"', '""')
+                    sc = r.get("sum_curr", "")
+                    st = r.get("sum_target", "")
+                    csv_lines.append(f'"{d}","{sc}","{st}"')
+                csv_lines.append(f'"TOTAL","{total_curr_str}","{total_target_str}"')
+                csv_content = "\n".join(csv_lines).encode("utf-8")
+                safe_title = re.sub(r"[^a-zA-Z0-9_\-]", "_", title).strip("_")
+                cloud_file_url = upload_bytes_to_storage(
+                    data=csv_content,
+                    destination_blob_name=f"reports/expense_report_{safe_title}_{today_str}.csv",
+                    content_type="text/csv",
+                )
+        except Exception as storage_err:
+            print(f"⚠️ [Cloud Storage Notice] {storage_err}")
+
+        res = {
             "success": True,
             "document_id": doc_id,
             "document_url": doc_url,
             "message": "Google Doc populated from template successfully!",
         }
+        if cloud_file_url:
+            res["storage_file_url"] = cloud_file_url
+            res["message"] += f" CSV summary also backed up to Cloud Storage: {cloud_file_url}"
+        return res
 
     except Exception as e:
         error_msg = str(e)

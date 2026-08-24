@@ -1,0 +1,48 @@
+# ==============================================================================
+# GDG Krakow Tool - Video Editor A2A Microservice Container
+# ==============================================================================
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PYTHONPATH=/app
+ENV PORT=8080
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    unzip \
+    ffmpeg \
+    chromium \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+
+COPY requirements.txt pyproject.toml setup.py /app/
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY agents /app/agents
+COPY configs /app/configs
+RUN pip install --no-deps -e .
+
+EXPOSE 8080
+
+CMD ["sh", "-c", "uvicorn agents.video_editor.a2a_server:a2a_app --host 0.0.0.0 --port ${PORT:-8080}"]

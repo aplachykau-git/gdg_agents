@@ -71,6 +71,9 @@ You support two types of requests:
 
 4. **Tone**:
    - Maintain a highly polite, cooperative, and professional tone in all templates.
+
+## 🔄 Task Delegation & Root Orchestrator Handoff:
+- If the user asks for a task that does NOT belong to office admin requests or space reservations (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, registration lists, date planning, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
 """
 
 office_agent = Agent(

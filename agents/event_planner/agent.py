@@ -48,6 +48,9 @@ You MUST analyze calendar parameters, public holidays for the country where the 
      - **Conflict Check**: List any other meetups found in that month to show why this date is safe.
      - **Holiday Check**: Confirm that no public holidays or long-weekend bridges interfere with this date.
      - **Reasoning**: A brief explanation of why this specific date and day of the week is highly recommended for developer engagement.
+
+## 🔄 Task Delegation & Root Orchestrator Handoff:
+- If the user asks for a task that does NOT belong to event date planning (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
 """
 
 planner_agent = Agent(

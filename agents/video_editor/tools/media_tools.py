@@ -1,20 +1,24 @@
+import base64
 import os
 import random
+import re
 import shutil
 import time
+from typing import Optional
 
+import requests
 from google import genai
 from google.adk.tools import ToolContext
+from google.cloud import storage
 from google.genai import types
+
+from agents.common.storage import upload_bytes_to_storage, upload_file_to_storage
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Toggles to enable/disable specific rendering outputs.
 ENABLE_VIDEO_GENERATION = os.environ.get("ENABLE_VIDEO_GENERATION", "true").lower() in ("true", "1", "yes")
-
-
-import re
 
 
 def resolve_path(rel_path: str) -> str:
@@ -48,12 +52,10 @@ def resolve_path(rel_path: str) -> str:
     return stripped_path
 
 
-async def stage_uploaded_media(photo_path: str = "", tool_context: ToolContext = None) -> str:
+async def stage_uploaded_media(photo_path: str = "", tool_context: Optional[ToolContext] = None) -> str:
     """Finds and stages the active user uploaded photo or video from session events.
     Called by the root orchestrator in the parent context.
     """
-    import base64
-
     print("\n📥 [Tool: stage_uploaded_media] Resolving user uploaded media from session...")
 
     # 1. ALWAYS scan session events first to check if the user uploaded new media in the active chat.
@@ -151,9 +153,11 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
             model="gemini-2.5-flash-image",
             contents=[
                 part,
-                (
-                    "Extend this photo to a vertical 9:16 portrait aspect ratio by seamlessly expanding the background. "
-                    "Keep the person in the photo unchanged."
+                types.Part.from_text(
+                    text=(
+                        "Extend this photo to a vertical 9:16 portrait aspect ratio by seamlessly expanding the background. "
+                        "Keep the person in the photo unchanged."
+                    )
                 ),
             ],
             config=types.GenerateContentConfig(
@@ -162,13 +166,28 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
             ),
         )
 
-        if response and response.candidates and response.candidates[0].content:
+        if response and response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
             for p in response.candidates[0].content.parts:
                 if p.inline_data and p.inline_data.data:
                     outpainted_path = os.path.join(os.path.dirname(photo_path), "portrait_outpainted.png")
+                    img_data = (
+                        base64.b64decode(p.inline_data.data)
+                        if isinstance(p.inline_data.data, str)
+                        else p.inline_data.data
+                    )
                     with open(outpainted_path, "wb") as f:
-                        f.write(p.inline_data.data)
+                        f.write(img_data)
                     print(f"✅ [Outpaint] Extended image saved to '{outpainted_path}'")
+                    try:
+                        cloud_img_url = upload_bytes_to_storage(
+                            data=img_data,
+                            destination_blob_name="images/portrait_outpainted.png",
+                            content_type="image/png",
+                        )
+                        if cloud_img_url:
+                            print(f"☁️ [Cloud Storage] Outpainted avatar uploaded: {cloud_img_url}")
+                    except Exception as upload_err:
+                        print(f"⚠️ [Cloud Storage Notice] {upload_err}")
                     return os.path.relpath(outpainted_path, BASE_DIR)
     except Exception as e:
         print(f"⚠️ [Outpaint Notice] Outpainting not available ({e}). Using original image.")
@@ -236,9 +255,14 @@ def verify_portrait_photo(photo_path: str = "") -> str:
         print("🚀 Sending face detection verification call to Gemini-2.5-Flash...")
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=[part, "Is there a clear, recognizable human face in this photo? Answer only YES or NO."],
+            contents=[
+                part,
+                types.Part.from_text(
+                    text="Is there a clear, recognizable human face in this photo? Answer only YES or NO."
+                ),
+            ],
         )
-        answer = response.text.strip().upper()
+        answer = (response.text or "").strip().upper()
         print(f"👤 [Face Detection] Model response: '{answer}'")
     except Exception as e:
         print(f"⚠️ [Face Verification Notice] Verification check bypassed: {e}")
@@ -253,10 +277,6 @@ VIDEO_ENGINE = os.environ.get("VIDEO_ENGINE", "veo").strip().lower()
 
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-flash-preview) via Interactions API."""
-    import base64
-
-    import requests
-
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY environment variable is required for Gemini Omni Flash video generation.")
@@ -430,8 +450,6 @@ def _generate_with_veo(photo_path: str, creative_prompt: str) -> str:
 
     if gcs_uri:
         print(f"🪣 Detected GCS path: {gcs_uri}. Downloading...")
-        from google.cloud import storage
-
         path_without_scheme = gcs_uri[5:]
         bucket_name, blob_name = path_without_scheme.split("/", 1)
         storage_client = storage.Client()
@@ -505,12 +523,25 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "") -> str:
         return photo_path
 
     engine = VIDEO_ENGINE if VIDEO_ENGINE in ("omni", "veo") else "veo"
-    print(f"⚙️  [Video Engine] Active video generation engine: {engine.upper()}")
-
     if engine == "omni":
-        return _generate_with_omni(photo_path, creative_prompt)
+        result_path = _generate_with_omni(photo_path, creative_prompt)
     else:
-        return _generate_with_veo(photo_path, creative_prompt)
+        result_path = _generate_with_veo(photo_path, creative_prompt)
+
+    try:
+        abs_video_path = os.path.join(BASE_DIR, "assets", "Video_example.mp4")
+        if os.path.exists(abs_video_path):
+            cloud_vid_url = upload_file_to_storage(
+                local_path=abs_video_path,
+                destination_blob_name="videos/Video_example.mp4",
+                content_type="video/mp4",
+            )
+            if cloud_vid_url:
+                print(f"☁️ [Cloud Storage] Video successfully uploaded to bucket: {cloud_vid_url}")
+    except Exception as upload_err:
+        print(f"⚠️ [Cloud Storage Notice] {upload_err}")
+
+    return result_path
 
 
 # Backward-compatible alias
