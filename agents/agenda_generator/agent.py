@@ -1,6 +1,12 @@
 import os
 
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
 from google.adk import Agent
+
+initialise_agent_environment()
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 
@@ -78,7 +84,7 @@ Please register on this page (RSVP), and bring your ID with you.
 """
 
 agenda_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="agenda_generator",
     description=f"Agent that drafts beautifully formatted, copy-pasteable GDG {community_name} meetups agendas with exact visual structure and emojis.",
     instruction=INSTRUCTION,

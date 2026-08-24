@@ -1,0 +1,23 @@
+{
+  "criteria": {
+    "linkedin_contract_score": 100.0
+  },
+  "custom_metrics": {
+    "linkedin_contract_score": {
+      "code_config": {
+        "name": "agents.linkedin_post_generator.evaluation.evaluator.linkedin_contract_metric"
+      },
+      "description": "Deterministic release gates for LinkedIn post generation.",
+      "metric_info": {
+        "metric_name": "linkedin_contract_score",
+        "description": "100 when every deterministic LinkedIn release gate passes; otherwise 0.",
+        "metric_value_info": {
+          "interval": {
+            "min_value": 0.0,
+            "max_value": 100.0
+          }
+        }
+      }
+    }
+  }
+}

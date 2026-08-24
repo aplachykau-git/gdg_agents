@@ -117,8 +117,8 @@ The workspace is organized into a clean, modular hierarchy:
 ```
 gdg_krakow_tool/
 ├── agents/                       # All Google ADK Agents & sub-agents
-│   ├── root_agent/               # Main coordinating Root Agent (gemini-2.5-flash)
-│   ├── receipt_scanner/          # Receipt OCR & Google Docs expense report agent (gemini-2.5-pro)
+│   ├── root_agent/               # Main coordinating Root Agent (gemini-3.5-flash-lite)
+│   ├── receipt_scanner/          # Receipt OCR & Google Docs expense report agent (gemini-3.6-flash)
 │   ├── video_editor/             # Speaker card outpainting & Veo video generator (Veo + GSAP)
 │   ├── linkedin_post_generator/  # LinkedIn announcement & recap post agent
 │   ├── registration_manager/     # Registration sorting, capacity & organizers list agent
@@ -156,8 +156,8 @@ gdg_krakow_tool/
 The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 primitives:
 
 1. **Model Tiering Strategy**:
-   - **`gemini-2.5-pro`** is allocated to complex reasoning & dense document OCR (`receipt_scanner`).
-   - **`gemini-2.5-flash`** is deployed across orchestrators and tool-calling agents for fast execution, high concurrency, and zero function-calling errors.
+   - **`gemini-3.6-flash`** is allocated to receipt OCR and expense reporting (`receipt_scanner`).
+   - **`gemini-3.5-flash-lite`** is deployed across orchestrators and tool-calling agents for fast execution, high concurrency, and zero function-calling errors.
 2. **Session State & Data Passing (`session.state`)**:
    - Rather than bloating prompt contexts with raw binary payloads or giant text tables across sub-agent transfers, agents communicate via workspace files and structured session state.
    - Staged media files (`assets/staged_media.mp4`, CSVs, generated posters) are managed per-agent and referenced through local storage paths.
@@ -197,12 +197,14 @@ npm run a2a:video
 # 2. Receipt Scanner A2A Server (Port 8082)
 npm run a2a:receipt
 
-# 3. Root Orchestrator Agent (Port 8080)
+# 3. ADK workspace server with direct access to all agents (Port 8080)
 npm run a2a:root
 
 # 4. Svelte Frontend (Port 5173)
 npm run dev
 ```
+
+> `npm run a2a:root` serves the whole `agents/` workspace, so the frontend can open `root_agent` **or** any specialized sub-agent directly.
 
 *For detailed setup instructions, including Google Cloud authentication and template folder mapping, check out the [Setup Guide](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/setup_guide.md).*
 
@@ -217,7 +219,7 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
 1. **Dual Video Generation Engines**:
    - **Google Veo 3.1 (`veo-3.1-fast-generate-001`)**: High-fidelity video generation via Vertex AI with curated cinematic lighting, subtle head motion, and realistic bokeh.
    - **Gemini Omni Flash (`gemini-omni-flash-preview`)**: Fast multimodal Image-to-Video generation via the Google AI Interactions API with unbroken single-shot camera dynamics.
-   - Switchable dynamically via `VIDEO_ENGINE=veo` (default) or `VIDEO_ENGINE=omni` in `.env`.
+   - Switchable dynamically via `VIDEO_ENGINE=veo` (default) or `VIDEO_ENGINE=omni` in `.env`. `veo` requires Vertex AI; when `GOOGLE_GENAI_USE_VERTEXAI=0`, select `omni`.
 
 2. **Speaker Portrait 9:16 Outpainting**:
    - Outpaints static photos into vertical 9:16 aspect ratio using Gemini/Imagen, preserving face identity while expanding background context for seamless vertical video framing.
@@ -237,7 +239,10 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
 
 | Variable | Values | Description |
 | :--- | :--- | :--- |
-| `VIDEO_ENGINE` | `veo` (default) \| `omni` | Selects the video generation model (`veo-3.1-fast-generate-001` or `gemini-omni-flash-preview`). |
+| `GOOGLE_GENAI_USE_VERTEXAI` | `1` (default) \| `0` | Uses Vertex AI credentials for Gemini calls when `1`; uses an API key when `0`. |
+| `GOOGLE_API_KEY` | API key | Preferred API key when `GOOGLE_GENAI_USE_VERTEXAI=0`; also supported by the Omni video engine. |
+| `GEMINI_API_KEY` | API key | Backwards-compatible fallback when `GOOGLE_API_KEY` is not set. |
+| `VIDEO_ENGINE` | `veo` (default) \| `omni` | Selects the video generation model (`veo-3.1-fast-generate-001` or `gemini-omni-flash-preview`). `veo` is available only in Vertex AI mode. |
 | `ENABLE_VIDEO_GENERATION` | `true` \| `false` | Set to `false` for instant layout/text dry-runs using local placeholder assets without consuming video tokens. |
 | `RENDER_4K` | `true` (default) \| `false` | Toggles rendering of the 4K Ultra HD MP4 video file. |
 | `RENDER_ORDINARY` | `true` \| `false` (default) | Toggles rendering of the 1080p Full HD MP4 video file. |

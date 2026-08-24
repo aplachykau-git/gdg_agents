@@ -1,0 +1,23 @@
+{
+  "criteria": {
+    "critical_extraction_score": 100.0
+  },
+  "custom_metrics": {
+    "critical_extraction_score": {
+      "code_config": {
+        "name": "agents.receipt_scanner.evaluation.evaluator.critical_extraction_metric"
+      },
+      "description": "Deterministic critical-field gates for receipt extraction.",
+      "metric_info": {
+        "metric_name": "critical_extraction_score",
+        "description": "100 when total, currency, date, image path, and export cardinality are correct; otherwise 0.",
+        "metric_value_info": {
+          "interval": {
+            "min_value": 0.0,
+            "max_value": 100.0
+          }
+        }
+      }
+    }
+  }
+}

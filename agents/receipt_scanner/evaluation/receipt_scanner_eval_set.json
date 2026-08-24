@@ -1,0 +1,77 @@
+{
+  "eval_set_id": "receipt_scanner_critical_extraction_v1",
+  "name": "Receipt scanner critical extraction evaluations",
+  "description": "Live Gemini extraction cases for total, currency, and date.",
+  "eval_cases": [
+    {
+      "eval_id": "extract_receipts_google_ocr_test_96",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Analyse and export this receipt: agents/receipt_scanner/evaluation/fixtures/downloaded/receipts_google_ocr_test_96.jpg"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "extract_receipts_google_ocr_test_603",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Analyse and export this receipt: agents/receipt_scanner/evaluation/fixtures/downloaded/receipts_google_ocr_test_603.jpg"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "extract_receipts_google_ocr_test_106",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Analyse and export this receipt: agents/receipt_scanner/evaluation/fixtures/downloaded/receipts_google_ocr_test_106.jpg"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "extract_receipts_google_ocr_test_1668",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Analyse and export this receipt: agents/receipt_scanner/evaluation/fixtures/downloaded/receipts_google_ocr_test_1668.jpg"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "extract_receipts_google_ocr_test_1773",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Analyse and export this receipt: agents/receipt_scanner/evaluation/fixtures/downloaded/receipts_google_ocr_test_1773.jpg"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

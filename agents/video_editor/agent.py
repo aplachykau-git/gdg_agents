@@ -2,11 +2,14 @@ import json
 import os
 from typing import Any
 
-from dotenv import load_dotenv
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
 from google.adk import Agent
 from google.genai import types
 
-load_dotenv(override=True)
+initialise_agent_environment()
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -119,7 +122,7 @@ Your goal is to autonomously generate high-quality live speaker video/GIF cards 
 """
 
 video_editor_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="video_editor",
     description="Live Video Editor agent that validates speaker metadata, verifies portrait face, outpaints/animates background video with Veo, updates HTML5 canvas composer, and renders final video/GIF speaker cards.",
     instruction=INSTRUCTION,

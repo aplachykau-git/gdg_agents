@@ -5,7 +5,7 @@ import os
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import google.auth
 import requests
@@ -29,6 +29,7 @@ except ImportError:
     MediaFileUpload = None
 
 from agents.common.storage import upload_bytes_to_storage
+from agents.gemini_config import get_gemini_client
 
 from .utils import _auto_rotate_image, _pdf_to_png_screenshot
 
@@ -223,6 +224,80 @@ def get_nbp_rate(currency: str) -> float:
         return defaults.get(currency, 1.0)
 
 
+def normalise_receipts(
+    receipts_data: list[dict] | None,
+    target_currency: str,
+    target_rate_to_pln: float,
+    rate_to_pln: Callable[[str], float] = get_nbp_rate,
+) -> list[dict]:
+    """Normalise source and converted receipt amounts for document export."""
+    target_currency = target_currency.upper().strip()
+    normalised_receipts = []
+
+    for item in receipts_data or []:
+        category = item.get("category", "")
+        desc = item.get("desc", "")
+        image_path = item.get("image_path", "")
+        original_amount = item.get("original_amount")
+        currency = item.get("currency")
+
+        if original_amount is not None and currency:
+            try:
+                amount_value = float(original_amount)
+            except (ValueError, TypeError):
+                amount_value = 0.0
+
+            currency_code = str(currency).upper().strip()
+            if currency_code == target_currency:
+                target_amount = amount_value
+            else:
+                source_amount_pln = amount_value * rate_to_pln(currency_code)
+                target_amount = source_amount_pln / target_rate_to_pln
+
+            source_sum = f"{amount_value:.2f} {currency_code}"
+            target_sum = f"{target_amount:.2f} {target_currency}"
+        else:
+            source_sum = item.get("sum_curr") or item.get("sum_pln") or "0.00 PLN"
+            target_sum = item.get("sum_target") or item.get("sum_usd") or f"0.00 {target_currency}"
+
+        normalised_receipts.append(
+            {
+                "category": category,
+                "desc": desc,
+                "sum_curr": source_sum,
+                "sum_target": target_sum,
+                "image_path": image_path,
+            }
+        )
+
+    return normalised_receipts
+
+
+def calculate_receipt_totals(
+    normalised_receipts: list[dict] | None,
+    target_currency: str,
+) -> tuple[str, str]:
+    """Calculate grouped source totals and the displayed target total."""
+    sums_by_currency = defaultdict(float)
+    target_total = 0.0
+
+    for receipt in normalised_receipts or []:
+        try:
+            amount, currency = receipt.get("sum_curr", "0.00 PLN").split()
+            sums_by_currency[currency] += float(amount)
+        except (AttributeError, TypeError, ValueError):
+            pass
+
+        try:
+            amount, _ = receipt.get("sum_target", f"0.00 {target_currency}").split()
+            target_total += float(amount)
+        except (AttributeError, TypeError, ValueError):
+            pass
+
+    source_total = ", ".join(f"{amount:.2f} {currency}" for currency, amount in sums_by_currency.items())
+    return source_total, f"{target_total:.2f} {target_currency}"
+
+
 # ---------------------------------------------------------------------------
 # Tool: read_receipt_file
 # ---------------------------------------------------------------------------
@@ -318,8 +393,8 @@ def read_receipt_file(file_path: str) -> dict:
     try:
         raw_bytes = path.read_bytes()
 
-        # Initialize Google GenAI client
-        client = genai.Client()
+        # Initialize a client for the workspace-selected Gemini backend.
+        client = get_gemini_client()
 
         # Perform native multimodal OCR and data extraction using gemini-2.5-pro
         prompt = (
@@ -329,7 +404,7 @@ def read_receipt_file(file_path: str) -> dict:
             "Perform this extraction with maximum accuracy and detail."
         )
 
-        model = "gemini-2.5-pro"
+        model = os.getenv("RECEIPT_SCANNER_MODEL", "gemini-3.6-flash")
         response = client.models.generate_content(
             model=model,
             contents=[
@@ -746,30 +821,7 @@ def export_summary_to_google_doc(
             # ----------------------------------------------------
             today_str = datetime.date.today().strftime("%d.%m.%Y")
 
-            sums_by_currency = defaultdict(float)
-            total_target = 0.0
-            if receipts_data:
-                for r in receipts_data:
-                    try:
-                        curr_str = r.get("sum_curr", "0.00 PLN")
-                        parts = curr_str.split()
-                        val = float(parts[0])
-                        cur = parts[1]
-                        sums_by_currency[cur] += val
-                    except Exception:
-                        pass
-
-                    try:
-                        target_str = r.get("sum_target", f"0.00 {target_currency}")
-                        parts = target_str.split()
-                        val = float(parts[0])
-                        total_target += val
-                    except Exception:
-                        pass
-
-            total_curr_parts = [f"{amt:.2f} {cur}" for cur, amt in sums_by_currency.items()]
-            total_curr_str = ", ".join(total_curr_parts)
-            total_target_str = f"{total_target:.2f} {target_currency}"
+            total_curr_str, total_target_str = calculate_receipt_totals(receipts_data, target_currency)
 
             global_replaces = [
                 ("{{TITLE}}", title),

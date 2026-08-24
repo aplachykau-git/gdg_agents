@@ -4,6 +4,7 @@ Tests agent initialization, path resolution, tool resilience, and A2A cards.
 """
 
 import os
+import subprocess
 import sys
 import unittest
 import warnings
@@ -19,6 +20,32 @@ sys.path.insert(0, str(WORKSPACE_ROOT))
 
 class TestAgentImportsAndDeclarations(unittest.TestCase):
     """Verifies all sub-agents and root_agent load without import/configuration errors."""
+
+    def test_workspace_loader_lists_all_agents_for_direct_access(self):
+        script = """
+from google.adk.cli.utils._nested_agent_loader import NestedAgentLoader
+loader = NestedAgentLoader('agents')
+agents = set(loader.list_agents())
+expected = {
+    'root_agent',
+    'receipt_scanner',
+    'video_editor',
+    'linkedin_post_generator',
+    'registration_manager',
+    'event_planner',
+    'agenda_generator',
+    'office_secretary',
+}
+assert expected.issubset(agents), (agents, expected)
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=WORKSPACE_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_root_agent_import(self):
         from agents.root_agent.agent import root_agent
@@ -70,6 +97,24 @@ class TestAgentImportsAndDeclarations(unittest.TestCase):
 
         self.assertIsNotNone(linkedin_agent)
         self.assertEqual(linkedin_agent.name, "linkedin_post_generator")
+
+    def test_adk_root_loader_keeps_declared_subagents(self):
+        script = """
+from google.adk.cli.utils._nested_agent_loader import NestedAgentLoader
+loader = NestedAgentLoader('agents/root_agent')
+assert loader.list_agents() == ['root_agent']
+root_agent = loader.load_agent('root_agent')
+assert root_agent.name == 'root_agent'
+assert len(root_agent.sub_agents) == 7
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=WORKSPACE_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class TestPathResolutions(unittest.TestCase):

@@ -1,9 +1,12 @@
 import os
 
-from dotenv import load_dotenv
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
 from google.adk import Agent
 
-load_dotenv(override=True)
+initialise_agent_environment()
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 
@@ -61,7 +64,7 @@ Your job is to cleanly organize, clean, sort, and partition event registration l
 """
 
 registration_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="registration_manager",
     description="Agent that cleans, validates, and partitions registrations based on capacity limits, and manages the official organisers list (viewing, adding, or removing organizer names).",
     instruction=INSTRUCTION,

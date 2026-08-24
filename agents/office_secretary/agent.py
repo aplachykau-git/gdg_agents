@@ -1,5 +1,12 @@
 import os
 
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
+
+initialise_agent_environment()
+
 from google.adk import Agent
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
@@ -77,7 +84,7 @@ You support two types of requests:
 """
 
 office_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="office_secretary",
     description=f"Agent that generates polite templated emails for GDG {community_name} office administration and space reservations.",
     instruction=INSTRUCTION,

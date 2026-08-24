@@ -64,16 +64,22 @@ RENDER_GIF=true
 RENDER_4K=true
 ```
 
-### 3. Keyless Authentication via ADC
+### 3. Selectable Gemini Authentication Backend
 
-In the integrated setup, `video_editor/tools/media_tools.py` will automatically fall back to **Application Default Credentials (ADC)** if no `GEMINI_API_KEY` is present. This eliminates the need for separate, hardcoded service account keys, allowing it to naturally reuse your active GCP project authentication:
+The workspace selects one inference backend for all Gemini model calls with
+`GOOGLE_GENAI_USE_VERTEXAI`. Set it to `1` to use **Application Default
+Credentials (ADC)** through Vertex AI, or set it to `0` and provide
+`GOOGLE_API_KEY` to use the Gemini Developer API. API mode never falls back to
+ADC or Vertex AI.
 
 ```python
-api_key = os.environ.get("GEMINI_API_KEY")
-if api_key:
-    client = genai.Client(api_key=api_key)
+if os.environ["GOOGLE_GENAI_USE_VERTEXAI"] == "0":
+    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"], vertexai=False)
 else:
-    client = genai.Client()  # Resolves ADC/Vertex AI naturally
+    client = genai.Client(vertexai=True)  # Resolves ADC/Vertex AI
 ```
+
+Google Drive/Docs exports keep their separate OAuth, service-account, or ADC
+authentication because they are not Gemini inference calls.
 
 Since the agent sets its internal shell subprocess execution directory dynamically (`cwd=BASE_DIR`), all compiler commands (`npm run render`, `npx hyperframes validate`) execute flawlessly inside the nested folder, completely independent of where the main root agent server was started!

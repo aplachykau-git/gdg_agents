@@ -2,9 +2,13 @@ import os
 import sys
 import warnings
 
-from dotenv import load_dotenv
+from google.adk import Agent
 
-load_dotenv(override=True)
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
+
 
 # Suppress upstream Google ADK BaseAgentConfig deprecation warning
 warnings.filterwarnings(
@@ -13,7 +17,7 @@ warnings.filterwarnings(
     message=r".*BaseAgentConfig is deprecated.*",
 )
 
-from google.adk import Agent
+initialise_agent_environment()
 
 # Ensure agents directory is in sys.path for direct imports
 _agents_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -62,7 +66,7 @@ if receipt_a2a_url:
         print(f"🔗 [A2A Connected] receipt_scanner agent linked via A2A at: {card_url}")
         receipt_agent = RemoteA2aAgent(
             name="receipt_scanner",
-            description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-2.5-pro, converts to PLN and USD using the Pekao rate, exports reports to Google Docs.",
+            description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-3.6-flash, converts to PLN and USD using the Pekao rate, exports reports to Google Docs.",
             agent_card=card_url,
         )
     except Exception as e:
@@ -136,7 +140,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 """
 
 root_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="root_agent",
     description=f"Root coordinator agent of GDG {community_name}",
     instruction=INSTRUCTION,

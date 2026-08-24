@@ -5,10 +5,16 @@ Event Planner Agent
 import datetime
 import os
 
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
 from google.adk import Agent
 from google.adk.tools.google_search_tool import GoogleSearchTool
 
 from .tools import get_public_holidays
+
+initialise_agent_environment()
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 current_year = datetime.date.today().year
@@ -54,7 +60,7 @@ You MUST analyze calendar parameters, public holidays for the country where the 
 """
 
 planner_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="event_planner",
     description=f"Agent that analyzes local tech calendars and holidays to recommend the optimal date for GDG {community_name} meetups.",
     instruction=INSTRUCTION,
