@@ -11,8 +11,7 @@ To run this application locally, you must first start the ADK backend server, th
 ### 1. Start backend agent (in separate terminal)
 ```bash
 # From project root
-source .venv/bin/activate
-adk web --port 8080 agents
+uv run --locked adk web --port 8080 agents
 ```
 
 ### 2. Install dependencies & launch dev server

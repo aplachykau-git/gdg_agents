@@ -143,9 +143,8 @@ gdg_krakow_tool/
 │   ├── eval/
 │   └── test_receipt_scanner.py
 │
-├── pyproject.toml                # Ruff & Python tools configuration
-├── requirements.txt              # Python dependencies
-├── setup.py                      # Python package setup
+├── pyproject.toml                # Python package and tool configuration
+├── uv.lock                       # Locked Python dependencies
 └── package.json                  # Root npm workspace scripts
 ```
 

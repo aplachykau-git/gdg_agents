@@ -35,7 +35,8 @@ graph TD
 ## 📋 Prerequisites
 
 Ensure you have the following installed on your machine:
-* **Python 3.10+** (to run ADK and agent packages)
+* **Python 3.12+** (to run ADK and agent packages)
+* **uv** (to manage Python dependencies)
 * **Node.js v22+** (to run the custom Svelte frontend and the HyperFrames render server)
 * **FFmpeg** (strongly recommended, used for video rendering and processing tasks)
 * **Google Cloud SDK / CLI** (for Vertex AI authentication)
@@ -48,20 +49,10 @@ Follow these steps to set up both the backend and frontend environments.
 
 ### 1. Python Environment (Backend)
 
-Initialize a virtual environment and install backend dependencies in editable mode:
+Synchronise the locked backend dependencies:
 
 ```bash
-# 1. Initialize a virtual environment
-python3 -m venv .venv
-
-# 2. Activate the environment
-source .venv/bin/activate
-
-# 3. Install requirements
-pip install -r requirements.txt
-
-# 4. Install the workspace packages in editable mode
-pip install -e .
+uv sync --locked
 ```
 
 ### 2. Node.js Environment (Frontend & Video Editor)
@@ -142,12 +133,9 @@ To run the complete system with the custom Svelte frontend talking to the ADK ba
 The backend agent server must run on port `8080` (as Vite is configured to proxy all API requests to `127.0.0.1:8080`).
 
 ```bash
-# Make sure virtual environment is active
-source .venv/bin/activate
-
 # Run the full ADK workspace so each agent is addressable directly.
 # This exposes root_agent plus all specialized sub-agents in /list-apps.
-adk web --port 8080 agents
+uv run --locked adk web --port 8080 agents
 ```
 
 ### Terminal 2: Launch Frontend (Svelte Dev Server)
@@ -172,16 +160,14 @@ Here you will find the **Advanced Agentic Workspace** where you can select the a
 ### 1. Using the Default ADK Developer UI
 If you want to use the default web playground provided out-of-the-box by ADK:
 ```bash
-source .venv/bin/activate
-adk web --port 8000 agents
+uv run --locked adk web --port 8000 agents
 ```
 Open **`http://localhost:8000`** in your browser.
 
 ### 2. Testing Receipt Scanner via CLI
 You can test the receipt OCR scanner and currency converter directly using the test runner:
 ```bash
-source .venv/bin/activate
-python tests/test_receipt_scanner.py
+uv run --locked python tests/test_receipt_scanner.py
 ```
 
 ### 3. HyperFrames Development & Preview Sandbox

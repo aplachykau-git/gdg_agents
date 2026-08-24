@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import subprocess
 import time
 from pathlib import Path
@@ -20,10 +21,10 @@ def _latest_result(started_at: float) -> Path | None:
     return max(candidates, key=lambda path: path.stat().st_mtime, default=None)
 
 
-def run(adk_binary: str) -> int:
+def run(adk_command: str) -> int:
     started_at = time.time() - 1
     command = [
-        adk_binary,
+        *shlex.split(adk_command),
         "eval",
         str(EVALUATION_DIRECTORY),
         str(EVAL_SET),
