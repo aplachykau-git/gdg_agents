@@ -1,0 +1,311 @@
+<script>
+  import { 
+    User, 
+    Paperclip, 
+    AlertCircle, 
+    Workflow, 
+    ArrowRight 
+  } from '@lucide/svelte';
+  import { 
+    getAgentTheme, 
+    getEventError, 
+    renderMarkdown, 
+    isAgendaOutput, 
+    parseResponseVariants, 
+    shouldShowDelegationHandoff 
+  } from './constants.js';
+  import AgendaTimeline from './AgendaTimeline.svelte';
+  import VariantCard from './VariantCard.svelte';
+  import ToolCallCard from './ToolCallCard.svelte';
+
+  let { 
+    event, 
+    index = 0, 
+    allEvents = [], 
+    onRefine = () => {} 
+  } = $props();
+
+  const errInfo = $derived(getEventError(event));
+  const theme = $derived(getAgentTheme(event?.author));
+  const showHandoff = $derived(shouldShowDelegationHandoff(event, index, allEvents));
+</script>
+
+{#if errInfo}
+  <!-- Error Event Card -->
+  <div class="message-row error-row">
+    <div class="message-card error-card">
+      <div class="error-card-header">
+        <div class="error-badge-pill">
+          <AlertCircle size={14} />
+          <span>Execution Error ({theme.label || event.author || 'Agent'})</span>
+        </div>
+      </div>
+      <div class="error-body">
+        <p class="error-text-main">{errInfo.message}</p>
+        {#if errInfo.code}
+          <div class="error-code-chip">{errInfo.code}</div>
+        {/if}
+      </div>
+    </div>
+  </div>
+{:else if event.author === 'user'}
+  <!-- User Prompt Bubble -->
+  <div class="message-row user-row">
+    <div class="message-card user-card">
+      <div class="card-author">
+        <User size={14} />
+        <span>You</span>
+      </div>
+      {#if event.content && event.content.parts}
+        {#each event.content.parts as part}
+          {#if part.text}
+            <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
+          {/if}
+          {#if part.inline_data || part.inlineData}
+            {@const inline = part.inline_data || part.inlineData}
+            {@const mime = inline.mime_type || inline.mimeType || ''}
+            <div class="user-attached-file-badge">
+              <Paperclip size={13} class="badge-paperclip" />
+              <span class="badge-filename">Attached Media ({mime.replace('image/', 'img:').replace('video/', 'video:').replace('application/', '') || 'file'})</span>
+              <span class="badge-status-dot"></span>
+              <span class="badge-status-label">Transferred</span>
+            </div>
+          {/if}
+        {/each}
+      {/if}
+    </div>
+  </div>
+{:else}
+  <!-- Explicit Sub-Agent Delegation Handoff Divider -->
+  {#if showHandoff}
+    <div class="agent-delegation-divider">
+      <div class="delegation-line"></div>
+      <div class="delegation-badge" style="--pill-color: {theme.color}; --pill-bg: {theme.bg};">
+        <Workflow size={13} class="delegation-icon" />
+        <span>Task routed to <strong>{theme.label}</strong></span>
+        <ArrowRight size={12} class="delegation-arrow" />
+      </div>
+      <div class="delegation-line"></div>
+    </div>
+  {/if}
+
+  <!-- Model Response Card -->
+  <div class="message-row model-row" style="--agent-color: {theme.color}; --agent-bg: {theme.bg}">
+    <div class="message-card model-card">
+      <div class="model-author-header">
+        <div class="agent-badge-pill" style="background: {theme.bg}; color: {theme.color}; border: 1px solid {theme.color}40;">
+          <span class="badge-dot" style="background: {theme.color}"></span>
+          <span>{theme.label}</span>
+        </div>
+      </div>
+
+      {#if event.content && event.content.parts}
+        {#each event.content.parts as part}
+          {#if part.text}
+            {#if isAgendaOutput(part.text, event.author)}
+              <AgendaTimeline 
+                rawText={part.text} 
+                author={event.author} 
+                onRefine={(refinedText) => onRefine(refinedText)} 
+              />
+            {:else}
+              {@const variants = parseResponseVariants(part.text, event.author)}
+              {#if variants.length === 1}
+                <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
+              {:else}
+                <VariantCard {variants} onRefine={onRefine} />
+              {/if}
+            {/if}
+          {/if}
+
+          <!-- Tool Call & Response Steps -->
+          <ToolCallCard {part} />
+        {/each}
+      {/if}
+    </div>
+  </div>
+{/if}
+
+<style>
+  .message-row {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+    width: 100%;
+    content-visibility: auto;
+    contain-intrinsic-size: 120px;
+  }
+
+  .user-row {
+    align-items: flex-end;
+  }
+
+  .model-row {
+    align-items: flex-start;
+  }
+
+  .message-card {
+    max-width: 88%;
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    position: relative;
+    box-shadow: var(--shadow-sm);
+    word-break: break-word;
+  }
+
+  .user-card {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-bottom-right-radius: 4px;
+    color: var(--text-primary);
+  }
+
+  .model-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-top-left-radius: 4px;
+    color: var(--text-primary);
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .card-author {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .model-author-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .agent-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  /* User File Attachment Badge */
+  .user-attached-file-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-app);
+    border: 1px solid var(--border-subtle);
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+  }
+
+  :global(.badge-paperclip) {
+    color: var(--primary-accent);
+  }
+
+  .badge-status-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-green, #34a853);
+  }
+
+  .badge-status-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--accent-green, #34a853);
+  }
+
+  /* Agent Delegation Handoff Divider */
+  .agent-delegation-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+    width: 100%;
+  }
+
+  .delegation-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border-subtle);
+  }
+
+  .delegation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    background: var(--pill-bg, rgba(138, 180, 248, 0.1));
+    color: var(--pill-color, var(--primary-accent));
+    border: 1px solid var(--border-subtle);
+  }
+
+  :global(.delegation-icon), :global(.delegation-arrow) {
+    opacity: 0.8;
+  }
+
+  /* Error Card */
+  .error-row {
+    align-items: center;
+  }
+
+  .error-card {
+    background: rgba(234, 67, 53, 0.08);
+    border: 1px solid rgba(234, 67, 53, 0.3);
+    width: 100%;
+  }
+
+  .error-card-header {
+    margin-bottom: 8px;
+  }
+
+  .error-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent-red, #ea4335);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .error-text-main {
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .error-code-chip {
+    display: inline-block;
+    background: rgba(234, 67, 53, 0.15);
+    color: var(--accent-red, #ea4335);
+    font-family: monospace;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: var(--radius-xs);
+    margin-top: 6px;
+  }
+</style>
