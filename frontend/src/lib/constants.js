@@ -11,6 +11,32 @@ export const DEFAULT_APPS = [
   { name: 'office_secretary', root_agent_name: 'Office Secretary' }
 ];
 
+export const DEFAULT_CONFIG = {
+  communityName: 'GDG Krakow'
+};
+
+export function getAppConfig() {
+  if (typeof window === 'undefined') return DEFAULT_CONFIG;
+  try {
+    const saved = localStorage.getItem('gdg_studio_config');
+    if (saved) {
+      return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+    }
+  } catch (e) {
+    console.error('Failed to read config from localStorage:', e);
+  }
+  return DEFAULT_CONFIG;
+}
+
+export function saveAppConfig(cfg) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('gdg_studio_config', JSON.stringify(cfg));
+  } catch (e) {
+    console.error('Failed to save config to localStorage:', e);
+  }
+}
+
 export const MAX_INPUT_TOKENS = 8192;
 
 export function cleanAuthorName(author) {

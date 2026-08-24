@@ -18,6 +18,8 @@
     Mail, 
     Workflow, 
     AlertCircle, 
+    Plus,
+    Settings,
     X 
   } from '@lucide/svelte';
   
@@ -25,12 +27,15 @@
   import Sidebar from './lib/Sidebar.svelte';
   import ChatMessage from './lib/ChatMessage.svelte';
   import ChatInput from './lib/ChatInput.svelte';
+  import SettingsModal from './lib/SettingsModal.svelte';
   
   import { 
     DEFAULT_APPS, 
     STATUS_TICKERS, 
     getAgentTheme, 
-    isIntermediateEvent 
+    isIntermediateEvent,
+    getAppConfig,
+    saveAppConfig 
   } from './lib/constants.js';
   
   import { 
@@ -53,11 +58,13 @@
   let isLoading = $state(false);
   let errorMsg = $state('');
   let isDarkMode = $state(true);
+  let studioConfig = $state(getAppConfig());
   
   // Layout Panels & Drawers
-  let showSessions = $state(true);
+  let showSessions = $state(false);
   let showLegend = $state(false);
   let showAgentGraph = $state(false);
+  let showSettings = $state(false);
   
   // Staged files & Drag State
   let isDragging = $state(false);
@@ -364,6 +371,11 @@
     }
   }
 
+  function updateConfig(newConfig) {
+    studioConfig = newConfig;
+    saveAppConfig(newConfig);
+  }
+
   onMount(() => {
     document.documentElement.classList.add('dark');
     document.documentElement.setAttribute('data-theme', 'dark');
@@ -378,6 +390,19 @@
    * ========================================================================= -->
   <header class="studio-header">
     <div class="header-left">
+      <!-- GDG Studio Brand (Leftmost) -->
+      <div class="brand-badge">
+        <div class="brand-gemini-icon">
+          <Sparkles size={16} strokeWidth={2} class={isLoading ? 'generating-sparkle' : ''} />
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">GDG Studio</span>
+          <span class="brand-sub">{studioConfig.communityName || 'GDG Krakow'}</span>
+        </div>
+      </div>
+
+      <div class="header-divider"></div>
+
       <!-- Left sidebar toggle -->
       <button 
         class="icon-btn" 
@@ -388,16 +413,16 @@
         <History size={18} strokeWidth={1.75} />
       </button>
 
-      <!-- GDG Agents Logo -->
-      <div class="brand-badge">
-        <div class="brand-gemini-icon">
-          <Sparkles size={16} strokeWidth={2} class={isLoading ? 'generating-sparkle' : ''} />
-        </div>
-        <div class="brand-text">
-          <span class="brand-name">GDG Agents</span>
-          <span class="brand-sub">Autonomous Platform</span>
-        </div>
-      </div>
+      <!-- New Session Button (Header pill) -->
+      <button 
+        class="header-pill-btn btn-header-new-session" 
+        onclick={startNewSession} 
+        disabled={isLoading}
+        title="Start a new session"
+      >
+        <Plus size={15} strokeWidth={2} />
+        <span>New Session</span>
+      </button>
 
       <div class="header-divider"></div>
 
@@ -431,6 +456,11 @@
       <button class="header-pill-btn" onclick={() => showLegend = true} title="View Agent System Architecture">
         <HelpCircle size={15} strokeWidth={1.75} />
         <span>Capabilities</span>
+      </button>
+
+      <button class="header-pill-btn" onclick={() => showSettings = true} title="Studio Settings & Community Configuration">
+        <Settings size={15} strokeWidth={1.75} />
+        <span>Settings</span>
       </button>
 
       <button class="icon-btn" onclick={toggleTheme} title="Toggle Theme">
@@ -493,7 +523,7 @@
           <div class="hub-hero">
             <div class="hub-pill">
               <span class="hub-pill-dot"></span>
-              <span>GDG Krakow Operations & Event Platform</span>
+              <span>{studioConfig.communityName || 'GDG Krakow'} Operations & Event Platform</span>
             </div>
             <h2>Autonomous Agent Orchestration</h2>
             <p>Select a specialized agent below or use the <strong>Root Orchestrator</strong> to automatically analyze your prompt and dispatch tasks across pipelines.</p>
@@ -725,13 +755,13 @@
       <header class="modal-header">
         <div class="modal-title-group">
           <Sparkles size={20} class="modal-gemini-icon" />
-          <h2>GDG Krakow Autonomous Multi-Agent System</h2>
+          <h2>GDG Studio Autonomous Multi-Agent System</h2>
         </div>
         <button class="modal-close-btn" onclick={() => showLegend = false}>&times;</button>
       </header>
       
       <div class="modal-body">
-        <p class="modal-intro">The GDG Agents platform is powered by Google ADK with an A2A architecture coordinating specialized reasoning engines:</p>
+        <p class="modal-intro">The GDG Studio platform is powered by Google ADK with an A2A architecture coordinating specialized reasoning engines for {studioConfig.communityName || 'GDG Krakow'}:</p>
         
         <div class="capabilities-grid">
           <div class="capability-card" style="--card-accent: var(--agent-root); --card-bg: var(--bg-root)">
@@ -775,6 +805,14 @@
     </div>
   </div>
 {/if}
+
+<!-- Settings Modal -->
+<SettingsModal 
+  show={showSettings} 
+  config={studioConfig} 
+  onSave={updateConfig} 
+  onClose={() => showSettings = false} 
+/>
 
 <!-- Multi-Agent DAG Modal -->
 {#if showAgentGraph}
