@@ -538,7 +538,8 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "") -> str:
         )
         return photo_path
 
-    engine = VIDEO_ENGINE if VIDEO_ENGINE in ("omni", "veo") else "veo"
+    engine = get_video_engine()
+    validate_video_generation_backend(engine)
     if engine == "omni":
         result_path = _generate_with_omni(photo_path, creative_prompt)
     else:

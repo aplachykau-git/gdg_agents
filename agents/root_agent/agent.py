@@ -2,6 +2,13 @@ import os
 import sys
 import warnings
 
+from google.adk import Agent
+
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
+
 
 # Suppress upstream Google ADK BaseAgentConfig deprecation warning
 warnings.filterwarnings(
@@ -9,12 +16,6 @@ warnings.filterwarnings(
     category=DeprecationWarning,
     message=r".*BaseAgentConfig is deprecated.*",
 )
-
-try:
-    from agents.bootstrap import initialise_agent_environment
-except ModuleNotFoundError:
-    from bootstrap import initialise_agent_environment
-from google.adk import Agent
 
 initialise_agent_environment()
 

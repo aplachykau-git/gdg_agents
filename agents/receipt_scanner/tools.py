@@ -29,7 +29,6 @@ except ImportError:
     MediaFileUpload = None
 
 from agents.common.storage import upload_bytes_to_storage
-
 from agents.gemini_config import get_gemini_client
 
 from .utils import _auto_rotate_image, _pdf_to_png_screenshot
@@ -279,8 +278,6 @@ def calculate_receipt_totals(
     target_currency: str,
 ) -> tuple[str, str]:
     """Calculate grouped source totals and the displayed target total."""
-    from collections import defaultdict
-
     sums_by_currency = defaultdict(float)
     target_total = 0.0
 
