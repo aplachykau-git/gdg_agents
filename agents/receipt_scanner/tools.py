@@ -456,8 +456,19 @@ def export_summary_to_google_doc(
         else:
             credentials, _ = google.auth.default(scopes=scopes)
 
-        docs_service = build("docs", "v1", credentials=credentials)
-        drive_service = build("drive", "v3", credentials=credentials)
+        try:
+            docs_service = build("docs", "v1", credentials=credentials)
+            if not hasattr(docs_service, "documents"):
+                docs_service = build("docs", "v1", credentials=credentials, static_discovery=False)
+        except Exception:
+            docs_service = build("docs", "v1", credentials=credentials, static_discovery=False)
+
+        try:
+            drive_service = build("drive", "v3", credentials=credentials)
+            if not hasattr(drive_service, "files"):
+                drive_service = build("drive", "v3", credentials=credentials, static_discovery=False)
+        except Exception:
+            drive_service = build("drive", "v3", credentials=credentials, static_discovery=False)
 
         target_folder = folder_id or os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 
