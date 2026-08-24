@@ -12,7 +12,7 @@ class GeminiConfigurationError(RuntimeError):
 
 def load_gemini_environment() -> None:
     """Load workspace configuration and validate Gemini API mode early."""
-    load_dotenv(override=True)
+    load_dotenv()
     if not use_vertex_ai():
         get_gemini_api_key()
 
