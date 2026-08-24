@@ -17,7 +17,7 @@ This guide documents the layout specs, customization steps, and embedding instru
 
 ## 🛠️ Step-by-Step Template Customization
 
-To manually customize a card template, edit the centralized config block at the bottom of [index.html](file:///Users/aplachykau/Experiments/gdg_krakow_tool/video_editor/index.html):
+To manually customize a card template, edit the centralized config block at the bottom of [index.html](../index.html):
 
 ```javascript
 const CARD_CONFIG = {

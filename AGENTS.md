@@ -63,8 +63,28 @@ Keep pull requests focused. Include a short summary, tests/evals run, linked
 issue when applicable, and screenshots for visible frontend changes. Call out
 changes to prompts, manifests, baselines, or held-out eval data explicitly.
 
+## AI Skills & Agent Workflows
+
+Manage agent skills via [skills.sh](https://skills.sh/) (`npx skills`). Store `skills-lock.json` in the repository root instead of committing local skill markdown files for public sources. Restore installed skills using:
+
+```bash
+npx skills experimental_install
+```
+
+Recommended core skills by domain:
+- **UI / Frontend**: `googlechrome/modern-web-guidance` (`https://www.skills.sh/googlechrome/modern-web-guidance/modern-web-guidance`)
+- **API**: `fastapi/fastapi` (`https://www.skills.sh/fastapi/fastapi/fastapi`)
+- **ADK / Agents**: `google/agents-cli` (`https://github.com/google/agents-cli#agent-skills`)
+- **Architecture, Planning & TDD**: `obra/superpowers` (`https://github.com/obra/superpowers`)
+
+## Dependencies & Environment
+
+- All Python development dependencies in `requirements.txt` must be strictly pinned to specific versions to ensure deterministic development environments across machines.
+- All documentation, tests, and configurations must use relative paths (never hardcode machine-specific absolute paths or `file:///Users/...` links).
+
 ## Security & Configuration
 
 Do not commit `.env`, credentials, tokens, generated `.adk/` history, or
 participant/output files. Copy `.env.example` for local configuration and use
 the configured Gemini backend rather than embedding keys in code.
+

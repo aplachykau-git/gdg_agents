@@ -91,7 +91,7 @@ bash <(curl -sSL https://storage.googleapis.com/cloud-samples-data/adc/setup_adc
 
 ### 4. Configuration Settings (.env)
 
-The root agent requires a `.env` file to be present in the project root directory. You can use the template [.env.example](file:///Users/aplachykau/Experiments/gdg_krakow_tool/.env.example) to create it:
+The root agent requires a `.env` file to be present in the project root directory. You can use the template [.env.example](../.env.example) to create it:
 
 ```bash
 # Copy the example configuration to .env
@@ -123,7 +123,7 @@ To customize the report template (e.g., adding your own styling, custom tables, 
 2. Create a copy of it in your own Google Drive (**File -> Make a copy**).
 3. Modify the copied document as you like (keep the existing placeholder tags like `{{APPROVED}}` and `{{EXPENSES_TABLE}}` where you want the dynamic content to be inserted).
 4. Extract the Document ID from the URL of your new document (e.g., `https://docs.google.com/document/d/<YOUR_DOCUMENT_ID>/edit`).
-5. Open the local file [Expense_report_template.gdoc](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/receipt_scanner/assets/Expense_report_template.gdoc) and replace the `"doc_id"` value with your new document ID:
+5. Open the local file [Expense_report_template.gdoc](../agents/receipt_scanner/assets/Expense_report_template.gdoc) and replace the `"doc_id"` value with your new document ID:
    ```json
    {
      "doc_id": "YOUR_NEW_DOCUMENT_ID",

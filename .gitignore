@@ -58,6 +58,10 @@ htmlcov/
 *.db
 session.db
 
+# AI Skills installed via skills.sh (lockfile skills-lock.json is tracked)
+.agents/skills/
+.agent/skills/
+
 # Participant Data, Scans, and Generated Outputs (to prevent GDPR/data leaks on GitHub)
 **/results/
 **/output/

@@ -206,7 +206,7 @@ npm run dev
 
 > `npm run a2a:root` serves the whole `agents/` workspace, so the frontend can open `root_agent` **or** any specialized sub-agent directly.
 
-*For detailed setup instructions, including Google Cloud authentication and template folder mapping, check out the [Setup Guide](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/setup_guide.md).*
+*For detailed setup instructions, including Google Cloud authentication and template folder mapping, check out the [Setup Guide](docs/setup_guide.md).*
 
 ---
 
