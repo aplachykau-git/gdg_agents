@@ -30,4 +30,3 @@ EXPOSE 8080
 
 # Launch ADK Web server on $PORT with CORS and progressive SSE streaming enabled
 CMD ["sh", "-c", "adk web --host 0.0.0.0 --port ${PORT:-8080} --allow_origins '*' --enable_features PROGRESSIVE_SSE_STREAMING agents"]
-
