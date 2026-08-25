@@ -1,0 +1,18 @@
+{
+  "suite_version": "1.0.0",
+  "agent_eval_set": "linkedin_post_generator_contract_v1",
+  "judge_train_set": "linkedin_judge_few_shot_train_v1",
+  "judge_eval_set": "linkedin_judge_held_out_eval_v1",
+  "generator": {
+    "model": "gemini-3.5-flash-lite",
+    "temperature": 1.0
+  },
+  "judge": {
+    "model": "gemini-3.6-flash",
+    "temperature": 0
+  },
+  "acceptance_thresholds": {
+    "agent_pass_rate": 1.0,
+    "judge_pass_rate": 1.0
+  }
+}

@@ -1,13 +1,35 @@
 import datetime
+import json
 import mimetypes
 import os
 import re
+from collections import defaultdict
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
+import google.auth
 import requests
 from google import genai
 from google.adk.tools import ToolContext
+from google.auth.transport.requests import Request
 from google.genai import types
+from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+
+try:
+    from google_auth_oauthlib.flow import InstalledAppFlow
+except ImportError:
+    InstalledAppFlow = None
+
+try:
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+except ImportError:
+    build = None
+    MediaFileUpload = None
+
+from agents.common.storage import upload_bytes_to_storage
+from agents.gemini_config import get_gemini_client
 
 from .utils import _auto_rotate_image, _pdf_to_png_screenshot
 
@@ -202,6 +224,80 @@ def get_nbp_rate(currency: str) -> float:
         return defaults.get(currency, 1.0)
 
 
+def normalise_receipts(
+    receipts_data: list[dict] | None,
+    target_currency: str,
+    target_rate_to_pln: float,
+    rate_to_pln: Callable[[str], float] = get_nbp_rate,
+) -> list[dict]:
+    """Normalise source and converted receipt amounts for document export."""
+    target_currency = target_currency.upper().strip()
+    normalised_receipts = []
+
+    for item in receipts_data or []:
+        category = item.get("category", "")
+        desc = item.get("desc", "")
+        image_path = item.get("image_path", "")
+        original_amount = item.get("original_amount")
+        currency = item.get("currency")
+
+        if original_amount is not None and currency:
+            try:
+                amount_value = float(original_amount)
+            except (ValueError, TypeError):
+                amount_value = 0.0
+
+            currency_code = str(currency).upper().strip()
+            if currency_code == target_currency:
+                target_amount = amount_value
+            else:
+                source_amount_pln = amount_value * rate_to_pln(currency_code)
+                target_amount = source_amount_pln / target_rate_to_pln
+
+            source_sum = f"{amount_value:.2f} {currency_code}"
+            target_sum = f"{target_amount:.2f} {target_currency}"
+        else:
+            source_sum = item.get("sum_curr") or item.get("sum_pln") or "0.00 PLN"
+            target_sum = item.get("sum_target") or item.get("sum_usd") or f"0.00 {target_currency}"
+
+        normalised_receipts.append(
+            {
+                "category": category,
+                "desc": desc,
+                "sum_curr": source_sum,
+                "sum_target": target_sum,
+                "image_path": image_path,
+            }
+        )
+
+    return normalised_receipts
+
+
+def calculate_receipt_totals(
+    normalised_receipts: list[dict] | None,
+    target_currency: str,
+) -> tuple[str, str]:
+    """Calculate grouped source totals and the displayed target total."""
+    sums_by_currency = defaultdict(float)
+    target_total = 0.0
+
+    for receipt in normalised_receipts or []:
+        try:
+            amount, currency = receipt.get("sum_curr", "0.00 PLN").split()
+            sums_by_currency[currency] += float(amount)
+        except (AttributeError, TypeError, ValueError):
+            pass
+
+        try:
+            amount, _ = receipt.get("sum_target", f"0.00 {target_currency}").split()
+            target_total += float(amount)
+        except (AttributeError, TypeError, ValueError):
+            pass
+
+    source_total = ", ".join(f"{amount:.2f} {currency}" for currency, amount in sums_by_currency.items())
+    return source_total, f"{target_total:.2f} {target_currency}"
+
+
 # ---------------------------------------------------------------------------
 # Tool: read_receipt_file
 # ---------------------------------------------------------------------------
@@ -297,8 +393,8 @@ def read_receipt_file(file_path: str) -> dict:
     try:
         raw_bytes = path.read_bytes()
 
-        # Initialize Google GenAI client
-        client = genai.Client()
+        # Initialize a client for the workspace-selected Gemini backend.
+        client = get_gemini_client()
 
         # Perform native multimodal OCR and data extraction using gemini-2.5-pro
         prompt = (
@@ -308,9 +404,13 @@ def read_receipt_file(file_path: str) -> dict:
             "Perform this extraction with maximum accuracy and detail."
         )
 
-        model = "gemini-2.5-pro"
+        model = os.getenv("RECEIPT_SCANNER_MODEL", "gemini-3.6-flash")
         response = client.models.generate_content(
-            model=model, contents=[types.Part.from_bytes(data=raw_bytes, mime_type=mime_type), prompt]
+            model=model,
+            contents=[
+                types.Part.from_bytes(data=raw_bytes, mime_type=mime_type),
+                types.Part.from_text(text=prompt),
+            ],
         )
 
         extracted_text = response.text or ""
@@ -339,13 +439,13 @@ def read_receipt_file(file_path: str) -> dict:
 
 def export_summary_to_google_doc(
     title: str,
-    folder_id: str = None,
-    template_id: str = None,
-    exchange_rate: float = None,
-    receipts_data: list = None,
+    folder_id: Optional[str] = None,
+    template_id: Optional[str] = None,
+    exchange_rate: Optional[float] = None,
+    receipts_data: Optional[List[dict]] = None,
     target_currency: str = "USD",
     approved_budget: str = "",
-    tool_context: ToolContext = None,
+    tool_context: Optional[ToolContext] = None,
 ) -> dict:
     """
     Creates a new Google Doc in your Google Drive by copying a template and populating it.
@@ -363,9 +463,6 @@ def export_summary_to_google_doc(
     """
     scopes = ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive"]
     try:
-        import google.auth
-        from googleapiclient.discovery import build
-
         # Check for service account JSON keys or personal OAuth client credentials
         agent_dir = Path(__file__).resolve().parent
         project_root = agent_dir.parent.parent
@@ -396,14 +493,8 @@ def export_summary_to_google_doc(
 
         credentials = None
         if sa_file:
-            from google.oauth2 import service_account
-
             credentials = service_account.Credentials.from_service_account_file(str(sa_file), scopes=scopes)
         elif client_secrets_file:
-            from google.auth.transport.requests import Request
-            from google.oauth2.credentials import Credentials
-            from google_auth_oauthlib.flow import InstalledAppFlow
-
             # Check for token.json in configs folder first, fallback to root or cwd
             token_path = project_root / "configs" / "token.json"
             if not token_path.exists() and (project_root / "token.json").exists():
@@ -440,8 +531,19 @@ def export_summary_to_google_doc(
         else:
             credentials, _ = google.auth.default(scopes=scopes)
 
-        docs_service = build("docs", "v1", credentials=credentials)
-        drive_service = build("drive", "v3", credentials=credentials)
+        try:
+            docs_service = build("docs", "v1", credentials=credentials)
+            if not hasattr(docs_service, "documents"):
+                docs_service = build("docs", "v1", credentials=credentials, static_discovery=False)
+        except Exception:
+            docs_service = build("docs", "v1", credentials=credentials, static_discovery=False)
+
+        try:
+            drive_service = build("drive", "v3", credentials=credentials)
+            if not hasattr(drive_service, "files"):
+                drive_service = build("drive", "v3", credentials=credentials, static_discovery=False)
+        except Exception:
+            drive_service = build("drive", "v3", credentials=credentials, static_discovery=False)
 
         target_folder = folder_id or os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 
@@ -450,8 +552,6 @@ def export_summary_to_google_doc(
             try:
                 gdoc_path = agent_dir / "assets" / "Expense_report_template.gdoc"
                 if gdoc_path.exists():
-                    import json
-
                     with open(gdoc_path, "r") as f:
                         gdoc_data = json.load(f)
                         template_id = gdoc_data.get("doc_id")
@@ -721,32 +821,7 @@ def export_summary_to_google_doc(
             # ----------------------------------------------------
             today_str = datetime.date.today().strftime("%d.%m.%Y")
 
-            from collections import defaultdict
-
-            sums_by_currency = defaultdict(float)
-            total_target = 0.0
-            if receipts_data:
-                for r in receipts_data:
-                    try:
-                        curr_str = r.get("sum_curr", "0.00 PLN")
-                        parts = curr_str.split()
-                        val = float(parts[0])
-                        cur = parts[1]
-                        sums_by_currency[cur] += val
-                    except Exception:
-                        pass
-
-                    try:
-                        target_str = r.get("sum_target", f"0.00 {target_currency}")
-                        parts = target_str.split()
-                        val = float(parts[0])
-                        total_target += val
-                    except Exception:
-                        pass
-
-            total_curr_parts = [f"{amt:.2f} {cur}" for cur, amt in sums_by_currency.items()]
-            total_curr_str = ", ".join(total_curr_parts)
-            total_target_str = f"{total_target:.2f} {target_currency}"
+            total_curr_str, total_target_str = calculate_receipt_totals(receipts_data, target_currency)
 
             global_replaces = [
                 ("{{TITLE}}", title),
@@ -867,10 +942,6 @@ def export_summary_to_google_doc(
 
                 # Helper to upload local scan files to Google Drive
                 def upload_file_to_drive(drive_service, file_path, folder_dest=None):
-                    import mimetypes
-
-                    from googleapiclient.http import MediaFileUpload
-
                     f_path = Path(file_path)
                     if not f_path.exists():
                         return None
@@ -1046,12 +1117,36 @@ def export_summary_to_google_doc(
             return {"success": False, "error": "No template ID provided. Raw text export is disabled."}
 
         doc_url = f"https://docs.google.com/document/d/{doc_id}/edit"
-        return {
+        cloud_file_url = None
+        try:
+            if receipts_data:
+                csv_lines = ["Description,Original Amount,Target Currency Amount (" + target_currency + ")"]
+                for r in receipts_data:
+                    d = r.get("desc", "Expense").replace('"', '""')
+                    sc = r.get("sum_curr", "")
+                    st = r.get("sum_target", "")
+                    csv_lines.append(f'"{d}","{sc}","{st}"')
+                csv_lines.append(f'"TOTAL","{total_curr_str}","{total_target_str}"')
+                csv_content = "\n".join(csv_lines).encode("utf-8")
+                safe_title = re.sub(r"[^a-zA-Z0-9_\-]", "_", title).strip("_")
+                cloud_file_url = upload_bytes_to_storage(
+                    data=csv_content,
+                    destination_blob_name=f"reports/expense_report_{safe_title}_{today_str}.csv",
+                    content_type="text/csv",
+                )
+        except Exception as storage_err:
+            print(f"⚠️ [Cloud Storage Notice] {storage_err}")
+
+        res = {
             "success": True,
             "document_id": doc_id,
             "document_url": doc_url,
             "message": "Google Doc populated from template successfully!",
         }
+        if cloud_file_url:
+            res["storage_file_url"] = cloud_file_url
+            res["message"] += f" CSV summary also backed up to Cloud Storage: {cloud_file_url}"
+        return res
 
     except Exception as e:
         error_msg = str(e)

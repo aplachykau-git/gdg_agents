@@ -1,7 +1,11 @@
 import tempfile
 from pathlib import Path
+from typing import Optional
 
-import pypdfium2 as pdfium
+try:
+    import pypdfium2 as pdfium
+except ImportError:
+    pdfium = None
 from PIL import ExifTags, Image
 
 
@@ -35,11 +39,14 @@ def _auto_rotate_image(img_path: str) -> str:
         return img_path
 
 
-def _pdf_to_png_screenshot(pdf_path: str) -> str | None:
+def _pdf_to_png_screenshot(pdf_path: str) -> Optional[str]:
     """
     Renders the first page of a PDF to a PNG temp file and returns its path.
     Returns None on failure. The original PDF is never copied or moved.
     """
+    if pdfium is None:
+        print("[WARNING] pypdfium2 is not installed. Cannot render PDF to image.")
+        return None
     try:
         doc = pdfium.PdfDocument(pdf_path)
         page = doc[0]

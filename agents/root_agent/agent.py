@@ -1,27 +1,71 @@
-from dotenv import load_dotenv
-
-load_dotenv(override=True)
-
 import os
+import sys
+import warnings
 
 from google.adk import Agent
 
 try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
+
+
+# Suppress upstream Google ADK BaseAgentConfig deprecation warning
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message=r".*BaseAgentConfig is deprecated.*",
+)
+
+initialise_agent_environment()
+
+# Ensure agents directory is in sys.path for direct imports
+_agents_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _agents_dir not in sys.path:
+    sys.path.insert(0, _agents_dir)
+
+try:
     from agenda_generator.agent import agenda_agent
     from event_planner.agent import planner_agent
-    from linkedin_post_generator.agent import root_agent as linkedin_agent
+    from linkedin_post_generator.agent import linkedin_agent
     from office_secretary.agent import office_agent
     from receipt_scanner.agent import receipt_agent
-    from registration_manager.agent import root_agent as registration_agent
-    from video_editor.agent import root_agent as video_agent
-except ModuleNotFoundError:
+    from registration_manager.agent import registration_agent
+except (ModuleNotFoundError, ImportError):
     from agents.agenda_generator.agent import agenda_agent
     from agents.event_planner.agent import planner_agent
     from agents.linkedin_post_generator.agent import root_agent as linkedin_agent
     from agents.office_secretary.agent import office_agent
     from agents.receipt_scanner.agent import receipt_agent
     from agents.registration_manager.agent import root_agent as registration_agent
-    from agents.video_editor.agent import root_agent as video_agent
+
+from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
+
+video_a2a_url = os.getenv(
+    "VIDEO_AGENT_A2A_URL",
+    f"{os.getenv('VIDEO_AGENT_PROTOCOL', 'http')}://"
+    f"{os.getenv('VIDEO_AGENT_HOST', 'localhost')}:{os.getenv('VIDEO_AGENT_PORT', '8081')}",
+)
+video_agent = RemoteA2aAgent(
+    name="video_editor",
+    description="Standalone conversational workflow for speaker-card video generation.",
+    agent_card=f"{video_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}",
+)
+
+receipt_a2a_url = os.getenv("RECEIPT_AGENT_A2A_URL")
+if receipt_a2a_url:
+    try:
+        from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
+
+        card_url = f"{receipt_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}"
+        print(f"🔗 [A2A Connected] receipt_scanner agent linked via A2A at: {card_url}")
+        receipt_agent = RemoteA2aAgent(
+            name="receipt_scanner",
+            description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-3.6-flash, converts to PLN and USD using the Pekao rate, exports reports to Google Docs.",
+            agent_card=card_url,
+        )
+    except Exception as e:
+        print(f"⚠️ Failed to connect receipt_scanner over A2A ({e}). Falling back to local sub-agent.")
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 
@@ -73,6 +117,12 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
      delegate to the `office_secretary` sub-agent.
    - Gather any visitor names, event name, date, host name, or custom key times and pass them to it.
 
+## 🛑 Mandatory Delegation & Anti-Self-Transfer Rules:
+1. **Never Transfer to Yourself**: You are `root_agent`. You must NEVER attempt to transfer to `root_agent` or call `transfer_to_root_agent`.
+2. **Direct Answering for General Inquiries**:
+   - If the user's message is a greeting, general question, request for help/capabilities, or does not require running specialized sub-agent tools, answer the user directly and concisely in text without initiating any transfer.
+   - Only delegate to a sub-agent when the user specifically requests a task belonging to one of the 7 domains above.
+
 ## 🛑 Robust Error Recovery & Fast-Failure Propagating Rules:
 1. **Immediate Failure Propagation**: If any sub-agent returns an error message, crashes, fails
    validation, or fails to complete its tasks (e.g., face detection fails, receipts are invalid,
@@ -85,9 +135,9 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 """
 
 root_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="root_agent",
-    description="Root coordinator agent of GDG {community_name}",
+    description=f"Root coordinator agent of GDG {community_name}",
     instruction=INSTRUCTION,
     sub_agents=[
         receipt_agent,

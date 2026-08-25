@@ -1,9 +1,12 @@
 import os
 
-from dotenv import load_dotenv
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ModuleNotFoundError:
+    from bootstrap import initialise_agent_environment
 from google.adk import Agent
 
-load_dotenv(override=True)
+initialise_agent_environment()
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 
@@ -55,10 +58,13 @@ Your job is to cleanly organize, clean, sort, and partition event registration l
    - **CRITICAL**: Do NOT attempt to parse or process the file/list yourself. Always delegate file operations, name validation, and partitioning to `process_registrations`!
 3. **Report results**:
    - Present the beautiful returned summary directly in the chat, including the deliverables download links.
+
+## 🔄 Task Delegation & Root Orchestrator Handoff:
+- If the user asks for a task that does NOT belong to participant registrations or organizers list management (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, event date planning, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
 """
 
 registration_agent = Agent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash-lite",
     name="registration_manager",
     description="Agent that cleans, validates, and partitions registrations based on capacity limits, and manages the official organisers list (viewing, adding, or removing organizer names).",
     instruction=INSTRUCTION,

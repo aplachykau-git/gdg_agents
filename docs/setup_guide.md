@@ -10,15 +10,20 @@ The project consists of three main layers:
 
 ```mermaid
 graph TD
-    A[Custom Svelte Frontend <br> port 5173] -->|API Proxy| B[FastAPI Backend / ADK <br> port 8080]
-    B --> C[Root Orchestrator Agent <br> agents/root_agent]
-    C --> D[Receipt Scanner <br> agents/receipt_scanner]
-    C --> E[Live Video Editor <br> agents/video_editor]
-    C --> F[LinkedIn Planner <br> agents/linkedin_post_generator]
-    C --> G[Registrations Manager <br> agents/registration_manager]
-    C --> H[Event Scheduler <br> agents/event_planner]
-    C --> I[Agenda Formatter <br> agents/agenda_generator]
-    C --> J[Office Secretary <br> agents/office_secretary]
+    A[Custom Svelte Frontend <br> port 5173] -->|API Proxy| B[Root Orchestrator Agent <br> port 8080]
+    
+    subgraph "A2A Distributed Network"
+        B -->|A2A RemoteA2aAgent <br> port 8081| E[Live Video Editor <br> agents/video_editor]
+        B -->|A2A RemoteA2aAgent <br> port 8082| D[Receipt Scanner <br> agents/receipt_scanner]
+    end
+    
+    subgraph "Local In-Process Sub-Agents"
+        B --> F[LinkedIn Planner <br> agents/linkedin_post_generator]
+        B --> G[Registrations Manager <br> agents/registration_manager]
+        B --> H[Event Scheduler <br> agents/event_planner]
+        B --> I[Agenda Formatter <br> agents/agenda_generator]
+        B --> J[Office Secretary <br> agents/office_secretary]
+    end
 ```
 
 1. **Custom Svelte Frontend (`frontend/`)**: A dark-themed, premium workspace that provides a chat interface, real-time status ticker for the agents, and capability highlights.
@@ -30,7 +35,8 @@ graph TD
 ## 📋 Prerequisites
 
 Ensure you have the following installed on your machine:
-* **Python 3.10+** (to run ADK and agent packages)
+* **Python 3.12+** (to run ADK and agent packages)
+* **uv** (to manage Python dependencies)
 * **Node.js v22+** (to run the custom Svelte frontend and the HyperFrames render server)
 * **FFmpeg** (strongly recommended, used for video rendering and processing tasks)
 * **Google Cloud SDK / CLI** (for Vertex AI authentication)
@@ -43,20 +49,10 @@ Follow these steps to set up both the backend and frontend environments.
 
 ### 1. Python Environment (Backend)
 
-Initialize a virtual environment and install backend dependencies in editable mode:
+Synchronise the locked backend dependencies:
 
 ```bash
-# 1. Initialize a virtual environment
-python3 -m venv .venv
-
-# 2. Activate the environment
-source .venv/bin/activate
-
-# 3. Install requirements
-pip install -r requirements.txt
-
-# 4. Install the workspace packages in editable mode
-pip install -e .
+uv sync --locked
 ```
 
 ### 2. Node.js Environment (Frontend & Video Editor)
@@ -75,18 +71,18 @@ npm install
 cd ../..
 ```
 
-### 3. Google Cloud Authentication
+### 3. Vertex AI Authentication (only for Vertex mode)
 
-Authenticate your local environment with Google Cloud to grant Vertex AI API access:
+If `GOOGLE_GENAI_USE_VERTEXAI=1`, authenticate your local environment with Google Cloud to grant Vertex AI API access:
 
 ```bash
 bash <(curl -sSL https://storage.googleapis.com/cloud-samples-data/adc/setup_adc.sh)
 ```
-*Provide your GCP Project ID (e.g., `gdg-agents-496611`) when prompted and complete authentication in your browser.*
+*Provide your GCP Project ID (e.g., `gdg-agents-496611`) when prompted and complete authentication in your browser. When using `GOOGLE_GENAI_USE_VERTEXAI=0`, skip this step and configure `GOOGLE_API_KEY` instead.*
 
 ### 4. Configuration Settings (.env)
 
-The root agent requires a `.env` file to be present in the project root directory. You can use the template [.env.example](file:///Users/aplachykau/Experiments/gdg_krakow_tool/.env.example) to create it:
+The root agent requires a `.env` file to be present in the project root directory. You can use the template [.env.example](../.env.example) to create it:
 
 ```bash
 # Copy the example configuration to .env
@@ -94,12 +90,13 @@ cp .env.example .env
 ```
 
 Open `.env` and fill in the following parameters:
-- `GEMINI_API_KEY`: Your private API key from [Google AI Studio](https://aistudio.google.com/) (required for public API and Gemini Omni Flash).
-- `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run via Vertex AI endpoints, or `0` for public API.
+- `GOOGLE_API_KEY`: Your preferred API key from [Google AI Studio](https://aistudio.google.com/). It is used when `GOOGLE_GENAI_USE_VERTEXAI=0`; all Gemini model calls then use this key instead of Vertex credentials.
+- `GEMINI_API_KEY`: Backwards-compatible fallback when `GOOGLE_API_KEY` is not configured.
+- `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run Gemini calls through Vertex AI endpoints, or `0` to run Gemini calls through the Gemini Developer API. In API mode, `GOOGLE_API_KEY` or `GEMINI_API_KEY` must be set.
 - `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID from [Google Cloud Console](https://console.cloud.google.com/).
 - `GOOGLE_CLOUD_LOCATION`: The GCP region/location (e.g. `europe-central2`).
 - `GOOGLE_DRIVE_FOLDER_ID`: The ID of your target Google Drive folder (found in the folder's URL).
-- `VIDEO_ENGINE`: Video generation engine — set to `veo` (Vertex AI Google Veo 3.1) or `omni` (Google AI Gemini Omni Flash preview via Interactions API).
+- `VIDEO_ENGINE`: Video generation engine — set to `veo` (Vertex AI Google Veo 3.1) or `omni` (Google AI Gemini Omni Flash preview via Interactions API). API mode requires `omni`; `veo` is rejected because it requires Vertex AI.
 - `ENABLE_VIDEO_GENERATION`: Set to `true` to run live AI video animation, or `false` for layout-only dry-runs using local placeholder media.
 - `RENDER_4K`: Set to `true` (default) to render high-resolution 4K Ultra-HD MP4 compositions.
 - `RENDER_ORDINARY`: Set to `true` to render 1080p Full-HD MP4 compositions.
@@ -117,7 +114,7 @@ To customize the report template (e.g., adding your own styling, custom tables, 
 2. Create a copy of it in your own Google Drive (**File -> Make a copy**).
 3. Modify the copied document as you like (keep the existing placeholder tags like `{{APPROVED}}` and `{{EXPENSES_TABLE}}` where you want the dynamic content to be inserted).
 4. Extract the Document ID from the URL of your new document (e.g., `https://docs.google.com/document/d/<YOUR_DOCUMENT_ID>/edit`).
-5. Open the local file [Expense_report_template.gdoc](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/receipt_scanner/assets/Expense_report_template.gdoc) and replace the `"doc_id"` value with your new document ID:
+5. Open the local file [Expense_report_template.gdoc](../agents/receipt_scanner/assets/Expense_report_template.gdoc) and replace the `"doc_id"` value with your new document ID:
    ```json
    {
      "doc_id": "YOUR_NEW_DOCUMENT_ID",
@@ -136,11 +133,9 @@ To run the complete system with the custom Svelte frontend talking to the ADK ba
 The backend agent server must run on port `8080` (as Vite is configured to proxy all API requests to `127.0.0.1:8080`).
 
 ```bash
-# Make sure virtual environment is active
-source .venv/bin/activate
-
-# Run the ADK web server mapping all local agents in the agents/ folder
-adk web --port 8080 agents
+# Run the full ADK workspace so each agent is addressable directly.
+# This exposes root_agent plus all specialized sub-agents in /list-apps.
+uv run --locked adk web --port 8080 agents
 ```
 
 ### Terminal 2: Launch Frontend (Svelte Dev Server)
@@ -165,16 +160,14 @@ Here you will find the **Advanced Agentic Workspace** where you can select the a
 ### 1. Using the Default ADK Developer UI
 If you want to use the default web playground provided out-of-the-box by ADK:
 ```bash
-source .venv/bin/activate
-adk web --port 8000 agents/root_agent
+uv run --locked adk web --port 8000 agents
 ```
 Open **`http://localhost:8000`** in your browser.
 
 ### 2. Testing Receipt Scanner via CLI
 You can test the receipt OCR scanner and currency converter directly using the test runner:
 ```bash
-source .venv/bin/activate
-python tests/test_receipt_scanner.py
+uv run --locked python tests/test_receipt_scanner.py
 ```
 
 ### 3. HyperFrames Development & Preview Sandbox

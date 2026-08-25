@@ -1,0 +1,238 @@
+{
+  "dataset_id": "receipt_conversion_contract_v1",
+  "cases": [
+    {
+      "case_id": "pln_to_usd",
+      "target_currency": "USD",
+      "rates_to_pln": {
+        "PLN": 1.0,
+        "USD": 4.0
+      },
+      "receipts": [
+        {
+          "category": "Food & drinks",
+          "desc": "Grocery Purchase",
+          "original_amount": 120.0,
+          "currency": "PLN",
+          "image_path": "receipt.jpg"
+        }
+      ],
+      "expected_receipts": [
+        {
+          "sum_curr": "120.00 PLN",
+          "sum_target": "30.00 USD"
+        }
+      ],
+      "expected_source_total": "120.00 PLN",
+      "expected_target_total": "30.00 USD"
+    },
+    {
+      "case_id": "same_currency_eur",
+      "target_currency": "EUR",
+      "rates_to_pln": {
+        "EUR": 4.3
+      },
+      "receipts": [
+        {
+          "category": "Food & drinks",
+          "desc": "Cafe Purchase",
+          "original_amount": 19.99,
+          "currency": "EUR",
+          "image_path": "receipt.jpg"
+        }
+      ],
+      "expected_receipts": [
+        {
+          "sum_curr": "19.99 EUR",
+          "sum_target": "19.99 EUR"
+        }
+      ],
+      "expected_source_total": "19.99 EUR",
+      "expected_target_total": "19.99 EUR"
+    },
+    {
+      "case_id": "pln_to_eur",
+      "target_currency": "EUR",
+      "rates_to_pln": {
+        "PLN": 1.0,
+        "EUR": 4.0
+      },
+      "receipts": [
+        {
+          "category": "Transport",
+          "desc": "Train Ticket",
+          "original_amount": 50.0,
+          "currency": "PLN",
+          "image_path": "receipt.jpg"
+        }
+      ],
+      "expected_receipts": [
+        {
+          "sum_curr": "50.00 PLN",
+          "sum_target": "12.50 EUR"
+        }
+      ],
+      "expected_source_total": "50.00 PLN",
+      "expected_target_total": "12.50 EUR"
+    },
+    {
+      "case_id": "eur_to_usd_through_pln",
+      "target_currency": "USD",
+      "rates_to_pln": {
+        "EUR": 4.5,
+        "USD": 4.0
+      },
+      "receipts": [
+        {
+          "category": "Hotel",
+          "desc": "Hotel Stay",
+          "original_amount": 20.0,
+          "currency": "EUR",
+          "image_path": "receipt.jpg"
+        }
+      ],
+      "expected_receipts": [
+        {
+          "sum_curr": "20.00 EUR",
+          "sum_target": "22.50 USD"
+        }
+      ],
+      "expected_source_total": "20.00 EUR",
+      "expected_target_total": "22.50 USD"
+    },
+    {
+      "case_id": "multiple_pln_receipts",
+      "target_currency": "USD",
+      "rates_to_pln": {
+        "PLN": 1.0,
+        "USD": 4.0
+      },
+      "receipts": [
+        {
+          "category": "Food & drinks",
+          "desc": "Lunch Purchase",
+          "original_amount": 40.0,
+          "currency": "PLN",
+          "image_path": "receipt-1.jpg"
+        },
+        {
+          "category": "Transport",
+          "desc": "Taxi Ride",
+          "original_amount": 60.0,
+          "currency": "PLN",
+          "image_path": "receipt-2.jpg"
+        }
+      ],
+      "expected_receipts": [
+        {
+          "sum_curr": "40.00 PLN",
+          "sum_target": "10.00 USD"
+        },
+        {
+          "sum_curr": "60.00 PLN",
+          "sum_target": "15.00 USD"
+        }
+      ],
+      "expected_source_total": "100.00 PLN",
+      "expected_target_total": "25.00 USD"
+    },
+    {
+      "case_id": "mixed_currency_receipts",
+      "target_currency": "USD",
+      "rates_to_pln": {
+        "PLN": 1.0,
+        "EUR": 4.5,
+        "USD": 4.0
+      },
+      "receipts": [
+        {
+          "category": "Food & drinks",
+          "desc": "Dinner Purchase",
+          "original_amount": 40.0,
+          "currency": "PLN",
+          "image_path": "receipt-1.jpg"
+        },
+        {
+          "category": "Hotel",
+          "desc": "Hotel Stay",
+          "original_amount": 20.0,
+          "currency": "EUR",
+          "image_path": "receipt-2.jpg"
+        }
+      ],
+      "expected_receipts": [
+        {
+          "sum_curr": "40.00 PLN",
+          "sum_target": "10.00 USD"
+        },
+        {
+          "sum_curr": "20.00 EUR",
+          "sum_target": "22.50 USD"
+        }
+      ],
+      "expected_source_total": "40.00 PLN, 20.00 EUR",
+      "expected_target_total": "32.50 USD"
+    },
+    {
+      "case_id": "currency_normalisation",
+      "target_currency": " usd ",
+      "rates_to_pln": {
+        "PLN": 1.0,
+        "USD": 4.0
+      },
+      "receipts": [
+        {
+          "category": "Venue",
+          "desc": "Room Hire",
+          "original_amount": "80",
+          "currency": " pln ",
+          "image_path": "receipt.jpg"
+        }
+      ],
+      "expected_receipts": [
+        {
+          "sum_curr": "80.00 PLN",
+          "sum_target": "20.00 USD"
+        }
+      ],
+      "expected_source_total": "80.00 PLN",
+      "expected_target_total": "20.00 USD"
+    },
+    {
+      "case_id": "display_rounding",
+      "target_currency": "USD",
+      "rates_to_pln": {
+        "PLN": 1.0,
+        "USD": 4.0
+      },
+      "receipts": [
+        {
+          "category": "Food & drinks",
+          "desc": "Small Purchase",
+          "original_amount": 10.03,
+          "currency": "PLN",
+          "image_path": "receipt-1.jpg"
+        },
+        {
+          "category": "Food & drinks",
+          "desc": "Small Purchase",
+          "original_amount": 10.03,
+          "currency": "PLN",
+          "image_path": "receipt-2.jpg"
+        }
+      ],
+      "expected_receipts": [
+        {
+          "sum_curr": "10.03 PLN",
+          "sum_target": "2.51 USD"
+        },
+        {
+          "sum_curr": "10.03 PLN",
+          "sum_target": "2.51 USD"
+        }
+      ],
+      "expected_source_total": "20.06 PLN",
+      "expected_target_total": "5.02 USD"
+    }
+  ]
+}
