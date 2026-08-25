@@ -21,6 +21,9 @@
   function handleKeyPress(e) {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
       e.preventDefault();
+      if (isLoading || (!queryText.trim() && stagedFiles.length === 0) || isTokenLimitExceeded) {
+        return;
+      }
       onSend();
     }
   }

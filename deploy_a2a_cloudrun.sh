@@ -46,6 +46,9 @@ build_and_deploy() {
     local SERVICE_NAME="$1"
     local DOCKERFILE="$2"
     local ENV_VARS="$3"
+    local MEMORY="${4:-4Gi}"
+    local CPU="${5:-2}"
+    local TIMEOUT="${6:-300}"
     local IMAGE_TAG="gcr.io/${PROJECT_ID}/${SERVICE_NAME}:latest"
 
     echo "🔨 Building container image for ${SERVICE_NAME} using ${DOCKERFILE}..."
@@ -62,16 +65,16 @@ EOF
     "$GCLOUD_BIN" builds submit --project "$PROJECT_ID" --config="$TMP_CONFIG" .
     rm -f "$TMP_CONFIG"
 
-    echo "🚀 Deploying ${SERVICE_NAME} to Cloud Run..."
+    echo "🚀 Deploying ${SERVICE_NAME} to Cloud Run with ${MEMORY} RAM and ${CPU} CPUs..."
     "$GCLOUD_BIN" run deploy "$SERVICE_NAME" \
         --image "$IMAGE_TAG" \
         --region "$REGION" \
         --project "$PROJECT_ID" \
         --platform managed \
         --allow-unauthenticated \
-        --memory 4Gi \
-        --cpu 2 \
-        --timeout 300 \
+        --memory "$MEMORY" \
+        --cpu "$CPU" \
+        --timeout "$TIMEOUT" \
         --set-env-vars "$ENV_VARS"
 }
 
@@ -79,7 +82,8 @@ EOF
 echo ""
 echo "🎬 [2/6] Building & Deploying Video Editor A2A Microservice..."
 build_and_deploy "video-editor-a2a" "Dockerfile.video_editor" \
-    "VIDEO_AGENT_PROTOCOL=https,VIDEO_AGENT_PORT=443,GDG_COMMUNITY_NAME=${GDG_COMMUNITY_NAME:-Krakow},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},RENDER_4K=${RENDER_4K:-false},RENDER_ORDINARY=true,RENDER_GIF=true"
+    "VIDEO_AGENT_PROTOCOL=https,VIDEO_AGENT_PORT=443,GDG_COMMUNITY_NAME=${GDG_COMMUNITY_NAME:-Krakow},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},RENDER_4K=${RENDER_4K:-false},RENDER_ORDINARY=true,RENDER_GIF=true" \
+    "8Gi" "4" "600"
 
 VIDEO_A2A_URL=$("$GCLOUD_BIN" run services describe video-editor-a2a --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')
 echo "✅ Video Editor A2A deployed at: $VIDEO_A2A_URL"

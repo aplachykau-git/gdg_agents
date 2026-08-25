@@ -254,9 +254,15 @@
     }, 50);
   }
 
+  let isSubmitting = false;
+
   // Send Message / Run Agent
   async function sendMessage() {
+    if (isLoading || isSubmitting) return;
     if (!queryText.trim() && stagedFiles.length === 0) return;
+
+    isSubmitting = true;
+    isLoading = true;
 
     if (!selectedSessionId) {
       const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
@@ -279,7 +285,6 @@
     stagedFiles = [];
     errorMsg = '';
     currentExecutingAgent = selectedApp || 'root_agent';
-    isLoading = true;
     startStatusTicker(selectedApp);
 
     try {
@@ -307,8 +312,6 @@
       ];
       scrollToBottom();
 
-      let isFirstModelToken = true;
-
       await runSSEStream({
         appName: selectedApp,
         userId,
@@ -322,41 +325,37 @@
             startStatusTicker(currentExecutingAgent);
           }
 
-          if (isFirstModelToken) {
-            isFirstModelToken = false;
-            events = [...events, eventObj];
-          } else {
-            const lastIdx = events.length - 1;
-            const lastEv = events[lastIdx];
+          const existingIdx = eventObj.id ? events.findIndex(e => e.id === eventObj.id) : -1;
 
-            // If continuous text stream from same model
-            if (
-              lastEv &&
-              lastEv.author === eventObj.author &&
-              lastEv.content?.parts?.[0]?.text &&
-              eventObj.content?.parts?.[0]?.text &&
-              !eventObj.content?.parts?.[0]?.function_call &&
-              !eventObj.content?.parts?.[0]?.functionCall &&
-              !lastEv.content?.parts?.[0]?.function_call &&
-              !lastEv.content?.parts?.[0]?.functionCall
-            ) {
-              const updatedEvents = [...events];
-              updatedEvents[lastIdx] = {
-                ...lastEv,
+          if (existingIdx !== -1) {
+            // Existing event with same ID
+            const existingEv = events[existingIdx];
+            const updatedEvents = [...events];
+            
+            if (eventObj.partial === false) {
+              // Final complete event emitted by ADK: replace with final consolidated payload
+              updatedEvents[existingIdx] = eventObj;
+            } else {
+              // Partial stream chunk: append text deltas
+              const newText = eventObj.content?.parts?.[0]?.text || '';
+              const prevText = existingEv.content?.parts?.[0]?.text || '';
+              updatedEvents[existingIdx] = {
+                ...eventObj,
                 content: {
-                  ...lastEv.content,
+                  ...eventObj.content,
                   parts: [
                     {
-                      ...lastEv.content.parts[0],
-                      text: lastEv.content.parts[0].text + eventObj.content.parts[0].text
+                      ...(eventObj.content?.parts?.[0] || {}),
+                      text: prevText + newText
                     }
                   ]
                 }
               };
-              events = updatedEvents;
-            } else {
-              events = [...events, eventObj];
             }
+            events = updatedEvents;
+          } else {
+            // New event ID or first chunk
+            events = [...events, eventObj];
           }
           scrollToBottom();
         }
@@ -366,6 +365,7 @@
       errorMsg = e.message || 'Execution failed';
     } finally {
       isLoading = false;
+      isSubmitting = false;
       clearInterval(statusInterval);
       scrollToBottom();
     }
@@ -1285,8 +1285,12 @@
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
-    padding: 16px 20px;
+    padding: 14px 18px;
     margin-bottom: 20px;
+    width: fit-content;
+    max-width: 88%;
+    min-width: min(100%, 320px);
+    align-self: flex-start;
     animation: fadeIn 0.3s ease-out;
   }
 

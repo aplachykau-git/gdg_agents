@@ -15,9 +15,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Toggles to enable/disable specific rendering outputs.
 RENDER_CONFIG = {
-    "ordinary": os.environ.get("RENDER_ORDINARY", "false").lower() in ("true", "1", "yes"),
-    "gif": os.environ.get("RENDER_GIF", "false").lower() in ("true", "1", "yes"),
-    "4k": os.environ.get("RENDER_4K", "true").lower() in ("true", "1", "yes"),
+    "ordinary": os.environ.get("RENDER_ORDINARY", "true").lower() in ("true", "1", "yes"),
+    "gif": os.environ.get("RENDER_GIF", "true").lower() in ("true", "1", "yes"),
+    "4k": os.environ.get("RENDER_4K", "false").lower() in ("true", "1", "yes"),
 }
 
 

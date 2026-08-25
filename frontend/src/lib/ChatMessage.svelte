@@ -28,6 +28,13 @@
   const errInfo = $derived(getEventError(event));
   const theme = $derived(getAgentTheme(event?.author));
   const showHandoff = $derived(shouldShowDelegationHandoff(event, index, allEvents));
+  const hasVariants = $derived(
+    event.content?.parts?.some(p => p.text && parseResponseVariants(p.text, event.author).length > 1)
+  );
+  const hasAgenda = $derived(
+    event.content?.parts?.some(p => p.text && isAgendaOutput(p.text, event.author))
+  );
+  const isWide = $derived(Boolean(hasVariants || hasAgenda));
 </script>
 
 {#if errInfo}
@@ -91,7 +98,7 @@
 
   <!-- Model Response Card -->
   <div class="message-row model-row" style="--agent-color: {theme.color}; --agent-bg: {theme.bg}">
-    <div class="message-card model-card">
+    <div class="message-card model-card" class:wide-card={isWide}>
       <div class="model-author-header">
         <div class="agent-badge-pill" style="background: {theme.bg}; color: {theme.color}; border: 1px solid {theme.color}40;">
           <span class="badge-dot" style="background: {theme.color}"></span>
@@ -158,6 +165,8 @@
     border: 1px solid var(--border-subtle);
     border-bottom-right-radius: 4px;
     color: var(--text-primary);
+    width: fit-content;
+    max-width: 88%;
   }
 
   .model-card {
@@ -165,6 +174,15 @@
     border: 1px solid var(--border-subtle);
     border-top-left-radius: 4px;
     color: var(--text-primary);
+    width: fit-content;
+    max-width: 88%;
+    min-width: min(100%, 260px);
+    transition: width 0.2s ease, max-width 0.2s ease;
+  }
+
+  .model-card.wide-card,
+  :global(.model-card:has(table)),
+  :global(.model-card:has(pre)) {
     width: 100%;
     max-width: 100%;
   }
