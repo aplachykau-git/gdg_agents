@@ -1,4 +1,4 @@
-"""GDG Agentic Workspace agent packages."""
+"""Community Studio agent packages."""
 
 from .gemini_config import load_gemini_environment
 

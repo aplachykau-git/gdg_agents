@@ -18,7 +18,7 @@ export const DEFAULT_CONFIG = {
 export function getAppConfig() {
   if (typeof window === 'undefined') return DEFAULT_CONFIG;
   try {
-    const saved = localStorage.getItem('gdg_studio_config');
+    const saved = localStorage.getItem('community_studio_config') || localStorage.getItem('gdg_studio_config');
     if (saved) {
       return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
     }
@@ -31,7 +31,7 @@ export function getAppConfig() {
 export function saveAppConfig(cfg) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem('gdg_studio_config', JSON.stringify(cfg));
+    localStorage.setItem('community_studio_config', JSON.stringify(cfg));
   } catch (e) {
     console.error('Failed to save config to localStorage:', e);
   }
@@ -45,7 +45,7 @@ export function cleanAuthorName(author) {
 }
 
 export function getAgentTheme(author) {
-  if (!author) return { color: 'var(--primary-accent)', bg: 'rgba(138, 180, 248, 0.1)', label: 'Agent' };
+  if (!author) return { color: 'var(--primary-accent)', bg: 'var(--primary-accent-container)', label: 'Agent' };
   const clean = cleanAuthorName(author);
   const lower = clean.toLowerCase();
   if (lower.includes('root')) return { color: 'var(--agent-root)', bg: 'var(--bg-root)', label: 'Root Orchestrator' };
@@ -58,7 +58,7 @@ export function getAgentTheme(author) {
   if (lower.includes('office') || lower.includes('secretary')) return { color: 'var(--agent-office)', bg: 'var(--bg-office)', label: 'Office Secretary' };
   
   const formatted = clean.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  return { color: 'var(--primary-accent)', bg: 'rgba(138, 180, 248, 0.1)', label: formatted };
+  return { color: 'var(--primary-accent)', bg: 'var(--primary-accent-container)', label: formatted };
 }
 
 export const STATUS_TICKERS = {
@@ -144,7 +144,7 @@ export function getFriendlyToolCall(name, args) {
     export_to_google_docs: () => "📄 Exporting expense report to Google Docs template...",
 
     filter_and_clean_registrations: () => "👥 Cleaning, deduplicating, and partitioning registrations...",
-    find_optimal_meetup_date: () => "📅 Scanning Kraków calendars, holidays, and meetup conflicts...",
+    find_optimal_meetup_date: () => "📅 Scanning calendars, holidays, and meetup conflicts...",
     generate_agenda: () => "⏱️ Formatting structured timeline and speaker agenda...",
     generate_office_email: () => "✉️ Drafting office access and event reservation email..."
   };
@@ -369,13 +369,13 @@ export function parseResponseVariants(text, author) {
 export function extractMediaAssets(text) {
   if (!text) return null;
 
-  const urlRegex = /(https?:\/\/[^\s\)\"\'<>]+?\.(?:mp4|gif|png|jpg|jpeg|webp)(?:\?[^\s\)\"\'<>]*)?)/gi;
+  const urlRegex = /(https?:\/\/[^\s\)\"\'<>]+?\.(?:mp4|webm|mov|gif|png|jpg|jpeg|webp)(?:\?[^\s\)\"\'<>]*)?)/gi;
   const matches = [...text.matchAll(urlRegex)].map(m => m[1]);
 
   if (!matches || matches.length === 0) return null;
 
-  let videoUrl = matches.find(u => u.toLowerCase().endsWith('.mp4') || u.toLowerCase().includes('.mp4?'));
-  let gifUrl = matches.find(u => u.toLowerCase().endsWith('.gif') || u.toLowerCase().includes('.gif?'));
+  let videoUrl = matches.find(u => u.toLowerCase().includes('.mp4') || u.toLowerCase().includes('.webm') || u.toLowerCase().includes('.mov'));
+  let gifUrl = matches.find(u => u.toLowerCase().includes('.gif'));
   let posterUrl = matches.find(u => u.toLowerCase().includes('_poster.') || u.toLowerCase().includes('poster') || (u.toLowerCase().includes('.png') && !u.toLowerCase().includes('_avatar')));
   let avatarUrl = matches.find(u => u.toLowerCase().includes('_avatar.') || u.toLowerCase().includes('avatar'));
 
@@ -406,7 +406,9 @@ export async function downloadDirectFile(url, suggestedFilename) {
   const filename = suggestedFilename || url.split('/').pop()?.split('?')[0] || 'media_asset';
 
   try {
-    const res = await fetch(url);
+    const separator = url.includes('?') ? '&' : '?';
+    const downloadUrl = `${url}${separator}dl=1&_t=${Date.now()}`;
+    const res = await fetch(downloadUrl, { mode: 'cors' });
     if (!res.ok) throw new Error(`HTTP status ${res.status}`);
     const blob = await res.blob();
     const blobUrl = window.URL.createObjectURL(blob);
@@ -419,9 +421,9 @@ export async function downloadDirectFile(url, suggestedFilename) {
     setTimeout(() => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
-    }, 1000);
+    }, 2000);
   } catch (err) {
-    console.warn('Direct blob fetch failed (likely Cloud Storage CORS), using direct browser trigger:', err);
+    console.warn('Direct blob fetch failed, falling back to direct anchor:', err);
     const fallbackLink = document.createElement('a');
     fallbackLink.href = url;
     fallbackLink.download = filename;
@@ -429,4 +431,23 @@ export async function downloadDirectFile(url, suggestedFilename) {
     fallbackLink.rel = 'noopener noreferrer';
     fallbackLink.click();
   }
+}
+
+export function cleanTextForMediaDisplay(text) {
+  if (!text) return '';
+
+  const lines = text.split('\n');
+  const filteredLines = lines.filter(line => {
+    const trimmed = line.trim();
+    if (
+      trimmed.match(/^[-*•]\s*(?:🎥|🖼️|📸|👤)?.*(?:https?:\/\/[^\s\)]+?\.(?:mp4|gif|png|jpg|jpeg|webp)|\[(?:Download|View)[^\]]*\])/i) ||
+      trimmed.match(/^\[(?:Download|View)[^\]]*\]\(https?:\/\/[^\s\)]+\)/i) ||
+      trimmed.match(/^https?:\/\/[^\s\)]+?\.(?:mp4|gif|png|jpg|jpeg|webp)$/i)
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  return filteredLines.join('\n').trim();
 }

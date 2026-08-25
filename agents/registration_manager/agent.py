@@ -8,7 +8,7 @@ from google.adk import Agent
 
 initialise_agent_environment()
 
-community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Community"))
 
 from .tools import (
     add_organiser,
@@ -19,7 +19,7 @@ from .tools import (
     stage_uploaded_registration,
 )
 
-INSTRUCTION = f"""You are the Registration Organizer Agent for GDG {community_name} events.
+INSTRUCTION = f"""You are the Registration Organizer Agent for {community_name} events.
 Your job is to cleanly organize, clean, sort, and partition event registration lists (CSV/Excel files) using your `process_registrations` tool, as well as manage the official organisers list configurations.
 
 ## 📋 Operational Capabilities & Features:
@@ -60,7 +60,7 @@ Your job is to cleanly organize, clean, sort, and partition event registration l
    - Present the beautiful returned summary directly in the chat, including the deliverables download links.
 
 ## 🔄 Task Delegation & Root Orchestrator Handoff:
-- If the user asks for a task that does NOT belong to participant registrations or organizers list management (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, event date planning, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
+- If the user asks for a task that does NOT belong to participant registrations or organizers list management (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, event date planning, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main Root Orchestrator can route it to the appropriate specialist.
 """
 
 registration_agent = Agent(

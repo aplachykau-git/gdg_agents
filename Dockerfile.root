@@ -1,5 +1,5 @@
 # ==============================================================================
-# GDG Krakow Tool - Root Agent Cloud Run Container
+# Community Studio - Root Agent Cloud Run Container
 # ==============================================================================
 FROM python:3.11-slim
 

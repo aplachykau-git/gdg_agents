@@ -1,4 +1,4 @@
-# GDG Agentic Workspace (ADK)
+# Community Studio
 
 This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/), written in Python. It leverages the capabilities of Vertex AI (Gemini and Veo) models to automate events operations, document templates compilation, receipt scanning, scheduling conflicts analysis, and social media posting.
 
@@ -115,7 +115,7 @@ flowchart TB
 The workspace is organized into a clean, modular hierarchy:
 
 ```
-gdg_krakow_tool/
+community_studio/
 ├── agents/                       # All Google ADK Agents & sub-agents
 │   ├── root_agent/               # Main coordinating Root Agent (gemini-3.5-flash-lite)
 │   ├── receipt_scanner/          # Receipt OCR & Google Docs expense report agent (gemini-3.6-flash)

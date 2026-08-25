@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ==============================================================================
-# 🚀 GDG Agentic Workspace - Cloud Run & Firebase A2A Multi-Service Deployer
+# 🚀 Community Studio - Cloud Run & Firebase A2A Multi-Service Deployer
 # ==============================================================================
 
 set -e
@@ -82,7 +82,7 @@ EOF
 echo ""
 echo "🎬 [2/6] Building & Deploying Video Editor A2A Microservice..."
 build_and_deploy "video-editor-a2a" "Dockerfile.video_editor" \
-    "VIDEO_AGENT_PROTOCOL=https,VIDEO_AGENT_PORT=443,GDG_COMMUNITY_NAME=${GDG_COMMUNITY_NAME:-Krakow},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},RENDER_4K=${RENDER_4K:-false},RENDER_ORDINARY=true,RENDER_GIF=true" \
+    "VIDEO_AGENT_PROTOCOL=https,VIDEO_AGENT_PORT=443,GDG_COMMUNITY_NAME=${GDG_COMMUNITY_NAME:-Krakow},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},ENABLE_VIDEO_GENERATION=false,RENDER_4K=${RENDER_4K:-false},RENDER_ORDINARY=true,RENDER_GIF=true" \
     "8Gi" "4" "600"
 
 VIDEO_A2A_URL=$("$GCLOUD_BIN" run services describe video-editor-a2a --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')
@@ -99,11 +99,11 @@ echo "✅ Receipt Scanner A2A deployed at: $RECEIPT_A2A_URL"
 
 # 3. Deploy Root Orchestrator Agent
 echo ""
-echo "🧠 [4/6] Building & Deploying Root Orchestrator Agent (gdg-root-agent)..."
-build_and_deploy "gdg-root-agent" "Dockerfile.root" \
-    "VIDEO_AGENT_A2A_URL=${VIDEO_A2A_URL},RECEIPT_AGENT_A2A_URL=${RECEIPT_A2A_URL},GDG_COMMUNITY_NAME=${GDG_COMMUNITY_NAME:-Krakow},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS=true"
+echo "🧠 [4/6] Building & Deploying Root Orchestrator Agent (community-root-agent)..."
+build_and_deploy "community-root-agent" "Dockerfile.root" \
+    "VIDEO_AGENT_A2A_URL=${VIDEO_A2A_URL},RECEIPT_AGENT_A2A_URL=${RECEIPT_A2A_URL},COMMUNITY_NAME=${COMMUNITY_NAME:-${GDG_COMMUNITY_NAME:-Community}},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS=true"
 
-ROOT_AGENT_URL=$("$GCLOUD_BIN" run services describe gdg-root-agent --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')
+ROOT_AGENT_URL=$("$GCLOUD_BIN" run services describe community-root-agent --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')
 echo "✅ Root Orchestrator deployed at: $ROOT_AGENT_URL"
 
 # 4. Build Frontend

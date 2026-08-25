@@ -1,5 +1,5 @@
 # ==============================================================================
-# GDG Krakow Tool - Receipt Scanner A2A Microservice Container
+# Community Studio - Receipt Scanner A2A Microservice Container
 # ==============================================================================
 FROM python:3.11-slim
 

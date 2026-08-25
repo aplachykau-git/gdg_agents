@@ -86,7 +86,7 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--primary-accent);
-    background: rgba(138, 180, 248, 0.12);
+    background: var(--primary-accent-container);
     padding: 3px 8px;
     border-radius: var(--radius-full);
   }

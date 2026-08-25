@@ -11,7 +11,7 @@ from .tools import export_summary_to_google_doc, get_usd_pln_rate, read_receipt_
 
 initialise_agent_environment()
 
-community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Community"))
 current_year = datetime.date.today().year
 
 INSTRUCTION = f"""
@@ -30,7 +30,7 @@ You run on the gemini-3.6-flash model.
 Immediately after reading/analyzing each file, perform a strict validation check:
 1. **Unreadable/Empty**: If the document cannot be recognized (text is unreadable, blurred, or the file is empty/corrupted).
 2. **NO Word Documents**: Under no circumstances process `.doc`, `.docx`, `.docm`, `.odt`, or any other Word processor documents of any kind. If the user uploads a Word file, you MUST immediately abort.
-3. **NO Existing Reports (Anti-re-processing)**: If the document text contains markers of a previously generated GDG {community_name} expense report (e.g. contains the phrase "1. Personal Details", "2. List of Expenses", "Expense_report_", or lists a structured table of grouped expenses), you MUST immediately identify this as a previously generated report, NOT a raw receipt or invoice. 
+3. **NO Existing Reports (Anti-re-processing)**: If the document text contains markers of a previously generated {community_name} expense report (e.g. contains the phrase "1. Personal Details", "2. List of Expenses", "Expense_report_", or lists a structured table of grouped expenses), you MUST immediately identify this as a previously generated report, NOT a raw receipt or invoice. 
 
 In any of these cases, you MUST IMMEDIATELY ABORT execution:
 - DO NOT proceed to further steps.

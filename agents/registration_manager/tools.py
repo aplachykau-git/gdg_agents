@@ -287,7 +287,7 @@ def get_script_priority(first_name: str, last_name: str) -> Tuple[int, str]:
 
 
 def load_organisers() -> List[str]:
-    """Loads GDG organisers list from organisers.txt file or returns default list if not found."""
+    """Loads organisers list from organisers.txt file or returns default list if not found."""
     # Try the root configs/ folder first, then the agent's folder, then fall back to defaults
     parent_dir = os.path.dirname(BASE_DIR)
     project_root = os.path.dirname(parent_dir)
@@ -518,7 +518,7 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
             }
         )
 
-    # Load GDG Organisers configuration
+    # Load Organisers configuration
     organisers_list = load_organisers()
     organisers_lower = {name.lower().strip() for name in organisers_list}
 

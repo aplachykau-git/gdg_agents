@@ -66,7 +66,7 @@
           </div>
           <div>
             <h2>Studio Settings</h2>
-            <span class="modal-sub">Customize GDG Studio variables and defaults</span>
+            <span class="modal-sub">Customize Community Studio variables and defaults</span>
           </div>
         </div>
         <button class="modal-close-btn" onclick={onClose} title="Close">&times;</button>
@@ -317,7 +317,7 @@
 
   .settings-text-input:focus {
     border-color: var(--primary-accent);
-    box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.2);
+    box-shadow: 0 0 0 2px var(--primary-accent-container);
   }
 
   .settings-text-input.input-error {
@@ -349,11 +349,13 @@
   }
 
   .modal-actions {
-    padding: 16px 24px;
-    border-top: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
   }
 
   .saved-indicator {
@@ -391,14 +393,15 @@
   }
 
   .btn-primary {
-    background: var(--primary-accent);
-    color: var(--text-inverse, #0b0c0e);
+    background: var(--primary-gradient, var(--primary-accent));
+    color: #ffffff;
     border: none;
     padding: 8px 20px;
     border-radius: var(--radius-pill);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
     transition: var(--transition-fast);
   }
 

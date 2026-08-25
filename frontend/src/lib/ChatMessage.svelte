@@ -12,11 +12,14 @@
     renderMarkdown, 
     isAgendaOutput, 
     parseResponseVariants, 
+    extractMediaAssets,
+    cleanTextForMediaDisplay,
     shouldShowDelegationHandoff 
   } from './constants.js';
   import AgendaTimeline from './AgendaTimeline.svelte';
   import VariantCard from './VariantCard.svelte';
   import ToolCallCard from './ToolCallCard.svelte';
+  import VideoPreviewCard from './VideoPreviewCard.svelte';
 
   let { 
     event, 
@@ -34,7 +37,10 @@
   const hasAgenda = $derived(
     event.content?.parts?.some(p => p.text && isAgendaOutput(p.text, event.author))
   );
-  const isWide = $derived(Boolean(hasVariants || hasAgenda));
+  const hasMedia = $derived(
+    event.content?.parts?.some(p => p.text && extractMediaAssets(p.text))
+  );
+  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasMedia));
 </script>
 
 {#if errInfo}
@@ -109,12 +115,19 @@
       {#if event.content && event.content.parts}
         {#each event.content.parts as part}
           {#if part.text}
+            {@const media = extractMediaAssets(part.text)}
             {#if isAgendaOutput(part.text, event.author)}
               <AgendaTimeline 
                 rawText={part.text} 
                 author={event.author} 
                 onRefine={(refinedText) => onRefine(refinedText)} 
               />
+            {:else if media}
+              {@const cleanedText = cleanTextForMediaDisplay(part.text)}
+              {#if cleanedText}
+                <div class="markdown-body">{@html renderMarkdown(cleanedText)}</div>
+              {/if}
+              <VideoPreviewCard {media} />
             {:else}
               {@const variants = parseResponseVariants(part.text, event.author)}
               {#if variants.length === 1}
@@ -276,7 +289,7 @@
     padding: 4px 12px;
     border-radius: var(--radius-full);
     font-size: 12px;
-    background: var(--pill-bg, rgba(138, 180, 248, 0.1));
+    background: var(--pill-bg, var(--primary-accent-container));
     color: var(--pill-color, var(--primary-accent));
     border: 1px solid var(--border-subtle);
   }

@@ -162,7 +162,7 @@
   }
 
   .floating-prompt-box:focus-within {
-    border-color: rgba(138, 180, 248, 0.6);
+    border-color: var(--border-focus);
     box-shadow: var(--shadow-elevation-3), var(--shadow-glow);
     background: var(--bg-surface-elevated);
   }
@@ -313,18 +313,19 @@
     padding: 8px 18px;
     border-radius: var(--radius-full);
     border: none;
-    background: var(--primary-accent);
-    color: #0b0c0e;
+    background: var(--primary-gradient, var(--primary-accent));
+    color: #ffffff;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
     transition: var(--transition-fast);
   }
 
   .btn-run-gemini:hover:not(:disabled) {
     filter: brightness(1.1);
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(138, 180, 248, 0.4);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
   }
 
   .btn-run-gemini:disabled {

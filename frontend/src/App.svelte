@@ -1,94 +1,98 @@
 <script>
-  import { onMount } from 'svelte';
-  import { 
-    Sparkles, 
-    History, 
-    Paperclip, 
-    Sun, 
-    Moon, 
-    ChevronDown, 
-    HelpCircle, 
-    ArrowRight, 
-    Receipt, 
-    Video, 
-    Share2, 
-    Users, 
-    Calendar, 
-    Clock, 
-    Mail, 
-    Workflow, 
-    AlertCircle, 
+  import { onMount } from "svelte";
+  import {
+    Sparkles,
+    History,
+    Paperclip,
+    Sun,
+    Moon,
+    ChevronDown,
+    HelpCircle,
+    ArrowRight,
+    Receipt,
+    Video,
+    Share2,
+    Users,
+    Calendar,
+    Clock,
+    Mail,
+    Workflow,
+    AlertCircle,
     Plus,
     Settings,
-    X 
-  } from '@lucide/svelte';
-  
-  import AgentGraph from './lib/AgentGraph.svelte';
-  import Sidebar from './lib/Sidebar.svelte';
-  import ChatMessage from './lib/ChatMessage.svelte';
-  import ChatInput from './lib/ChatInput.svelte';
-  import SettingsModal from './lib/SettingsModal.svelte';
-  
-  import { 
-    DEFAULT_APPS, 
-    STATUS_TICKERS, 
-    getAgentTheme, 
+    MoreVertical,
+    X,
+  } from "@lucide/svelte";
+
+  import AgentGraph from "./lib/AgentGraph.svelte";
+  import Sidebar from "./lib/Sidebar.svelte";
+  import ChatMessage from "./lib/ChatMessage.svelte";
+  import ChatInput from "./lib/ChatInput.svelte";
+  import SettingsModal from "./lib/SettingsModal.svelte";
+
+  import {
+    DEFAULT_APPS,
+    STATUS_TICKERS,
+    getAgentTheme,
     isIntermediateEvent,
     getAppConfig,
-    saveAppConfig 
-  } from './lib/constants.js';
-  
-  import { 
-    fetchApps, 
-    fetchSessions, 
-    createSession, 
-    fetchSessionHistory, 
-    deleteSessionRequest, 
-    runSSEStream 
-  } from './lib/api.js';
+    saveAppConfig,
+  } from "./lib/constants.js";
+
+  import {
+    fetchApps,
+    fetchSessions,
+    createSession,
+    fetchSessionHistory,
+    deleteSessionRequest,
+    runSSEStream,
+  } from "./lib/api.js";
 
   // State Variables
   let apps = $state.raw(DEFAULT_APPS);
-  let selectedApp = $state('root_agent');
-  let userId = $state('user');
+  let selectedApp = $state("root_agent");
+  let userId = $state("user");
   let sessions = $state.raw([]);
-  let selectedSessionId = $state('');
+  let selectedSessionId = $state("");
   let events = $state.raw([]);
-  let queryText = $state('');
+  let queryText = $state("");
   let isLoading = $state(false);
-  let errorMsg = $state('');
+  let errorMsg = $state("");
   let isDarkMode = $state(true);
   let studioConfig = $state(getAppConfig());
-  
+
   // Layout Panels & Drawers
   let showSessions = $state(false);
   let showLegend = $state(false);
   let showAgentGraph = $state(false);
   let showSettings = $state(false);
-  
+  let showMoreMenu = $state(false);
+
   // Staged files & Drag State
   let isDragging = $state(false);
-  let stagedFiles = $state([]); 
+  let stagedFiles = $state([]);
   let textareaElement = $state();
 
-  let statusText = $state('Orchestrating agents...');
+  let statusText = $state("Orchestrating agents...");
   let statusInterval;
-  let currentExecutingAgent = $state('root_agent');
+  let currentExecutingAgent = $state("root_agent");
   let chatBodyElement = $state();
   let dragCounter = 0;
 
   const activeAgentTheme = $derived(getAgentTheme(selectedApp));
-  const filteredEvents = $derived(events.filter(e => !isIntermediateEvent(e)));
+  const filteredEvents = $derived(
+    events.filter((e) => !isIntermediateEvent(e)),
+  );
 
   // Theme Toggler
   function toggleTheme() {
     isDarkMode = !isDarkMode;
     if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.classList.add("dark");
+      document.documentElement.setAttribute("data-theme", "dark");
     } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.classList.remove("dark");
+      document.documentElement.setAttribute("data-theme", "light");
     }
   }
 
@@ -102,14 +106,17 @@
   async function loadSessions() {
     if (!selectedApp) return;
     try {
-      errorMsg = '';
+      errorMsg = "";
       sessions = await fetchSessions(selectedApp, userId);
       if (sessions.length > 0) {
-        if (!selectedSessionId || !sessions.some(s => s.session_id === selectedSessionId)) {
+        if (
+          !selectedSessionId ||
+          !sessions.some((s) => s.session_id === selectedSessionId)
+        ) {
           selectSession(sessions[0].session_id);
         }
       } else {
-        selectedSessionId = '';
+        selectedSessionId = "";
         events = [];
       }
     } catch (e) {
@@ -123,7 +130,7 @@
     if (!selectedApp) return;
     const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     try {
-      errorMsg = '';
+      errorMsg = "";
       isLoading = true;
       await createSession(selectedApp, userId, newSessionId);
       await loadSessions();
@@ -144,8 +151,12 @@
       return;
     }
     try {
-      errorMsg = '';
-      events = await fetchSessionHistory(selectedApp, userId, selectedSessionId);
+      errorMsg = "";
+      events = await fetchSessionHistory(
+        selectedApp,
+        userId,
+        selectedSessionId,
+      );
       scrollToBottom();
     } catch (e) {
       console.error(e);
@@ -155,12 +166,15 @@
 
   // Delete Session
   async function deleteSession(sessionId) {
-    if (!confirm('Are you sure you want to delete this session and its history?')) return;
+    if (
+      !confirm("Are you sure you want to delete this session and its history?")
+    )
+      return;
     try {
-      errorMsg = '';
+      errorMsg = "";
       await deleteSessionRequest(selectedApp, userId, sessionId);
       if (selectedSessionId === sessionId) {
-        selectedSessionId = '';
+        selectedSessionId = "";
         events = [];
       }
       await loadSessions();
@@ -197,20 +211,20 @@
     isDragging = false;
     const files = e.dataTransfer ? e.dataTransfer.files : null;
     if (files && files.length > 0) {
-      Array.from(files).forEach(file => {
-        const isImage = file.type.startsWith('image/');
+      Array.from(files).forEach((file) => {
+        const isImage = file.type.startsWith("image/");
         const reader = new FileReader();
         reader.onload = (evt) => {
           const dataUrl = evt.target.result;
-          const base64Data = dataUrl.split(',')[1];
+          const base64Data = dataUrl.split(",")[1];
           stagedFiles = [
             ...stagedFiles,
             {
               name: file.name,
-              type: file.type || 'application/octet-stream',
+              type: file.type || "application/octet-stream",
               data: base64Data,
-              preview: isImage ? dataUrl : null
-            }
+              preview: isImage ? dataUrl : null,
+            },
           ];
         };
         reader.readAsDataURL(file);
@@ -220,7 +234,11 @@
 
   // Ticker for agent statuses
   function startStatusTicker(app) {
-    const list = STATUS_TICKERS[app] || ['Processing request...', 'Executing agent logic...', 'Invoking external tool pipeline...'];
+    const list = STATUS_TICKERS[app] || [
+      "Processing request...",
+      "Executing agent logic...",
+      "Invoking external tool pipeline...",
+    ];
     let idx = 0;
     statusText = list[0];
     clearInterval(statusInterval);
@@ -235,7 +253,7 @@
       if (chatBodyElement) {
         chatBodyElement.scrollTo({
           top: chatBodyElement.scrollHeight,
-          behavior: 'smooth'
+          behavior: "smooth",
         });
       }
     }, 50);
@@ -243,12 +261,15 @@
 
   function refineVariant(bodyText) {
     const cleanBody = bodyText.trim();
-    const quoted = cleanBody.split('\n').map(l => `> ${l}`).join('\n');
+    const quoted = cleanBody
+      .split("\n")
+      .map((l) => `> ${l}`)
+      .join("\n");
     queryText = `Please refine the following option:\n\n${quoted}\n\nMy adjustments:\n`;
     setTimeout(() => {
       if (textareaElement) {
-        textareaElement.style.height = 'auto';
-        textareaElement.style.height = (textareaElement.scrollHeight) + 'px';
+        textareaElement.style.height = "auto";
+        textareaElement.style.height = textareaElement.scrollHeight + "px";
         textareaElement.focus();
       }
     }, 50);
@@ -277,24 +298,24 @@
 
     const currentText = queryText;
     const currentFiles = [...stagedFiles];
-    
-    queryText = '';
+
+    queryText = "";
     if (textareaElement) {
-      textareaElement.style.height = 'auto';
+      textareaElement.style.height = "auto";
     }
     stagedFiles = [];
-    errorMsg = '';
-    currentExecutingAgent = selectedApp || 'root_agent';
+    errorMsg = "";
+    currentExecutingAgent = selectedApp || "root_agent";
     startStatusTicker(selectedApp);
 
     try {
       const parts = [];
-      currentFiles.forEach(f => {
+      currentFiles.forEach((f) => {
         parts.push({
           inline_data: {
             mime_type: f.type,
-            data: f.data
-          }
+            data: f.data,
+          },
         });
       });
       if (currentText.trim()) {
@@ -305,10 +326,10 @@
       events = [
         ...events,
         {
-          author: 'user',
+          author: "user",
           content: { parts: parts },
-          timestamp: Date.now() / 1000
-        }
+          timestamp: Date.now() / 1000,
+        },
       ];
       scrollToBottom();
 
@@ -319,26 +340,28 @@
         parts,
         onEvent: (eventObj) => {
           if (!eventObj) return;
-          
-          if (eventObj.author && eventObj.author !== 'user') {
+
+          if (eventObj.author && eventObj.author !== "user") {
             currentExecutingAgent = eventObj.author;
             startStatusTicker(currentExecutingAgent);
           }
 
-          const existingIdx = eventObj.id ? events.findIndex(e => e.id === eventObj.id) : -1;
+          const existingIdx = eventObj.id
+            ? events.findIndex((e) => e.id === eventObj.id)
+            : -1;
 
           if (existingIdx !== -1) {
             // Existing event with same ID
             const existingEv = events[existingIdx];
             const updatedEvents = [...events];
-            
+
             if (eventObj.partial === false) {
               // Final complete event emitted by ADK: replace with final consolidated payload
               updatedEvents[existingIdx] = eventObj;
             } else {
               // Partial stream chunk: append text deltas
-              const newText = eventObj.content?.parts?.[0]?.text || '';
-              const prevText = existingEv.content?.parts?.[0]?.text || '';
+              const newText = eventObj.content?.parts?.[0]?.text || "";
+              const prevText = existingEv.content?.parts?.[0]?.text || "";
               updatedEvents[existingIdx] = {
                 ...eventObj,
                 content: {
@@ -346,10 +369,10 @@
                   parts: [
                     {
                       ...(eventObj.content?.parts?.[0] || {}),
-                      text: prevText + newText
-                    }
-                  ]
-                }
+                      text: prevText + newText,
+                    },
+                  ],
+                },
               };
             }
             events = updatedEvents;
@@ -358,11 +381,11 @@
             events = [...events, eventObj];
           }
           scrollToBottom();
-        }
+        },
       });
     } catch (e) {
       console.error(e);
-      errorMsg = e.message || 'Execution failed';
+      errorMsg = e.message || "Execution failed";
     } finally {
       isLoading = false;
       isSubmitting = false;
@@ -377,106 +400,177 @@
   }
 
   onMount(() => {
-    document.documentElement.classList.add('dark');
-    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.classList.add("dark");
+    document.documentElement.setAttribute("data-theme", "dark");
     loadApps();
   });
 </script>
 
-<div class="studio-layout" class:thinking-active={isLoading} style="--active-agent-color: {activeAgentTheme.color}">
-  
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === "Escape") showMoreMenu = false;
+  }}
+  onclick={(e) => {
+    if (showMoreMenu && !e.target.closest?.(".more-menu-container"))
+      showMoreMenu = false;
+  }}
+/>
+
+<div
+  class="studio-layout"
+  class:thinking-active={isLoading}
+  style="--active-agent-color: {activeAgentTheme.color}"
+>
   <!-- =========================================================================
-   * TOP APP BAR (Google AI Studio Header)
+   * TOP APP BAR (Sleek Modern Header)
    * ========================================================================= -->
   <header class="studio-header">
     <div class="header-left">
-      <!-- GDG Studio Brand (Leftmost) -->
+      <!-- Community Studio Brand Typography (Leftmost) -->
       <div class="brand-badge">
-        <div class="brand-gemini-icon">
-          <Sparkles size={16} strokeWidth={2} class={isLoading ? 'generating-sparkle' : ''} />
-        </div>
         <div class="brand-text">
-          <span class="brand-name">GDG Studio</span>
-          <span class="brand-sub">{studioConfig.communityName || 'GDG Krakow'}</span>
+          <span class="brand-name">Community Studio</span>
+          <span class="brand-sub"
+            >{studioConfig.communityName || "GDG Krakow"}</span
+          >
         </div>
       </div>
 
       <div class="header-divider"></div>
 
-      <!-- Left sidebar toggle -->
-      <button 
-        class="icon-btn" 
-        class:active={showSessions} 
-        onclick={() => showSessions = !showSessions} 
-        title="Toggle History Drawer"
+      <!-- Left sidebar toggle (History) -->
+      <button
+        class="icon-btn"
+        class:active={showSessions}
+        onclick={() => (showSessions = !showSessions)}
+        data-tooltip="Session History (Sidebar)"
+        aria-label="Session History (Sidebar)"
       >
         <History size={18} strokeWidth={1.75} />
       </button>
 
-      <!-- New Session Button (Header pill) -->
-      <button 
-        class="header-pill-btn btn-header-new-session" 
-        onclick={startNewSession} 
+      <!-- New Session Button (Compact Icon) -->
+      <button
+        class="icon-btn"
+        onclick={startNewSession}
         disabled={isLoading}
-        title="Start a new session"
+        data-tooltip="Start New Session"
+        aria-label="Start New Session"
       >
-        <Plus size={15} strokeWidth={2} />
-        <span>New Session</span>
+        <Plus size={18} strokeWidth={2} />
       </button>
 
       <div class="header-divider"></div>
 
-      <!-- Breadcrumbs & Active App -->
+      <!-- Active Agent Selector with integrated Online dot -->
       <div class="app-picker">
         <span class="picker-label">Agent:</span>
-        <div class="select-wrapper">
-          <select id="appSelect" bind:value={selectedApp} onchange={() => { selectedSessionId = ''; loadSessions(); }}>
+        <div
+          class="select-wrapper"
+          class:has-session={Boolean(selectedSessionId)}
+        >
+          {#if selectedSessionId}
+            <span
+              class="live-status-dot"
+              data-tooltip="Session Active • Connected"
+              aria-label="Session Active • Connected"
+            ></span>
+          {/if}
+          <select
+            id="appSelect"
+            bind:value={selectedApp}
+            onchange={() => {
+              selectedSessionId = "";
+              loadSessions();
+            }}
+          >
             {#each apps as app}
-              <option value={app.name}>{app.root_agent_name || app.name}</option>
+              <option value={app.name}
+                >{app.root_agent_name || app.name}</option
+              >
             {/each}
           </select>
           <ChevronDown size={14} class="select-chevron" />
         </div>
       </div>
-
-      {#if selectedSessionId}
-        <div class="session-chip">
-          <span class="pulse-dot"></span>
-          <span>Online</span>
-        </div>
-      {/if}
     </div>
 
     <div class="header-right">
-      <button class="header-pill-btn" onclick={() => showAgentGraph = true} title="View Multi-Agent DAG Architecture & Protocol Graph">
-        <Workflow size={15} strokeWidth={1.75} />
-        <span>Multi-Agent DAG</span>
+      <!-- Multi-Agent DAG Architecture -->
+      <button
+        class="icon-btn"
+        class:active={showAgentGraph}
+        onclick={() => (showAgentGraph = true)}
+        data-tooltip="Multi-Agent DAG Architecture"
+        aria-label="Multi-Agent DAG Architecture"
+      >
+        <Workflow size={18} strokeWidth={1.75} />
       </button>
 
-      <button class="header-pill-btn" onclick={() => showLegend = true} title="View Agent System Architecture">
-        <HelpCircle size={15} strokeWidth={1.75} />
-        <span>Capabilities</span>
-      </button>
+      <!-- More Options Dropdown Menu (Theme, Capabilities, Settings) -->
+      <div class="more-menu-container">
+        <button
+          class="icon-btn"
+          class:active={showMoreMenu}
+          onclick={(e) => {
+            e.stopPropagation();
+            showMoreMenu = !showMoreMenu;
+          }}
+          data-tooltip="More options"
+          aria-label="More options"
+        >
+          <MoreVertical size={18} strokeWidth={1.75} />
+        </button>
 
-      <button class="header-pill-btn" onclick={() => showSettings = true} title="Studio Settings & Community Configuration">
-        <Settings size={15} strokeWidth={1.75} />
-        <span>Settings</span>
-      </button>
+        {#if showMoreMenu}
+          <div class="dropdown-menu">
+            <button
+              class="dropdown-item"
+              onclick={() => {
+                toggleTheme();
+                showMoreMenu = false;
+              }}
+            >
+              {#if isDarkMode}
+                <Sun size={15} strokeWidth={1.75} class="dropdown-icon" />
+                <span>Light Theme</span>
+              {:else}
+                <Moon size={15} strokeWidth={1.75} class="dropdown-icon" />
+                <span>Dark Theme</span>
+              {/if}
+            </button>
 
-      <button class="icon-btn" onclick={toggleTheme} title="Toggle Theme">
-        {#if isDarkMode}
-          <Sun size={18} strokeWidth={1.75} />
-        {:else}
-          <Moon size={18} strokeWidth={1.75} />
+            <button
+              class="dropdown-item"
+              onclick={() => {
+                showLegend = true;
+                showMoreMenu = false;
+              }}
+            >
+              <HelpCircle size={15} strokeWidth={1.75} class="dropdown-icon" />
+              <span>Capabilities</span>
+            </button>
+
+            <button
+              class="dropdown-item"
+              onclick={() => {
+                showSettings = true;
+                showMoreMenu = false;
+              }}
+            >
+              <Settings size={15} strokeWidth={1.75} class="dropdown-icon" />
+              <span>Settings</span>
+            </button>
+          </div>
         {/if}
-      </button>
+      </div>
     </div>
   </header>
 
   <div class="studio-body">
     <!-- Left Sidebar -->
     {#if showSessions}
-      <Sidebar 
+      <Sidebar
         {sessions}
         {selectedSessionId}
         {isLoading}
@@ -487,19 +581,23 @@
     {/if}
 
     <!-- Central Workspace -->
-    <main class="studio-main" 
-          ondragenter={handleDragEnter}
-          ondragover={handleDragOver}
-          ondragleave={handleDragLeave}
-          ondrop={handleDrop}>
-      
+    <main
+      class="studio-main"
+      ondragenter={handleDragEnter}
+      ondragover={handleDragOver}
+      ondragleave={handleDragLeave}
+      ondrop={handleDrop}
+    >
       <!-- Drag & Drop Overlay -->
       {#if isDragging}
         <div class="drag-zone-overlay">
           <div class="drag-zone-card">
             <Paperclip size={36} class="drag-icon" />
             <h3>Drop Files for Multimodal Inference</h3>
-            <p>Accepts receipts, invoice images, portrait photos, spreadsheets, and PDFs</p>
+            <p>
+              Accepts receipts, invoice images, portrait photos, spreadsheets,
+              and PDFs
+            </p>
           </div>
         </div>
       {/if}
@@ -511,7 +609,11 @@
             <AlertCircle size={18} class="error-banner-icon" />
             <span class="error-banner-text">{errorMsg}</span>
           </div>
-          <button class="error-banner-close" onclick={() => errorMsg = ''} title="Dismiss error">
+          <button
+            class="error-banner-close"
+            onclick={() => (errorMsg = "")}
+            title="Dismiss error"
+          >
             <X size={15} />
           </button>
         </div>
@@ -523,10 +625,17 @@
           <div class="hub-hero">
             <div class="hub-pill">
               <span class="hub-pill-dot"></span>
-              <span>{studioConfig.communityName || 'GDG Krakow'} Operations & Event Platform</span>
+              <span
+                >{studioConfig.communityName || "GDG Krakow"} Operations & Event
+                Platform</span
+              >
             </div>
             <h2>Autonomous Agent Orchestration</h2>
-            <p>Select a specialized agent below or use the <strong>Root Orchestrator</strong> to automatically analyze your prompt and dispatch tasks across pipelines.</p>
+            <p>
+              Select a specialized agent below or use the <strong
+                >Root Orchestrator</strong
+              > to automatically analyze your prompt and dispatch tasks across pipelines.
+            </p>
           </div>
 
           <!-- Quick 3-Step Guide -->
@@ -549,152 +658,232 @@
 
           <!-- Agents Catalog Grid -->
           <div class="agents-catalog-grid">
-            <button 
-              class="agent-catalog-card" 
+            <button
+              class="agent-catalog-card"
               style="--card-border: var(--agent-root);"
-              onclick={() => { selectedApp = 'root_agent'; startNewSession(); queryText = "Analyze current task requirements and coordinate suitable agents."; }}
+              onclick={() => {
+                selectedApp = "root_agent";
+                startNewSession();
+                queryText =
+                  "Analyze current task requirements and coordinate suitable agents.";
+              }}
             >
               <div class="agent-card-header">
-                <div class="agent-icon-box"><Workflow size={18} strokeWidth={1.75} /></div>
+                <div class="agent-icon-box">
+                  <Workflow size={18} strokeWidth={1.75} />
+                </div>
                 <div class="agent-title-col">
                   <strong>Root Orchestrator</strong>
                   <span class="agent-type-tag">Router & Coordinator</span>
                 </div>
               </div>
-              <p class="agent-card-desc">Parses complex multi-step requests, verifies prerequisites, and delegates tasks to sub-agents.</p>
+              <p class="agent-card-desc">
+                Parses complex multi-step requests, verifies prerequisites, and
+                delegates tasks to sub-agents.
+              </p>
               <div class="card-footer-action">
                 <span>Start workflow</span>
                 <ArrowRight size={14} />
               </div>
             </button>
 
-            <button 
-              class="agent-catalog-card" 
+            <button
+              class="agent-catalog-card"
               style="--card-border: var(--agent-receipt);"
-              onclick={() => { selectedApp = 'receipt_scanner'; startNewSession(); queryText = "Scan attached receipt, extract VAT & line items, convert currency and create expense report."; }}
+              onclick={() => {
+                selectedApp = "receipt_scanner";
+                startNewSession();
+                queryText =
+                  "Scan attached receipt, extract VAT & line items, convert currency and create expense report.";
+              }}
             >
               <div class="agent-card-header">
-                <div class="agent-icon-box"><Receipt size={18} strokeWidth={1.75} /></div>
+                <div class="agent-icon-box">
+                  <Receipt size={18} strokeWidth={1.75} />
+                </div>
                 <div class="agent-title-col">
                   <strong>Receipt Scanner</strong>
                   <span class="agent-type-tag">OCR & Financials</span>
                 </div>
               </div>
-              <p class="agent-card-desc">Extracts line items, queries NBP/Pekao exchange rates, and exports formatted expense reports.</p>
+              <p class="agent-card-desc">
+                Extracts line items, queries NBP/Pekao exchange rates, and
+                exports formatted expense reports.
+              </p>
               <div class="card-footer-action">
                 <span>Scan receipts</span>
                 <ArrowRight size={14} />
               </div>
             </button>
 
-            <button 
-              class="agent-catalog-card" 
+            <button
+              class="agent-catalog-card"
               style="--card-border: var(--agent-video);"
-              onclick={() => { selectedApp = 'video_editor'; startNewSession(); queryText = "Outpaint speaker portrait to 9:16 aspect ratio and generate animated intro via Veo."; }}
+              onclick={() => {
+                selectedApp = "video_editor";
+                startNewSession();
+                queryText =
+                  "Outpaint speaker portrait to 9:16 aspect ratio and generate animated intro via Veo.";
+              }}
             >
               <div class="agent-card-header">
-                <div class="agent-icon-box"><Video size={18} strokeWidth={1.75} /></div>
+                <div class="agent-icon-box">
+                  <Video size={18} strokeWidth={1.75} />
+                </div>
                 <div class="agent-title-col">
                   <strong>Live Video Editor</strong>
                   <span class="agent-type-tag">Veo & Media AI</span>
                 </div>
               </div>
-              <p class="agent-card-desc">Detects face landmarks, executes 9:16 outpainting, and generates cinematic speaker intro videos.</p>
+              <p class="agent-card-desc">
+                Detects face landmarks, executes 9:16 outpainting, and generates
+                cinematic speaker intro videos.
+              </p>
               <div class="card-footer-action">
                 <span>Generate video</span>
                 <ArrowRight size={14} />
               </div>
             </button>
 
-            <button 
-              class="agent-catalog-card" 
+            <button
+              class="agent-catalog-card"
               style="--card-border: var(--agent-linkedin);"
-              onclick={() => { selectedApp = 'linkedin_post_generator'; startNewSession(); queryText = "Draft high-converting LinkedIn speaker announcements and multi-variant event recap posts."; }}
+              onclick={() => {
+                selectedApp = "linkedin_post_generator";
+                startNewSession();
+                queryText =
+                  "Draft high-converting LinkedIn speaker announcements and multi-variant event recap posts.";
+              }}
             >
               <div class="agent-card-header">
-                <div class="agent-icon-box"><Share2 size={18} strokeWidth={1.75} /></div>
+                <div class="agent-icon-box">
+                  <Share2 size={18} strokeWidth={1.75} />
+                </div>
                 <div class="agent-title-col">
                   <strong>LinkedIn Planner</strong>
                   <span class="agent-type-tag">Copy & Social</span>
                 </div>
               </div>
-              <p class="agent-card-desc">Drafts promotional posts, speaker spotlights, and multi-option event recap posts with hashtags.</p>
+              <p class="agent-card-desc">
+                Drafts promotional posts, speaker spotlights, and multi-option
+                event recap posts with hashtags.
+              </p>
               <div class="card-footer-action">
                 <span>Draft post</span>
                 <ArrowRight size={14} />
               </div>
             </button>
 
-            <button 
-              class="agent-catalog-card" 
+            <button
+              class="agent-catalog-card"
               style="--card-border: var(--agent-registration);"
-              onclick={() => { selectedApp = 'registration_manager'; startNewSession(); queryText = "Clean uploaded registration list, filter corrupt names and partition by event capacity."; }}
+              onclick={() => {
+                selectedApp = "registration_manager";
+                startNewSession();
+                queryText =
+                  "Clean uploaded registration list, filter corrupt names and partition by event capacity.";
+              }}
             >
               <div class="agent-card-header">
-                <div class="agent-icon-box"><Users size={18} strokeWidth={1.75} /></div>
+                <div class="agent-icon-box">
+                  <Users size={18} strokeWidth={1.75} />
+                </div>
                 <div class="agent-title-col">
                   <strong>Registrations Manager</strong>
                   <span class="agent-type-tag">Roster & Partitioning</span>
                 </div>
               </div>
-              <p class="agent-card-desc">Cleans participant rosters, deduplicates names, partitions confirmed/waitlisted, and writes DOCX files.</p>
+              <p class="agent-card-desc">
+                Cleans participant rosters, deduplicates names, partitions
+                confirmed/waitlisted, and writes DOCX files.
+              </p>
               <div class="card-footer-action">
                 <span>Process roster</span>
                 <ArrowRight size={14} />
               </div>
             </button>
 
-            <button 
-              class="agent-catalog-card" 
+            <button
+              class="agent-catalog-card"
               style="--card-border: var(--agent-planner);"
-              onclick={() => { selectedApp = 'event_planner'; startNewSession(); queryText = "Check Luma, Meetup.com and Polish statutory public holidays to find optimal meetup dates."; }}
+              onclick={() => {
+                selectedApp = "event_planner";
+                startNewSession();
+                queryText =
+                  "Check Luma, Meetup.com and Polish statutory public holidays to find optimal meetup dates.";
+              }}
             >
               <div class="agent-card-header">
-                <div class="agent-icon-box"><Calendar size={18} strokeWidth={1.75} /></div>
+                <div class="agent-icon-box">
+                  <Calendar size={18} strokeWidth={1.75} />
+                </div>
                 <div class="agent-title-col">
                   <strong>Event Scheduler</strong>
                   <span class="agent-type-tag">Calendars & Holidays</span>
                 </div>
               </div>
-              <p class="agent-card-desc">Cross-references Polish holidays, tech calendars, and long weekends to avoid meetup collisions.</p>
+              <p class="agent-card-desc">
+                Cross-references Polish holidays, tech calendars, and long
+                weekends to avoid meetup collisions.
+              </p>
               <div class="card-footer-action">
                 <span>Plan dates</span>
                 <ArrowRight size={14} />
               </div>
             </button>
 
-            <button 
-              class="agent-catalog-card" 
+            <button
+              class="agent-catalog-card"
               style="--card-border: var(--agent-agenda);"
-              onclick={() => { selectedApp = 'agenda_generator'; startNewSession(); queryText = "Format speaker talks, coffee breaks and pizza pauses starting at 17:30 into a clean timeline."; }}
+              onclick={() => {
+                selectedApp = "agenda_generator";
+                startNewSession();
+                queryText =
+                  "Format speaker talks, coffee breaks and pizza pauses starting at 17:30 into a clean timeline.";
+              }}
             >
               <div class="agent-card-header">
-                <div class="agent-icon-box"><Clock size={18} strokeWidth={1.75} /></div>
+                <div class="agent-icon-box">
+                  <Clock size={18} strokeWidth={1.75} />
+                </div>
                 <div class="agent-title-col">
                   <strong>Agenda Formatter</strong>
                   <span class="agent-type-tag">Timeline & Schedule</span>
                 </div>
               </div>
-              <p class="agent-card-desc">Calculates minute-level event schedules with networking and speaker sessions formatted for easy sharing.</p>
+              <p class="agent-card-desc">
+                Calculates minute-level event schedules with networking and
+                speaker sessions formatted for easy sharing.
+              </p>
               <div class="card-footer-action">
                 <span>Format agenda</span>
                 <ArrowRight size={14} />
               </div>
             </button>
 
-            <button 
-              class="agent-catalog-card" 
+            <button
+              class="agent-catalog-card"
               style="--card-border: var(--agent-office);"
-              onclick={() => { selectedApp = 'office_secretary'; startNewSession(); queryText = "Draft visitor access request and event space reservation email for office administration."; }}
+              onclick={() => {
+                selectedApp = "office_secretary";
+                startNewSession();
+                queryText =
+                  "Draft visitor access request and event space reservation email for office administration.";
+              }}
             >
               <div class="agent-card-header">
-                <div class="agent-icon-box"><Mail size={18} strokeWidth={1.75} /></div>
+                <div class="agent-icon-box">
+                  <Mail size={18} strokeWidth={1.75} />
+                </div>
                 <div class="agent-title-col">
                   <strong>Office Secretary</strong>
                   <span class="agent-type-tag">Office & Reservations</span>
                 </div>
               </div>
-              <p class="agent-card-desc">Generates polite visitor key access and room reservation requests with strict date validation.</p>
+              <p class="agent-card-desc">
+                Generates polite visitor key access and room reservation
+                requests with strict date validation.
+              </p>
               <div class="card-footer-action">
                 <span>Draft email</span>
                 <ArrowRight size={14} />
@@ -707,20 +896,31 @@
         <div class="chat-viewport" bind:this={chatBodyElement}>
           <div class="chat-stream-container">
             {#each filteredEvents as event, idx}
-              <ChatMessage 
-                {event} 
-                index={idx} 
-                allEvents={filteredEvents} 
-                onRefine={refineVariant} 
+              <ChatMessage
+                {event}
+                index={idx}
+                allEvents={filteredEvents}
+                onRefine={refineVariant}
               />
             {/each}
 
             {#if isLoading}
-              {@const execTheme = getAgentTheme(currentExecutingAgent || selectedApp)}
-              <div class="generating-live-card" style="--exec-color: {execTheme.color}; --exec-bg: {execTheme.bg};">
+              {@const execTheme = getAgentTheme(
+                currentExecutingAgent || selectedApp,
+              )}
+              <div
+                class="generating-live-card"
+                style="--exec-color: {execTheme.color}; --exec-bg: {execTheme.bg};"
+              >
                 <div class="generating-header">
-                  <div class="executing-agent-badge" style="background: {execTheme.bg}; color: {execTheme.color}; border: 1px solid {execTheme.color}40;">
-                    <span class="live-pulse-dot" style="background: {execTheme.color};"></span>
+                  <div
+                    class="executing-agent-badge"
+                    style="background: {execTheme.bg}; color: {execTheme.color}; border: 1px solid {execTheme.color}40;"
+                  >
+                    <span
+                      class="live-pulse-dot"
+                      style="background: {execTheme.color};"
+                    ></span>
                     <span class="executing-agent-label">{execTheme.label}</span>
                   </div>
                   <span class="generating-status">{statusText}</span>
@@ -737,7 +937,7 @@
       {/if}
 
       <!-- Floating Prompt Input Bar -->
-      <ChatInput 
+      <ChatInput
         bind:queryText
         bind:stagedFiles
         bind:textareaElement
@@ -750,83 +950,213 @@
 
 <!-- Capabilities Modal -->
 {#if showLegend}
-  <div class="modal-backdrop" role="button" tabindex="-1" onclick={(e) => { if (e.target === e.currentTarget) showLegend = false; }} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') showLegend = false; }}>
+  <div
+    class="modal-backdrop"
+    role="button"
+    tabindex="-1"
+    onclick={(e) => {
+      if (e.target === e.currentTarget) showLegend = false;
+    }}
+    onkeydown={(e) => {
+      if (e.key === "Enter" || e.key === " ") showLegend = false;
+    }}
+  >
     <div class="modal-card">
       <header class="modal-header">
         <div class="modal-title-group">
           <Sparkles size={20} class="modal-gemini-icon" />
-          <h2>GDG Studio Autonomous Multi-Agent System</h2>
+          <h2>Community Studio Autonomous Multi-Agent System</h2>
         </div>
-        <button class="modal-close-btn" onclick={() => showLegend = false}>&times;</button>
+        <button class="modal-close-btn" onclick={() => (showLegend = false)}
+          >&times;</button
+        >
       </header>
-      
+
       <div class="modal-body">
-        <p class="modal-intro">The GDG Studio platform is powered by Google ADK with an A2A architecture coordinating specialized reasoning engines for {studioConfig.communityName || 'GDG Krakow'}:</p>
-        
+        <p class="modal-intro">
+          The Community Studio platform is powered by Google ADK with an A2A
+          architecture coordinating specialized reasoning engines for {studioConfig.communityName ||
+            "GDG Krakow"}:
+        </p>
+
         <div class="capabilities-grid">
-          <div class="capability-card" style="--card-accent: var(--agent-root); --card-bg: var(--bg-root)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-root)"></span><h3>Root Orchestrator</h3></div>
-            <p>Directs incoming intent, verifies task prerequisites, and invokes specialized sub-agents via tool-calling and A2A protocols.</p>
+          <div
+            class="capability-card"
+            style="--card-accent: var(--agent-root); --card-bg: var(--bg-root)"
+          >
+            <div class="capability-top">
+              <div
+                class="capability-icon-box"
+                style="color: var(--agent-root);"
+              >
+                <Workflow size={16} strokeWidth={1.75} />
+              </div>
+              <h3>Root Orchestrator</h3>
+            </div>
+            <p>
+              Directs incoming intent, verifies task prerequisites, and invokes
+              specialized sub-agents via tool-calling and A2A protocols.
+            </p>
           </div>
-          <div class="capability-card" style="--card-accent: var(--agent-receipt); --card-bg: var(--bg-receipt)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-receipt)"></span><h3>Receipt Scanner</h3></div>
-            <p>Vision OCR analyzer. Extracts line items, VAT, fetches Pekao/NBP exchange rates, and exports formatted expense reports.</p>
+          <div
+            class="capability-card"
+            style="--card-accent: var(--agent-receipt); --card-bg: var(--bg-receipt)"
+          >
+            <div class="capability-top">
+              <div
+                class="capability-icon-box"
+                style="color: var(--agent-receipt);"
+              >
+                <Receipt size={16} strokeWidth={1.75} />
+              </div>
+              <h3>Receipt Scanner</h3>
+            </div>
+            <p>
+              Vision OCR analyzer. Extracts line items, VAT, fetches Pekao/NBP
+              exchange rates, and exports formatted expense reports.
+            </p>
           </div>
-          <div class="capability-card" style="--card-accent: var(--agent-video); --card-bg: var(--bg-video)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-video)"></span><h3>Live Video Editor</h3></div>
-            <p>Speaker portrait outpainting and cinematic video animation generation using Veo models.</p>
+          <div
+            class="capability-card"
+            style="--card-accent: var(--agent-video); --card-bg: var(--bg-video)"
+          >
+            <div class="capability-top">
+              <div
+                class="capability-icon-box"
+                style="color: var(--agent-video);"
+              >
+                <Video size={16} strokeWidth={1.75} />
+              </div>
+              <h3>Live Video Editor</h3>
+            </div>
+            <p>
+              Speaker portrait outpainting and cinematic video animation
+              generation using Veo models.
+            </p>
           </div>
-          <div class="capability-card" style="--card-accent: var(--agent-linkedin); --card-bg: var(--bg-linkedin)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-linkedin)"></span><h3>LinkedIn Planner</h3></div>
-            <p>Generates high-engagement speaker announcements and structured multi-option event recap posts.</p>
+          <div
+            class="capability-card"
+            style="--card-accent: var(--agent-linkedin); --card-bg: var(--bg-linkedin)"
+          >
+            <div class="capability-top">
+              <div
+                class="capability-icon-box"
+                style="color: var(--agent-linkedin);"
+              >
+                <Share2 size={16} strokeWidth={1.75} />
+              </div>
+              <h3>LinkedIn Planner</h3>
+            </div>
+            <p>
+              Generates high-engagement speaker announcements and structured
+              multi-option event recap posts.
+            </p>
           </div>
-          <div class="capability-card" style="--card-accent: var(--agent-registration); --card-bg: var(--bg-registration)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-registration)"></span><h3>Registrations Manager</h3></div>
-            <p>Cleans participant datasets, filters duplicates, normalizes names across scripts, and generates clean DOCX files.</p>
+          <div
+            class="capability-card"
+            style="--card-accent: var(--agent-registration); --card-bg: var(--bg-registration)"
+          >
+            <div class="capability-top">
+              <div
+                class="capability-icon-box"
+                style="color: var(--agent-registration);"
+              >
+                <Users size={16} strokeWidth={1.75} />
+              </div>
+              <h3>Registrations Manager</h3>
+            </div>
+            <p>
+              Cleans participant datasets, filters duplicates, normalizes names
+              across scripts, and generates clean DOCX files.
+            </p>
           </div>
-          <div class="capability-card" style="--card-accent: var(--agent-planner); --card-bg: var(--bg-planner)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-planner)"></span><h3>Event Scheduler</h3></div>
-            <p>Detects meetup schedule conflicts against Luma and Meetup.com, checks statutory Polish holidays, and flags risk dates.</p>
+          <div
+            class="capability-card"
+            style="--card-accent: var(--agent-planner); --card-bg: var(--bg-planner)"
+          >
+            <div class="capability-top">
+              <div
+                class="capability-icon-box"
+                style="color: var(--agent-planner);"
+              >
+                <Calendar size={16} strokeWidth={1.75} />
+              </div>
+              <h3>Event Scheduler</h3>
+            </div>
+            <p>
+              Detects meetup schedule conflicts against Luma and Meetup.com,
+              checks statutory Polish holidays, and flags risk dates.
+            </p>
           </div>
-          <div class="capability-card" style="--card-accent: var(--agent-agenda); --card-bg: var(--bg-agenda)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-agenda)"></span><h3>Agenda Formatter</h3></div>
-            <p>Computes minute-by-minute meetup schedules with speaker talks, networking, and pizza breaks, formatted for copy-pasting.</p>
+          <div
+            class="capability-card"
+            style="--card-accent: var(--agent-agenda); --card-bg: var(--bg-agenda)"
+          >
+            <div class="capability-top">
+              <div
+                class="capability-icon-box"
+                style="color: var(--agent-agenda);"
+              >
+                <Clock size={16} strokeWidth={1.75} />
+              </div>
+              <h3>Agenda Formatter</h3>
+            </div>
+            <p>
+              Computes minute-by-minute meetup schedules with speaker talks,
+              networking, and pizza breaks, formatted for copy-pasting.
+            </p>
           </div>
-          <div class="capability-card" style="--card-accent: var(--agent-office); --card-bg: var(--bg-office)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-office)"></span><h3>Office Secretary</h3></div>
-            <p>Drafts polite visitor keys access card and Event Hub reservation request emails with mandatory date validation.</p>
+          <div
+            class="capability-card"
+            style="--card-accent: var(--agent-office); --card-bg: var(--bg-office)"
+          >
+            <div class="capability-top">
+              <div
+                class="capability-icon-box"
+                style="color: var(--agent-office);"
+              >
+                <Mail size={16} strokeWidth={1.75} />
+              </div>
+              <h3>Office Secretary</h3>
+            </div>
+            <p>
+              Drafts polite visitor keys access card and Event Hub reservation
+              request emails with mandatory date validation.
+            </p>
           </div>
         </div>
       </div>
-      
+
       <footer class="modal-actions">
-        <button class="btn-primary" onclick={() => showLegend = false}>Close</button>
+        <button class="btn-primary" onclick={() => (showLegend = false)}
+          >Close</button
+        >
       </footer>
     </div>
   </div>
 {/if}
 
 <!-- Settings Modal -->
-<SettingsModal 
-  show={showSettings} 
-  config={studioConfig} 
-  onSave={updateConfig} 
-  onClose={() => showSettings = false} 
+<SettingsModal
+  show={showSettings}
+  config={studioConfig}
+  onSave={updateConfig}
+  onClose={() => (showSettings = false)}
 />
 
 <!-- Multi-Agent DAG Modal -->
 {#if showAgentGraph}
-  <AgentGraph 
+  <AgentGraph
     {events}
-    {currentExecutingAgent} 
-    {isLoading} 
-    {selectedApp} 
+    {currentExecutingAgent}
+    {isLoading}
+    {selectedApp}
     onSelectAgent={(agentId) => {
       selectedApp = agentId;
-      selectedSessionId = '';
+      selectedSessionId = "";
       loadSessions();
     }}
-    onClose={() => showAgentGraph = false}
+    onClose={() => (showAgentGraph = false)}
   />
 {/if}
 
@@ -852,7 +1182,8 @@
     z-index: 50;
   }
 
-  .header-left, .header-right {
+  .header-left,
+  .header-right {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -861,19 +1192,8 @@
   .brand-badge {
     display: flex;
     align-items: center;
-    gap: 10px;
-  }
-
-  .brand-gemini-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-subtle);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--primary-accent);
+    padding: 2px 4px;
+    user-select: none;
   }
 
   .brand-text {
@@ -886,20 +1206,22 @@
     font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--text-primary);
+    line-height: 1.2;
   }
 
   .brand-sub {
-    font-size: 10px;
+    font-size: 9.5px;
     color: var(--text-tertiary);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
+    font-weight: 600;
   }
 
   .header-divider {
     width: 1px;
-    height: 24px;
+    height: 20px;
     background: var(--border-subtle);
-    margin: 0 4px;
+    margin: 0 2px;
   }
 
   .app-picker {
@@ -925,7 +1247,7 @@
     background: var(--bg-surface-elevated);
     border: 1px solid var(--border-subtle);
     color: var(--text-primary);
-    padding: 6px 32px 6px 14px;
+    padding: 6px 30px 6px 14px;
     border-radius: var(--radius-pill);
     font-size: 13px;
     font-weight: 500;
@@ -934,8 +1256,25 @@
     transition: var(--transition-fast);
   }
 
+  .select-wrapper.has-session select {
+    padding-left: 24px;
+  }
+
   .select-wrapper select:hover {
     border-color: var(--primary-accent);
+  }
+
+  .live-status-dot {
+    position: absolute;
+    left: 10px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-green, #34a853);
+    box-shadow: 0 0 6px var(--accent-green, #34a853);
+    pointer-events: none;
+    z-index: 2;
+    animation: pulseGlow 1.8s infinite ease-in-out;
   }
 
   :global(.select-chevron) {
@@ -945,46 +1284,70 @@
     color: var(--text-tertiary);
   }
 
-  .session-chip {
+  /* More Options Menu */
+  .more-menu-container {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: rgba(52, 168, 83, 0.1);
-    color: var(--accent-green, #34a853);
-    border: 1px solid rgba(52, 168, 83, 0.25);
-    padding: 3px 10px;
-    border-radius: var(--radius-pill);
-    font-size: 11px;
-    font-weight: 600;
   }
 
-  .pulse-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent-green, #34a853);
-    box-shadow: 0 0 6px var(--accent-green, #34a853);
-  }
-
-  .header-pill-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--border-subtle);
+  .dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 170px;
     background: var(--bg-surface-elevated);
-    color: var(--text-secondary);
-    font-size: 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 6px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: fadeInMenu 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes fadeInMenu {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
+    text-align: left;
     transition: var(--transition-fast);
   }
 
-  .header-pill-btn:hover {
+  .dropdown-item:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
-    border-color: var(--border-focus);
+  }
+
+  :global(.dropdown-icon) {
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .dropdown-item:hover :global(.dropdown-icon) {
+    color: var(--primary-accent);
   }
 
   .icon-btn {
@@ -1007,7 +1370,7 @@
   }
 
   .icon-btn.active {
-    background: rgba(138, 180, 248, 0.15);
+    background: var(--primary-accent-container);
     color: var(--primary-accent);
     border-color: var(--primary-accent);
   }
@@ -1061,8 +1424,12 @@
   }
 
   @keyframes bounce {
-    from { transform: translateY(0); }
-    to { transform: translateY(-8px); }
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(-8px);
+    }
   }
 
   /* Global error banner */
@@ -1116,7 +1483,7 @@
     gap: 6px;
     padding: 4px 12px;
     border-radius: var(--radius-full);
-    background: rgba(138, 180, 248, 0.12);
+    background: var(--primary-accent-container);
     color: var(--primary-accent);
     font-size: 11px;
     font-weight: 600;
@@ -1170,7 +1537,7 @@
     height: 18px;
     border-radius: 50%;
     background: var(--primary-accent);
-    color: #0b0c0e;
+    color: #ffffff;
     font-size: 11px;
     font-weight: 700;
     display: flex;
@@ -1341,29 +1708,56 @@
   .skeleton-line {
     height: 12px;
     border-radius: var(--radius-xs);
-    background: linear-gradient(90deg, var(--bg-surface-elevated) 25%, var(--bg-hover) 50%, var(--bg-surface-elevated) 75%);
+    background: linear-gradient(
+      90deg,
+      var(--bg-surface-elevated) 25%,
+      var(--bg-hover) 50%,
+      var(--bg-surface-elevated) 75%
+    );
     background-size: 200% 100%;
     animation: shimmer 1.8s infinite;
   }
 
   @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 
   @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
   }
 
   @keyframes pulseGlow {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.85); }
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.4;
+      transform: scale(0.85);
+    }
   }
 
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(2px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   /* Modals */
@@ -1447,19 +1841,30 @@
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 14px;
+    transition: var(--transition-fast);
+  }
+
+  .capability-card:hover {
+    border-color: var(--card-accent, var(--primary-accent));
   }
 
   .capability-top {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
+    gap: 10px;
+    margin-bottom: 8px;
   }
 
-  .cap-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+  .capability-icon-box {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
   .capability-top h3 {
@@ -1483,13 +1888,21 @@
   }
 
   .btn-primary {
-    background: var(--primary-accent);
-    color: #0b0c0e;
+    background: var(--primary-gradient, var(--primary-accent));
+    color: #ffffff;
     border: none;
     padding: 8px 20px;
     border-radius: var(--radius-full);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
+    transition: var(--transition-fast);
+  }
+
+  .btn-primary:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
   }
 </style>

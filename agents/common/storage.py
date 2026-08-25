@@ -51,6 +51,8 @@ def upload_bytes_to_storage(
         if not content_type:
             content_type = mimetypes.guess_type(destination_blob_name)[0] or "application/octet-stream"
 
+        filename = os.path.basename(destination_blob_name)
+        blob.content_disposition = f'attachment; filename="{filename}"'
         blob.upload_from_string(data, content_type=content_type)
         print(f"☁️ [Cloud Storage] Successfully uploaded '{destination_blob_name}' to gs://{target_bucket}")
 

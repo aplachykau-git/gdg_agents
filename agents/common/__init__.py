@@ -1,3 +1,3 @@
 """
-Common utilities for GDG Agents Workspace.
+Common utilities for Community Studio.
 """

@@ -169,8 +169,8 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
         content = re.sub(image_full_pattern, r"\g<1>display:none;\g<3>", content)
         content = re.sub(image_pattern, 'id="card-image" src=""', content)
 
-    # 3. Randomize colors for breaks, circle, pill, and hexagon using Google brand palette
-    GDG_COLORS = [
+    # 3. Randomize colors for breaks, circle, pill, and hexagon using brand palette
+    BRAND_COLORS = [
         "#4285F4",
         "#34A853",
         "#F9AB00",
@@ -185,7 +185,7 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
         "#F8D8D8",  # Pastels
     ]
 
-    selected_colors = random.sample(GDG_COLORS, 4)
+    selected_colors = random.sample(BRAND_COLORS, 4)
     break_color = selected_colors[0]
     circle_color = selected_colors[1]
     pill_color = selected_colors[2]

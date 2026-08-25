@@ -1,6 +1,6 @@
-# 🚀 GDG Agentic Workspace - Setup & Operations Guide
+# 🚀 Community Studio - Setup & Operations Guide
 
-Welcome to the comprehensive setup and operations guide for the **GDG Agentic Workspace**. This project is a multi-agent orchestration workspace built using the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/) in Python (powered by Vertex AI and Gemini models) paired with a high-performance, responsive **Svelte + Vite** custom frontend.
+Welcome to the comprehensive setup and operations guide for **Community Studio**. This project is a multi-agent orchestration workspace built using the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/) in Python (powered by Vertex AI and Gemini models) paired with a high-performance, responsive **Svelte + Vite** custom frontend.
 
 ---
 
