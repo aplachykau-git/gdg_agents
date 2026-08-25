@@ -1,17 +1,6 @@
-import os
-
-try:
-    from agents.bootstrap import initialise_agent_environment
-except ModuleNotFoundError:
-    from bootstrap import initialise_agent_environment
-
-initialise_agent_environment()
-
 from google.adk import Agent
 
-community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
-
-INSTRUCTION = f"""You are the GDG {community_name} Office Secretary Agent.
+INSTRUCTION = """You are the GDG Krakow Office Secretary Agent.
 Your job is to draft polite, templated emails to the office administrative team for visitor key access or Event Hub space reservations.
 
 You support two types of requests:
@@ -78,15 +67,12 @@ You support two types of requests:
 
 4. **Tone**:
    - Maintain a highly polite, cooperative, and professional tone in all templates.
-
-## 🔄 Task Delegation & Root Orchestrator Handoff:
-- If the user asks for a task that does NOT belong to office admin requests or space reservations (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, registration lists, date planning, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
 """
 
 office_agent = Agent(
-    model="gemini-3.5-flash-lite",
+    model="gemini-2.5-flash",
     name="office_secretary",
-    description=f"Agent that generates polite templated emails for GDG {community_name} office administration and space reservations.",
+    description="Agent that generates polite templated emails for office administration and space reservations.",
     instruction=INSTRUCTION,
     tools=[],
 )

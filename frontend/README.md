@@ -11,7 +11,8 @@ To run this application locally, you must first start the ADK backend server, th
 ### 1. Start backend agent (in separate terminal)
 ```bash
 # From project root
-uv run --locked adk web --port 8080 agents
+source .venv/bin/activate
+adk web --port 8080 agents
 ```
 
 ### 2. Install dependencies & launch dev server
@@ -34,7 +35,7 @@ The app will be served at **[http://localhost:5173](http://localhost:5173)**.
 
 ### Proxy Configuration
 Vite is configured to proxy API requests to the Python ADK backend at `http://127.0.0.1:8080`.
-The configuration can be found and modified in [vite.config.js](./vite.config.js):
+The configuration can be found and modified in [vite.config.js](file:///Users/aplachykau/Experiments/gdg_krakow_tool/frontend/vite.config.js):
 ```javascript
 server: {
   proxy: {
@@ -47,7 +48,7 @@ server: {
 ```
 
 ### State Management
-State variables are managed in Svelte 5 runes (`$state` and `$derived`) inside [App.svelte](./src/App.svelte).
+State variables are managed in Svelte 5 runes (`$state` and `$derived`) inside [App.svelte](file:///Users/aplachykau/Experiments/gdg_krakow_tool/frontend/src/App.svelte).
 It handles:
 * Chat session history fetches
 * Real-time streaming chunk rendering

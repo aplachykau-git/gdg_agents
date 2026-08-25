@@ -10,13 +10,13 @@ This project features the **Video Editor Agent**, an intelligent AI agent built 
 
 To run this sandbox and agent, ensure you have the following installed:
 
-1. **Python 3.12+** and **uv** (to run the AI agent and Google ADK)
+1. **Python 3.10+** (to run the AI agent and Google ADK)
 2. **Node.js v22+** (to run the HyperFrames compiler in headless Chrome)
 3. **FFmpeg** (Optional but highly recommended: automatically detected in system `PATH` for stripping audio and converting videos to GIF).
 
 ## 🛠️ Installation & Setup
 
-1. **Python dependencies** are managed by the root `pyproject.toml` and `uv.lock`; run `uv sync --locked` from the repository root.
+1. **Python dependencies** are already handled in the main project `requirements.txt`.
 2. **Install Node.js dependencies** for the HyperFrames rendering compiler:
 
    ```bash
@@ -35,11 +35,12 @@ To run this sandbox and agent, ensure you have the following installed:
 Google Antigravity provides a web UI to test and interact with your agent locally. Launch the root agent:
 
 ```bash
-uv run --locked adk web --port 8000 agents
+source .venv/bin/activate
+adk web --port 8000 agents/root_agent
 ```
 
 1. Open `http://localhost:8000` in your web browser.
-2. Select **root_agent** for orchestration or choose **video_editor** directly.
+2. Select the main **root_agent** agent.
 3. Upload a speaker portrait or a custom background video in the chat, and describe the speaker details.
 4. The root agent will delegate to `video_editor`, which outpaints, animates, and renders the cards!
 
@@ -67,8 +68,7 @@ npm run video:render
 You can toggle video generation engines and rendering outputs in your `.env` file:
 
 ```ini
-# Select video generation engine: "veo" (Vertex AI Veo 3.1) or "omni" (Gemini Omni Flash preview).
-# With GOOGLE_GENAI_USE_VERTEXAI=0, use "omni".
+# Select video generation engine: "veo" (Vertex AI Veo 3.1) or "omni" (Gemini Omni Flash preview)
 VIDEO_ENGINE=veo
 
 # Set to "false" to bypass AI video API calls during testing (uses static placeholder assets instead)

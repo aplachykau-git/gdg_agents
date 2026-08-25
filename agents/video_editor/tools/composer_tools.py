@@ -1,15 +1,8 @@
 import datetime
-import glob
-import json
 import os
-import random
 import re
 import shutil
 import subprocess
-
-from PIL import Image, ImageDraw
-
-from agents.common.storage import upload_file_to_storage
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,40 +16,29 @@ RENDER_CONFIG = {
 
 
 def resolve_path(rel_path: str) -> str:
-    """Resolves a path relative to the agent's folder, falling back to CWD and workspace root."""
-    if not rel_path:
-        return ""
+    """Resolves a path relative to the agent's folder, falling back to CWD."""
     if os.path.isabs(rel_path):
         return rel_path
 
-    # 1. Direct relative to BASE_DIR
     local_path = os.path.abspath(os.path.join(BASE_DIR, rel_path))
     if os.path.exists(local_path):
         return local_path
 
-    # 2. Strip leading 'agents/video_editor/' or 'video_editor/'
-    stripped = re.sub(r"^(agents/)?video_editor/", "", rel_path)
-    stripped_path = os.path.abspath(os.path.join(BASE_DIR, stripped))
-    if os.path.exists(stripped_path):
-        return stripped_path
+    # Check parent directory
+    parent_dir = os.path.dirname(local_path)
+    if os.path.exists(parent_dir):
+        return local_path
 
-    # 3. Check relative to workspace root (2 levels up)
-    workspace_root = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
-    workspace_path = os.path.abspath(os.path.join(workspace_root, rel_path))
-    if os.path.exists(workspace_path):
-        return workspace_path
-
-    workspace_agents_path = os.path.abspath(os.path.join(workspace_root, "agents", rel_path))
-    if os.path.exists(workspace_agents_path):
-        return workspace_agents_path
-
-    return stripped_path
+    # Fallback to CWD
+    return os.path.abspath(rel_path)
 
 
 def restore_default_placeholder():
     """Generates a generic, safe gray placeholder image at assets/portrait_outpainted.png to prevent 404/file-not-found errors."""
     placeholder_path = resolve_path("assets/portrait_outpainted.png")
     try:
+        from PIL import Image, ImageDraw
+
         # Create a beautiful 500x500 dark grey placeholder image
         img = Image.new("RGB", (500, 500), color="#1E1E1E")
         d = ImageDraw.Draw(img)
@@ -69,35 +51,18 @@ def restore_default_placeholder():
         print(f"⚠️ [Placeholder] Failed to restore generic placeholder: {e}")
 
 
-def build_card_config(title: str, name: str, position_company: str, year: int) -> str:
-    """Builds a JavaScript-safe CARD_CONFIG declaration."""
-    return f"""const CARD_CONFIG = {{
-      title: {json.dumps(title)},
-      name: {json.dumps(name)},
-      position_company: {json.dumps(position_company)},
-      year: {json.dumps(str(year))}
-    }};"""
-
-
-def update_composer(
-    video_path: str,
-    title: str,
-    name: str,
-    position_company: str,
-    duration_seconds: int | None = None,
-    theme_colors: dict[str, str] | None = None,
-) -> str:
+def update_composer(video_path: str, title: str, name: str, position_company: str) -> str:
     """Updates index.html with the new video path, title, speaker name, position/company texts, and sets timeline duration (8s for Veo, 10s for user uploads)."""
     # Ensure video_path is a relative path inside index.html for correct HTTP serving in headless Chrome
     if os.path.isabs(video_path):
         video_path = os.path.relpath(video_path, BASE_DIR)
 
     # 1. Determine timeline duration: 8.0s for Veo generated video, 10.0s for uploaded custom video
-    target_duration = duration_seconds or 10
+    target_duration = 10
     abs_video_path = resolve_path(video_path)
 
     # Probe duration if ffprobe is installed
-    if duration_seconds is None and shutil.which("ffprobe") and os.path.exists(abs_video_path):
+    if shutil.which("ffprobe") and os.path.exists(abs_video_path):
         try:
             cmd = [
                 "ffprobe",
@@ -118,7 +83,7 @@ def update_composer(
                     target_duration = 10
         except Exception:
             pass
-    elif duration_seconds is None and "video_example" in video_path.lower():
+    elif "video_example" in video_path.lower():
         # Generated from Veo
         target_duration = 8
 
@@ -140,7 +105,12 @@ def update_composer(
     # 1. Update the CARD_CONFIG block dynamically using regex
     current_year = datetime.datetime.now().year
     config_pattern = r"const CARD_CONFIG = \{.*?\};"
-    new_config = build_card_config(title, name, position_company, current_year)
+    new_config = f"""const CARD_CONFIG = {{
+      title: "{title}",
+      name: "{name}",
+      position_company: "{position_company}",
+      year: "{current_year}"
+    }};"""
 
     if re.search(config_pattern, content, flags=re.DOTALL):
         content = re.sub(config_pattern, new_config, content, flags=re.DOTALL)
@@ -171,18 +141,20 @@ def update_composer(
 
         image_full_pattern = r'(<img\s+id="card-image"[^>]*?style="[^"]*?)(display:none;)\s*(;?)(")'
         content = re.sub(image_full_pattern, r"\g<1>\g<4>", content)
-        content = re.sub(image_pattern, f'id="card-image" src={json.dumps(video_path)}', content)
+        content = re.sub(image_pattern, f'id="card-image" src="{video_path}"', content)
     else:
         # It's a video card!
         video_full_pattern = r'(<video\s+id="card-video"[^>]*?style="[^"]*?)(display:none;)\s*(;?)(")'
         content = re.sub(video_full_pattern, r"\g<1>\g<4>", content)
-        content = re.sub(video_pattern, f'id="card-video" src={json.dumps(video_path)}', content)
+        content = re.sub(video_pattern, f'id="card-video" src="{video_path}"', content)
 
         image_full_pattern = r'(<img\s+id="card-image"[^>]*?style="[^"]*?)(display:none;)?(")'
         content = re.sub(image_full_pattern, r"\g<1>display:none;\g<3>", content)
         content = re.sub(image_pattern, 'id="card-image" src=""', content)
 
     # 3. Randomize colors for breaks, circle, pill, and hexagon using Google brand palette
+    import random
+
     GDG_COLORS = [
         "#4285F4",
         "#34A853",
@@ -198,17 +170,11 @@ def update_composer(
         "#F8D8D8",  # Pastels
     ]
 
-    if theme_colors:
-        break_color = theme_colors["break_color"]
-        circle_color = theme_colors["circle_color"]
-        pill_color = theme_colors["pill_color"]
-        hexagon_color = theme_colors["hexagon_color"]
-    else:
-        selected_colors = random.sample(GDG_COLORS, 4)
-        break_color = selected_colors[0]
-        circle_color = selected_colors[1]
-        pill_color = selected_colors[2]
-        hexagon_color = selected_colors[3]
+    selected_colors = random.sample(GDG_COLORS, 4)
+    break_color = selected_colors[0]
+    circle_color = selected_colors[1]
+    pill_color = selected_colors[2]
+    hexagon_color = selected_colors[3]
 
     print("🎨 [Color Randomizer] Selected random Google palette colors:")
     print(f"   ├─ breaks: {break_color}")
@@ -324,6 +290,8 @@ def render_composer() -> str:
                         break
 
             if not local_ordinary_file:
+                import glob
+
                 renders_folder = resolve_path("renders")
                 mp4_files = glob.glob(os.path.join(renders_folder, "*.mp4"))
                 if mp4_files:
@@ -380,11 +348,7 @@ def render_composer() -> str:
                             if gif_result.returncode == 0:
                                 print(f"✅ [GIF] GIF successfully created: '{local_gif_file}'")
                                 gif_file = local_gif_file
-                                cloud_url = upload_file_to_storage(
-                                    local_gif_file, f"renders/{os.path.basename(local_gif_file)}"
-                                )
-                                file_link = cloud_url if cloud_url else local_gif_file
-                                rendered_files.append(f"• GIF Animation: {file_link}")
+                                rendered_files.append(f"• GIF Animation: {local_gif_file}")
                             else:
                                 print(f"⚠️ [GIF] ffmpeg failed: {gif_result.stderr}")
                         except Exception as e:
@@ -394,11 +358,7 @@ def render_composer() -> str:
                         rendered_files.append("• (Skipped) GIF Animation: ffmpeg not found on host machine.")
 
                 if render_ordinary:
-                    cloud_url = upload_file_to_storage(
-                        local_ordinary_file, f"renders/{os.path.basename(local_ordinary_file)}"
-                    )
-                    file_link = cloud_url if cloud_url else local_ordinary_file
-                    rendered_files.append(f"• Video in ordinary quality (1080p): {file_link}")
+                    rendered_files.append(f"• Video in ordinary quality (1080p): {local_ordinary_file}")
                 elif not render_ordinary and render_gif and local_ordinary_file and os.path.exists(local_ordinary_file):
                     print(f"🗑️ [Cleanup] Deleting temporary ordinary render '{local_ordinary_file}'...")
                     try:
@@ -416,7 +376,7 @@ def render_composer() -> str:
     if render_4k:
         print("\n🎬 [Render Step 2/2] Rendering in ultra-high definition (4K) sequentially...")
         result_4k = subprocess.run(
-            ["npx", "--yes", "hyperframes@0.8.4", "render", "--resolution=4k"],
+            ["npx", "--yes", "hyperframes@0.6.72", "render", "--resolution=4k"],
             capture_output=True,
             text=True,
             cwd=BASE_DIR,
@@ -434,6 +394,8 @@ def render_composer() -> str:
                         break
 
             if not file_4k:
+                import glob
+
                 renders_folder = resolve_path("renders")
                 mp4_files = glob.glob(os.path.join(renders_folder, "*.mp4"))
                 if mp4_files:
@@ -470,11 +432,10 @@ def render_composer() -> str:
                 try:
                     os.rename(file_4k, target_4k_path)
                     file_4k = target_4k_path
-                    cloud_url = upload_file_to_storage(file_4k, f"renders/{os.path.basename(file_4k)}")
-                    file_link = cloud_url if cloud_url else file_4k
-                    rendered_files.append(f"• Video in 4K quality (2160p): {file_link}")
                 except Exception as e:
                     print(f"⚠️ [Rename] Failed to rename 4K render: {e}")
+
+                rendered_files.append(f"• Video in 4K quality (2160p): {file_4k}")
         else:
             print("❌ [4K Render failed]")
             print(result_4k.stderr)
@@ -513,16 +474,42 @@ def render_composer() -> str:
                         temp_image_src = "assets/temp_video_frame.png"
                         print("✅ [Poster] First frame extracted successfully!")
                     else:
-                        print(f"⚠️ [Poster] Failed to extract first frame from video: {extract_res.stderr}")
-                except Exception as frame_err:
-                    print(f"⚠️ [Poster] Error extracting first frame: {frame_err}")
-        elif not is_video_src and original_video_src:
-            temp_image_src = original_video_src
+                        print(f"⚠️ [Poster] ffmpeg failed to extract frame: {extract_res.stderr}")
+                except Exception as fe:
+                    print(f"⚠️ [Poster] ffmpeg frame extraction error: {fe}")
 
-        # Fallback to portrait_outpainted if temp_image_src is not resolved or not found
-        if not temp_image_src or not os.path.exists(resolve_path(temp_image_src)):
-            temp_image_src = "assets/portrait_outpainted.png"
+        if not temp_image_src:
+            # If original_video_src is an image, use it directly
+            if original_video_src and any(
+                original_video_src.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]
+            ):
+                temp_image_src = original_video_src
+            else:
+                # Fallback to locate static outpainted image or staged media
+                temp_image_src = "assets/portrait_outpainted.png"
+                temp_image_abs = resolve_path(temp_image_src)
+                # If portrait_outpainted.png is not found or is the default placeholder, check staged_media
+                use_fallback = not os.path.exists(temp_image_abs)
+                if not use_fallback:
+                    try:
+                        from PIL import Image
 
+                        with Image.open(temp_image_abs) as img:
+                            if img.size == (500, 500):
+                                use_fallback = True
+                    except Exception:
+                        pass
+                if use_fallback:
+                    temp_image_src = "assets/staged_media.png"
+                    temp_image_abs = resolve_path(temp_image_src)
+                    if not os.path.exists(temp_image_abs):
+                        for ext in [".jpg", ".jpeg", ".webp"]:
+                            candidate = f"assets/staged_media{ext}"
+                            if os.path.exists(resolve_path(candidate)):
+                                temp_image_src = candidate
+                                break
+
+        # Swap video and image sources temporarily for high-res snapshot
         if temp_image_src and os.path.exists(resolve_path(temp_image_src)):
             # Determine snapshot timestamp based on composition duration (7.8s for 8s duration, 9.7s for 10s duration)
             current_duration = 10
@@ -552,7 +539,7 @@ def render_composer() -> str:
                     f"📸 [Poster] Taking high-resolution PNG snapshot of the final card state at T={snapshot_time}s..."
                 )
                 snapshot_result = subprocess.run(
-                    ["npx", "--yes", "hyperframes@0.8.4", "snapshot", f"--at={snapshot_time}"],
+                    ["npx", "--yes", "hyperframes@0.6.72", "snapshot", f"--at={snapshot_time}"],
                     capture_output=True,
                     text=True,
                     cwd=BASE_DIR,
@@ -564,6 +551,8 @@ def render_composer() -> str:
                 print("✅ [Poster] Restored original index.html sources.")
 
             if snapshot_result and snapshot_result.returncode == 0:
+                import glob
+
                 snapshot_file = resolve_path(f"snapshots/frame-00-at-{snapshot_time}s.png")
                 if not os.path.exists(snapshot_file):
                     found_snaps = glob.glob(os.path.join(BASE_DIR, "snapshots", "*.png"))
@@ -596,39 +585,25 @@ def render_composer() -> str:
                                     upscale_cmd, capture_output=True, text=True, cwd=BASE_DIR
                                 )
                                 if upscale_result.returncode == 0 and os.path.exists(target_poster_path):
-                                    cloud_url = upload_file_to_storage(
-                                        target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
+                                    rendered_files.append(
+                                        f"• High-Resolution Card Poster (4K PNG): {target_poster_path}"
                                     )
-                                    file_link = cloud_url if cloud_url else target_poster_path
-                                    rendered_files.append(f"• High-Resolution Card Poster (4K PNG): {file_link}")
                                     print("✅ [Poster 4K] 4K poster successfully created!")
                                 else:
                                     print(
                                         f"⚠️ [Poster 4K] ffmpeg failed to upscale, falling back to 1080p copy: {upscale_result.stderr}"
                                     )
                                     shutil.copy2(snapshot_file, target_poster_path)
-                                    cloud_url = upload_file_to_storage(
-                                        target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
-                                    )
-                                    file_link = cloud_url if cloud_url else target_poster_path
-                                    rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
+                                    rendered_files.append(f"• High-Resolution Card Poster (PNG): {target_poster_path}")
                             except Exception as upscale_err:
                                 print(
                                     f"⚠️ [Poster 4K] Failed to generate 4K poster, falling back to 1080p copy: {upscale_err}"
                                 )
                                 shutil.copy2(snapshot_file, target_poster_path)
-                                cloud_url = upload_file_to_storage(
-                                    target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
-                                )
-                                file_link = cloud_url if cloud_url else target_poster_path
-                                rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
+                                rendered_files.append(f"• High-Resolution Card Poster (PNG): {target_poster_path}")
                         else:
                             shutil.copy2(snapshot_file, target_poster_path)
-                            cloud_url = upload_file_to_storage(
-                                target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
-                            )
-                            file_link = cloud_url if cloud_url else target_poster_path
-                            rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
+                            rendered_files.append(f"• High-Resolution Card Poster (PNG): {target_poster_path}")
                     except Exception as e:
                         print(f"⚠️ [Poster] Failed to save poster: {e}")
                 else:
@@ -653,6 +628,8 @@ def render_composer() -> str:
     outpainted_src = resolve_path("assets/portrait_outpainted.png")
     if os.path.exists(outpainted_src):
         try:
+            from PIL import Image
+
             with Image.open(outpainted_src) as img:
                 width, height = img.size
             if (width, height) != (500, 500):
@@ -664,11 +641,7 @@ def render_composer() -> str:
                     f"🖼️ [Save Avatar] Saving Gemini outpainted avatar ({width}x{height}) to '{target_avatar_path}'..."
                 )
                 shutil.copy2(outpainted_src, target_avatar_path)
-                cloud_url = upload_file_to_storage(
-                    target_avatar_path, f"renders/{os.path.basename(target_avatar_path)}"
-                )
-                file_link = cloud_url if cloud_url else target_avatar_path
-                rendered_files.append(f"• Gemini Outpainted Avatar: {file_link}")
+                rendered_files.append(f"• Gemini Outpainted Avatar: {target_avatar_path}")
             else:
                 print("⏭️  [Save Avatar] Skipping placeholder avatar copy (500x500 placeholder detected)")
         except Exception as e:

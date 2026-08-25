@@ -1,67 +1,40 @@
-import base64
+"""
+Registration Manager Tools - CSV/Excel Processing, Sorting, Filtering, and Partitioning
+"""
+
 import csv
 import datetime
 import os
 import re
-import shutil
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Tuple
 
-try:
-    import openpyxl
-except ImportError:
-    openpyxl = None
-
-try:
-    from docx import Document
-    from docx.oxml import OxmlElement, parse_xml
-    from docx.oxml.ns import nsdecls, qn
-    from docx.shared import Inches, Pt, RGBColor
-except ImportError:
-    Document = None
-    OxmlElement = None
-    parse_xml = None
-    nsdecls = None
-    qn = None
-    Inches = None
-    Pt = None
-    RGBColor = None
+from docx import Document
+from docx.oxml import OxmlElement, parse_xml
+from docx.oxml.ns import nsdecls, qn
+from docx.shared import Inches, Pt, RGBColor
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def resolve_path(rel_path: str) -> str:
-    """Resolves a path relative to the agent's folder, falling back to CWD and workspace root."""
-    if not rel_path:
-        return ""
+    """Resolves a path relative to the agent's folder, falling back to CWD."""
     if os.path.isabs(rel_path):
         return rel_path
 
-    # 1. Direct relative to BASE_DIR
     local_path = os.path.abspath(os.path.join(BASE_DIR, rel_path))
     if os.path.exists(local_path):
         return local_path
 
-    # 2. Strip leading 'agents/registration_manager/' or 'registration_manager/'
-    stripped = re.sub(r"^(agents/)?registration_manager/", "", rel_path)
-    stripped_path = os.path.abspath(os.path.join(BASE_DIR, stripped))
-    if os.path.exists(stripped_path):
-        return stripped_path
+    # Check parent directory
+    parent_dir = os.path.dirname(local_path)
+    if os.path.exists(parent_dir):
+        return local_path
 
-    # 3. Check relative to workspace root (2 levels up)
-    workspace_root = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
-    workspace_path = os.path.abspath(os.path.join(workspace_root, rel_path))
-    if os.path.exists(workspace_path):
-        return workspace_path
-
-    workspace_agents_path = os.path.abspath(os.path.join(workspace_root, "agents", rel_path))
-    if os.path.exists(workspace_agents_path):
-        return workspace_agents_path
-
-    return stripped_path
+    return os.path.abspath(rel_path)
 
 
-async def stage_uploaded_registration(file_path: str = "", tool_context: Optional[Any] = None) -> str:
+async def stage_uploaded_registration(file_path: str, tool_context: Any) -> str:
     """Finds and stages the active user-uploaded CSV or Excel registration file from the chat session events.
     If no chat attachment is found, falls back to the provided local file_path.
 
@@ -72,42 +45,38 @@ async def stage_uploaded_registration(file_path: str = "", tool_context: Optiona
 
     # 1. ALWAYS scan session events first to check if the user uploaded a document in the active chat.
     try:
-        if tool_context and hasattr(tool_context, "session") and tool_context.session:
-            session = tool_context.session
-            events = session.events or []
-            print(f"DEBUG: Staging scanning total events: {len(events)}")
+        session = tool_context.session
+        events = session.events or []
+        print(f"DEBUG: Staging scanning total events: {len(events)}")
 
-            # Iterate events in REVERSE to find the most recent user-uploaded file
-            for event in reversed(events):
-                if event.author != "user":
-                    continue
-                if not event.content or not event.content.parts:
-                    continue
-                for part in event.content.parts:
-                    # Check for inline_data
-                    if part.inline_data and part.inline_data.data:
-                        mime = part.inline_data.mime_type or ""
-                        data = part.inline_data.data
-                        print(f"DEBUG: Found user attachment with mime: {mime} ({len(data)} bytes)")
+        # Iterate events in REVERSE to find the most recent user-uploaded file
+        for event in reversed(events):
+            if event.author != "user":
+                continue
+            if not event.content or not event.content.parts:
+                continue
+            for part in event.content.parts:
+                # Check for inline_data
+                if part.inline_data and part.inline_data.data:
+                    mime = part.inline_data.mime_type or ""
+                    data = part.inline_data.data
+                    print(f"DEBUG: Found user attachment with mime: {mime} ({len(data)} bytes)")
 
-                        # Deduce extension based on MIME
+                    # Deduce extension based on MIME
+                    ext = ".csv"
+                    if "excel" in mime or "spreadsheet" in mime or "officedocument" in mime:
+                        ext = ".xlsx"
+                    elif "csv" in mime or "comma" in mime:
                         ext = ".csv"
-                        if "excel" in mime or "spreadsheet" in mime or "officedocument" in mime:
-                            ext = ".xlsx"
-                        elif "csv" in mime or "comma" in mime:
-                            ext = ".csv"
 
-                        save_path = os.path.join(BASE_DIR, "results", f"staged_registrations{ext}")
-                        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-
-                        file_bytes = base64.b64decode(data) if isinstance(data, str) else data
-                        with open(save_path, "wb") as f:
-                            f.write(file_bytes)
-
-                        print(f"✅ Successfully staged user uploaded registration file to: {save_path}")
-                        return f"registration_manager/results/staged_registrations{ext}"
+                    save_path = os.path.join(BASE_DIR, "results", f"staged_registrations{ext}")
+                    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                    with open(save_path, "wb") as f:
+                        f.write(data)
+                    print(f"✅ Staged user registration document to: {save_path}")
+                    return f"registration_manager/results/staged_registrations{ext}"
     except Exception as e:
-        print(f"⚠️ Could not extract attachment from session events: {e}")
+        print(f"⚠️ Error scanning session for attachments: {e}")
 
     # 2. Fallback to local file path
     print("⚠️ No chat attachment found. Checking local file path fallback...")
@@ -116,13 +85,14 @@ async def stage_uploaded_registration(file_path: str = "", tool_context: Optiona
         ext = os.path.splitext(resolved.lower())[1]
         save_path = os.path.join(BASE_DIR, "results", f"staged_registrations{ext}")
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        import shutil
+
         shutil.copy2(resolved, save_path)
         print(f"✅ Staged local registration file to: {save_path}")
         return f"registration_manager/results/staged_registrations{ext}"
 
-    return (
-        "Error: No registration file was found in session events or local path. "
-        "Please upload a CSV or Excel file or paste the participant names directly in the chat."
+    raise FileNotFoundError(
+        "No registration file was found in session events or local path. Please upload a CSV or Excel file."
     )
 
 
@@ -367,10 +337,7 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
 
     abs_path = resolve_path(file_path)
     if not os.path.exists(abs_path):
-        return (
-            f"Error: Registration file not found at '{file_path}'. "
-            "Please upload your CSV or Excel file or paste the attendee names directly into the chat."
-        )
+        raise FileNotFoundError(f"Registration file not found at: '{abs_path}'")
 
     ext = os.path.splitext(abs_path.lower())[1]
 
@@ -389,22 +356,19 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
         except Exception as e:
             # Fallback to alternative encoding if utf-8 fails
             print(f"⚠️ UTF-8 read failed, trying ISO-8859-1 fallback: {e}")
-            try:
-                with open(abs_path, "r", encoding="ISO-8859-1") as f:
-                    reader = csv.reader(f)
-                    headers = [h.strip() for h in next(reader, [])]
-                    for r in reader:
-                        if r:
-                            raw_rows.append(dict(zip(headers, r)))
-            except Exception as e2:
-                return f"Error: Failed to parse CSV file '{file_path}': {e2}"
+            with open(abs_path, "r", encoding="ISO-8859-1") as f:
+                reader = csv.reader(f)
+                headers = [h.strip() for h in next(reader, [])]
+                for r in reader:
+                    if r:
+                        raw_rows.append(dict(zip(headers, r)))
     elif ext in [".xlsx", ".xls"]:
         print("📊 Reading Excel file via openpyxl...")
         try:
+            import openpyxl
+
             wb = openpyxl.load_workbook(abs_path, data_only=True)
-            sheet = wb.active or (wb.worksheets[0] if wb.worksheets else None)
-            if sheet is None:
-                return f"Error: No sheets found in Excel file '{file_path}'."
+            sheet = wb.active
             rows_iter = sheet.iter_rows(values_only=True)
             headers = [str(h).strip() if h is not None else "" for h in next(rows_iter, [])]
             for r in rows_iter:
@@ -419,9 +383,9 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
                                 row_dict[col_name] = str(val).strip() if val is not None else ""
                     raw_rows.append(row_dict)
         except Exception as e:
-            return f"Error: Failed to parse Excel file '{file_path}': {e}"
+            raise RuntimeError(f"Failed to parse Excel file '{abs_path}': {e}")
     else:
-        return f"Error: Unsupported file format '{ext}'! Please upload a .csv or .xlsx file."
+        raise ValueError("Unsupported file format! Please upload a .csv or .xlsx file.")
 
     print(f"📊 Loaded {len(raw_rows)} total raw rows from file headers: {headers}")
 
@@ -723,7 +687,6 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
     doc_path = os.path.join(results_dir, "registrations_processed.docx")
 
     doc_ok = False
-    cloud_doc_url = None
     try:
         doc = Document()
 
@@ -776,7 +739,7 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
                 return
 
             table = doc.add_table(rows=0, cols=3)
-            table.autofit = False
+            table.allow_autofit = False
 
             # Setup columns widths (Sum equals exactly 2.3 inches, fitting 3-column layout width perfectly!)
             # No. (0.2 in), Full Name (1.55 in), Status (0.55 in)
@@ -860,20 +823,6 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
         doc.save(doc_path)
         doc_ok = True
         print(f"✅ Successfully wrote beautiful DOCX document to: {doc_path}")
-
-        cloud_doc_url = None
-        try:
-            from agents.common.storage import upload_file_to_storage
-
-            cloud_doc_url = upload_file_to_storage(
-                local_path=doc_path,
-                destination_blob_name=f"registrations/{os.path.basename(doc_path)}",
-                content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            )
-            if cloud_doc_url:
-                print(f"☁️ [Cloud Storage] Registration document uploaded: {cloud_doc_url}")
-        except Exception as upload_err:
-            print(f"⚠️ [Cloud Storage Notice] {upload_err}")
     except Exception as docx_err:
         print(f"⚠️ Failed to generate DOCX document: {docx_err}")
 
@@ -893,13 +842,7 @@ Successfully processed the registrations list:
 ### 📂 Generated Deliverables:
 """
     if doc_ok:
-        summary_str += (
-            f"- **Premium Event Registration Document (DOCX)**: [{os.path.basename(doc_path)}](file://{doc_path})\n"
-        )
-        if cloud_doc_url:
-            summary_str += (
-                f"- **Cloud Storage Download Link**: [📥 Download {os.path.basename(doc_path)}]({cloud_doc_url})\n"
-            )
+        summary_str += f"- **Premium Event Registration Document (DOCX, 3 Columns)**: [{os.path.basename(doc_path)}](file://{doc_path})\n"
     else:
         summary_str += "⚠️ Failed to generate Word document due to an error.\n"
     return summary_str

@@ -5,16 +5,10 @@ Event Planner Agent
 import datetime
 import os
 
-try:
-    from agents.bootstrap import initialise_agent_environment
-except ModuleNotFoundError:
-    from bootstrap import initialise_agent_environment
 from google.adk import Agent
 from google.adk.tools.google_search_tool import GoogleSearchTool
 
 from .tools import get_public_holidays
-
-initialise_agent_environment()
 
 community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
 current_year = datetime.date.today().year
@@ -54,15 +48,12 @@ You MUST analyze calendar parameters, public holidays for the country where the 
      - **Conflict Check**: List any other meetups found in that month to show why this date is safe.
      - **Holiday Check**: Confirm that no public holidays or long-weekend bridges interfere with this date.
      - **Reasoning**: A brief explanation of why this specific date and day of the week is highly recommended for developer engagement.
-
-## 🔄 Task Delegation & Root Orchestrator Handoff:
-- If the user asks for a task that does NOT belong to event date planning (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
 """
 
 planner_agent = Agent(
-    model="gemini-3.5-flash-lite",
+    model="gemini-2.5-flash",
     name="event_planner",
-    description=f"Agent that analyzes local tech calendars and holidays to recommend the optimal date for GDG {community_name} meetups.",
+    description="Agent that analyzes local tech calendars and holidays to recommend the optimal date for GDG {community_name} meetups.",
     instruction=INSTRUCTION,
     tools=[get_public_holidays, GoogleSearchTool(bypass_multi_tools_limit=True)],
 )

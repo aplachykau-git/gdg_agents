@@ -1,11 +1,7 @@
 import asyncio
 import os
 import sys
-import warnings
 from pathlib import Path
-
-# Suppress upstream Google ADK BaseAgentConfig deprecation warning
-warnings.filterwarnings("ignore", message=".*BaseAgentConfig.*")
 
 # Dynamically add project root and subfolders for clean imports
 project_root = Path(__file__).resolve().parent.parent
@@ -33,12 +29,19 @@ async def main():
     # Dynamically find the test invoice relative to the project root
     file_path = project_root / "gdg_agent" / "invoice_processing" / "exemplary_data" / "case_001" / "invoice.pdf"
     if not file_path.exists():
-        # Fallback to local sibling directory if available
+        # Fallback to local sibling directory
         sibling_path = (
             project_root.parent / "gdg_agent" / "invoice_processing" / "exemplary_data" / "case_001" / "invoice.pdf"
         )
         if sibling_path.exists():
             file_path = sibling_path
+        else:
+            # Legacy absolute path fallback
+            legacy_path = Path(
+                "/Users/aplachykau/Experiments/gdg_krakow_tool/gdg_agent/invoice_processing/exemplary_data/case_001/invoice.pdf"
+            )
+            if legacy_path.exists():
+                file_path = legacy_path
 
     print(f"Sending request for: {file_path}...")
 

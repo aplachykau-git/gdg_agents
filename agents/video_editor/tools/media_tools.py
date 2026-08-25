@@ -1,25 +1,11 @@
-import base64
 import os
 import random
-import re
 import shutil
 import time
-from typing import Optional
 
-import requests
 from google import genai
 from google.adk.tools import ToolContext
-from google.cloud import storage
 from google.genai import types
-
-from agents.common.storage import upload_bytes_to_storage, upload_file_to_storage
-from agents.gemini_config import (
-    GeminiConfigurationError,
-    get_gemini_api_key,
-    get_gemini_client,
-    require_vertex_ai,
-    use_vertex_ai,
-)
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,40 +15,29 @@ ENABLE_VIDEO_GENERATION = os.environ.get("ENABLE_VIDEO_GENERATION", "true").lowe
 
 
 def resolve_path(rel_path: str) -> str:
-    """Resolves a path relative to the agent's folder, falling back to CWD and workspace root."""
-    if not rel_path:
-        return ""
+    """Resolves a path relative to the agent's folder, falling back to CWD."""
     if os.path.isabs(rel_path):
         return rel_path
 
-    # 1. Direct relative to BASE_DIR
     local_path = os.path.abspath(os.path.join(BASE_DIR, rel_path))
     if os.path.exists(local_path):
         return local_path
 
-    # 2. Strip leading 'agents/video_editor/' or 'video_editor/'
-    stripped = re.sub(r"^(agents/)?video_editor/", "", rel_path)
-    stripped_path = os.path.abspath(os.path.join(BASE_DIR, stripped))
-    if os.path.exists(stripped_path):
-        return stripped_path
+    # Check parent directory
+    parent_dir = os.path.dirname(local_path)
+    if os.path.exists(parent_dir):
+        return local_path
 
-    # 3. Check relative to workspace root (2 levels up)
-    workspace_root = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
-    workspace_path = os.path.abspath(os.path.join(workspace_root, rel_path))
-    if os.path.exists(workspace_path):
-        return workspace_path
-
-    workspace_agents_path = os.path.abspath(os.path.join(workspace_root, "agents", rel_path))
-    if os.path.exists(workspace_agents_path):
-        return workspace_agents_path
-
-    return stripped_path
+    # Fallback to CWD
+    return os.path.abspath(rel_path)
 
 
-async def stage_uploaded_media(photo_path: str = "", tool_context: Optional[ToolContext] = None) -> str:
+async def stage_uploaded_media(photo_path: str = "", tool_context: ToolContext = None) -> str:
     """Finds and stages the active user uploaded photo or video from session events.
     Called by the root orchestrator in the parent context.
     """
+    import base64
+
     print("\n📥 [Tool: stage_uploaded_media] Resolving user uploaded media from session...")
 
     # 1. ALWAYS scan session events first to check if the user uploaded new media in the active chat.
@@ -160,11 +135,9 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
             model="gemini-2.5-flash-image",
             contents=[
                 part,
-                types.Part.from_text(
-                    text=(
-                        "Extend this photo to a vertical 9:16 portrait aspect ratio by seamlessly expanding the background. "
-                        "Keep the person in the photo unchanged."
-                    )
+                (
+                    "Extend this photo to a vertical 9:16 portrait aspect ratio by seamlessly expanding the background. "
+                    "Keep the person in the photo unchanged."
                 ),
             ],
             config=types.GenerateContentConfig(
@@ -173,28 +146,13 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
             ),
         )
 
-        if response and response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+        if response and response.candidates and response.candidates[0].content:
             for p in response.candidates[0].content.parts:
                 if p.inline_data and p.inline_data.data:
                     outpainted_path = os.path.join(os.path.dirname(photo_path), "portrait_outpainted.png")
-                    img_data = (
-                        base64.b64decode(p.inline_data.data)
-                        if isinstance(p.inline_data.data, str)
-                        else p.inline_data.data
-                    )
                     with open(outpainted_path, "wb") as f:
-                        f.write(img_data)
+                        f.write(p.inline_data.data)
                     print(f"✅ [Outpaint] Extended image saved to '{outpainted_path}'")
-                    try:
-                        cloud_img_url = upload_bytes_to_storage(
-                            data=img_data,
-                            destination_blob_name="images/portrait_outpainted.png",
-                            content_type="image/png",
-                        )
-                        if cloud_img_url:
-                            print(f"☁️ [Cloud Storage] Outpainted avatar uploaded: {cloud_img_url}")
-                    except Exception as upload_err:
-                        print(f"⚠️ [Cloud Storage Notice] {upload_err}")
                     return os.path.relpath(outpainted_path, BASE_DIR)
     except Exception as e:
         print(f"⚠️ [Outpaint Notice] Outpainting not available ({e}). Using original image.")
@@ -253,19 +211,18 @@ def verify_portrait_photo(photo_path: str = "") -> str:
         mime_type = "image/png" if photo_path.lower().endswith(".png") else "image/jpeg"
         part = types.Part.from_bytes(data=img_bytes, mime_type=mime_type)
 
-        client = get_gemini_client()
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if api_key:
+            client = genai.Client(api_key=api_key, vertexai=False)
+        else:
+            client = genai.Client()
 
-        print("🚀 Sending face detection verification call to Gemini-3.5-Flash-Lite...")
+        print("🚀 Sending face detection verification call to Gemini-2.5-Flash...")
         response = client.models.generate_content(
-            model="gemini-3.5-flash-lite",
-            contents=[
-                part,
-                types.Part.from_text(
-                    text="Is there a clear, recognizable human face in this photo? Answer only YES or NO."
-                ),
-            ],
+            model="gemini-2.5-flash",
+            contents=[part, "Is there a clear, recognizable human face in this photo? Answer only YES or NO."],
         )
-        answer = (response.text or "").strip().upper()
+        answer = response.text.strip().upper()
         print(f"👤 [Face Detection] Model response: '{answer}'")
     except Exception as e:
         print(f"⚠️ [Face Verification Notice] Verification check bypassed: {e}")
@@ -275,23 +232,15 @@ def verify_portrait_photo(photo_path: str = "") -> str:
 
 
 # Video Generation Engine: "veo" (Vertex AI Veo 3.1) or "omni" (Google AI Gemini Omni Flash)
-def get_video_engine() -> str:
-    """Return the configured video engine, defaulting invalid values to Veo."""
-    engine = os.environ.get("VIDEO_ENGINE", "veo").strip().lower()
-    return engine if engine in {"omni", "veo"} else "veo"
-
-
-def validate_video_generation_backend(engine: str) -> None:
-    """Ensure live video generation does not invoke Vertex while Gemini API mode is active."""
-    if engine == "veo" and not use_vertex_ai():
-        raise GeminiConfigurationError(
-            "VIDEO_ENGINE=veo requires Vertex AI. With GOOGLE_GENAI_USE_VERTEXAI=0, "
-            "set VIDEO_ENGINE=omni and configure GOOGLE_API_KEY or GEMINI_API_KEY."
-        )
+VIDEO_ENGINE = os.environ.get("VIDEO_ENGINE", "veo").strip().lower()
 
 
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-flash-preview) via Interactions API."""
+    import base64
+
+    import requests
+
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY environment variable is required for Gemini Omni Flash video generation.")
@@ -465,6 +414,8 @@ def _generate_with_veo(photo_path: str, creative_prompt: str) -> str:
 
     if gcs_uri:
         print(f"🪣 Detected GCS path: {gcs_uri}. Downloading...")
+        from google.cloud import storage
+
         path_without_scheme = gcs_uri[5:]
         bucket_name, blob_name = path_without_scheme.split("/", 1)
         storage_client = storage.Client()
@@ -537,27 +488,13 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "") -> str:
         )
         return photo_path
 
-    engine = get_video_engine()
-    validate_video_generation_backend(engine)
+    engine = VIDEO_ENGINE if VIDEO_ENGINE in ("omni", "veo") else "veo"
+    print(f"⚙️  [Video Engine] Active video generation engine: {engine.upper()}")
+
     if engine == "omni":
-        result_path = _generate_with_omni(photo_path, creative_prompt)
+        return _generate_with_omni(photo_path, creative_prompt)
     else:
-        result_path = _generate_with_veo(photo_path, creative_prompt)
-
-    try:
-        abs_video_path = os.path.join(BASE_DIR, "assets", "Video_example.mp4")
-        if os.path.exists(abs_video_path):
-            cloud_vid_url = upload_file_to_storage(
-                local_path=abs_video_path,
-                destination_blob_name="videos/Video_example.mp4",
-                content_type="video/mp4",
-            )
-            if cloud_vid_url:
-                print(f"☁️ [Cloud Storage] Video successfully uploaded to bucket: {cloud_vid_url}")
-    except Exception as upload_err:
-        print(f"⚠️ [Cloud Storage Notice] {upload_err}")
-
-    return result_path
+        return _generate_with_veo(photo_path, creative_prompt)
 
 
 # Backward-compatible alias
