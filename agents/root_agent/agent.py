@@ -31,7 +31,6 @@ try:
     from office_secretary.agent import office_agent
     from receipt_scanner.agent import receipt_agent
     from registration_manager.agent import registration_agent
-    from video_editor.agent import video_editor_agent as video_agent
 except (ModuleNotFoundError, ImportError):
     from agents.agenda_generator.agent import agenda_agent
     from agents.event_planner.agent import planner_agent
@@ -39,23 +38,19 @@ except (ModuleNotFoundError, ImportError):
     from agents.office_secretary.agent import office_agent
     from agents.receipt_scanner.agent import receipt_agent
     from agents.registration_manager.agent import root_agent as registration_agent
-    from agents.video_editor.agent import root_agent as video_agent
 
-# Support A2A (Agent-to-Agent) remote connections if URLs are configured
-video_a2a_url = os.getenv("VIDEO_AGENT_A2A_URL")
-if video_a2a_url:
-    try:
-        from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
+from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
 
-        card_url = f"{video_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}"
-        print(f"🔗 [A2A Connected] video_editor agent linked via A2A at: {card_url}")
-        video_agent = RemoteA2aAgent(
-            name="video_editor",
-            description="Live Video Editor agent that validates speaker metadata, verifies portrait face, outpaints/animates background video with Veo, updates HTML5 canvas composer, and renders final video/GIF speaker cards.",
-            agent_card=card_url,
-        )
-    except Exception as e:
-        print(f"⚠️ Failed to connect video_editor over A2A ({e}). Falling back to local sub-agent.")
+video_a2a_url = os.getenv(
+    "VIDEO_AGENT_A2A_URL",
+    f"{os.getenv('VIDEO_AGENT_PROTOCOL', 'http')}://"
+    f"{os.getenv('VIDEO_AGENT_HOST', 'localhost')}:{os.getenv('VIDEO_AGENT_PORT', '8081')}",
+)
+video_agent = RemoteA2aAgent(
+    name="video_editor",
+    description="Standalone conversational workflow for speaker-card video generation.",
+    agent_card=f"{video_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}",
+)
 
 receipt_a2a_url = os.getenv("RECEIPT_AGENT_A2A_URL")
 if receipt_a2a_url:

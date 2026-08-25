@@ -1,5 +1,6 @@
 import datetime
 import glob
+import json
 import os
 import random
 import re
@@ -68,18 +69,35 @@ def restore_default_placeholder():
         print(f"⚠️ [Placeholder] Failed to restore generic placeholder: {e}")
 
 
-def update_composer(video_path: str, title: str, name: str, position_company: str) -> str:
+def build_card_config(title: str, name: str, position_company: str, year: int) -> str:
+    """Builds a JavaScript-safe CARD_CONFIG declaration."""
+    return f"""const CARD_CONFIG = {{
+      title: {json.dumps(title)},
+      name: {json.dumps(name)},
+      position_company: {json.dumps(position_company)},
+      year: {json.dumps(str(year))}
+    }};"""
+
+
+def update_composer(
+    video_path: str,
+    title: str,
+    name: str,
+    position_company: str,
+    duration_seconds: int | None = None,
+    theme_colors: dict[str, str] | None = None,
+) -> str:
     """Updates index.html with the new video path, title, speaker name, position/company texts, and sets timeline duration (8s for Veo, 10s for user uploads)."""
     # Ensure video_path is a relative path inside index.html for correct HTTP serving in headless Chrome
     if os.path.isabs(video_path):
         video_path = os.path.relpath(video_path, BASE_DIR)
 
     # 1. Determine timeline duration: 8.0s for Veo generated video, 10.0s for uploaded custom video
-    target_duration = 10
+    target_duration = duration_seconds or 10
     abs_video_path = resolve_path(video_path)
 
     # Probe duration if ffprobe is installed
-    if shutil.which("ffprobe") and os.path.exists(abs_video_path):
+    if duration_seconds is None and shutil.which("ffprobe") and os.path.exists(abs_video_path):
         try:
             cmd = [
                 "ffprobe",
@@ -100,7 +118,7 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
                     target_duration = 10
         except Exception:
             pass
-    elif "video_example" in video_path.lower():
+    elif duration_seconds is None and "video_example" in video_path.lower():
         # Generated from Veo
         target_duration = 8
 
@@ -122,12 +140,7 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
     # 1. Update the CARD_CONFIG block dynamically using regex
     current_year = datetime.datetime.now().year
     config_pattern = r"const CARD_CONFIG = \{.*?\};"
-    new_config = f"""const CARD_CONFIG = {{
-      title: "{title}",
-      name: "{name}",
-      position_company: "{position_company}",
-      year: "{current_year}"
-    }};"""
+    new_config = build_card_config(title, name, position_company, current_year)
 
     if re.search(config_pattern, content, flags=re.DOTALL):
         content = re.sub(config_pattern, new_config, content, flags=re.DOTALL)
@@ -158,12 +171,12 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
 
         image_full_pattern = r'(<img\s+id="card-image"[^>]*?style="[^"]*?)(display:none;)\s*(;?)(")'
         content = re.sub(image_full_pattern, r"\g<1>\g<4>", content)
-        content = re.sub(image_pattern, f'id="card-image" src="{video_path}"', content)
+        content = re.sub(image_pattern, f'id="card-image" src={json.dumps(video_path)}', content)
     else:
         # It's a video card!
         video_full_pattern = r'(<video\s+id="card-video"[^>]*?style="[^"]*?)(display:none;)\s*(;?)(")'
         content = re.sub(video_full_pattern, r"\g<1>\g<4>", content)
-        content = re.sub(video_pattern, f'id="card-video" src="{video_path}"', content)
+        content = re.sub(video_pattern, f'id="card-video" src={json.dumps(video_path)}', content)
 
         image_full_pattern = r'(<img\s+id="card-image"[^>]*?style="[^"]*?)(display:none;)?(")'
         content = re.sub(image_full_pattern, r"\g<1>display:none;\g<3>", content)
@@ -185,11 +198,17 @@ def update_composer(video_path: str, title: str, name: str, position_company: st
         "#F8D8D8",  # Pastels
     ]
 
-    selected_colors = random.sample(GDG_COLORS, 4)
-    break_color = selected_colors[0]
-    circle_color = selected_colors[1]
-    pill_color = selected_colors[2]
-    hexagon_color = selected_colors[3]
+    if theme_colors:
+        break_color = theme_colors["break_color"]
+        circle_color = theme_colors["circle_color"]
+        pill_color = theme_colors["pill_color"]
+        hexagon_color = theme_colors["hexagon_color"]
+    else:
+        selected_colors = random.sample(GDG_COLORS, 4)
+        break_color = selected_colors[0]
+        circle_color = selected_colors[1]
+        pill_color = selected_colors[2]
+        hexagon_color = selected_colors[3]
 
     print("🎨 [Color Randomizer] Selected random Google palette colors:")
     print(f"   ├─ breaks: {break_color}")

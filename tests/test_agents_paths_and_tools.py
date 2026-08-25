@@ -59,7 +59,13 @@ assert expected.issubset(agents), (agents, expected)
 
         self.assertIsNotNone(video_editor_agent)
         self.assertEqual(video_editor_agent.name, "video_editor")
-        self.assertTrue(len(video_editor_agent.tools) >= 5)
+        self.assertTrue(hasattr(video_editor_agent, "graph"))
+
+    def test_video_editor_workflow_import(self):
+        from agents.video_editor.workflow import video_editor_workflow
+
+        self.assertIsNotNone(video_editor_workflow)
+        self.assertEqual(video_editor_workflow.name, "video_editor")
 
     def test_receipt_scanner_agent_import(self):
         from agents.receipt_scanner.agent import receipt_agent
@@ -147,6 +153,13 @@ class TestPathResolutions(unittest.TestCase):
 
         p3 = comp_resolve("agents/video_editor/assets/portrait_outpainted.png")
         self.assertTrue(p3.endswith("portrait_outpainted.png"))
+
+    def test_video_editor_template_uses_neutral_metadata(self):
+        template_path = WORKSPACE_ROOT / "agents" / "video_editor" / "index.html"
+        template = template_path.read_text(encoding="utf-8")
+
+        self.assertNotIn("Vitaliy Avseitsev", template)
+        self.assertNotIn("Gemini Hakaton", template)
 
 
 class TestToolExecutionAndResilience(unittest.TestCase):
