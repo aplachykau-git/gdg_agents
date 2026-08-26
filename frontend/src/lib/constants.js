@@ -1,7 +1,7 @@
 import { marked } from 'marked';
 
 export const DEFAULT_APPS = [
-  { name: 'root_agent', root_agent_name: 'Root Orchestrator' },
+  { name: 'root_agent', root_agent_name: 'Main' },
   { name: 'receipt_scanner', root_agent_name: 'Receipt Scanner' },
   { name: 'video_editor', root_agent_name: 'Live Video Editor' },
   { name: 'linkedin_post_generator', root_agent_name: 'LinkedIn Planner' },
@@ -48,7 +48,7 @@ export function getAgentTheme(author) {
   if (!author) return { color: 'var(--primary-accent)', bg: 'var(--primary-accent-container)', label: 'Agent' };
   const clean = cleanAuthorName(author);
   const lower = clean.toLowerCase();
-  if (lower.includes('root')) return { color: 'var(--agent-root)', bg: 'var(--bg-root)', label: 'Root Orchestrator' };
+  if (lower.includes('root') || lower === 'main' || lower.includes('orchestrator')) return { color: 'var(--agent-root)', bg: 'var(--bg-root)', label: 'Main' };
   if (lower.includes('receipt')) return { color: 'var(--agent-receipt)', bg: 'var(--bg-receipt)', label: 'Receipt Scanner' };
   if (lower.includes('video') || lower.includes('avatar')) return { color: 'var(--agent-video)', bg: 'var(--bg-video)', label: 'Live Video Editor' };
   if (lower.includes('linkedin')) return { color: 'var(--agent-linkedin)', bg: 'var(--bg-linkedin)', label: 'LinkedIn Planner' };
@@ -63,13 +63,13 @@ export function getAgentTheme(author) {
 
 export const STATUS_TICKERS = {
   root_agent: [
-    'Root Orchestrator coordinating request...',
+    'Main agent coordinating request...',
     'Analyzing routing parameters...',
     'Invoking specialized sub-agents...',
     'Verifying execution prerequisites...'
   ],
   receipt_scanner: [
-    'Fetching Pekao Bank exchange rates...',
+    'Fetching live banking exchange rates...',
     'Scanning attachment with Vision OCR...',
     'Converting expenses to EUR/USD/PLN...',
     'Checking historical structures (Anti-re-processing)...',
@@ -136,7 +136,7 @@ export function getFriendlyToolCall(name, args) {
     update_composer: (a) => `🎨 Updating HTML5 composition layout for "${a?.name || 'speaker'}"...`,
     render_composer: () => "🚀 HyperFrames pipeline rendering 1080p MP4, GIF & Poster...",
 
-    get_usd_pln_rate: () => "💱 Fetching live Pekao Bank & NBP exchange rates (USD/PLN)...",
+    get_usd_pln_rate: () => "💱 Fetching live banking exchange rates (USD/PLN)...",
     read_receipt_file: () => "🧾 Analyzing receipt image via Gemini 2.5 Pro Vision OCR...",
     export_summary_to_google_doc: () => "📄 Exporting approved expense report to Google Docs...",
     scan_receipt_with_vision: () => "🧾 Extracting items and taxes via Vision OCR...",

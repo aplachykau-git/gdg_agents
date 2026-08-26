@@ -70,7 +70,7 @@ receipt_agent = Agent(
     description=(
         "Agent for recognizing receipts and invoices. "
         "Natively analyzes images and PDFs using gemini-3.6-flash, "
-        "converts to PLN and USD using the Pekao rate, exports reports to Google Docs."
+        "converts to PLN and USD using live banking exchange rates, exports reports to Google Docs."
     ),
     instruction=INSTRUCTION,
     tools=[get_usd_pln_rate, read_receipt_file, export_summary_to_google_doc],
