@@ -10,7 +10,7 @@ export async function fetchApps() {
     if (Array.isArray(data)) {
       const nonAgents = ['configs', 'docs', 'frontend', 'evaluation'];
       const appNameMapping = {
-        root_agent: 'Root Orchestrator',
+        root_agent: 'Main',
         receipt_scanner: 'Receipt Scanner',
         video_editor: 'Live Video Editor',
         linkedin_post_generator: 'LinkedIn Planner',

@@ -40,12 +40,12 @@
   const AGENTS_META = [
     {
       id: 'root_agent',
-      name: 'Root Orchestrator',
+      name: 'Main',
       role: 'Main Router & Coordinator',
       model: 'gemini-2.5-flash',
       color: '#38BDF8',
       bg: 'rgba(56, 189, 248, 0.12)',
-      icon: Workflow,
+      icon: Layers,
       isRoot: true,
       port: 8080,
       protocol: 'Local / SSE Hub',
@@ -73,7 +73,7 @@
     {
       id: 'receipt_scanner',
       name: 'Receipt Scanner',
-      role: 'Vision OCR & Pekao Rates',
+      role: 'Vision OCR & Exchange Rates',
       model: 'gemini-2.5-pro',
       color: '#34D399',
       bg: 'rgba(52, 211, 153, 0.12)',
@@ -81,7 +81,7 @@
       isA2A: true,
       port: 8080,
       protocol: 'A2A Protocol (JSON-RPC)',
-      desc: 'High-reasoning Vision OCR for receipts and invoices. Fetches live Pekao Bank & NBP exchange rates, converts currencies, and populates Google Docs expense reports.',
+      desc: 'High-reasoning Vision OCR for receipts and invoices. Fetches live banking exchange rates, converts currencies, and populates Google Docs expense reports.',
       tools: ['read_receipt_file', 'get_usd_pln_rate', 'export_summary_to_google_doc', 'scan_receipt_with_vision'],
       x: 82,
       y: 20

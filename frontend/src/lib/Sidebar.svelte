@@ -1,24 +1,16 @@
 <script>
-  import { Plus, History, Trash2 } from '@lucide/svelte';
+  import { History, Trash2 } from '@lucide/svelte';
 
   let {
     sessions = [],
     selectedSessionId = '',
     isLoading = false,
     onSelectSession = () => {},
-    onNewSession = () => {},
     onDeleteSession = () => {}
   } = $props();
 </script>
 
 <aside class="studio-sidebar">
-  <div class="sidebar-top">
-    <button class="btn-new-prompt" onclick={onNewSession} disabled={isLoading}>
-      <Plus size={18} strokeWidth={2} />
-      <span>New Session</span>
-    </button>
-  </div>
-
   <div class="sidebar-section-title">
     <History size={13} strokeWidth={1.75} />
     <span>SESSION HISTORY</span>
@@ -72,43 +64,9 @@
     animation: slideInLeft 0.2s ease-out;
   }
 
-  .sidebar-top {
-    padding: 16px;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-
-  .btn-new-prompt {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: var(--primary-gradient, var(--primary-accent));
-    color: #ffffff;
-    border: none;
-    padding: 10px 16px;
-    border-radius: var(--radius-pill);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
-    transition: var(--transition-fast);
-  }
-
-  .btn-new-prompt:hover:not(:disabled) {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-    color: #ffffff;
-  }
-
-  .btn-new-prompt:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
   .sidebar-section-title {
-    padding: 16px 16px 8px;
+    padding: 16px 16px 10px;
+    border-bottom: 1px solid var(--border-subtle);
     font-size: 11px;
     font-weight: 700;
     color: var(--text-tertiary);
@@ -116,6 +74,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    margin-bottom: 4px;
   }
 
   .sessions-stream {

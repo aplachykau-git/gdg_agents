@@ -14,12 +14,15 @@
     parseResponseVariants, 
     extractMediaAssets,
     cleanTextForMediaDisplay,
+    extractDocumentAssets,
+    cleanTextForDocumentDisplay,
     shouldShowDelegationHandoff 
   } from './constants.js';
   import AgendaTimeline from './AgendaTimeline.svelte';
   import VariantCard from './VariantCard.svelte';
   import ToolCallCard from './ToolCallCard.svelte';
   import VideoPreviewCard from './VideoPreviewCard.svelte';
+  import ReportDownloadCard from './ReportDownloadCard.svelte';
 
   let { 
     event, 
@@ -40,7 +43,10 @@
   const hasMedia = $derived(
     event.content?.parts?.some(p => p.text && extractMediaAssets(p.text))
   );
-  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasMedia));
+  const hasDoc = $derived(
+    event.content?.parts?.some(p => p.text && extractDocumentAssets(p.text))
+  );
+  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasMedia || hasDoc));
 </script>
 
 {#if errInfo}
@@ -116,6 +122,7 @@
         {#each event.content.parts as part}
           {#if part.text}
             {@const media = extractMediaAssets(part.text)}
+            {@const doc = extractDocumentAssets(part.text)}
             {#if isAgendaOutput(part.text, event.author)}
               <AgendaTimeline 
                 rawText={part.text} 
@@ -128,6 +135,12 @@
                 <div class="markdown-body">{@html renderMarkdown(cleanedText)}</div>
               {/if}
               <VideoPreviewCard {media} />
+            {:else if doc}
+              {@const cleanedText = cleanTextForDocumentDisplay(part.text)}
+              {#if cleanedText}
+                <div class="markdown-body">{@html renderMarkdown(cleanedText)}</div>
+              {/if}
+              <ReportDownloadCard {doc} />
             {:else}
               {@const variants = parseResponseVariants(part.text, event.author)}
               {#if variants.length === 1}

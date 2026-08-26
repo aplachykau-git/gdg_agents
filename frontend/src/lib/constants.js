@@ -1,7 +1,7 @@
 import { marked } from 'marked';
 
 export const DEFAULT_APPS = [
-  { name: 'root_agent', root_agent_name: 'Root Orchestrator' },
+  { name: 'root_agent', root_agent_name: 'Main' },
   { name: 'receipt_scanner', root_agent_name: 'Receipt Scanner' },
   { name: 'video_editor', root_agent_name: 'Live Video Editor' },
   { name: 'linkedin_post_generator', root_agent_name: 'LinkedIn Planner' },
@@ -48,7 +48,7 @@ export function getAgentTheme(author) {
   if (!author) return { color: 'var(--primary-accent)', bg: 'var(--primary-accent-container)', label: 'Agent' };
   const clean = cleanAuthorName(author);
   const lower = clean.toLowerCase();
-  if (lower.includes('root')) return { color: 'var(--agent-root)', bg: 'var(--bg-root)', label: 'Root Orchestrator' };
+  if (lower.includes('root') || lower === 'main' || lower.includes('orchestrator')) return { color: 'var(--agent-root)', bg: 'var(--bg-root)', label: 'Main' };
   if (lower.includes('receipt')) return { color: 'var(--agent-receipt)', bg: 'var(--bg-receipt)', label: 'Receipt Scanner' };
   if (lower.includes('video') || lower.includes('avatar')) return { color: 'var(--agent-video)', bg: 'var(--bg-video)', label: 'Live Video Editor' };
   if (lower.includes('linkedin')) return { color: 'var(--agent-linkedin)', bg: 'var(--bg-linkedin)', label: 'LinkedIn Planner' };
@@ -63,13 +63,13 @@ export function getAgentTheme(author) {
 
 export const STATUS_TICKERS = {
   root_agent: [
-    'Root Orchestrator coordinating request...',
+    'Main agent coordinating request...',
     'Analyzing routing parameters...',
     'Invoking specialized sub-agents...',
     'Verifying execution prerequisites...'
   ],
   receipt_scanner: [
-    'Fetching Pekao Bank exchange rates...',
+    'Fetching live banking exchange rates...',
     'Scanning attachment with Vision OCR...',
     'Converting expenses to EUR/USD/PLN...',
     'Checking historical structures (Anti-re-processing)...',
@@ -136,7 +136,7 @@ export function getFriendlyToolCall(name, args) {
     update_composer: (a) => `🎨 Updating HTML5 composition layout for "${a?.name || 'speaker'}"...`,
     render_composer: () => "🚀 HyperFrames pipeline rendering 1080p MP4, GIF & Poster...",
 
-    get_usd_pln_rate: () => "💱 Fetching live Pekao Bank & NBP exchange rates (USD/PLN)...",
+    get_usd_pln_rate: () => "💱 Fetching live banking exchange rates (USD/PLN)...",
     read_receipt_file: () => "🧾 Analyzing receipt image via Gemini 2.5 Pro Vision OCR...",
     export_summary_to_google_doc: () => "📄 Exporting approved expense report to Google Docs...",
     scan_receipt_with_vision: () => "🧾 Extracting items and taxes via Vision OCR...",
@@ -451,3 +451,74 @@ export function cleanTextForMediaDisplay(text) {
 
   return filteredLines.join('\n').trim();
 }
+
+export function extractDocumentAssets(text) {
+  if (!text) return null;
+
+  // Regex to match .docx, .xlsx, .csv, .pdf URLs or direct markdown links
+  const urlRegex = /(?:https?:\/\/[^\s\)\"\'<>]+|\/results\/[^\s\)\"\'<>]+)\.(?:docx|xlsx|csv|pdf)(?:\?[^\s\)\"\'<>]*)?/gi;
+  const matches = text.match(urlRegex) || [];
+
+  if (matches.length === 0) return null;
+
+  const docxUrl = matches.find(u => u.toLowerCase().includes('.docx'));
+  const csvUrl = matches.find(u => u.toLowerCase().includes('.csv'));
+  const xlsxUrl = matches.find(u => u.toLowerCase().includes('.xlsx'));
+  const pdfUrl = matches.find(u => u.toLowerCase().includes('.pdf'));
+
+  const primaryUrl = docxUrl || xlsxUrl || csvUrl || pdfUrl || matches[0];
+  const filename = primaryUrl.split('/').pop()?.split('?')[0] || 'Expense_Report.docx';
+
+  // Determine doc type & label
+  let fileType = 'DOCX';
+  let typeLabel = 'Formatted Document (Word & Docs)';
+  if (primaryUrl.toLowerCase().includes('.docx')) {
+    fileType = 'DOCX';
+    typeLabel = 'Word & Google Docs Compatible';
+  } else if (primaryUrl.toLowerCase().includes('.xlsx')) {
+    fileType = 'XLSX';
+    typeLabel = 'Excel Spreadsheet';
+  } else if (primaryUrl.toLowerCase().includes('.csv')) {
+    fileType = 'CSV';
+    typeLabel = 'CSV Spreadsheet Backup';
+  } else if (primaryUrl.toLowerCase().includes('.pdf')) {
+    fileType = 'PDF';
+    typeLabel = 'PDF Document';
+  }
+
+  // Extract title if available in text
+  const titleMatch = text.match(/(?:Expense Reimbursement Report|Expense Report|Reimbursement Report|Report)[\s\:\*\#\-]*([^\n]+)/i);
+
+  return {
+    primaryUrl,
+    docxUrl,
+    csvUrl,
+    xlsxUrl,
+    pdfUrl,
+    filename,
+    fileType,
+    typeLabel,
+    title: titleMatch ? titleMatch[0].replace(/[`*#]/g, '').trim() : filename,
+    allUrls: matches
+  };
+}
+
+export function cleanTextForDocumentDisplay(text) {
+  if (!text) return '';
+
+  const lines = text.split('\n');
+  const filteredLines = lines.filter(line => {
+    const trimmed = line.trim();
+    if (
+      trimmed.match(/^[-*•]?\s*(?:📄|📑|📊|💾)?.*(?:https?:\/\/[^\s\)]+?\.(?:docx|xlsx|csv|pdf)|\[(?:Download|View|Expense|Successfully)[^\]]*\]\([^\)]+\))/i) ||
+      trimmed.match(/^\[(?:Download|View|Expense|Successfully)[^\]]*\]\(https?:\/\/[^\s\)]+\)/i) ||
+      trimmed.match(/^https?:\/\/[^\s\)]+?\.(?:docx|xlsx|csv|pdf)$/i)
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  return filteredLines.join('\n').trim();
+}
+
