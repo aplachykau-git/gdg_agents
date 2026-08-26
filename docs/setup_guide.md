@@ -82,28 +82,28 @@ bash <(curl -sSL https://storage.googleapis.com/cloud-samples-data/adc/setup_adc
 
 ### 4. Configuration Settings (.env)
 
-The root agent requires a `.env` file to be present in the project root directory. You can use the template [.env.example](../.env.example) to create it:
+The system uses a **single unified `.env` file** located in the project root directory. All agents, A2A microservices (Video Editor, Receipt Scanner), and test suites automatically read from this root file. You can use the template [.env.example](../.env.example) to create it:
 
 ```bash
 # Copy the example configuration to .env
 cp .env.example .env
 ```
 
-Open `.env` and fill in the following parameters:
+Open `.env` and configure the following parameters:
 - `GOOGLE_API_KEY`: Your preferred API key from [Google AI Studio](https://aistudio.google.com/). It is used when `GOOGLE_GENAI_USE_VERTEXAI=0`; all Gemini model calls then use this key instead of Vertex credentials.
 - `GEMINI_API_KEY`: Backwards-compatible fallback when `GOOGLE_API_KEY` is not configured.
 - `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run Gemini calls through Vertex AI endpoints, or `0` to run Gemini calls through the Gemini Developer API. In API mode, `GOOGLE_API_KEY` or `GEMINI_API_KEY` must be set.
 - `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID from [Google Cloud Console](https://console.cloud.google.com/).
-- `GOOGLE_CLOUD_LOCATION`: The GCP region/location (e.g. `europe-central2`).
+- `GOOGLE_CLOUD_LOCATION`: The GCP region/location for Vertex AI model inference (use `global` for optimal multi-region availability across Gemini models; Veo video generation automatically routes to `us-central1`).
 - `GOOGLE_DRIVE_FOLDER_ID`: The ID of your target Google Drive folder (found in the folder's URL).
 - `VIDEO_ENGINE`: Video generation engine — set to `veo` (Vertex AI Google Veo 3.1) or `omni` (Google AI Gemini Omni Flash preview via Interactions API). API mode requires `omni`; `veo` is rejected because it requires Vertex AI.
 - `ENABLE_VIDEO_GENERATION`: Set to `true` to run live AI video animation, or `false` for layout-only dry-runs using local placeholder media.
-- `RENDER_4K`: Set to `true` (default) to render high-resolution 4K Ultra-HD MP4 compositions.
-- `RENDER_ORDINARY`: Set to `true` to render 1080p Full-HD MP4 compositions.
-- `RENDER_GIF`: Set to `true` to generate animated GIF previews via FFmpeg.
+- `RENDER_4K`: Set to `true` to render high-resolution 4K Ultra-HD MP4 compositions.
+- `RENDER_ORDINARY`: Set to `true` (default) to render 1080p Full-HD MP4 compositions.
+- `RENDER_GIF`: Set to `true` (default) to generate animated GIF previews via FFmpeg.
 
 > [!TIP]
-> **Cost & Token Optimization**: Video generation using Google Veo or Gemini Omni Flash consumes significant quotas. During layout tweaking and text debugging, keep `ENABLE_VIDEO_GENERATION=false`. The system will automatically use the high-quality local placeholder and execute the full GSAP layout and rendering pipeline instantly.
+> **Unified Configuration**: Avoid placing separate `.env` files inside individual subdirectories (`agents/root_agent/`, `agents/receipt_scanner/`, etc.). The workspace root `.env` serves as the single source of truth for all microservices.
 
 ### 5. Customizing the Expense Report Google Doc Template
 

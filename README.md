@@ -32,7 +32,7 @@ This project is a multi-agent system built on the [Google Agent Development Kit 
 flowchart TB
     subgraph CLIENT_LAYER["🖥️ 1. CLIENT & INTERACTION LAYER (A2UI)"]
         direction LR
-        UI["<b>Svelte 5 Workspace Dashboard</b><br/><i>Port :5173 (Vite + Runes)</i><br/>• Floating Prompt Bar & Stager<br/>• Interactive Agenda Timeline<br/>• Multi-variant Post Deck<br/>• Multi-Agent DAG Topology"]
+        UI["<b>Svelte 5 Workspace Dashboard</b><br/><i>Port :5173 (Vite + Runes)</i><br/>• Floating Prompt Bar & Stager<br/>• Interactive Agenda Timeline<br/>• Multi-variant Post Deck<br/>• Multi-Agent Network Topology"]
     end
 
     subgraph GATEWAY_LAYER["🌐 2. INGRESS & ADK ORCHESTRATION GATEWAY"]

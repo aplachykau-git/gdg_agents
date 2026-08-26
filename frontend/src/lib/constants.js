@@ -12,7 +12,11 @@ export const DEFAULT_APPS = [
 ];
 
 export const DEFAULT_CONFIG = {
-  communityName: 'GDG Krakow'
+  communityName: 'GDG Krakow',
+  autoScroll: true,
+  streamResponses: true,
+  showToolCalls: true,
+  compactDensity: false
 };
 
 export function getAppConfig() {
@@ -40,7 +44,7 @@ export function saveAppConfig(cfg) {
 export const MAX_INPUT_TOKENS = 8192;
 
 export function cleanAuthorName(author) {
-  if (!author) return '';
+  if (!author || typeof author !== 'string') return '';
   return author.replace(/^Active Context:\s*/i, '').trim();
 }
 
@@ -59,6 +63,61 @@ export function getAgentTheme(author) {
   
   const formatted = clean.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   return { color: 'var(--primary-accent)', bg: 'var(--primary-accent-container)', label: formatted };
+}
+
+export function resolveAgentId(author, appsList = DEFAULT_APPS) {
+  if (!author) return null;
+  const clean = cleanAuthorName(author).toLowerCase().trim();
+  if (!clean || clean === 'user') return null;
+
+  // 1. Direct match on name or root_agent_name
+  for (const app of appsList) {
+    if (app.name.toLowerCase() === clean) return app.name;
+    if (app.root_agent_name && app.root_agent_name.toLowerCase() === clean) return app.name;
+  }
+
+  // 2. Specific known agent mappings
+  if (clean === 'root' || clean === 'main' || clean === 'orchestrator' || clean === 'root_agent') return 'root_agent';
+  if (clean.includes('receipt')) return 'receipt_scanner';
+  if (clean.includes('video') || clean.includes('avatar')) return 'video_editor';
+  if (clean.includes('linkedin')) return 'linkedin_post_generator';
+  if (clean.includes('registration')) return 'registration_manager';
+  if (clean.includes('planner')) return 'event_planner';
+  if (clean.includes('agenda')) return 'agenda_generator';
+  if (clean.includes('office') || clean.includes('secretary')) return 'office_secretary';
+
+  // 3. Fallback partial match with appsList
+  for (const app of appsList) {
+    const base = app.name.toLowerCase().replace(/_agent$/, '');
+    if (clean.includes(base) || base.includes(clean)) return app.name;
+  }
+
+  return null;
+}
+
+export function getActiveAgentFromEvents(eventsList, fallback = 'root_agent', appsList = DEFAULT_APPS) {
+  if (!eventsList || eventsList.length === 0) return fallback;
+  for (let i = eventsList.length - 1; i >= 0; i--) {
+    const ev = eventsList[i];
+    if (ev && ev.author && ev.author !== 'user') {
+      const resolved = resolveAgentId(ev.author, appsList);
+      if (resolved) return resolved;
+    }
+    if (ev?.actions?.transferToAgent) {
+      const resolved = resolveAgentId(ev.actions.transferToAgent, appsList);
+      if (resolved) return resolved;
+    }
+    if (ev?.content?.parts) {
+      for (const part of ev.content.parts) {
+        const fc = part.function_call || part.functionCall;
+        if (fc && fc.name) {
+          const resolved = resolveAgentId(fc.name, appsList);
+          if (resolved) return resolved;
+        }
+      }
+    }
+  }
+  return fallback;
 }
 
 export const STATUS_TICKERS = {
@@ -137,7 +196,7 @@ export function getFriendlyToolCall(name, args) {
     render_composer: () => "🚀 HyperFrames pipeline rendering 1080p MP4, GIF & Poster...",
 
     get_usd_pln_rate: () => "💱 Fetching live banking exchange rates (USD/PLN)...",
-    read_receipt_file: () => "🧾 Analyzing receipt image via Gemini 2.5 Pro Vision OCR...",
+    read_receipt_file: () => "🧾 Analyzing receipt image via Gemini 3.6 Flash Vision OCR...",
     export_summary_to_google_doc: () => "📄 Exporting approved expense report to Google Docs...",
     scan_receipt_with_vision: () => "🧾 Extracting items and taxes via Vision OCR...",
     convert_currency: () => "💱 Converting currencies to PLN using exchange rates...",
@@ -245,6 +304,7 @@ export function isIntermediateEvent(event) {
   if (!event) return true;
   if (event.author === 'user') return false;
   if (getEventError(event)) return false;
+  if (event.output && (event.output.summary || event.output.assets)) return false;
   if (!event.content || !event.content.parts || event.content.parts.length === 0) return true;
 
   const hasVisibleContent = event.content.parts.some(part => {
@@ -409,7 +469,9 @@ export async function downloadDirectFile(url, suggestedFilename) {
     const separator = url.includes('?') ? '&' : '?';
     const downloadUrl = `${url}${separator}dl=1&_t=${Date.now()}`;
     const res = await fetch(downloadUrl, { mode: 'cors' });
-    if (!res.ok) throw new Error(`HTTP status ${res.status}`);
+    if (!res.ok) {
+      throw new Error(`Server returned HTTP status ${res.status}`);
+    }
     const blob = await res.blob();
     const blobUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -423,13 +485,18 @@ export async function downloadDirectFile(url, suggestedFilename) {
       window.URL.revokeObjectURL(blobUrl);
     }, 2000);
   } catch (err) {
-    console.warn('Direct blob fetch failed, falling back to direct anchor:', err);
-    const fallbackLink = document.createElement('a');
-    fallbackLink.href = url;
-    fallbackLink.download = filename;
-    fallbackLink.target = '_blank';
-    fallbackLink.rel = 'noopener noreferrer';
-    fallbackLink.click();
+    console.warn('Direct blob fetch failed:', err);
+    // If it's a relative /results/ path, try direct download anchor
+    if (url.startsWith('/results/') || url.startsWith('http')) {
+      const fallbackLink = document.createElement('a');
+      fallbackLink.href = url;
+      fallbackLink.download = filename;
+      fallbackLink.target = '_blank';
+      fallbackLink.rel = 'noopener noreferrer';
+      fallbackLink.click();
+    } else {
+      alert(`Could not download file: ${err.message || 'File not found'}`);
+    }
   }
 }
 
@@ -455,11 +522,20 @@ export function cleanTextForMediaDisplay(text) {
 export function extractDocumentAssets(text) {
   if (!text) return null;
 
-  // Regex to match .docx, .xlsx, .csv, .pdf URLs or direct markdown links
-  const urlRegex = /(?:https?:\/\/[^\s\)\"\'<>]+|\/results\/[^\s\)\"\'<>]+)\.(?:docx|xlsx|csv|pdf)(?:\?[^\s\)\"\'<>]*)?/gi;
-  const matches = text.match(urlRegex) || [];
+  // Regex to match .docx, .xlsx, .csv, .pdf URLs or direct markdown links (including file:// and /results/)
+  const urlRegex = /(?:https?:\/\/[^\s\)\"\'<>]+|\/results\/[^\s\)\"\'<>]+|file:\/\/[^\s\)\"\'<>]+)\.(?:docx|xlsx|csv|pdf)(?:\?[^\s\)\"\'<>]*)?/gi;
+  const rawMatches = text.match(urlRegex) || [];
 
-  if (matches.length === 0) return null;
+  if (rawMatches.length === 0) return null;
+
+  // Normalize file:// links to /results/<filename> so browser can fetch them via Vite middleware
+  const matches = rawMatches.map(u => {
+    if (u.startsWith('file://')) {
+      const fn = u.split('/').pop()?.split('?')[0];
+      return `/results/${fn}`;
+    }
+    return u;
+  });
 
   const docxUrl = matches.find(u => u.toLowerCase().includes('.docx'));
   const csvUrl = matches.find(u => u.toLowerCase().includes('.csv'));
@@ -467,7 +543,7 @@ export function extractDocumentAssets(text) {
   const pdfUrl = matches.find(u => u.toLowerCase().includes('.pdf'));
 
   const primaryUrl = docxUrl || xlsxUrl || csvUrl || pdfUrl || matches[0];
-  const filename = primaryUrl.split('/').pop()?.split('?')[0] || 'Expense_Report.docx';
+  const filename = primaryUrl.split('/').pop()?.split('?')[0] || 'Report.docx';
 
   // Determine doc type & label
   let fileType = 'DOCX';
@@ -487,7 +563,16 @@ export function extractDocumentAssets(text) {
   }
 
   // Extract title if available in text
-  const titleMatch = text.match(/(?:Expense Reimbursement Report|Expense Report|Reimbursement Report|Report)[\s\:\*\#\-]*([^\n]+)/i);
+  const titleMatch = text.match(/(?:Expense Reimbursement Report|Expense Report|Reimbursement Report|Event Registration Document|Registration Document|Report)[\s\:\*\#\-]*([^\n]+)/i);
+
+  const isRegistration =
+    filename.toLowerCase().includes('registration') ||
+    (text && (
+      text.toLowerCase().includes('registration') ||
+      text.includes('Confirmed Registrants') ||
+      text.includes('Confirmed Attendees') ||
+      text.includes('Waitlisted Registrants')
+    ));
 
   return {
     primaryUrl,
@@ -495,10 +580,12 @@ export function extractDocumentAssets(text) {
     csvUrl,
     xlsxUrl,
     pdfUrl,
+    txtUrl: isRegistration ? '/results/registrations_list.txt' : null,
+    isRegistration,
     filename,
     fileType,
-    typeLabel,
-    title: titleMatch ? titleMatch[0].replace(/[`*#]/g, '').trim() : filename,
+    typeLabel: isRegistration ? 'Event Attendee & Registration Document' : typeLabel,
+    title: titleMatch ? titleMatch[0].replace(/[`*#]/g, '').trim() : (isRegistration ? 'Event Registration Roster' : filename),
     allUrls: matches
   };
 }
@@ -510,9 +597,14 @@ export function cleanTextForDocumentDisplay(text) {
   const filteredLines = lines.filter(line => {
     const trimmed = line.trim();
     if (
-      trimmed.match(/^[-*•]?\s*(?:📄|📑|📊|💾)?.*(?:https?:\/\/[^\s\)]+?\.(?:docx|xlsx|csv|pdf)|\[(?:Download|View|Expense|Successfully)[^\]]*\]\([^\)]+\))/i) ||
-      trimmed.match(/^\[(?:Download|View|Expense|Successfully)[^\]]*\]\(https?:\/\/[^\s\)]+\)/i) ||
-      trimmed.match(/^https?:\/\/[^\s\)]+?\.(?:docx|xlsx|csv|pdf)$/i)
+      // Markdown links with documents
+      trimmed.match(/^[-*•]?\s*(?:📄|📑|📊|💾|📁|📥)?\s*.*(?:\/results\/|https?:\/\/|file:\/\/)[^\s\)]+?\.(?:docx|xlsx|csv|pdf)/i) ||
+      trimmed.match(/^\[(?:Download|View|Expense|Successfully|Скачать)[^\]]*\]\([^\)]+\)/i) ||
+      trimmed.match(/^(?:https?:\/\/|\/results\/|file:\/\/)[^\s\)]+?\.(?:docx|xlsx|csv|pdf)$/i) ||
+      // Redundant download sentences
+      trimmed.match(/^(?:Вы можете скачать|Скачать отчет|You can download the report|Download link|Generated Deliverables)/i) ||
+      trimmed.match(/^[-*•]?\s*(?:📁|📥)\s*(?:Скачать|Download)/i) ||
+      trimmed.match(/^###\s*(?:📂\s*)?Generated Deliverables/i)
     ) {
       return false;
     }

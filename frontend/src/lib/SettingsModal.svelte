@@ -1,147 +1,211 @@
 <script>
-  import { Settings, Sparkles, Building, Check, AlertCircle } from '@lucide/svelte';
+  import { Settings, X, Check, Globe, Cpu, Layout } from '@lucide/svelte';
+  import { DEFAULT_CONFIG } from './constants.js';
 
   let {
     show = false,
-    config = { communityName: 'GDG Krakow' },
+    config = DEFAULT_CONFIG,
     onSave = () => {},
     onClose = () => {}
   } = $props();
 
-  let draftCommunityName = $state('GDG Krakow');
-  let isSavedNotice = $state(false);
+  let draft = $state({ ...DEFAULT_CONFIG });
+  let saveStatus = $state('');
+  let saveTimer = null;
 
-  // Validation rules
-  const trimmed = $derived((draftCommunityName || '').trim());
-  const validationError = $derived.by(() => {
-    if (!draftCommunityName || trimmed === '') {
-      return 'Community name cannot be empty.';
-    }
-    if (trimmed.length < 4) {
-      return `Name is too short (min 4 characters, currently ${trimmed.length}).`;
-    }
-    if (draftCommunityName.length > 30) {
-      return `Name is too long (max 30 characters, currently ${draftCommunityName.length}).`;
-    }
-    return '';
-  });
-
-  const isValid = $derived(validationError === '');
-
-  // Sync draft state whenever modal opens or config changes
+  // Sync draft state whenever modal opens or external config changes
   $effect(() => {
     if (show) {
-      draftCommunityName = config.communityName || 'GDG Krakow';
-      isSavedNotice = false;
+      draft = {
+        ...DEFAULT_CONFIG,
+        ...config
+      };
+      saveStatus = '';
     }
   });
 
-  function handleSave() {
-    if (!isValid) return;
+  function triggerAutoSave(newValues) {
     const updated = {
       ...config,
-      communityName: trimmed
+      ...draft,
+      ...newValues
     };
     onSave(updated);
-    isSavedNotice = true;
-    setTimeout(() => {
-      onClose();
-    }, 400);
+
+    saveStatus = 'Saved';
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveStatus = '';
+    }, 1800);
+  }
+
+  function handleTextInput(key, event) {
+    const val = event.target.value;
+    draft[key] = val;
+    triggerAutoSave({ [key]: val });
+  }
+
+  function toggleSwitch(key) {
+    const nextVal = !draft[key];
+    draft[key] = nextVal;
+    triggerAutoSave({ [key]: nextVal });
   }
 </script>
 
 {#if show}
   <div 
     class="modal-backdrop" 
-    role="button" 
-    tabindex="-1" 
+    role="presentation"
     onclick={(e) => { if (e.target === e.currentTarget) onClose(); }} 
     onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}
   >
-    <div class="modal-card">
-      <header class="modal-header">
-        <div class="modal-title-group">
-          <div class="settings-icon-box">
-            <Settings size={18} />
-          </div>
-          <div>
-            <h2>Studio Settings</h2>
-            <span class="modal-sub">Customize Community Studio variables and defaults</span>
-          </div>
+    <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <!-- Header -->
+      <header class="dialog-header">
+        <div class="header-title-area">
+          <Settings size={16} class="header-icon" />
+          <h2 id="settings-title">Settings</h2>
+          {#if saveStatus}
+            <span class="autosave-badge">
+              <Check size={12} />
+              {saveStatus}
+            </span>
+          {/if}
         </div>
-        <button class="modal-close-btn" onclick={onClose} title="Close">&times;</button>
+        <button class="icon-btn-close" onclick={onClose} aria-label="Close settings" title="Close (Esc)">
+          <X size={16} />
+        </button>
       </header>
 
-      <div class="modal-body">
-        <!-- Community Section -->
-        <div class="settings-section">
-          <div class="section-title">
-            <Building size={16} class="section-icon" />
-            <span>Community & Chapter</span>
+      <!-- Body / Setting Sections -->
+      <div class="dialog-body">
+        <!-- Section: General / Workspace -->
+        <section class="setting-group">
+          <div class="group-header">
+            <Globe size={14} />
+            <h3>General</h3>
           </div>
-          
-          <div class="setting-item">
-            <div class="label-row">
-              <label for="communityName" class="setting-label">Community Name</label>
-              <span class="char-counter" class:counter-error={!isValid}>
-                {draftCommunityName.length} / 30
-              </span>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <label for="setting-community-name" class="setting-title">Community Chapter</label>
+              <p class="setting-desc">Primary chapter identifier used across generated posts, agendas, and reports.</p>
             </div>
-            <p class="setting-desc">Primary chapter identifier used across post generators, meeting minutes, and agenda formatting.</p>
-            
-            <div class="input-wrapper">
-              <input 
-                id="communityName" 
-                type="text" 
-                maxlength="35"
-                bind:value={draftCommunityName} 
+            <div class="setting-control">
+              <input
+                id="setting-community-name"
+                type="text"
+                value={draft.communityName || ''}
+                oninput={(e) => handleTextInput('communityName', e)}
                 placeholder="e.g. GDG Krakow"
-                class="settings-text-input"
-                class:input-error={!isValid}
+                class="ide-input"
+                maxlength="50"
               />
             </div>
-
-            {#if !isValid}
-              <div class="validation-error-msg">
-                <AlertCircle size={13} />
-                <span>{validationError}</span>
-              </div>
-            {:else}
-              <span class="preview-badge">
-                Active Chapter: <strong>{trimmed}</strong>
-              </span>
-            {/if}
           </div>
-        </div>
+        </section>
 
-        <!-- Future Settings Placeholder Slot -->
-        <div class="settings-section future-section">
-          <div class="section-title">
-            <Sparkles size={16} class="section-icon" />
-            <span>Agent Orchestration Defaults</span>
+        <!-- Section: Agent Execution -->
+        <section class="setting-group">
+          <div class="group-header">
+            <Cpu size={14} />
+            <h3>Agent Execution</h3>
           </div>
-          <p class="setting-desc">Additional preferences, language defaults, and agent configurations will be configured here.</p>
-        </div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <span class="setting-title">Stream Responses</span>
+              <p class="setting-desc">Render agent output in real-time as tokens arrive from the reasoning engines.</p>
+            </div>
+            <div class="setting-control">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={draft.streamResponses}
+                aria-label="Toggle Stream Responses"
+                class="ide-switch"
+                class:active={draft.streamResponses}
+                onclick={() => toggleSwitch('streamResponses')}
+              >
+                <span class="switch-knob"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <span class="setting-title">Show Tool Execution Details</span>
+              <p class="setting-desc">Display intermediate function calls, OCR queries, and rendering pipeline events.</p>
+            </div>
+            <div class="setting-control">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={draft.showToolCalls}
+                aria-label="Toggle Tool Execution Details"
+                class="ide-switch"
+                class:active={draft.showToolCalls}
+                onclick={() => toggleSwitch('showToolCalls')}
+              >
+                <span class="switch-knob"></span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Interface & Layout -->
+        <section class="setting-group">
+          <div class="group-header">
+            <Layout size={14} />
+            <h3>Interface & Layout</h3>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <span class="setting-title">Auto-scroll Timeline</span>
+              <p class="setting-desc">Automatically follow newest messages and streaming tokens in the active conversation.</p>
+            </div>
+            <div class="setting-control">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={draft.autoScroll}
+                aria-label="Toggle Auto-scroll"
+                class="ide-switch"
+                class:active={draft.autoScroll}
+                onclick={() => toggleSwitch('autoScroll')}
+              >
+                <span class="switch-knob"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <span class="setting-title">Compact View Density</span>
+              <p class="setting-desc">Condense spacing between chat events for high-density multi-agent tracking.</p>
+            </div>
+            <div class="setting-control">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={draft.compactDensity}
+                aria-label="Toggle Compact View Density"
+                class="ide-switch"
+                class:active={draft.compactDensity}
+                onclick={() => toggleSwitch('compactDensity')}
+              >
+                <span class="switch-knob"></span>
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
 
-      <footer class="modal-actions">
-        {#if isSavedNotice}
-          <div class="saved-indicator">
-            <Check size={14} />
-            <span>Settings saved!</span>
-          </div>
-        {/if}
-        <div class="action-buttons">
-          <button class="btn-secondary" onclick={onClose}>Cancel</button>
-          <button 
-            class="btn-primary" 
-            onclick={handleSave} 
-            disabled={!isValid}
-            title={!isValid ? validationError : 'Save Settings'}
-          >
-            Save Changes
-          </button>
-        </div>
+      <!-- Clean Footer -->
+      <footer class="dialog-footer">
+        <span class="footer-hint">Settings are saved automatically to your workspace.</span>
+        <button class="btn-done" onclick={onClose}>Done</button>
       </footer>
     </div>
   </div>
@@ -151,267 +215,250 @@
   .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(11, 12, 14, 0.8);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
     z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
-    animation: fadeIn 0.2s ease-out;
+    padding: 16px;
+    animation: fadeIn 0.15s ease-out;
   }
 
-  .modal-card {
+  .settings-dialog {
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-xl);
-    max-width: 580px;
+    border-radius: var(--radius-lg);
     width: 100%;
+    max-width: 540px;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
-    box-shadow: var(--shadow-elevation-3);
+    box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.05);
     overflow: hidden;
   }
 
-  .modal-header {
+  /* Header */
+  .dialog-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 24px;
+    padding: 14px 18px;
     border-bottom: 1px solid var(--border-subtle);
-  }
-
-  .modal-title-group {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .settings-icon-box {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-md);
     background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-subtle);
+  }
+
+  .header-title-area {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 8px;
+  }
+
+  :global(.header-icon) {
     color: var(--primary-accent);
   }
 
-  .modal-header h2 {
-    font-size: 16px;
-    font-weight: 700;
+  .dialog-header h2 {
+    font-size: 14px;
+    font-weight: 600;
     color: var(--text-primary);
     margin: 0;
+    letter-spacing: -0.01em;
   }
 
-  .modal-sub {
+  .autosave-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 11px;
-    color: var(--text-tertiary);
+    font-weight: 500;
+    color: var(--status-success);
+    background: rgba(129, 201, 149, 0.12);
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    animation: fadeIn 0.15s ease-out;
   }
 
-  .modal-close-btn {
-    background: none;
+  .icon-btn-close {
+    background: transparent;
     border: none;
     color: var(--text-secondary);
-    font-size: 24px;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    line-height: 1;
-    padding: 4px;
+    transition: var(--transition-fast);
   }
 
-  .modal-close-btn:hover {
+  .icon-btn-close:hover {
+    background: var(--bg-surface-variant);
     color: var(--text-primary);
   }
 
-  .modal-body {
-    padding: 24px;
+  /* Body */
+  .dialog-body {
+    padding: 16px 18px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 20px;
   }
 
-  .settings-section {
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 18px 20px;
+  .setting-group {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 2px;
   }
 
-  .future-section {
-    opacity: 0.85;
-    border-style: dashed;
-  }
-
-  .section-title {
+  .group-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  :global(.section-icon) {
-    color: var(--primary-accent);
-  }
-
-  .setting-item {
-    display: flex;
-    flex-direction: column;
     gap: 6px;
-  }
-
-  .label-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .setting-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .char-counter {
-    font-size: 11px;
     color: var(--text-tertiary);
-    font-family: var(--font-family-mono, monospace);
+    margin-bottom: 6px;
+    padding-bottom: 4px;
   }
 
-  .counter-error {
-    color: var(--accent-red, #ea4335);
+  .group-header h3 {
+    font-size: 11px;
     font-weight: 600;
-  }
-
-  .setting-desc {
-    font-size: 12px;
-    color: var(--text-secondary);
-    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
     margin: 0;
   }
 
-  .input-wrapper {
-    margin-top: 4px;
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
   }
 
-  .settings-text-input {
-    width: 100%;
+  .setting-row:hover {
+    background: var(--bg-surface-elevated);
+  }
+
+  .setting-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .setting-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .setting-desc {
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+    line-height: 1.35;
+    margin: 0;
+  }
+
+  .setting-control {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Input */
+  .ide-input {
+    width: 190px;
     background: var(--bg-app);
     border: 1px solid var(--border-subtle);
     color: var(--text-primary);
-    padding: 8px 14px;
-    border-radius: var(--radius-pill);
-    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
     outline: none;
     transition: var(--transition-fast);
-    box-sizing: border-box;
   }
 
-  .settings-text-input:focus {
+  .ide-input:focus {
     border-color: var(--primary-accent);
     box-shadow: 0 0 0 2px var(--primary-accent-container);
   }
 
-  .settings-text-input.input-error {
-    border-color: var(--accent-red, #ea4335);
-    box-shadow: 0 0 0 2px rgba(234, 67, 53, 0.15);
-  }
-
-  .validation-error-msg {
+  /* Toggle Switch (Тумблер) */
+  .ide-switch {
+    width: 36px;
+    height: 20px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-surface-variant);
+    border: 1px solid var(--border-medium);
+    padding: 0;
+    position: relative;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--accent-red, #ea4335);
-    margin-top: 4px;
-    font-weight: 500;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
   }
 
-  .preview-badge {
-    display: inline-flex;
+  .ide-switch:focus-visible {
+    box-shadow: 0 0 0 2px var(--primary-accent);
+  }
+
+  .ide-switch.active {
+    background: var(--primary-accent);
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 8px var(--gemini-active-glow);
+  }
+
+  .switch-knob {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ffffff;
+    transform: translateX(2px);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+
+  .ide-switch.active .switch-knob {
+    transform: translateX(18px);
+  }
+
+  /* Footer */
+  .dialog-footer {
+    display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: space-between;
+    padding: 10px 18px;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-surface-elevated);
+  }
+
+  .footer-hint {
     font-size: 11px;
     color: var(--text-tertiary);
-    margin-top: 4px;
   }
 
-  .preview-badge strong {
-    color: var(--primary-accent);
-  }
-
-  .modal-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 16px 24px;
-    border-top: 1px solid var(--border-subtle);
-    background: var(--bg-surface);
-  }
-
-  .saved-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--accent-green, #34a853);
-    font-size: 12px;
-    font-weight: 600;
-    animation: fadeIn 0.2s ease-out;
-  }
-
-  .action-buttons {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-left: auto;
-  }
-
-  .btn-secondary {
-    background: transparent;
+  .btn-done {
+    background: var(--bg-surface-variant);
     border: 1px solid var(--border-subtle);
-    color: var(--text-secondary);
-    padding: 8px 16px;
-    border-radius: var(--radius-pill);
-    font-size: 13px;
+    color: var(--text-primary);
+    padding: 5px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: var(--transition-fast);
   }
 
-  .btn-secondary:hover {
-    background: var(--bg-surface-elevated);
-    color: var(--text-primary);
-  }
-
-  .btn-primary {
-    background: var(--primary-gradient, var(--primary-accent));
-    color: #ffffff;
-    border: none;
-    padding: 8px 20px;
-    border-radius: var(--radius-pill);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
-    transition: var(--transition-fast);
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-
-  .btn-primary:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+  .btn-done:hover {
+    background: var(--border-medium);
   }
 
   @keyframes fadeIn {

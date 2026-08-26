@@ -13,9 +13,10 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "agents"))
 sys.path.insert(0, str(project_root / "agents" / "receipt_scanner"))
 
-os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
-os.environ["GOOGLE_CLOUD_PROJECT"] = "gdg-agents-496611"
-os.environ["GOOGLE_CLOUD_LOCATION"] = "europe-central2"
+from dotenv import load_dotenv
+
+# Load environment configuration from .env
+load_dotenv(project_root / ".env")
 
 from google.adk.runners import Runner
 from google.adk.sessions.in_memory_session_service import InMemorySessionService

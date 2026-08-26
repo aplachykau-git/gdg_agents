@@ -515,17 +515,8 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "") -> str:
 
     photo_path = os.path.abspath(photo_path)
 
-    # Gemini API client for outpainting
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if api_key:
-        gemini_client = genai.Client(api_key=api_key, vertexai=False)
-    else:
-        project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "gdg-agents-496611")
-        gemini_client = genai.Client(
-            vertexai=True,
-            project=project_id,
-            location="us-central1",
-        )
+    # Gemini client for outpainting
+    gemini_client = get_gemini_client()
 
     # Outpaint to 9:16
     photo_path = outpaint_to_9_16(photo_path, gemini_client)

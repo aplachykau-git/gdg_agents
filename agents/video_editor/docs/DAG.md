@@ -1,4 +1,4 @@
-# Video Editor Workflow DAG
+# Video Editor Workflow Pipeline
 
 ```mermaid
 flowchart TD

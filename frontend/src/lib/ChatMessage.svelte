@@ -34,17 +34,27 @@
   const errInfo = $derived(getEventError(event));
   const theme = $derived(getAgentTheme(event?.author));
   const showHandoff = $derived(shouldShowDelegationHandoff(event, index, allEvents));
+  const messageParts = $derived.by(() => {
+    if (event?.content?.parts && event.content.parts.length > 0) {
+      return event.content.parts;
+    }
+    if (event?.output?.summary) {
+      return [{ text: event.output.summary }];
+    }
+    return [];
+  });
+
   const hasVariants = $derived(
-    event.content?.parts?.some(p => p.text && parseResponseVariants(p.text, event.author).length > 1)
+    messageParts.some(p => p.text && parseResponseVariants(p.text, event.author).length > 1)
   );
   const hasAgenda = $derived(
-    event.content?.parts?.some(p => p.text && isAgendaOutput(p.text, event.author))
+    messageParts.some(p => p.text && isAgendaOutput(p.text, event.author))
   );
   const hasMedia = $derived(
-    event.content?.parts?.some(p => p.text && extractMediaAssets(p.text))
+    messageParts.some(p => p.text && extractMediaAssets(p.text))
   );
   const hasDoc = $derived(
-    event.content?.parts?.some(p => p.text && extractDocumentAssets(p.text))
+    messageParts.some(p => p.text && extractDocumentAssets(p.text))
   );
   const isWide = $derived(Boolean(hasVariants || hasAgenda || hasMedia || hasDoc));
 </script>
@@ -73,19 +83,20 @@
     <div class="message-card user-card">
       <div class="card-author">
         <User size={14} />
-        <span>You</span>
+        <span>User</span>
       </div>
+      
       {#if event.content && event.content.parts}
         {#each event.content.parts as part}
           {#if part.text}
             <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
           {/if}
+          
           {#if part.inline_data || part.inlineData}
-            {@const inline = part.inline_data || part.inlineData}
-            {@const mime = inline.mime_type || inline.mimeType || ''}
+            {@const data = part.inline_data || part.inlineData}
             <div class="user-attached-file-badge">
               <Paperclip size={13} class="badge-paperclip" />
-              <span class="badge-filename">Attached Media ({mime.replace('image/', 'img:').replace('video/', 'video:').replace('application/', '') || 'file'})</span>
+              <span class="badge-filename">Attached Media ({(data.mime_type || data.mimeType || 'file').replace('image/', 'img:').replace('video/', 'video:')})</span>
               <span class="badge-status-dot"></span>
               <span class="badge-status-label">Transferred</span>
             </div>
@@ -95,7 +106,7 @@
     </div>
   </div>
 {:else}
-  <!-- Explicit Sub-Agent Delegation Handoff Divider -->
+  <!-- Agent Delegation Divider (When transferring between agents) -->
   {#if showHandoff}
     <div class="agent-delegation-divider">
       <div class="delegation-line"></div>
@@ -118,8 +129,8 @@
         </div>
       </div>
 
-      {#if event.content && event.content.parts}
-        {#each event.content.parts as part}
+      {#if messageParts.length > 0}
+        {#each messageParts as part}
           {#if part.text}
             {@const media = extractMediaAssets(part.text)}
             {@const doc = extractDocumentAssets(part.text)}

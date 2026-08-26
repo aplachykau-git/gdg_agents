@@ -6,6 +6,7 @@
     Loader2, 
     Check, 
     Copy,
+    Users,
     ExternalLink
   } from '@lucide/svelte';
   import { downloadDirectFile } from './constants.js';
@@ -13,7 +14,8 @@
   let { doc = {} } = $props();
 
   let isDownloading = $state(false);
-  let isCopied = $state(false);
+  let isListCopied = $state(false);
+  let isCopyingList = $state(false);
 
   async function handleDownload(url, filename) {
     if (!url) return;
@@ -27,16 +29,33 @@
     }
   }
 
-  async function handleCopy(url) {
-    if (!url) return;
+  async function handleCopyList() {
+    isCopyingList = true;
     try {
-      await navigator.clipboard.writeText(url);
-      isCopied = true;
-      setTimeout(() => {
-        isCopied = false;
-      }, 2000);
+      let textToCopy = '';
+      const listUrl = doc?.txtUrl || '/results/registrations_list.txt';
+      try {
+        const res = await fetch(listUrl);
+        if (res.ok) {
+          textToCopy = await res.text();
+        }
+      } catch (err) {
+        console.warn('Direct list fetch failed:', err);
+      }
+
+      if (textToCopy) {
+        await navigator.clipboard.writeText(textToCopy);
+        isListCopied = true;
+        setTimeout(() => {
+          isListCopied = false;
+        }, 2500);
+      } else {
+        alert('Attendee list is not ready yet.');
+      }
     } catch (e) {
-      console.warn('Clipboard write failed:', e);
+      console.warn('Failed to copy attendee list:', e);
+    } finally {
+      isCopyingList = false;
     }
   }
 </script>
@@ -46,7 +65,9 @@
     <!-- Top Header / Document Meta -->
     <div class="doc-header-row">
       <div class="doc-icon-wrapper" class:spreadsheet={doc.fileType === 'CSV' || doc.fileType === 'XLSX'}>
-        {#if doc.fileType === 'CSV' || doc.fileType === 'XLSX'}
+        {#if doc.isRegistration}
+          <Users size={22} />
+        {:else if doc.fileType === 'CSV' || doc.fileType === 'XLSX'}
           <FileSpreadsheet size={22} />
         {:else}
           <FileText size={22} />
@@ -79,9 +100,26 @@
           <span>Downloading...</span>
         {:else}
           <Download size={15} />
-          <span>Download {doc.fileType} Report</span>
+          <span>Download {doc.fileType}</span>
         {/if}
       </button>
+
+      {#if doc.isRegistration || doc.txtUrl}
+        <button 
+          class="action-btn secondary-btn"
+          disabled={isCopyingList}
+          onclick={handleCopyList}
+          title="Copy clean list of attendees to clipboard"
+        >
+          {#if isListCopied}
+            <Check size={14} class="copied-check" />
+            <span>List Copied!</span>
+          {:else}
+            <Copy size={14} />
+            <span>Copy Attendee List</span>
+          {/if}
+        </button>
+      {/if}
 
       {#if doc.csvUrl && doc.csvUrl !== doc.primaryUrl}
         <button 
@@ -93,18 +131,6 @@
           <span>Download CSV</span>
         </button>
       {/if}
-
-      <button 
-        class="action-btn icon-only-btn"
-        onclick={() => handleCopy(doc.primaryUrl)}
-        title={isCopied ? "Link Copied!" : "Copy direct file link"}
-      >
-        {#if isCopied}
-          <Check size={14} class="copied-check" />
-        {:else}
-          <Copy size={14} />
-        {/if}
-      </button>
 
       {#if doc.primaryUrl.startsWith('http')}
         <a 

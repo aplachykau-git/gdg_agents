@@ -42,7 +42,7 @@
       id: 'root_agent',
       name: 'Main',
       role: 'Main Router & Coordinator',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash-lite',
       color: '#38BDF8',
       bg: 'rgba(56, 189, 248, 0.12)',
       icon: Layers,
@@ -74,7 +74,7 @@
       id: 'receipt_scanner',
       name: 'Receipt Scanner',
       role: 'Vision OCR & Exchange Rates',
-      model: 'gemini-2.5-pro',
+      model: 'gemini-3.6-flash',
       color: '#34D399',
       bg: 'rgba(52, 211, 153, 0.12)',
       icon: Receipt,
@@ -90,7 +90,7 @@
       id: 'linkedin_post_generator',
       name: 'LinkedIn Planner',
       role: 'Announcements & Recaps',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash-lite',
       color: '#0A66C2',
       bg: 'rgba(10, 102, 194, 0.12)',
       icon: Share2,
@@ -105,7 +105,7 @@
       id: 'registration_manager',
       name: 'Registrations Manager',
       role: 'Capacity & Duplicate Filter',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash-lite',
       color: '#FB923C',
       bg: 'rgba(251, 146, 60, 0.12)',
       icon: Users,
@@ -120,7 +120,7 @@
       id: 'event_planner',
       name: 'Event Scheduler',
       role: 'Meetup & Holiday Radar',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash-lite',
       color: '#F472B6',
       bg: 'rgba(244, 114, 182, 0.12)',
       icon: Calendar,
@@ -135,7 +135,7 @@
       id: 'agenda_generator',
       name: 'Agenda Formatter',
       role: 'Timeline Math & 5m Snapping',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash-lite',
       color: '#FBBF24',
       bg: 'rgba(251, 191, 36, 0.12)',
       icon: Clock,
@@ -150,7 +150,7 @@
       id: 'office_secretary',
       name: 'Office Secretary',
       role: 'Visitor Access & Event Hub',
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash-lite',
       color: '#2DD4BF',
       bg: 'rgba(45, 212, 191, 0.12)',
       icon: Mail,
@@ -323,7 +323,7 @@
         </div>
         <div>
           <div class="header-title-row">
-            <h3>Multi-Agent DAG Architecture</h3>
+            <h3>Multi-Agent Architecture</h3>
             <span class="active-badge-counter">{AGENTS_META.length} Active Nodes</span>
           </div>
           <span class="header-sub">Google ADK 2.0 Network &bull; Live Agent-to-Agent (A2A) Protocols</span>
@@ -340,7 +340,7 @@
         {:else}
           <div class="idle-badge">
             <span class="idle-dot"></span>
-            <span>DAG Standby ({events.length} Telemetry Events)</span>
+            <span>Network Standby ({events.length} Telemetry Events)</span>
           </div>
         {/if}
 
