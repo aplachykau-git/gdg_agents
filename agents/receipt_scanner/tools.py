@@ -31,6 +31,7 @@ except ImportError:
 from agents.common.storage import upload_bytes_to_storage
 from agents.gemini_config import get_gemini_client
 
+from .docx_generator import generate_expense_report_docx
 from .utils import _auto_rotate_image, _pdf_to_png_screenshot
 
 # ---------------------------------------------------------------------------
@@ -448,129 +449,34 @@ def export_summary_to_google_doc(
     tool_context: Optional[ToolContext] = None,
 ) -> dict:
     """
-    Creates a new Google Doc in your Google Drive by copying a template and populating it.
+    Generates a professional DOCX expense reimbursement report, embeds receipts,
+    and uploads the finalized document to Google Cloud Storage.
 
     Args:
-        title: Title of the Google Doc to create
-        folder_id: Optional Google Drive Folder ID.
-        template_id: Optional Google Docs Template ID.
-        exchange_rate: Optional Pekao bank exchange rate.
-        receipts_data: Optional structured list of dicts with keys: desc, sum_pln, sum_usd, image_path.
-        target_currency: Optional target approved currency for the report ("USD" or "EUR").
+        title: Title of the expense report document.
+        folder_id: Optional Drive Folder ID (maintained for signature backwards compatibility).
+        template_id: Optional template ID (maintained for signature backwards compatibility).
+        exchange_rate: Optional banking exchange rate.
+        receipts_data: Optional structured list of dicts with keys: category, desc, sum_curr, sum_target, image_path.
+        target_currency: Target approved currency for the report ("USD", "EUR", "PLN").
+        approved_budget: Optional approved budget annotation.
+        tool_context: ADK tool context for accessing session event attachments.
 
     Returns:
-        dict: Success status, document ID, and view link.
+        dict: Success status, file name, download link, and summary details.
     """
-    scopes = ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive"]
     try:
-        # Check for service account JSON keys or personal OAuth client credentials
         agent_dir = Path(__file__).resolve().parent
         project_root = agent_dir.parent.parent
 
-        sa_file = None
-        for p in [
-            project_root / "configs" / "service_account.json",
-            project_root / "service_account.json",
-            Path.cwd() / "configs" / "service_account.json",
-            Path.cwd() / "service_account.json",
-            agent_dir / "service_account.json",
-        ]:
-            if p.exists():
-                sa_file = p
-                break
-
-        client_secrets_file = None
-        for p in [
-            project_root / "configs" / "credentials.json",
-            project_root / "credentials.json",
-            Path.cwd() / "configs" / "credentials.json",
-            Path.cwd() / "credentials.json",
-            agent_dir / "credentials.json",
-        ]:
-            if p.exists():
-                client_secrets_file = p
-                break
-
-        credentials = None
-        if sa_file:
-            credentials = service_account.Credentials.from_service_account_file(str(sa_file), scopes=scopes)
-        elif client_secrets_file:
-            # Check for token.json in configs folder first, fallback to root or cwd
-            token_path = project_root / "configs" / "token.json"
-            if not token_path.exists() and (project_root / "token.json").exists():
-                token_path = project_root / "token.json"
-            elif not token_path.parent.exists():
-                token_path = project_root / "token.json"
-
-            if token_path.exists():
-                try:
-                    credentials = Credentials.from_authorized_user_file(str(token_path), scopes)
-                except Exception as load_err:
-                    print(f"Warning: Failed to load token.json: {load_err}")
-
-            if not credentials or not credentials.valid:
-                if credentials and credentials.expired and credentials.refresh_token:
-                    try:
-                        credentials.refresh(Request())
-                    except Exception as ref_err:
-                        print(f"Warning: Failed to refresh token: {ref_err}")
-                        try:
-                            token_path.unlink(missing_ok=True)
-                            print(f"Stale {token_path} deleted successfully.")
-                        except Exception:
-                            pass
-                        flow = InstalledAppFlow.from_client_secrets_file(str(client_secrets_file), scopes)
-                        credentials = flow.run_local_server(port=0)
-                else:
-                    flow = InstalledAppFlow.from_client_secrets_file(str(client_secrets_file), scopes)
-                    credentials = flow.run_local_server(port=0)
-
-                token_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(token_path, "w") as token:
-                    token.write(credentials.to_json())
-        else:
-            credentials, _ = google.auth.default(scopes=scopes)
-
-        try:
-            docs_service = build("docs", "v1", credentials=credentials)
-            if not hasattr(docs_service, "documents"):
-                docs_service = build("docs", "v1", credentials=credentials, static_discovery=False)
-        except Exception:
-            docs_service = build("docs", "v1", credentials=credentials, static_discovery=False)
-
-        try:
-            drive_service = build("drive", "v3", credentials=credentials)
-            if not hasattr(drive_service, "files"):
-                drive_service = build("drive", "v3", credentials=credentials, static_discovery=False)
-        except Exception:
-            drive_service = build("drive", "v3", credentials=credentials, static_discovery=False)
-
-        target_folder = folder_id or os.getenv("GOOGLE_DRIVE_FOLDER_ID")
-
-        # Resolve active template ID from .gdoc file if not provided as argument
-        if not template_id:
-            try:
-                gdoc_path = agent_dir / "assets" / "Expense_report_template.gdoc"
-                if gdoc_path.exists():
-                    with open(gdoc_path, "r") as f:
-                        gdoc_data = json.load(f)
-                        template_id = gdoc_data.get("doc_id")
-            except Exception as ex:
-                print(f"Warning: Failed to load doc_id from .gdoc asset: {ex}")
-
-        active_template = template_id or os.getenv("GOOGLE_DOCS_TEMPLATE_ID")
-
-        # ----------------------------------------------------
-        # Python-based Currency Calculations and Normalization
-        # ----------------------------------------------------
-        target_currency = target_currency.upper().strip()
+        target_currency = (target_currency or "USD").upper().strip()
 
         # Check if conversion is required (if any receipt is in a different currency)
         conversion_required = False
         local_curr_code = ""
         if receipts_data:
             for item in receipts_data:
-                item_curr = item.get("currency", "USD").upper().strip()
+                item_curr = str(item.get("currency", "USD")).upper().strip()
                 if item_curr != target_currency:
                     conversion_required = True
                     local_curr_code = item_curr
@@ -616,6 +522,7 @@ def export_summary_to_google_doc(
                 rate_source_name = "N/A"
                 rate_url = ""
 
+        # Normalize and calculate amounts
         normalized_receipts = []
         if receipts_data:
             for item in receipts_data:
@@ -640,7 +547,7 @@ def export_summary_to_google_doc(
                     else:
                         pln_rate = get_nbp_rate(curr_code)
                         amount_in_pln = amount_val * pln_rate
-                        amount_in_target = amount_in_pln / rate_val
+                        amount_in_target = amount_in_pln / (rate_val or 1.0)
 
                     sum_curr_str = f"{amount_val:.2f} {curr_code}"
                     sum_target_str = f"{amount_in_target:.2f} {target_currency}"
@@ -660,466 +567,56 @@ def export_summary_to_google_doc(
 
         receipts_data = normalized_receipts
 
-        doc_id = None
+        # Gather session attachments (raw image bytes) if available
+        session_images = []
+        if tool_context and hasattr(tool_context, "session") and tool_context.session:
+            events = getattr(tool_context.session, "events", []) or []
+            for event in events:
+                if (
+                    getattr(event, "author", "") == "user"
+                    and getattr(event, "content", None)
+                    and getattr(event.content, "parts", None)
+                ):
+                    for part in event.content.parts:
+                        if getattr(part, "inline_data", None) and getattr(part.inline_data, "data", None):
+                            session_images.append(part.inline_data.data)
 
-        if active_template:
-            # 1a. Copy the template document directly to the target folder
-            copy_body = {"name": title}
-            if target_folder:
-                copy_body["parents"] = [target_folder]
+        # Generate DOCX document bytes
+        results_dir = agent_dir / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
 
-            copied_file = drive_service.files().copy(fileId=active_template, body=copy_body).execute()
-            doc_id = copied_file.get("id")
+        safe_title = re.sub(r"[^a-zA-Z0-9_\-]", "_", title).strip("_") or "Expense_Report"
+        timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        docx_filename = f"{safe_title}_{timestamp_str}.docx"
+        local_docx_path = str(results_dir / docx_filename)
 
-            # Fetch document data to locate placeholders and tables
-            doc_data = docs_service.documents().get(documentId=doc_id).execute()
+        community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "GDG Krakow"))
 
-            def find_placeholder_index(content, placeholder):
-                for element in content:
-                    if "paragraph" in element:
-                        elements = element["paragraph"].get("elements", [])
-                        for el in elements:
-                            if "textRun" in el:
-                                text = el["textRun"].get("content", "")
-                                if placeholder in text:
-                                    return el.get("startIndex")
-                    elif "table" in element:
-                        table_rows = element["table"].get("tableRows", [])
-                        for row in table_rows:
-                            cells = row.get("tableCells", [])
-                            for cell in cells:
-                                cell_index = find_placeholder_index(cell.get("content", []), placeholder)
-                                if cell_index is not None:
-                                    return cell_index
-                return None
+        docx_bytes = generate_expense_report_docx(
+            title=title,
+            receipts_data=receipts_data,
+            target_currency=target_currency,
+            exchange_rate=rate_val or 1.0,
+            rate_source=rate_source_name,
+            rate_url=rate_url,
+            approved_budget=approved_budget,
+            community_name=community_name,
+            session_images=session_images,
+            output_path=local_docx_path,
+        )
 
-            # Helper to retrieve text from paragraph element
-            def get_paragraph_text(paragraph_element):
-                return "".join(el.get("textRun", {}).get("content", "") for el in paragraph_element.get("elements", []))
+        # Upload generated DOCX directly to Google Cloud Storage
+        cloud_docx_url = upload_bytes_to_storage(
+            data=docx_bytes,
+            destination_blob_name=f"reports/{docx_filename}",
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
 
-            # If no conversion is required, delete the currency conversion section
-            if not conversion_required:
-                delete_ranges = []
-                for element in doc_data.get("body", {}).get("content", []):
-                    if "paragraph" in element:
-                        text = get_paragraph_text(element["paragraph"])
-                        if (
-                            "currency conversion" in text.lower()
-                            or "{{current exchange rate}}" in text.lower()
-                            or "{{local currency code}}" in text.lower()
-                        ):
-                            delete_ranges.append((element["startIndex"], element["endIndex"]))
-
-                if delete_ranges:
-                    delete_ranges.sort(key=lambda r: r[0], reverse=True)
-                    requests = []
-                    for start, end in delete_ranges:
-                        requests.append({"deleteContentRange": {"range": {"startIndex": start, "endIndex": end}}})
-                    try:
-                        docs_service.documents().batchUpdate(documentId=doc_id, body={"requests": requests}).execute()
-                    except Exception as delete_err:
-                        print(f"Warning: Failed to delete conversion paragraphs: {delete_err}")
-
-                    # Refetch doc_data to update structural indices
-                    doc_data = docs_service.documents().get(documentId=doc_id).execute()
-
-            # ----------------------------------------------------
-            # 1. EXPENSES TABLE HANDLING (2. List of Expenses)
-            # ----------------------------------------------------
-            def find_table_with_placeholder(content, placeholder):
-                for element in content:
-                    if "table" in element:
-                        for row in element["table"].get("tableRows", []):
-                            for cell in row.get("tableCells", []):
-                                for cell_el in cell.get("content", []):
-                                    if "paragraph" in cell_el:
-                                        for part in cell_el["paragraph"].get("elements", []):
-                                            if "textRun" in part:
-                                                if placeholder in part["textRun"].get("content", ""):
-                                                    return element
-                return None
-
-            placeholder_table = find_table_with_placeholder(doc_data.get("body", {}).get("content", []), "{{Desc}}")
-
-            if placeholder_table and receipts_data and len(receipts_data) > 1:
-                table_start_index = placeholder_table.get("startIndex")
-
-                # Insert empty rows below row 1
-                for i in range(len(receipts_data) - 1):
-                    docs_service.documents().batchUpdate(
-                        documentId=doc_id,
-                        body={
-                            "requests": [
-                                {
-                                    "insertTableRow": {
-                                        "tableCellLocation": {
-                                            "tableStartLocation": {"index": table_start_index},
-                                            "rowIndex": 1 + i,
-                                            "columnIndex": 0,
-                                        },
-                                        "insertBelow": True,
-                                    }
-                                }
-                            ]
-                        },
-                    ).execute()
-
-                # Fetch updated document structural indices
-                doc_data = docs_service.documents().get(documentId=doc_id).execute()
-
-                # Locate table in the updated document
-                updated_table = None
-                for el in doc_data.get("body", {}).get("content", []):
-                    if "table" in el and el.get("startIndex") == table_start_index:
-                        updated_table = el
-                        break
-
-                if updated_table:
-                    cell_inserts = []
-                    # Populate newly created rows with index 1 to N-1 (rows 2 to N in document)
-                    for k in range(1, len(receipts_data)):
-                        row = updated_table["table"]["tableRows"][1 + k]
-                        cells = row["tableCells"]
-
-                        texts_to_write = [
-                            str(1 + k),
-                            "",  # Leave Category cell empty to not override dropdown manually
-                            receipts_data[k].get("desc", ""),
-                            receipts_data[k].get("sum_curr", ""),
-                            receipts_data[k].get("sum_target", ""),
-                        ]
-
-                        for col_idx, text_to_write in enumerate(texts_to_write):
-                            if col_idx < len(cells):
-                                cell = cells[col_idx]
-                                if cell.get("content") and "paragraph" in cell["content"][0]:
-                                    elements = cell["content"][0]["paragraph"].get("elements", [])
-                                    if elements:
-                                        start_idx = elements[0].get("startIndex")
-                                        if text_to_write:
-                                            cell_inserts.append(
-                                                {
-                                                    "insertText": {
-                                                        "location": {"index": start_idx},
-                                                        "text": text_to_write,
-                                                    }
-                                                }
-                                            )
-
-                    # Sort inserts in descending order of startIndex to prevent offset shift invalidation
-                    if cell_inserts:
-                        cell_inserts.sort(key=lambda x: x["insertText"]["location"]["index"], reverse=True)
-                        docs_service.documents().batchUpdate(
-                            documentId=doc_id, body={"requests": cell_inserts}
-                        ).execute()
-
-                # Refetch document content
-                doc_data = docs_service.documents().get(documentId=doc_id).execute()
-
-            # ----------------------------------------------------
-            # 2. GLOBAL METADATA REPLACEMENTS
-            # ----------------------------------------------------
-            today_str = datetime.date.today().strftime("%d.%m.%Y")
-
-            total_curr_str, total_target_str = calculate_receipt_totals(receipts_data, target_currency)
-
-            global_replaces = [
-                ("{{TITLE}}", title),
-                ("{{Current date}}", today_str),
-                ("{{EUR/USD}}", target_currency),
-                ("{{Current exchange rate}}", f"{rate_val:.4f}"),
-                ("{{Local Currency Code}}", local_curr_code),
-                ("{{TOTAL SUM CURR}}", total_curr_str),
-                ("{{TOTAL SUM EUR/USD}}", total_target_str),
-                ("{{APPROVED}}", approved_budget or ""),
-            ]
-            if receipts_data:
-                global_replaces.extend(
-                    [
-                        ("{{Desc}}", receipts_data[0].get("desc", "Expense")),
-                        ("{{SUM CURR}}", receipts_data[0].get("sum_curr", "")),
-                        ("{{SUM EUR/USD}}", receipts_data[0].get("sum_target", "")),
-                    ]
-                )
-
-            metadata_requests = []
-            for placeholder, val in global_replaces:
-                metadata_requests.append(
-                    {"replaceAllText": {"containsText": {"text": placeholder, "matchCase": True}, "replaceText": val}}
-                )
-
+        # Also generate CSV backup
+        total_curr_str, total_target_str = calculate_receipt_totals(receipts_data, target_currency)
+        cloud_csv_url = None
+        if receipts_data:
             try:
-                docs_service.documents().batchUpdate(documentId=doc_id, body={"requests": metadata_requests}).execute()
-            except Exception as e:
-                print(f"Warning: Failed to replace metadata tags: {e}")
-
-            # Refetch doc_data to get updated indices after first replacements
-            doc_data = docs_service.documents().get(documentId=doc_id).execute()
-
-            # 2.2 Linkify the {{Bank link}} placeholder
-            target_link_url = rate_url or "https://www.pekao.com.pl/kursy-walut.html"
-            link_placeholder = "{{Bank link}}"
-            link_index = find_placeholder_index(doc_data.get("body", {}).get("content", []), link_placeholder)
-            if link_index is not None:
-                link_text = target_link_url
-                try:
-                    docs_service.documents().batchUpdate(
-                        documentId=doc_id,
-                        body={
-                            "requests": [
-                                {
-                                    "deleteContentRange": {
-                                        "range": {
-                                            "startIndex": link_index,
-                                            "endIndex": link_index + len(link_placeholder),
-                                        }
-                                    }
-                                },
-                                {
-                                    "insertText": {
-                                        "location": {
-                                            "index": link_index,
-                                        },
-                                        "text": link_text,
-                                    }
-                                },
-                                {
-                                    "updateTextStyle": {
-                                        "range": {
-                                            "startIndex": link_index,
-                                            "endIndex": link_index + len(link_text),
-                                        },
-                                        "textStyle": {
-                                            "link": {
-                                                "url": target_link_url,
-                                            },
-                                            "underline": True,
-                                            "foregroundColor": {
-                                                "color": {
-                                                    "rgbColor": {
-                                                        "blue": 0.8,
-                                                        "green": 0.3,
-                                                        "red": 0.1,
-                                                    }
-                                                }
-                                            },
-                                        },
-                                        "fields": "link,underline,foregroundColor",
-                                    }
-                                },
-                            ]
-                        },
-                    ).execute()
-                except Exception as link_e:
-                    print(f"Warning: Failed to format bank link: {link_e}")
-
-            # Fetch updated doc data for subsequent steps
-            doc_data = docs_service.documents().get(documentId=doc_id).execute()
-
-            # ----------------------------------------------------
-            # 3. PROOFS (RECEIPTS IMAGES/PDFs) INSERTION
-            # ----------------------------------------------------
-            proofs_placeholder = "{{PROOFS}}"
-            proofs_index = find_placeholder_index(doc_data.get("body", {}).get("content", []), proofs_placeholder)
-
-            if proofs_index is not None:
-                # Delete the {{PROOFS}} placeholder text
-                docs_service.documents().batchUpdate(
-                    documentId=doc_id,
-                    body={
-                        "requests": [
-                            {
-                                "deleteContentRange": {
-                                    "range": {
-                                        "startIndex": proofs_index,
-                                        "endIndex": proofs_index + len(proofs_placeholder),
-                                    }
-                                }
-                            }
-                        ]
-                    },
-                ).execute()
-
-                # Helper to upload local scan files to Google Drive
-                def upload_file_to_drive(drive_service, file_path, folder_dest=None):
-                    f_path = Path(file_path)
-                    if not f_path.exists():
-                        return None
-
-                    mime, _ = mimetypes.guess_type(str(f_path))
-                    if not mime:
-                        mime = "application/octet-stream"
-
-                    meta = {"name": f_path.name}
-                    if folder_dest:
-                        meta["parents"] = [folder_dest]
-
-                    try:
-                        media = MediaFileUpload(str(f_path), mimetype=mime, resumable=True)
-                        up_file = (
-                            drive_service.files()
-                            .create(
-                                body=meta, media_body=media, fields="id, webContentLink, webViewLink, thumbnailLink"
-                            )
-                            .execute()
-                        )
-
-                        fid = up_file.get("id")
-                        # Share publicly so Docs API can read the image data
-                        try:
-                            drive_service.permissions().create(
-                                fileId=fid, body={"role": "reader", "type": "anyone"}
-                            ).execute()
-                        except Exception as share_e:
-                            print(f"Warning: Failed to make file public: {share_e}")
-
-                        up_file["mime_type"] = mime
-                        return up_file
-                    except Exception as upload_e:
-                        print(f"Warning: Failed to upload scan file: {upload_e}")
-                        return None
-
-                if receipts_data:
-                    # Collect session attachments in chronological order
-                    session_attachments = []
-                    if tool_context and tool_context.session:
-                        events = tool_context.session.events or []
-                        for event in events:
-                            if event.author == "user" and event.content and event.content.parts:
-                                for part in event.content.parts:
-                                    if part.inline_data and part.inline_data.data:
-                                        session_attachments.append(
-                                            {
-                                                "data": part.inline_data.data,
-                                                "mime_type": part.inline_data.mime_type or "image/jpeg",
-                                            }
-                                        )
-
-                    # Insert in reversed order so they appear chronologically at proofs_index
-                    for i, receipt in reversed(list(enumerate(receipts_data))):
-                        path_str = receipt.get("image_path")
-                        temp_file_path = None
-
-                        # Check if file exists locally
-                        file_exists = False
-                        if path_str:
-                            try:
-                                resolved = Path(path_str).expanduser().resolve()
-                                file_exists = resolved.exists()
-                            except Exception:
-                                file_exists = False
-
-                        if not file_exists and i < len(session_attachments):
-                            # Self-healing: Extract from session events!
-                            attachment = session_attachments[i]
-                            mime = attachment["mime_type"]
-                            ext_map = {
-                                "image/png": ".png",
-                                "image/jpeg": ".jpg",
-                                "image/webp": ".webp",
-                                "application/pdf": ".pdf",
-                            }
-                            ext = ext_map.get(mime, ".jpg")
-
-                            assets_dir = Path(__file__).resolve().parent / "assets"
-                            assets_dir.mkdir(exist_ok=True)
-
-                            temp_file_path = assets_dir / f"uploaded_receipt_{i}{ext}"
-                            with open(temp_file_path, "wb") as f:
-                                f.write(attachment["data"])
-
-                            path_str = str(temp_file_path)
-                            print(f"[DEBUG] Self-healed missing local file using session attachment {i}: {path_str}")
-
-                        if not path_str:
-                            continue
-
-                        is_pdf = path_str.lower().endswith(".pdf")
-                        temp_files_to_cleanup = []  # local temp files created by helpers
-                        if temp_file_path:
-                            temp_files_to_cleanup.append(str(temp_file_path))
-
-                        if is_pdf:
-                            # Convert PDF first page to PNG screenshot (never copies the PDF)
-                            png_path = _pdf_to_png_screenshot(path_str)
-                            if png_path:
-                                upload_path = png_path
-                                temp_files_to_cleanup.append(png_path)
-                            else:
-                                print(f"[WARNING] Skipping PDF (could not render): {path_str}")
-                                continue
-                        else:
-                            # Auto-rotate image by EXIF if needed
-                            rotated_path = _auto_rotate_image(path_str)
-                            upload_path = rotated_path
-                            if rotated_path != path_str:
-                                temp_files_to_cleanup.append(rotated_path)
-
-                        uploaded = upload_file_to_drive(drive_service, upload_path, target_folder)
-
-                        # Clean up local temp files regardless of upload outcome
-                        for tf in temp_files_to_cleanup:
-                            try:
-                                os.unlink(tf)
-                            except Exception:
-                                pass
-
-                        if uploaded:
-                            # Always treat as image (PNG from PDF or rotated photo)
-                            docs_service.documents().batchUpdate(
-                                documentId=doc_id,
-                                body={
-                                    "requests": [
-                                        {
-                                            "insertInlineImage": {
-                                                "uri": uploaded.get("thumbnailLink", "").replace("=s220", "=s2000")
-                                                if uploaded.get("thumbnailLink")
-                                                else uploaded.get("webContentLink"),
-                                                "objectSize": {"width": {"magnitude": 220, "unit": "PT"}},
-                                                "location": {"index": proofs_index},
-                                            }
-                                        },
-                                        {"insertText": {"location": {"index": proofs_index}, "text": "\n"}},
-                                    ]
-                                },
-                            ).execute()
-                            # Clean up the temporary uploaded image from Google Drive
-                            try:
-                                drive_service.files().delete(fileId=uploaded.get("id")).execute()
-                                print(f"[DEBUG] Successfully deleted temp Drive file {uploaded.get('id')}.")
-                            except Exception as cleanup_e:
-                                print(f"[WARNING] Failed to cleanup temp Drive file: {cleanup_e}")
-
-                # Fetch updated doc data
-                doc_data = docs_service.documents().get(documentId=doc_id).execute()
-
-            # Check if template has {{CONTENT}} fallback and remove it if present
-            placeholder_content = "{{CONTENT}}"
-            content_index = find_placeholder_index(doc_data.get("body", {}).get("content", []), placeholder_content)
-
-            if content_index is not None:
-                docs_service.documents().batchUpdate(
-                    documentId=doc_id,
-                    body={
-                        "requests": [
-                            {
-                                "deleteContentRange": {
-                                    "range": {
-                                        "startIndex": content_index,
-                                        "endIndex": content_index + len(placeholder_content),
-                                    }
-                                }
-                            }
-                        ]
-                    },
-                ).execute()
-        else:
-            return {"success": False, "error": "No template ID provided. Raw text export is disabled."}
-
-        doc_url = f"https://docs.google.com/document/d/{doc_id}/edit"
-        cloud_file_url = None
-        try:
-            if receipts_data:
                 csv_lines = ["Description,Original Amount,Target Currency Amount (" + target_currency + ")"]
                 for r in receipts_data:
                     d = r.get("desc", "Expense").replace('"', '""')
@@ -1128,36 +625,33 @@ def export_summary_to_google_doc(
                     csv_lines.append(f'"{d}","{sc}","{st}"')
                 csv_lines.append(f'"TOTAL","{total_curr_str}","{total_target_str}"')
                 csv_content = "\n".join(csv_lines).encode("utf-8")
-                safe_title = re.sub(r"[^a-zA-Z0-9_\-]", "_", title).strip("_")
-                cloud_file_url = upload_bytes_to_storage(
+                cloud_csv_url = upload_bytes_to_storage(
                     data=csv_content,
-                    destination_blob_name=f"reports/expense_report_{safe_title}_{today_str}.csv",
+                    destination_blob_name=f"reports/{safe_title}_{timestamp_str}.csv",
                     content_type="text/csv",
                 )
-        except Exception as storage_err:
-            print(f"⚠️ [Cloud Storage Notice] {storage_err}")
+            except Exception as storage_err:
+                print(f"⚠️ [Cloud Storage Notice] {storage_err}")
 
-        res = {
+        primary_url = cloud_docx_url or f"/results/{docx_filename}"
+
+        return {
             "success": True,
-            "document_id": doc_id,
-            "document_url": doc_url,
-            "message": "Google Doc populated from template successfully!",
+            "file_name": docx_filename,
+            "document_id": docx_filename,
+            "document_url": primary_url,
+            "docx_url": primary_url,
+            "download_url": primary_url,
+            "storage_file_url": cloud_csv_url,
+            "target_currency": target_currency,
+            "exchange_rate": rate_val,
+            "receipts_count": len(receipts_data or []),
+            "message": f"Successfully generated Expense Reimbursement DOCX report: [{docx_filename}]({primary_url})",
         }
-        if cloud_file_url:
-            res["storage_file_url"] = cloud_file_url
-            res["message"] += f" CSV summary also backed up to Cloud Storage: {cloud_file_url}"
-        return res
 
     except Exception as e:
-        error_msg = str(e)
-        if "ACCESS_TOKEN_SCOPE_INSUFFICIENT" in error_msg or "403" in error_msg or "invalid_grant" in error_msg:
-            return {
-                "success": False,
-                "error": (
-                    "Authentication token has expired, been revoked, or has insufficient scopes.\n"
-                    "To fix this, please run the following command in your terminal:\n\n"
-                    'gcloud auth application-default login --scopes="https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/documents,https://www.googleapis.com/auth/drive"\n\n'
-                    "After running this command, restart the ADK web server and the permissions will automatically update!"
-                ),
-            }
-        return {"success": False, "error": error_msg}
+        return {"success": False, "error": f"Failed to generate expense report: {str(e)}"}
+
+
+# Alias export_summary_to_docx for direct semantic calling
+export_summary_to_docx = export_summary_to_google_doc

@@ -451,3 +451,74 @@ export function cleanTextForMediaDisplay(text) {
 
   return filteredLines.join('\n').trim();
 }
+
+export function extractDocumentAssets(text) {
+  if (!text) return null;
+
+  // Regex to match .docx, .xlsx, .csv, .pdf URLs or direct markdown links
+  const urlRegex = /(?:https?:\/\/[^\s\)\"\'<>]+|\/results\/[^\s\)\"\'<>]+)\.(?:docx|xlsx|csv|pdf)(?:\?[^\s\)\"\'<>]*)?/gi;
+  const matches = text.match(urlRegex) || [];
+
+  if (matches.length === 0) return null;
+
+  const docxUrl = matches.find(u => u.toLowerCase().includes('.docx'));
+  const csvUrl = matches.find(u => u.toLowerCase().includes('.csv'));
+  const xlsxUrl = matches.find(u => u.toLowerCase().includes('.xlsx'));
+  const pdfUrl = matches.find(u => u.toLowerCase().includes('.pdf'));
+
+  const primaryUrl = docxUrl || xlsxUrl || csvUrl || pdfUrl || matches[0];
+  const filename = primaryUrl.split('/').pop()?.split('?')[0] || 'Expense_Report.docx';
+
+  // Determine doc type & label
+  let fileType = 'DOCX';
+  let typeLabel = 'Formatted Document (Word & Docs)';
+  if (primaryUrl.toLowerCase().includes('.docx')) {
+    fileType = 'DOCX';
+    typeLabel = 'Word & Google Docs Compatible';
+  } else if (primaryUrl.toLowerCase().includes('.xlsx')) {
+    fileType = 'XLSX';
+    typeLabel = 'Excel Spreadsheet';
+  } else if (primaryUrl.toLowerCase().includes('.csv')) {
+    fileType = 'CSV';
+    typeLabel = 'CSV Spreadsheet Backup';
+  } else if (primaryUrl.toLowerCase().includes('.pdf')) {
+    fileType = 'PDF';
+    typeLabel = 'PDF Document';
+  }
+
+  // Extract title if available in text
+  const titleMatch = text.match(/(?:Expense Reimbursement Report|Expense Report|Reimbursement Report|Report)[\s\:\*\#\-]*([^\n]+)/i);
+
+  return {
+    primaryUrl,
+    docxUrl,
+    csvUrl,
+    xlsxUrl,
+    pdfUrl,
+    filename,
+    fileType,
+    typeLabel,
+    title: titleMatch ? titleMatch[0].replace(/[`*#]/g, '').trim() : filename,
+    allUrls: matches
+  };
+}
+
+export function cleanTextForDocumentDisplay(text) {
+  if (!text) return '';
+
+  const lines = text.split('\n');
+  const filteredLines = lines.filter(line => {
+    const trimmed = line.trim();
+    if (
+      trimmed.match(/^[-*•]?\s*(?:📄|📑|📊|💾)?.*(?:https?:\/\/[^\s\)]+?\.(?:docx|xlsx|csv|pdf)|\[(?:Download|View|Expense|Successfully)[^\]]*\]\([^\)]+\))/i) ||
+      trimmed.match(/^\[(?:Download|View|Expense|Successfully)[^\]]*\]\(https?:\/\/[^\s\)]+\)/i) ||
+      trimmed.match(/^https?:\/\/[^\s\)]+?\.(?:docx|xlsx|csv|pdf)$/i)
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  return filteredLines.join('\n').trim();
+}
+
