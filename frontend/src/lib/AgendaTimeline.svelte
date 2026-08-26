@@ -394,7 +394,7 @@
           >
             <option value="17:00">17:00</option>
             <option value="17:15">17:15</option>
-            <option value="17:30">17:30 (Default GDG)</option>
+            <option value="17:30">17:30 (Default)</option>
             <option value="17:45">17:45</option>
             <option value="18:00">18:00</option>
             <option value="18:30">18:30</option>

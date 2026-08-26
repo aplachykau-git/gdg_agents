@@ -30,7 +30,7 @@ from .workflow_models import (
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INTAKE_MODEL = "gemini-3.5-flash-lite"
+INTAKE_MODEL = "gemini-2.5-flash"
 MAX_TITLE_LEN = 80
 MAX_NAME_LEN = 50
 MAX_POSITION_COMPANY_LEN = 80

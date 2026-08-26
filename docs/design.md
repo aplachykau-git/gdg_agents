@@ -1,4 +1,4 @@
-# Design System Specification: GDG Agents
+# Design System Specification: Community Studio
 
 > **Version:** 1.0.0  
 > **Target Platform:** Web Portal / Svelte 5 + Vite  
@@ -159,7 +159,7 @@ The interface implements a responsive two-column workstation layout:
 
 ```
 +-------------------------------------------------------------------------------------------------------+
-|  HEADER (Top App Bar): Logo [GDG Agents] | Active Agent Selector | Capabilities | Theme Toggle        |
+|  HEADER (Top App Bar): Logo [Community Studio] | Active Agent Selector | Capabilities | Theme Toggle |
 +-------------------+-----------------------------------------------------------------------------------+
 |                   |                                                                                   |
 |   LEFT SIDEBAR    |                        CENTRAL WORKSPACE ZONE                                     |

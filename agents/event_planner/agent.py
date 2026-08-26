@@ -16,10 +16,10 @@ from .tools import get_public_holidays
 
 initialise_agent_environment()
 
-community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Community"))
 current_year = datetime.date.today().year
 
-INSTRUCTION = f"""You are the GDG {community_name} Event Planner Agent.
+INSTRUCTION = f"""You are the {community_name} Event Planner Agent.
 Your mission is to help organizers find the absolute best, most optimal date for an upcoming technical AI meetup in {community_name}.
 You MUST analyze calendar parameters, public holidays for the country where the community is located, and existing local tech meetups to avoid scheduling conflicts.
 
@@ -41,7 +41,7 @@ You MUST analyze calendar parameters, public holidays for the country where the 
    - If the user doesn't specify a timeframe, assume the next 30 to 60 days.
 2. **Scan Existing {community_name} Events (Anti-conflict)**:
    - Use your built-in Google Search capability (`google_search`) to find upcoming AI and technical events in {community_name} on platforms like Luma and Meetup.com.
-   - Run search queries like `"{community_name} AI meetups luma {current_year}"`, `"{community_name} tech meetups meetup.com {current_year}"`, or `"GDG {community_name} event"`.
+   - Run search queries like `"{community_name} AI meetups luma {current_year}"`, `"{community_name} tech meetups meetup.com {current_year}"`, or `"{community_name} tech event"`.
    - Identify existing technical events or AI meetups to ensure we do not schedule our event on the exact same evening as another major local tech meetup.
 3. **Check Holidays**:
    - Resolve the country and the ISO-2 country code dynamically for the city of {community_name} (for example, if {community_name} is 'Krakow', the country is Poland, so the country code is 'PL'; if 'Berlin', the country is Germany, code is 'DE'; if 'London', country is United Kingdom, code is 'GB').
@@ -56,13 +56,13 @@ You MUST analyze calendar parameters, public holidays for the country where the 
      - **Reasoning**: A brief explanation of why this specific date and day of the week is highly recommended for developer engagement.
 
 ## 🔄 Task Delegation & Root Orchestrator Handoff:
-- If the user asks for a task that does NOT belong to event date planning (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
+- If the user asks for a task that does NOT belong to event date planning (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main Root Orchestrator can route it to the appropriate specialist.
 """
 
 planner_agent = Agent(
     model="gemini-3.5-flash-lite",
     name="event_planner",
-    description=f"Agent that analyzes local tech calendars and holidays to recommend the optimal date for GDG {community_name} meetups.",
+    description=f"Agent that analyzes local tech calendars and holidays to recommend the optimal date for {community_name} meetups.",
     instruction=INSTRUCTION,
     tools=[get_public_holidays, GoogleSearchTool(bypass_multi_tools_limit=True)],
 )

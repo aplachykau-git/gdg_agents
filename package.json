@@ -13,7 +13,8 @@
     "video:dev": "npm run dev --prefix agents/video_editor",
     "video:render": "npm run render --prefix agents/video_editor",
     "video:check": "npm run check --prefix agents/video_editor",
-    "test": "PYTHONWARNINGS='ignore::DeprecationWarning' uv run --locked python -m unittest discover tests/ -v",
-    "deploy:cloudrun": "./deploy_a2a_cloudrun.sh"
+    "test": "PYTHONWARNINGS='ignore::DeprecationWarning' .venv/bin/python3 -m unittest discover tests/ -v",
+    "deploy:cloudrun": "./deploy/deploy_a2a_cloudrun.sh",
+    "deploy:frontend": "npm run build --prefix frontend && npx -y firebase-tools deploy --only hosting"
   }
 }

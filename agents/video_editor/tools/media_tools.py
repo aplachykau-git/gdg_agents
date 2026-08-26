@@ -24,8 +24,9 @@ from agents.gemini_config import (
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Toggles to enable/disable specific rendering outputs.
-ENABLE_VIDEO_GENERATION = os.environ.get("ENABLE_VIDEO_GENERATION", "true").lower() in ("true", "1", "yes")
+# Toggles to enable/disable generative AI video outputs (Veo 3.1 / Gemini Omni).
+# Disabled by default to prevent unwanted cloud GPU billing. Direct uploaded video rendering is always supported.
+ENABLE_VIDEO_GENERATION = os.environ.get("ENABLE_VIDEO_GENERATION", "false").lower() in ("true", "1", "yes")
 
 
 def resolve_path(rel_path: str) -> str:
@@ -530,12 +531,15 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "") -> str:
     photo_path = outpaint_to_9_16(photo_path, gemini_client)
     photo_path = resolve_path(photo_path)
 
-    # DRY RUN Check
+    # Check if AI video generation (Veo/Omni) is disabled to prevent unwanted costs
     if not ENABLE_VIDEO_GENERATION:
-        print(
-            f"⏭️  [DRY RUN] Video generation is DISABLED (ENABLE_VIDEO_GENERATION=false). Returning static outpainted image: '{photo_path}'"
+        msg = (
+            "⚠️ Generative AI video models (Google Veo 3.1 & Gemini Omni) are currently disabled in the configuration to conserve cloud credits. "
+            "Only direct rendering of user-uploaded videos (.mp4, .mov, .webm) is supported.\n\n"
+            "💡 Please attach/upload an existing speaker video file to render the speaker card."
         )
-        return photo_path
+        print(f"🚫 [Cost Protection] {msg}")
+        return f"Error: {msg}"
 
     engine = get_video_engine()
     validate_video_generation_backend(engine)

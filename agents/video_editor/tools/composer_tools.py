@@ -16,9 +16,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Toggles to enable/disable specific rendering outputs.
 RENDER_CONFIG = {
-    "ordinary": os.environ.get("RENDER_ORDINARY", "false").lower() in ("true", "1", "yes"),
-    "gif": os.environ.get("RENDER_GIF", "false").lower() in ("true", "1", "yes"),
-    "4k": os.environ.get("RENDER_4K", "true").lower() in ("true", "1", "yes"),
+    "ordinary": os.environ.get("RENDER_ORDINARY", "true").lower() in ("true", "1", "yes"),
+    "gif": os.environ.get("RENDER_GIF", "true").lower() in ("true", "1", "yes"),
+    "4k": os.environ.get("RENDER_4K", "false").lower() in ("true", "1", "yes"),
 }
 
 
@@ -182,8 +182,8 @@ def update_composer(
         content = re.sub(image_full_pattern, r"\g<1>display:none;\g<3>", content)
         content = re.sub(image_pattern, 'id="card-image" src=""', content)
 
-    # 3. Randomize colors for breaks, circle, pill, and hexagon using Google brand palette
-    GDG_COLORS = [
+    # 3. Randomize colors for breaks, circle, pill, and hexagon using brand palette
+    BRAND_COLORS = [
         "#4285F4",
         "#34A853",
         "#F9AB00",
@@ -199,12 +199,12 @@ def update_composer(
     ]
 
     if theme_colors:
-        break_color = theme_colors["break_color"]
-        circle_color = theme_colors["circle_color"]
-        pill_color = theme_colors["pill_color"]
-        hexagon_color = theme_colors["hexagon_color"]
+        break_color = theme_colors.get("break_color") or BRAND_COLORS[0]
+        circle_color = theme_colors.get("circle_color") or BRAND_COLORS[1]
+        pill_color = theme_colors.get("pill_color") or BRAND_COLORS[2]
+        hexagon_color = theme_colors.get("hexagon_color") or BRAND_COLORS[3]
     else:
-        selected_colors = random.sample(GDG_COLORS, 4)
+        selected_colors = random.sample(BRAND_COLORS, 4)
         break_color = selected_colors[0]
         circle_color = selected_colors[1]
         pill_color = selected_colors[2]

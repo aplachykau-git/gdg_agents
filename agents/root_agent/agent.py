@@ -67,9 +67,9 @@ if receipt_a2a_url:
     except Exception as e:
         print(f"⚠️ Failed to connect receipt_scanner over A2A ({e}). Falling back to local sub-agent.")
 
-community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Community"))
 
-INSTRUCTION = f"""You are the main Root Agent for GDG {community_name}.
+INSTRUCTION = f"""You are the main Root Agent for Community Studio ({community_name}).
 Your task is to orchestrate developer tools and coordinate sub-agents to handle user requests flawlessly.
 
 ## 🤖 Direct Sub-Agent Orchestration & Routing Rules:
@@ -137,7 +137,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 root_agent = Agent(
     model="gemini-3.5-flash-lite",
     name="root_agent",
-    description=f"Root coordinator agent of GDG {community_name}",
+    description=f"Root coordinator agent for Community Studio ({community_name})",
     instruction=INSTRUCTION,
     sub_agents=[
         receipt_agent,

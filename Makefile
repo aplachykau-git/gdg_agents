@@ -12,7 +12,7 @@ RECEIPT_EVAL_MODEL ?= gemini-3.6-flash
 
 .PHONY: help tools linkedin-evals linkedin-judge-evals linkedin-evals-all \
 	receipt-eval-discover receipt-eval-fixtures receipt-extraction-evals \
-	receipt-conversion-evals receipt-evals-all run-all
+	receipt-conversion-evals receipt-evals-all run-all deploy deploy-frontend
 
 help: ## Show available commands.
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -85,6 +85,12 @@ run-all: ## Start Video A2A, Receipt A2A, ADK web, and the frontend; Ctrl+C stop
 				"$$UV_BIN" run --locked --no-sync adk web --port 8080 agents & pids="$$pids $$!"; \
 			echo "Starting frontend on http://localhost:5173..."; \
 			"$$NPM_BIN" run dev --prefix frontend & pids="$$pids $$!"; \
-			echo "All services are running. Press Ctrl+C to stop."; \
-			wait \
+				echo "All services are running. Press Ctrl+C to stop."; \
+				wait \
 		'
+
+deploy: ## Deploy all Cloud Run services and Firebase Hosting.
+	./deploy/deploy_a2a_cloudrun.sh
+
+deploy-frontend: ## Build and deploy frontend to Firebase Hosting.
+	npm run build --prefix frontend && npx -y firebase-tools deploy --only hosting

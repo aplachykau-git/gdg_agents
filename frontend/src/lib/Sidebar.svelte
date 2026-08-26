@@ -83,20 +83,23 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: var(--primary-accent);
-    color: var(--text-inverse);
+    background: var(--primary-gradient, var(--primary-accent));
+    color: #ffffff;
     border: none;
     padding: 10px 16px;
     border-radius: var(--radius-pill);
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
     transition: var(--transition-fast);
   }
 
   .btn-new-prompt:hover:not(:disabled) {
-    background: var(--primary-accent-hover);
-    color: var(--text-inverse);
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    color: #ffffff;
   }
 
   .btn-new-prompt:disabled {
@@ -150,7 +153,7 @@
   }
 
   .session-item.active {
-    background: rgba(138, 180, 248, 0.12);
+    background: var(--primary-accent-container);
   }
 
   .session-nav-btn {

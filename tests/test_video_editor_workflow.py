@@ -80,9 +80,7 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             image_path = image.name
         self.addCleanup(Path(image_path).unlink, missing_ok=True)
 
-        failure = validate_resolved_media(
-            ResolvedMedia(source_path=image_path, media_type="image")
-        )
+        failure = validate_resolved_media(ResolvedMedia(source_path=image_path, media_type="image"))
 
         self.assertEqual(failure.code, "invalid_image")
 
@@ -92,9 +90,7 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             image_path = image.name
         self.addCleanup(Path(image_path).unlink, missing_ok=True)
 
-        failure = validate_resolved_media(
-            ResolvedMedia(source_path=image_path, media_type="image")
-        )
+        failure = validate_resolved_media(ResolvedMedia(source_path=image_path, media_type="image"))
 
         self.assertEqual(failure.code, "invalid_image")
 

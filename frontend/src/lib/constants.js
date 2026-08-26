@@ -11,6 +11,32 @@ export const DEFAULT_APPS = [
   { name: 'office_secretary', root_agent_name: 'Office Secretary' }
 ];
 
+export const DEFAULT_CONFIG = {
+  communityName: 'GDG Krakow'
+};
+
+export function getAppConfig() {
+  if (typeof window === 'undefined') return DEFAULT_CONFIG;
+  try {
+    const saved = localStorage.getItem('community_studio_config') || localStorage.getItem('gdg_studio_config');
+    if (saved) {
+      return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+    }
+  } catch (e) {
+    console.error('Failed to read config from localStorage:', e);
+  }
+  return DEFAULT_CONFIG;
+}
+
+export function saveAppConfig(cfg) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('community_studio_config', JSON.stringify(cfg));
+  } catch (e) {
+    console.error('Failed to save config to localStorage:', e);
+  }
+}
+
 export const MAX_INPUT_TOKENS = 8192;
 
 export function cleanAuthorName(author) {
@@ -19,7 +45,7 @@ export function cleanAuthorName(author) {
 }
 
 export function getAgentTheme(author) {
-  if (!author) return { color: 'var(--primary-accent)', bg: 'rgba(138, 180, 248, 0.1)', label: 'Agent' };
+  if (!author) return { color: 'var(--primary-accent)', bg: 'var(--primary-accent-container)', label: 'Agent' };
   const clean = cleanAuthorName(author);
   const lower = clean.toLowerCase();
   if (lower.includes('root')) return { color: 'var(--agent-root)', bg: 'var(--bg-root)', label: 'Root Orchestrator' };
@@ -32,7 +58,7 @@ export function getAgentTheme(author) {
   if (lower.includes('office') || lower.includes('secretary')) return { color: 'var(--agent-office)', bg: 'var(--bg-office)', label: 'Office Secretary' };
   
   const formatted = clean.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  return { color: 'var(--primary-accent)', bg: 'rgba(138, 180, 248, 0.1)', label: formatted };
+  return { color: 'var(--primary-accent)', bg: 'var(--primary-accent-container)', label: formatted };
 }
 
 export const STATUS_TICKERS = {
@@ -51,12 +77,17 @@ export const STATUS_TICKERS = {
     'Generating Docs Expense Report...'
   ],
   video_editor: [
-    'Staging uploaded portrait in staged_media...',
-    'Detecting face landmarks...',
-    'Executing smart Outpainting to 9:16 aspect ratio...',
-    'Crafting cinematic Veo video prompt...',
-    'Generating 8s video intro via Veo...',
-    'Compiling high-fidelity 4K media cards...'
+    'Staging uploaded photo/video in workspace assets...',
+    'Validating speaker metadata & text limits...',
+    'Analyzing portrait facial landmarks...',
+    'Executing AI Outpainting to 9:16 vertical canvas...',
+    'Generating Veo cinematic background video animation...',
+    'Injecting speaker typography into HyperFrames composition...',
+    'Launching headless Chromium rendering pipeline...',
+    'Compiling 1080p MP4 video & stripping audio tracks...',
+    'Encoding high-framerate animated GIF...',
+    'Extracting high-resolution card poster...',
+    'Uploading generated assets to Google Cloud Storage...'
   ],
   registration_manager: [
     'Scanning participant registration list...',
@@ -98,12 +129,12 @@ export function getFriendlyToolCall(name, args) {
     transfer_to_agenda_generator: () => "🔄 Delegating task to Agenda Formatter...",
     transfer_to_office_secretary: () => "🔄 Delegating task to Office Secretary...",
 
+    stage_uploaded_media: () => "📦 Staging attached media to workspace assets...",
+    validate_metadata: (a) => `📏 Validating text character limits for "${a?.name || 'speaker'}"...`,
     verify_portrait_photo: () => "🔍 Running facial detection on portrait photo...",
-    stage_uploaded_media: () => "📦 Staging uploaded media to workspace assets...",
-    animate_photo: () => "🎬 Outpainting to 9:16 & generating Veo video intro...",
-    update_composer: (a) => `🎨 Updating HTML5 composition layout for "${a.name || 'speaker'}"...`,
-    render_composer: () => "🚀 HyperFrames compiler rendering final video (MP4, GIF, 4K)...",
-    validate_metadata: (a) => `📐 Validating text character limits for "${a.name || 'speaker'}"...`,
+    animate_photo: (a) => `🎬 Animating 9:16 background video with Veo (${a?.creative_prompt ? 'AI Prompt' : 'Direct Video'})...`,
+    update_composer: (a) => `🎨 Updating HTML5 composition layout for "${a?.name || 'speaker'}"...`,
+    render_composer: () => "🚀 HyperFrames pipeline rendering 1080p MP4, GIF & Poster...",
 
     get_usd_pln_rate: () => "💱 Fetching live Pekao Bank & NBP exchange rates (USD/PLN)...",
     read_receipt_file: () => "🧾 Analyzing receipt image via Gemini 2.5 Pro Vision OCR...",
@@ -113,7 +144,7 @@ export function getFriendlyToolCall(name, args) {
     export_to_google_docs: () => "📄 Exporting expense report to Google Docs template...",
 
     filter_and_clean_registrations: () => "👥 Cleaning, deduplicating, and partitioning registrations...",
-    find_optimal_meetup_date: () => "📅 Scanning Kraków calendars, holidays, and meetup conflicts...",
+    find_optimal_meetup_date: () => "📅 Scanning calendars, holidays, and meetup conflicts...",
     generate_agenda: () => "⏱️ Formatting structured timeline and speaker agenda...",
     generate_office_email: () => "✉️ Drafting office access and event reservation email..."
   };
@@ -157,20 +188,20 @@ export function getFriendlyToolResponse(name, response, args) {
     return `❌ Tool error: ${getToolErrorMessage(response)}`;
   }
   const mappings = {
-    transfer_to_video_editor: () => "Workflow handed off to Live Video Editor (A2A).",
-    transfer_to_receipt_scanner: () => "Workflow handed off to Receipt Scanner (A2A).",
+    transfer_to_video_editor: () => "Workflow handed off to Live Video Editor.",
+    transfer_to_receipt_scanner: () => "Workflow handed off to Receipt Scanner.",
     transfer_to_linkedin_post_generator: () => "Workflow handed off to LinkedIn Planner.",
     transfer_to_event_planner: () => "Workflow handed off to Event Scheduler.",
     transfer_to_registration_manager: () => "Workflow handed off to Registrations Manager.",
     transfer_to_agenda_generator: () => "Workflow handed off to Agenda Formatter.",
     transfer_to_office_secretary: () => "Workflow handed off to Office Secretary.",
 
-    verify_portrait_photo: () => "Face detected and verified.",
-    stage_uploaded_media: () => "Photo saved to assets.",
-    animate_photo: () => "Veo animation generated.",
-    update_composer: () => "Layout configuration updated.",
-    render_composer: (r) => r?.render_urls?.mp4 ? `Video rendered: ${r.render_urls.mp4}` : "Video rendered successfully.",
-    validate_metadata: () => "Metadata character limits validated.",
+    stage_uploaded_media: () => "Media staged in workspace assets.",
+    validate_metadata: () => "Speaker metadata & text character limits verified.",
+    verify_portrait_photo: () => "Face detected and aligned.",
+    animate_photo: () => "Background video animation generated via Veo.",
+    update_composer: () => "HyperFrames HTML5 composition layout updated.",
+    render_composer: () => "1080p MP4, GIF & Poster rendered and stored in Cloud Storage.",
 
     get_usd_pln_rate: (r) => r?.rate ? `Rate fetched: 1 USD = ${r.rate} PLN` : "Exchange rate fetched.",
     read_receipt_file: () => "Receipt OCR extracted.",
@@ -214,8 +245,17 @@ export function isIntermediateEvent(event) {
   if (!event) return true;
   if (event.author === 'user') return false;
   if (getEventError(event)) return false;
-  if (!event.content || !event.content.parts) return true;
-  return false;
+  if (!event.content || !event.content.parts || event.content.parts.length === 0) return true;
+
+  const hasVisibleContent = event.content.parts.some(part => {
+    if (part.text && part.text.trim() !== '') return true;
+    if (part.inline_data || part.inlineData) return true;
+    if (part.function_call || part.functionCall) return true;
+    if (part.function_response || part.functionResponse) return true;
+    return false;
+  });
+
+  return !hasVisibleContent;
 }
 
 export function shouldShowDelegationHandoff(event, idx, allEvents) {
@@ -324,4 +364,90 @@ export function parseResponseVariants(text, author) {
   }
   
   return variants.length > 0 ? variants : [{ header: '', body: text }];
+}
+
+export function extractMediaAssets(text) {
+  if (!text) return null;
+
+  const urlRegex = /(https?:\/\/[^\s\)\"\'<>]+?\.(?:mp4|webm|mov|gif|png|jpg|jpeg|webp)(?:\?[^\s\)\"\'<>]*)?)/gi;
+  const matches = [...text.matchAll(urlRegex)].map(m => m[1]);
+
+  if (!matches || matches.length === 0) return null;
+
+  let videoUrl = matches.find(u => u.toLowerCase().includes('.mp4') || u.toLowerCase().includes('.webm') || u.toLowerCase().includes('.mov'));
+  let gifUrl = matches.find(u => u.toLowerCase().includes('.gif'));
+  let posterUrl = matches.find(u => u.toLowerCase().includes('_poster.') || u.toLowerCase().includes('poster') || (u.toLowerCase().includes('.png') && !u.toLowerCase().includes('_avatar')));
+  let avatarUrl = matches.find(u => u.toLowerCase().includes('_avatar.') || u.toLowerCase().includes('avatar'));
+
+  if (!posterUrl) {
+    posterUrl = matches.find(u => u !== videoUrl && u !== gifUrl && u !== avatarUrl);
+  }
+
+  if (!videoUrl && !gifUrl && !posterUrl) return null;
+
+  const nameMatch = text.match(/\*\*Speaker Name:\*\*\s*([^\n]+)/i) || text.match(/name:\s*"?([^"\n]+)"?/i) || text.match(/speaker:\s*"?([^"\n]+)"?/i);
+  const titleMatch = text.match(/\*\*Talk Title:\*\*\s*([^\n]+)/i) || text.match(/title:\s*"?([^"\n]+)"?/i) || text.match(/talk:\s*"?([^"\n]+)"?/i);
+  const companyMatch = text.match(/\*\*Position & Company:\*\*\s*([^\n]+)/i) || text.match(/position_company:\s*"?([^"\n]+)"?/i) || text.match(/company:\s*"?([^"\n]+)"?/i);
+
+  return {
+    videoUrl,
+    gifUrl,
+    posterUrl,
+    avatarUrl,
+    allUrls: matches,
+    speakerName: nameMatch ? nameMatch[1].replace(/[`*]/g, '').trim() : '',
+    talkTitle: titleMatch ? titleMatch[1].replace(/[`*]/g, '').trim() : '',
+    company: companyMatch ? companyMatch[1].replace(/[`*]/g, '').trim() : ''
+  };
+}
+
+export async function downloadDirectFile(url, suggestedFilename) {
+  if (!url) return;
+  const filename = suggestedFilename || url.split('/').pop()?.split('?')[0] || 'media_asset';
+
+  try {
+    const separator = url.includes('?') ? '&' : '?';
+    const downloadUrl = `${url}${separator}dl=1&_t=${Date.now()}`;
+    const res = await fetch(downloadUrl, { mode: 'cors' });
+    if (!res.ok) throw new Error(`HTTP status ${res.status}`);
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    }, 2000);
+  } catch (err) {
+    console.warn('Direct blob fetch failed, falling back to direct anchor:', err);
+    const fallbackLink = document.createElement('a');
+    fallbackLink.href = url;
+    fallbackLink.download = filename;
+    fallbackLink.target = '_blank';
+    fallbackLink.rel = 'noopener noreferrer';
+    fallbackLink.click();
+  }
+}
+
+export function cleanTextForMediaDisplay(text) {
+  if (!text) return '';
+
+  const lines = text.split('\n');
+  const filteredLines = lines.filter(line => {
+    const trimmed = line.trim();
+    if (
+      trimmed.match(/^[-*•]\s*(?:🎥|🖼️|📸|👤)?.*(?:https?:\/\/[^\s\)]+?\.(?:mp4|gif|png|jpg|jpeg|webp)|\[(?:Download|View)[^\]]*\])/i) ||
+      trimmed.match(/^\[(?:Download|View)[^\]]*\]\(https?:\/\/[^\s\)]+\)/i) ||
+      trimmed.match(/^https?:\/\/[^\s\)]+?\.(?:mp4|gif|png|jpg|jpeg|webp)$/i)
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  return filteredLines.join('\n').trim();
 }

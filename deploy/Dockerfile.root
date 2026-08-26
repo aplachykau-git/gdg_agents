@@ -1,14 +1,12 @@
 # ==============================================================================
-# GDG Krakow Tool - Video Editor A2A Microservice Container
+# Community Studio - Root Agent Cloud Run Container
 # ==============================================================================
 FROM python:3.12-slim
 COPY --from=ghcr.io/astral-sh/uv:0.12.5@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /uvx /bin/
 
+# Prevent Python from writing .pyc files and enable unbuffered logging
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PYTHONPATH=/app
 ENV PORT=8080
 ENV UV_COMPILE_BYTECODE=1
@@ -17,36 +15,22 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app
 
+# Install system dependencies if needed (e.g. for image processing)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
-    unzip \
-    ffmpeg \
-    chromium \
-    libnss3 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libpango-1.0-0 \
-    libcairo2 \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-
+# Install locked runtime dependencies.
 COPY pyproject.toml uv.lock /app/
 RUN uv sync --locked --no-dev --no-install-project
 
+# Copy codebase
 COPY agents /app/agents
 COPY configs /app/configs
 RUN uv sync --locked --no-dev
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "uvicorn agents.video_editor.a2a_server:a2a_app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Launch ADK Web server on $PORT with CORS and progressive SSE streaming enabled
+CMD ["sh", "-c", "adk web --host 0.0.0.0 --port ${PORT:-8080} --allow_origins '*' --enable_features PROGRESSIVE_SSE_STREAMING agents"]

@@ -74,7 +74,6 @@ Recommended core skills by domain:
 - **UI / Frontend**: `googlechrome/modern-web-guidance` (`https://www.skills.sh/googlechrome/modern-web-guidance/modern-web-guidance`)
 - **API**: `fastapi/fastapi` (`https://www.skills.sh/fastapi/fastapi/fastapi`)
 - **ADK / Agents**: `google/agents-cli` (`https://github.com/google/agents-cli#agent-skills`)
-- **Architecture, Planning & TDD**: `obra/superpowers` (`https://github.com/obra/superpowers`)
 
 ## Dependencies & Environment
 

@@ -12,11 +12,14 @@
     renderMarkdown, 
     isAgendaOutput, 
     parseResponseVariants, 
+    extractMediaAssets,
+    cleanTextForMediaDisplay,
     shouldShowDelegationHandoff 
   } from './constants.js';
   import AgendaTimeline from './AgendaTimeline.svelte';
   import VariantCard from './VariantCard.svelte';
   import ToolCallCard from './ToolCallCard.svelte';
+  import VideoPreviewCard from './VideoPreviewCard.svelte';
 
   let { 
     event, 
@@ -28,6 +31,16 @@
   const errInfo = $derived(getEventError(event));
   const theme = $derived(getAgentTheme(event?.author));
   const showHandoff = $derived(shouldShowDelegationHandoff(event, index, allEvents));
+  const hasVariants = $derived(
+    event.content?.parts?.some(p => p.text && parseResponseVariants(p.text, event.author).length > 1)
+  );
+  const hasAgenda = $derived(
+    event.content?.parts?.some(p => p.text && isAgendaOutput(p.text, event.author))
+  );
+  const hasMedia = $derived(
+    event.content?.parts?.some(p => p.text && extractMediaAssets(p.text))
+  );
+  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasMedia));
 </script>
 
 {#if errInfo}
@@ -91,7 +104,7 @@
 
   <!-- Model Response Card -->
   <div class="message-row model-row" style="--agent-color: {theme.color}; --agent-bg: {theme.bg}">
-    <div class="message-card model-card">
+    <div class="message-card model-card" class:wide-card={isWide}>
       <div class="model-author-header">
         <div class="agent-badge-pill" style="background: {theme.bg}; color: {theme.color}; border: 1px solid {theme.color}40;">
           <span class="badge-dot" style="background: {theme.color}"></span>
@@ -102,12 +115,19 @@
       {#if event.content && event.content.parts}
         {#each event.content.parts as part}
           {#if part.text}
+            {@const media = extractMediaAssets(part.text)}
             {#if isAgendaOutput(part.text, event.author)}
               <AgendaTimeline 
                 rawText={part.text} 
                 author={event.author} 
                 onRefine={(refinedText) => onRefine(refinedText)} 
               />
+            {:else if media}
+              {@const cleanedText = cleanTextForMediaDisplay(part.text)}
+              {#if cleanedText}
+                <div class="markdown-body">{@html renderMarkdown(cleanedText)}</div>
+              {/if}
+              <VideoPreviewCard {media} />
             {:else}
               {@const variants = parseResponseVariants(part.text, event.author)}
               {#if variants.length === 1}
@@ -158,6 +178,8 @@
     border: 1px solid var(--border-subtle);
     border-bottom-right-radius: 4px;
     color: var(--text-primary);
+    width: fit-content;
+    max-width: 88%;
   }
 
   .model-card {
@@ -165,6 +187,15 @@
     border: 1px solid var(--border-subtle);
     border-top-left-radius: 4px;
     color: var(--text-primary);
+    width: fit-content;
+    max-width: 88%;
+    min-width: min(100%, 260px);
+    transition: width 0.2s ease, max-width 0.2s ease;
+  }
+
+  .model-card.wide-card,
+  :global(.model-card:has(table)),
+  :global(.model-card:has(pre)) {
     width: 100%;
     max-width: 100%;
   }
@@ -258,7 +289,7 @@
     padding: 4px 12px;
     border-radius: var(--radius-full);
     font-size: 12px;
-    background: var(--pill-bg, rgba(138, 180, 248, 0.1));
+    background: var(--pill-bg, var(--primary-accent-container));
     color: var(--pill-color, var(--primary-accent));
     border: 1px solid var(--border-subtle);
   }

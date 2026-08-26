@@ -1,6 +1,6 @@
-# GDG Agentic Workspace - Custom Frontend
+# Community Studio - Custom Frontend
 
-This is the Svelte-based frontend application for the **GDG Agentic Workspace**. It provides a premium, responsive dashboard that interacts with the backend agents to help orchestrate event workflows.
+This is the Svelte-based frontend application for **Community Studio**. It provides a modern, responsive dashboard that interacts with backend agents to help orchestrate community workflows.
 
 ---
 
