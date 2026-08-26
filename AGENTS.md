@@ -14,11 +14,10 @@
 - `make help` — list supported workspace commands.
 - `make run-all` — start A2A services, ADK web on port 8080, and the frontend.
 - `npm run build --prefix frontend` — build the Svelte frontend.
-- `.venv/bin/python -m unittest discover tests -v` — run the Python suite.
+- `uv run --locked python -m unittest discover tests -v` — run the Python suite.
 - `make linkedin-judge-evals` / `make linkedin-evals` — current LinkedIn examples; add analogous targets as other agents gain evaluation suites.
 
-The Makefile prefers `.venv` executables and falls back to tools on `PATH`.
-Use `make tools` to inspect resolved commands.
+Use `uv sync --locked` before running Python commands. Use `make tools` to inspect resolved commands.
 
 ## Coding Style & Naming Conventions
 
@@ -27,7 +26,7 @@ useful, and double-quoted strings. Ruff enforces import ordering and core
 Python style:
 
 ```bash
-.venv/bin/ruff check agents tests
+uv run --locked ruff check agents tests
 ```
 
 Name agents and packages with lowercase snake_case (for example,
@@ -78,7 +77,8 @@ Recommended core skills by domain:
 
 ## Dependencies & Environment
 
-- All Python development dependencies in `requirements.txt` must be strictly pinned to specific versions to ensure deterministic development environments across machines.
+- Use uv exclusively for Python dependency management. Add and remove dependencies with `uv add` and `uv remove`; resolve them with `uv lock`; install them with `uv sync`; and execute project tools with `uv run`.
+- Do not use `pip`, `requirements.txt`, or `setup.py`. Keep all direct dependencies pinned in `pyproject.toml` and commit the matching `uv.lock`.
 - All documentation, tests, and configurations must use relative paths (never hardcode machine-specific absolute paths or `file:///Users/...` links).
 
 ## Security & Configuration
@@ -86,4 +86,3 @@ Recommended core skills by domain:
 Do not commit `.env`, credentials, tokens, generated `.adk/` history, or
 participant/output files. Copy `.env.example` for local configuration and use
 the configured Gemini backend rather than embedding keys in code.
-

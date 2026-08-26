@@ -17,6 +17,7 @@
     Clock,
     Mail,
     Workflow,
+    Layers,
     AlertCircle,
     Plus,
     Settings,
@@ -427,18 +428,38 @@
   <header class="studio-header">
     <div class="header-left">
       <!-- Community Studio Brand Typography (Leftmost) -->
-      <div class="brand-badge">
+      <button
+        class="brand-badge"
+        onclick={() => {
+          selectedSessionId = "";
+          events = [];
+        }}
+        data-tooltip="Home / Select Agent"
+        aria-label="Home / Select Agent"
+      >
         <div class="brand-text">
           <span class="brand-name">Community Studio</span>
           <span class="brand-sub"
             >{studioConfig.communityName || "GDG Krakow"}</span
           >
         </div>
-      </div>
+      </button>
 
       <div class="header-divider"></div>
 
-      <!-- Left sidebar toggle (History) -->
+      <!-- New Session Button (With label) -->
+      <button
+        class="header-btn-new-session"
+        onclick={startNewSession}
+        disabled={isLoading}
+        data-tooltip="Start New Session"
+        aria-label="Start New Session"
+      >
+        <Plus size={15} strokeWidth={2.2} />
+        <span>New session</span>
+      </button>
+
+      <!-- Sidebar toggle (History) -->
       <button
         class="icon-btn"
         class:active={showSessions}
@@ -448,26 +469,16 @@
       >
         <History size={18} strokeWidth={1.75} />
       </button>
+    </div>
 
-      <!-- New Session Button (Compact Icon) -->
-      <button
-        class="icon-btn"
-        onclick={startNewSession}
-        disabled={isLoading}
-        data-tooltip="Start New Session"
-        aria-label="Start New Session"
-      >
-        <Plus size={18} strokeWidth={2} />
-      </button>
-
-      <div class="header-divider"></div>
-
+    <div class="header-right">
       <!-- Active Agent Selector with integrated Online dot -->
       <div class="app-picker">
         <span class="picker-label">Agent:</span>
         <div
           class="select-wrapper"
           class:has-session={Boolean(selectedSessionId)}
+          class:is-main={selectedApp === "root_agent"}
         >
           {#if selectedSessionId}
             <span
@@ -475,6 +486,14 @@
               data-tooltip="Session Active • Connected"
               aria-label="Session Active • Connected"
             ></span>
+          {:else if selectedApp === "root_agent"}
+            <span
+              class="main-badge-icon"
+              data-tooltip="Main Coordinator"
+              aria-label="Main Coordinator"
+            >
+              <Layers size={12} strokeWidth={2} />
+            </span>
           {/if}
           <select
             id="appSelect"
@@ -485,17 +504,17 @@
             }}
           >
             {#each apps as app}
-              <option value={app.name}
-                >{app.root_agent_name || app.name}</option
-              >
+              <option value={app.name}>
+                {app.root_agent_name || app.name}
+              </option>
             {/each}
           </select>
           <ChevronDown size={14} class="select-chevron" />
         </div>
       </div>
-    </div>
 
-    <div class="header-right">
+      <div class="header-divider"></div>
+
       <!-- Multi-Agent DAG Architecture -->
       <button
         class="icon-btn"
@@ -620,60 +639,50 @@
       {/if}
 
       {#if !selectedSessionId}
-        <!-- Welcome Hub View -->
+        <!-- Welcome Hub View / Main Agents Catalog -->
         <div class="hub-welcome-view">
-          <div class="hub-hero">
-            <div class="hub-pill">
-              <span class="hub-pill-dot"></span>
-              <span
-                >{studioConfig.communityName || "GDG Krakow"} Operations & Event
-                Platform</span
-              >
+          <div class="hub-container">
+            <div class="hub-header">
+              <h1 class="hub-title">Specialized AI Agents</h1>
+              <p class="hub-subtitle">
+                Select an agent to begin, or use the <strong>Main</strong> agent to automatically coordinate tasks.
+              </p>
             </div>
-            <h2>Autonomous Agent Orchestration</h2>
-            <p>
-              Select a specialized agent below or use the <strong
-                >Root Orchestrator</strong
-              > to automatically analyze your prompt and dispatch tasks across pipelines.
-            </p>
-          </div>
 
-          <!-- Quick 3-Step Guide -->
-          <div class="workflow-steps-strip">
-            <div class="step-badge">
-              <span class="step-num">1</span>
-              <span>Select agent or attach docs</span>
+            <!-- Quick 3-Step Guide -->
+            <div class="workflow-steps-strip">
+              <div class="step-badge">
+                <span class="step-num">1</span>
+                <span>Select agent or attach docs</span>
+              </div>
+              <div class="step-separator"></div>
+              <div class="step-badge">
+                <span class="step-num">2</span>
+                <span>Run prompt (Ctrl+Enter)</span>
+              </div>
+              <div class="step-separator"></div>
+              <div class="step-badge">
+                <span class="step-num">3</span>
+                <span>Inspect tool calls & copy outputs</span>
+              </div>
             </div>
-            <div class="step-separator"></div>
-            <div class="step-badge">
-              <span class="step-num">2</span>
-              <span>Run prompt (Ctrl+Enter)</span>
-            </div>
-            <div class="step-separator"></div>
-            <div class="step-badge">
-              <span class="step-num">3</span>
-              <span>Inspect tool calls & copy outputs</span>
-            </div>
-          </div>
 
-          <!-- Agents Catalog Grid -->
-          <div class="agents-catalog-grid">
+            <!-- Agents Catalog Grid -->
+            <div class="agents-catalog-grid">
             <button
               class="agent-catalog-card"
-              style="--card-border: var(--agent-root);"
+              style="--card-accent: var(--agent-root); --card-bg: var(--bg-root);"
               onclick={() => {
                 selectedApp = "root_agent";
                 startNewSession();
-                queryText =
-                  "Analyze current task requirements and coordinate suitable agents.";
               }}
             >
               <div class="agent-card-header">
                 <div class="agent-icon-box">
-                  <Workflow size={18} strokeWidth={1.75} />
+                  <Layers size={18} strokeWidth={1.75} />
                 </div>
                 <div class="agent-title-col">
-                  <strong>Root Orchestrator</strong>
+                  <strong>Main</strong>
                   <span class="agent-type-tag">Router & Coordinator</span>
                 </div>
               </div>
@@ -689,12 +698,10 @@
 
             <button
               class="agent-catalog-card"
-              style="--card-border: var(--agent-receipt);"
+              style="--card-accent: var(--agent-receipt); --card-bg: var(--bg-receipt);"
               onclick={() => {
                 selectedApp = "receipt_scanner";
                 startNewSession();
-                queryText =
-                  "Scan attached receipt, extract VAT & line items, convert currency and create expense report.";
               }}
             >
               <div class="agent-card-header">
@@ -707,7 +714,7 @@
                 </div>
               </div>
               <p class="agent-card-desc">
-                Extracts line items, queries NBP/Pekao exchange rates, and
+                Extracts line items, queries live banking exchange rates, and
                 exports formatted expense reports.
               </p>
               <div class="card-footer-action">
@@ -718,12 +725,10 @@
 
             <button
               class="agent-catalog-card"
-              style="--card-border: var(--agent-video);"
+              style="--card-accent: var(--agent-video); --card-bg: var(--bg-video);"
               onclick={() => {
                 selectedApp = "video_editor";
                 startNewSession();
-                queryText =
-                  "Outpaint speaker portrait to 9:16 aspect ratio and generate animated intro via Veo.";
               }}
             >
               <div class="agent-card-header">
@@ -747,12 +752,10 @@
 
             <button
               class="agent-catalog-card"
-              style="--card-border: var(--agent-linkedin);"
+              style="--card-accent: var(--agent-linkedin); --card-bg: var(--bg-linkedin);"
               onclick={() => {
                 selectedApp = "linkedin_post_generator";
                 startNewSession();
-                queryText =
-                  "Draft high-converting LinkedIn speaker announcements and multi-variant event recap posts.";
               }}
             >
               <div class="agent-card-header">
@@ -776,12 +779,10 @@
 
             <button
               class="agent-catalog-card"
-              style="--card-border: var(--agent-registration);"
+              style="--card-accent: var(--agent-registration); --card-bg: var(--bg-registration);"
               onclick={() => {
                 selectedApp = "registration_manager";
                 startNewSession();
-                queryText =
-                  "Clean uploaded registration list, filter corrupt names and partition by event capacity.";
               }}
             >
               <div class="agent-card-header">
@@ -805,12 +806,10 @@
 
             <button
               class="agent-catalog-card"
-              style="--card-border: var(--agent-planner);"
+              style="--card-accent: var(--agent-planner); --card-bg: var(--bg-planner);"
               onclick={() => {
                 selectedApp = "event_planner";
                 startNewSession();
-                queryText =
-                  "Check Luma, Meetup.com and Polish statutory public holidays to find optimal meetup dates.";
               }}
             >
               <div class="agent-card-header">
@@ -834,12 +833,10 @@
 
             <button
               class="agent-catalog-card"
-              style="--card-border: var(--agent-agenda);"
+              style="--card-accent: var(--agent-agenda); --card-bg: var(--bg-agenda);"
               onclick={() => {
                 selectedApp = "agenda_generator";
                 startNewSession();
-                queryText =
-                  "Format speaker talks, coffee breaks and pizza pauses starting at 17:30 into a clean timeline.";
               }}
             >
               <div class="agent-card-header">
@@ -863,12 +860,10 @@
 
             <button
               class="agent-catalog-card"
-              style="--card-border: var(--agent-office);"
+              style="--card-accent: var(--agent-office); --card-bg: var(--bg-office);"
               onclick={() => {
                 selectedApp = "office_secretary";
                 startNewSession();
-                queryText =
-                  "Draft visitor access request and event space reservation email for office administration.";
               }}
             >
               <div class="agent-card-header">
@@ -891,6 +886,7 @@
             </button>
           </div>
         </div>
+      </div>
       {:else}
         <!-- Active Chat Message Stream -->
         <div class="chat-viewport" bind:this={chatBodyElement}>
@@ -934,16 +930,16 @@
             {/if}
           </div>
         </div>
-      {/if}
 
-      <!-- Floating Prompt Input Bar -->
-      <ChatInput
-        bind:queryText
-        bind:stagedFiles
-        bind:textareaElement
-        {isLoading}
-        onSend={sendMessage}
-      />
+        <!-- Floating Prompt Input Bar (only shown in active session) -->
+        <ChatInput
+          bind:queryText
+          bind:stagedFiles
+          bind:textareaElement
+          {isLoading}
+          onSend={sendMessage}
+        />
+      {/if}
     </main>
   </div>
 </div>
@@ -965,7 +961,7 @@
       <header class="modal-header">
         <div class="modal-title-group">
           <Sparkles size={20} class="modal-gemini-icon" />
-          <h2>Community Studio Autonomous Multi-Agent System</h2>
+          <h2>Community Studio Multi-Agent System</h2>
         </div>
         <button class="modal-close-btn" onclick={() => (showLegend = false)}
           >&times;</button
@@ -989,9 +985,9 @@
                 class="capability-icon-box"
                 style="color: var(--agent-root);"
               >
-                <Workflow size={16} strokeWidth={1.75} />
+                <Layers size={16} strokeWidth={1.75} />
               </div>
-              <h3>Root Orchestrator</h3>
+              <h3>Main</h3>
             </div>
             <p>
               Directs incoming intent, verifies task prerequisites, and invokes
@@ -1012,7 +1008,7 @@
               <h3>Receipt Scanner</h3>
             </div>
             <p>
-              Vision OCR analyzer. Extracts line items, VAT, fetches Pekao/NBP
+              Vision OCR analyzer. Extracts line items, VAT, fetches live banking
               exchange rates, and exports formatted expense reports.
             </p>
           </div>
@@ -1192,8 +1188,19 @@
   .brand-badge {
     display: flex;
     align-items: center;
-    padding: 2px 4px;
+    padding: 4px 8px;
     user-select: none;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    text-align: left;
+    transition: var(--transition-fast);
+  }
+
+  .brand-badge:hover {
+    background: var(--bg-surface-elevated);
+    border-color: var(--border-subtle);
   }
 
   .brand-text {
@@ -1215,6 +1222,32 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     font-weight: 600;
+  }
+
+  .header-btn-new-session {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+  }
+
+  .header-btn-new-session:hover:not(:disabled) {
+    background: var(--primary-accent-container);
+    border-color: var(--primary-accent);
+    color: var(--primary-accent);
+  }
+
+  .header-btn-new-session:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .header-divider {
@@ -1260,8 +1293,23 @@
     padding-left: 24px;
   }
 
+  .select-wrapper.is-main select {
+    padding-left: 28px;
+  }
+
   .select-wrapper select:hover {
     border-color: var(--primary-accent);
+  }
+
+  .main-badge-icon {
+    position: absolute;
+    left: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-accent);
+    pointer-events: none;
+    z-index: 2;
   }
 
   .live-status-dot {
@@ -1459,58 +1507,54 @@
     padding: 2px;
   }
 
-  /* Welcome Hub View */
+  /* Welcome Hub View / Main Agents Catalog */
   .hub-welcome-view {
     flex: 1;
     overflow-y: auto;
-    padding: 40px 32px;
+    padding: 32px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    max-width: 1000px;
+    max-width: 1060px;
     margin: 0 auto;
     width: 100%;
   }
 
-  .hub-hero {
-    text-align: center;
-    margin-bottom: 32px;
-  }
-
-  .hub-pill {
-    display: inline-flex;
+  .hub-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    border-radius: var(--radius-full);
-    background: var(--primary-accent-container);
-    color: var(--primary-accent);
-    font-size: 11px;
-    font-weight: 600;
-    margin-bottom: 16px;
+    margin: auto 0;
   }
 
-  .hub-pill-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--primary-accent);
+  .hub-header {
+    text-align: center;
+    margin-bottom: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
   }
 
-  .hub-hero h2 {
-    font-size: 28px;
+  .hub-title {
+    font-size: 24px;
     font-weight: 700;
     letter-spacing: -0.02em;
-    margin-bottom: 12px;
     color: var(--text-primary);
+    margin: 0;
   }
 
-  .hub-hero p {
-    font-size: 14px;
+  .hub-subtitle {
+    font-size: 13.5px;
     color: var(--text-secondary);
-    max-width: 600px;
-    line-height: 1.6;
-    margin: 0 auto;
+    max-width: 560px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .hub-subtitle strong {
+    color: var(--text-primary);
   }
 
   .workflow-steps-strip {
@@ -1519,9 +1563,9 @@
     gap: 12px;
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
-    padding: 8px 16px;
+    padding: 6px 16px;
     border-radius: var(--radius-full);
-    margin-bottom: 32px;
+    margin-bottom: 24px;
   }
 
   .step-badge {
@@ -1536,9 +1580,10 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: var(--primary-accent);
-    color: #ffffff;
-    font-size: 11px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-medium);
+    color: var(--text-primary);
+    font-size: 10.5px;
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -1562,60 +1607,74 @@
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
-    padding: 16px;
+    padding: 18px;
     display: flex;
     flex-direction: column;
     text-align: left;
     cursor: pointer;
     transition: var(--transition-normal);
     color: inherit;
+    position: relative;
   }
 
   .agent-catalog-card:hover {
-    border-color: var(--card-border, var(--primary-accent));
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    background: var(--bg-surface-elevated);
+    border-color: var(--card-accent, var(--primary-accent));
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35), var(--shadow-md);
   }
 
   .agent-card-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 12px;
+    margin-bottom: 12px;
   }
 
   .agent-icon-box {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-md);
-    background: var(--bg-surface-elevated);
+    background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-primary);
+    color: var(--card-accent, var(--text-primary));
+    flex-shrink: 0;
+    transition: var(--transition-fast);
+  }
+
+  .agent-catalog-card:hover .agent-icon-box {
+    border-color: var(--card-accent, var(--border-subtle));
+    box-shadow: 0 0 12px var(--card-bg, transparent);
   }
 
   .agent-title-col {
     display: flex;
     flex-direction: column;
+    gap: 2px;
   }
 
   .agent-title-col strong {
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 700;
     color: var(--text-primary);
+    line-height: 1.2;
   }
 
   .agent-type-tag {
-    font-size: 10px;
+    font-size: 10.5px;
+    font-weight: 500;
     color: var(--text-tertiary);
+    letter-spacing: 0.02em;
   }
 
   .agent-card-desc {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--text-secondary);
-    line-height: 1.5;
-    margin-bottom: 16px;
+    line-height: 1.55;
+    margin-bottom: 18px;
     flex: 1;
   }
 
@@ -1623,11 +1682,23 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--primary-accent);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
     border-top: 1px solid var(--border-subtle);
-    padding-top: 10px;
+    padding-top: 12px;
+    transition: var(--transition-fast);
+  }
+
+  .agent-catalog-card:hover .card-footer-action {
+    color: var(--text-primary);
+    border-color: var(--border-medium);
+  }
+
+  .agent-catalog-card:hover .card-footer-action :global(svg) {
+    transform: translateX(3px);
+    transition: transform 0.2s ease;
+    color: var(--text-primary);
   }
 
   /* Chat Viewport */

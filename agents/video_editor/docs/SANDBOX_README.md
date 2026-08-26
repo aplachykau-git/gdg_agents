@@ -10,13 +10,13 @@ This project features the **Video Editor Agent**, an intelligent AI agent built 
 
 To run this sandbox and agent, ensure you have the following installed:
 
-1. **Python 3.10+** (to run the AI agent and Google ADK)
+1. **Python 3.12+** and **uv** (to run the AI agent and Google ADK)
 2. **Node.js v22+** (to run the HyperFrames compiler in headless Chrome)
 3. **FFmpeg** (Optional but highly recommended: automatically detected in system `PATH` for stripping audio and converting videos to GIF).
 
 ## 🛠️ Installation & Setup
 
-1. **Python dependencies** are already handled in the main project `requirements.txt`.
+1. **Python dependencies** are managed by the root `pyproject.toml` and `uv.lock`; run `uv sync --locked` from the repository root.
 2. **Install Node.js dependencies** for the HyperFrames rendering compiler:
 
    ```bash
@@ -35,8 +35,7 @@ To run this sandbox and agent, ensure you have the following installed:
 Google Antigravity provides a web UI to test and interact with your agent locally. Launch the root agent:
 
 ```bash
-source .venv/bin/activate
-adk web --port 8000 agents
+uv run --locked adk web --port 8000 agents
 ```
 
 1. Open `http://localhost:8000` in your web browser.

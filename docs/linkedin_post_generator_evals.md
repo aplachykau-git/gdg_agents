@@ -73,9 +73,8 @@ Run both in order:
 make linkedin-evals-all
 ```
 
-The Makefile prefers `.venv/bin/python3`, `.venv/bin/adk`, and
-`.venv/bin/uvicorn`, then falls back to executables on `PATH`. Use
-`make tools` to print the resolved commands.
+The Makefile runs Python tools through `uv run --locked`. Use `make tools` to
+print the resolved commands.
 
 The judge command prints a compact JSON artifact with verdict agreement and
 scores. The ADK suite prints the contract metric per case. A release requires
