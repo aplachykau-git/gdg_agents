@@ -48,6 +48,7 @@
     getAgentHeading,
     getAgentDescription,
     getAgentStarterPrompts,
+    getAgentIconName,
     isIntermediateEvent,
     getAppConfig,
     saveAppConfig,
@@ -1053,18 +1054,11 @@
             <div class="agents-catalog-grid">
               {#each CATALOG_AGENTS as agent}
                 {@const AgentIcon = agent.icon}
-                <div
+                <button
                   class="agent-catalog-card"
                   style="--card-accent: {agent.accent}; --card-bg: {agent.bg};"
-                  role="button"
-                  tabindex="0"
                   onclick={() => {
                     startNewSession(agent.id);
-                  }}
-                  onkeydown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      startNewSession(agent.id);
-                    }
                   }}
                 >
                   <div class="agent-card-header">
@@ -1083,7 +1077,7 @@
                     <span>{agent.actionText}</span>
                     <ArrowRight size={14} />
                   </div>
-                </div>
+                </button>
               {/each}
             </div>
           </div>
@@ -1782,10 +1776,9 @@
     font-size: 12.5px;
     color: var(--text-secondary);
     line-height: 1.55;
-    margin-bottom: 12px;
+    margin-bottom: 18px;
     flex: 1;
   }
-
 
   .card-footer-action {
     display: flex;
