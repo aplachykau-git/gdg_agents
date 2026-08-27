@@ -9,15 +9,15 @@ class VideoEditorRequest(BaseModel):
     title: str | None = None
     name: str | None = None
     position_company: str | None = None
-    creative_prompt: str | None = None
-    photo_path: str | None = None
+    creative_direction: str | None = None
 
 
 class IntakeDecision(BaseModel):
+    intent: Literal["collect_details", "answer_question"] = "collect_details"
     title: str | None = None
     name: str | None = None
     position_company: str | None = None
-    creative_prompt: str | None = None
+    creative_direction: str | None = None
     user_message: str = ""
 
 
@@ -56,6 +56,17 @@ class ResolvedMedia(BaseModel):
     placeholder_used: bool = False
 
 
+class UploadedMedia(BaseModel):
+    event_id: str
+    part_index: int
+    mime_type: str
+
+
+class VideoEditorDraft(VideoEditorRequest):
+    media: UploadedMedia | None = None
+    confirmed_fingerprint: str | None = None
+
+
 class PreparedMedia(BaseModel):
     media_type: Literal["image", "video"]
     source_path: str
@@ -66,7 +77,26 @@ class PreparedMedia(BaseModel):
 
 class RenderedAsset(BaseModel):
     label: str
-    location: str
+    url: str | None = None
+    availability: Literal["available", "unavailable"] = "available"
+    unavailable_reason: str | None = None
+
+
+class VideoCardToolResult(BaseModel):
+    status: Literal["success", "error", "awaiting_confirmation"]
+    code: str | None = None
+    message: str
+    retryable: bool = True
+    requested_action: Literal[
+        "provide_details",
+        "replace_media",
+        "correct_text",
+        "confirm_render",
+        "retry",
+    ] | None = None
+    missing_fields: list[str] = Field(default_factory=list)
+    assets: list[RenderedAsset] = Field(default_factory=list)
+    draft: VideoEditorDraft | None = None
 
 
 class RenderResult(BaseModel):

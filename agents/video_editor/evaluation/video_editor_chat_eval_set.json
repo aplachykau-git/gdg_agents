@@ -1,0 +1,30 @@
+{
+  "eval_set_id": "video_editor_chat_auto_v1",
+  "name": "Video editor conversational contract evals",
+  "description": "Live ADK chat cases using a deterministic render stub.",
+  "eval_cases": [
+    {
+      "eval_id": "single_turn_happy_path_auto",
+      "conversation": [{"user_content": {"parts": [{"text": "Create a speaker card. Title: Reliable AI Systems. Speaker: Jane Doe. Position and company: Developer Advocate, Example. Style: warm studio lighting and a slow push-in."}]}}]
+    },
+    {
+      "eval_id": "multi_turn_happy_path_auto",
+      "conversation": [
+        {"user_content": {"parts": [{"text": "Create a speaker card. Title: Reliable AI Systems. Speaker: Jane Doe."}]}},
+        {"user_content": {"parts": [{"text": "Position and company: Developer Advocate, Example. Use a calm editorial style with no neon."}]}}
+      ]
+    },
+    {
+      "eval_id": "unrelated_question_preserves_draft",
+      "conversation": [
+        {"user_content": {"parts": [{"text": "Create a speaker card. Title: Reliable AI Systems. Speaker: Jane Doe."}]}},
+        {"user_content": {"parts": [{"text": "What is the capital of France? Do not treat this as a video-card detail."}]}},
+        {"user_content": {"parts": [{"text": "Position and company: Developer Advocate, Example."}]}}
+      ]
+    },
+    {
+      "eval_id": "typo_requires_approval",
+      "conversation": [{"user_content": {"parts": [{"text": "Create a card for title: Reliabel AI Systems; speaker: Jane Doe; position and company: Developer Advocate, Example."}]}}]
+    }
+  ]
+}

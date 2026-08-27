@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 from collections.abc import AsyncGenerator
+from pathlib import Path
 from typing import TypeVar
 
 from google.adk.agents.context import Context
@@ -16,10 +17,8 @@ from pydantic import BaseModel
 
 try:
     from agents.bootstrap import initialise_agent_environment
-except ImportError:
+except ModuleNotFoundError:
     from bootstrap import initialise_agent_environment
-
-initialise_agent_environment()
 
 from agents.gemini_config import get_gemini_client
 
@@ -31,13 +30,16 @@ from .workflow_models import (
     RenderResult,
     ResolvedMedia,
     ReviewDecision,
+    UploadedMedia,
     ValidatedMetadata,
     ValidationFailure,
     VideoEditorRequest,
 )
 
+initialise_agent_environment()
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INTAKE_MODEL = "gemini-2.5-flash"
+INTAKE_MODEL = "gemini-3.5-flash-lite"
 MAX_TITLE_LEN = 80
 MAX_NAME_LEN = 50
 MAX_POSITION_COMPANY_LEN = 80
@@ -51,6 +53,8 @@ DEFAULT_THEME = {
 }
 INTAKE_REQUEST_STATE_KEY = "video_editor_intake_request"
 INTAKE_FEEDBACK_STATE_KEY = "video_editor_intake_feedback"
+INTAKE_MEDIA_STATE_KEY = "video_editor_intake_media"
+INTAKE_COMPLETED_MEDIA_STATE_KEY = "video_editor_completed_media"
 SYSTEM_ERROR_PREFIX = "SYSTEM_ERROR:"
 IMAGE_MIME_TYPES = {
     ".png": "image/png",
@@ -70,24 +74,25 @@ def _normalise_text(value: str | None) -> str:
 
 
 def _latest_user_text(ctx: Context) -> str:
-    texts: list[str] = []
-    for event in ctx.session.events or []:
-        if event.author != "user" or not event.content or not event.content.parts:
-            continue
-        texts.extend(part.text for part in event.content.parts if part.text)
-
-    for response in ctx.resume_inputs.values():
-        texts.append(json.dumps(response, ensure_ascii=False) if isinstance(response, dict) else str(response))
-    return "\n".join(texts[-4:])
-
-
-def _has_uploaded_media(ctx: Context) -> bool:
     for event in reversed(ctx.session.events or []):
         if event.author != "user" or not event.content or not event.content.parts:
             continue
-        if any(part.inline_data and part.inline_data.data for part in event.content.parts):
-            return True
-    return False
+        return "\n".join(part.text for part in event.content.parts if part.text)
+    return ""
+
+
+def _latest_user_upload(ctx: Context) -> UploadedMedia | None:
+    for event in reversed(ctx.session.events or []):
+        if event.author != "user" or not event.content or not event.content.parts:
+            continue
+        for part_index, part in enumerate(event.content.parts):
+            if part.inline_data and part.inline_data.data:
+                return UploadedMedia(
+                    event_id=event.id,
+                    part_index=part_index,
+                    mime_type=part.inline_data.mime_type or "",
+                )
+    return None
 
 
 def _generate_structured_response(schema: type[T], prompt: str, parts: list[types.Part] | None) -> T:
@@ -292,7 +297,7 @@ def _read_video_duration(video_path: str) -> int:
     return 8 if "video_example" in video_path.lower() else 10
 
 
-def _build_creative_prompt(metadata: ValidatedMetadata, user_prompt: str | None) -> str:
+def _build_creative_direction(metadata: ValidatedMetadata, user_prompt: str | None) -> str:
     base_prompt = (
         f"Create a polished speaker intro for {metadata.name}, {metadata.position_company}, "
         f"speaking about {metadata.title}. Keep the subject realistic, calm, and in a single continuous shot."
@@ -307,8 +312,28 @@ def _collect_assets_from_summary(summary: str) -> list[RenderedAsset]:
         if cleaned.startswith("• "):
             label, _, location = cleaned[2:].partition(": ")
             if location:
-                assets.append(RenderedAsset(label=label.strip(), location=location.strip()))
+                assets.append(RenderedAsset(label=label.strip(), url=_normalise_asset_location(location)))
     return assets
+
+
+def _normalise_asset_location(location: str) -> str:
+    location = location.strip()
+    if location.startswith(("https://", "http://", "file://")):
+        return location
+    return Path(location).resolve().as_uri()
+
+
+def _normalise_render_summary(summary: str) -> str:
+    lines: list[str] = []
+    for line in summary.splitlines():
+        cleaned = line.strip()
+        if cleaned.startswith("• "):
+            label, separator, location = cleaned[2:].partition(": ")
+            if separator and location:
+                lines.append(f"• [{label.strip()}]({_normalise_asset_location(location)})")
+                continue
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def _read_binary_file(path: str) -> bytes:
@@ -320,6 +345,15 @@ def _read_binary_file(path: str) -> bytes:
 async def conversational_intake_node(ctx: Context) -> AsyncGenerator[types.Content, None]:
     previous_request = VideoEditorRequest.model_validate(ctx.state.get(INTAKE_REQUEST_STATE_KEY, {}))
     feedback = str(ctx.state.get(INTAKE_FEEDBACK_STATE_KEY, ""))
+    latest_upload = _latest_user_upload(ctx)
+    previous_media = ctx.state.get(INTAKE_MEDIA_STATE_KEY)
+    if latest_upload and latest_upload.model_dump() == ctx.state.get(INTAKE_COMPLETED_MEDIA_STATE_KEY):
+        latest_upload = None
+    if latest_upload and latest_upload.model_dump() != previous_media:
+        previous_request = VideoEditorRequest()
+        feedback = ""
+        ctx.state[INTAKE_MEDIA_STATE_KEY] = latest_upload.model_dump()
+
     if feedback.startswith(SYSTEM_ERROR_PREFIX):
         ctx.state[INTAKE_FEEDBACK_STATE_KEY] = ""
         yield types.Content(
@@ -332,13 +366,21 @@ async def conversational_intake_node(ctx: Context) -> AsyncGenerator[types.Conte
         decision = await _structured_response(
             IntakeDecision,
             f"""You are the only user-facing assistant for a speaker-card video editor.
-Extract fields from the latest user message and retain prior values unless corrected.
-Required: talk title, speaker name, position and company, and an uploaded portrait image or video.
-Ask one concise follow-up only if information is missing or correction is required. Do not say processing has started.
+You create one animated speaker card from a single portrait image or video.
+
+To create a card, collect: talk title, speaker name, position and company, and one uploaded portrait image/video.
+Supported media: PNG, JPEG, WebP, MP4, MOV, AVI, MKV, and WebM.
+After all inputs are present, the system validates the details and media, reviews the metadata and portrait, prepares or generates video, then renders the requested card assets.
+
+For capability, help, status, or process questions, set intent to `answer_question`, answer directly and concisely, and do not change the current draft.
+For a card request or correction, set intent to `collect_details`, extract only fields stated by the user, and retain prior fields unless explicitly corrected.
+Do not claim generation has started until all four required inputs are present.
+A new uploaded image or video starts a new card draft.
+Ask one concise follow-up only when required details or media are missing.
 
 Prior fields: {previous_request.model_dump_json()}
 Latest user input: {_latest_user_text(ctx)}
-Uploaded media present: {_has_uploaded_media(ctx)}
+Current draft media present: {bool(latest_upload or previous_media)}
 Workflow feedback: {feedback or "None"}""",
         )
     except StructuredResponseError:
@@ -347,11 +389,23 @@ Workflow feedback: {feedback or "None"}""",
             parts=[types.Part.from_text(text="I cannot process the request at the moment. Please try again shortly.")],
         )
         return
+    if decision.intent == "answer_question":
+        yield types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(
+                    text=decision.user_message
+                    or "I create animated speaker cards from a portrait image or video plus the talk title, speaker name, and position/company."
+                )
+            ],
+        )
+        return
+
     request = VideoEditorRequest(
         title=decision.title or previous_request.title,
         name=decision.name or previous_request.name,
         position_company=decision.position_company or previous_request.position_company,
-        creative_prompt=decision.creative_prompt or previous_request.creative_prompt,
+        creative_direction=decision.creative_direction or previous_request.creative_direction,
     )
     ctx.state[INTAKE_REQUEST_STATE_KEY] = request.model_dump()
     missing_fields = [
@@ -363,10 +417,10 @@ Workflow feedback: {feedback or "None"}""",
         )
         if not _normalise_text(value)
     ]
-    if feedback or missing_fields or not _has_uploaded_media(ctx):
+    if feedback or missing_fields or not ctx.state.get(INTAKE_MEDIA_STATE_KEY):
         ctx.state[INTAKE_FEEDBACK_STATE_KEY] = ""
         fallback = f"Please provide {', '.join(missing_fields)}." if missing_fields else feedback
-        if not _has_uploaded_media(ctx):
+        if not ctx.state.get(INTAKE_MEDIA_STATE_KEY):
             fallback = f"{fallback.rstrip('.')} Please also upload a portrait image or video."
         yield types.Content(
             role="model",
@@ -390,7 +444,12 @@ def validate_input_model_node(ctx: Context) -> None:
 
 @node(name="stage_media")
 async def stage_media_node(ctx: Context) -> None:
-    staged_path = await media_tools.stage_uploaded_media(tool_context=ctx)
+    uploaded_media = UploadedMedia.model_validate(ctx.state[INTAKE_MEDIA_STATE_KEY])
+    staged_path = await media_tools.stage_uploaded_media(
+        event_id=uploaded_media.event_id,
+        part_index=uploaded_media.part_index,
+        tool_context=ctx,
+    )
     ctx.state["temp:resolved_media"] = ResolvedMedia(
         source_path=staged_path,
         media_type=classify_media_path(staged_path),
@@ -450,6 +509,17 @@ def classify_media_node(ctx: Context) -> None:
     ctx.route = ResolvedMedia.model_validate(ctx.state["temp:resolved_media"]).media_type
 
 
+@node(name="validate_image_generation")
+def validate_image_generation_node(ctx: Context) -> None:
+    if not media_tools.video_generation_enabled():
+        ctx.state[INTAKE_FEEDBACK_STATE_KEY] = (
+            "Image-to-video generation is disabled. Upload a source video or set ENABLE_VIDEO_GENERATION=true."
+        )
+        ctx.route = "invalid"
+        return
+    ctx.route = "valid"
+
+
 @node(name="review_face")
 async def review_face_node(ctx: Context) -> None:
     resolved_media = ResolvedMedia.model_validate(ctx.state["temp:resolved_media"])
@@ -490,7 +560,7 @@ def outpaint_image_node(ctx: Context) -> None:
 def build_creative_prompt_node(ctx: Context) -> None:
     metadata = ValidatedMetadata.model_validate(ctx.state["temp:validated_metadata"])
     request = VideoEditorRequest.model_validate(ctx.state[INTAKE_REQUEST_STATE_KEY])
-    ctx.state["temp:creative_prompt"] = _build_creative_prompt(metadata, request.creative_prompt)
+    ctx.state["temp:creative_prompt"] = _build_creative_direction(metadata, request.creative_direction)
 
 
 @node(name="generate_video_from_image")
@@ -559,14 +629,13 @@ def render_outputs_node(ctx: Context) -> None:
 
 
 @node(name="publish_outputs")
-async def publish_outputs_node(ctx: Context) -> AsyncGenerator[types.Content, None]:
+def publish_outputs_node(ctx: Context) -> RenderResult:
     result = RenderResult.model_validate(ctx.state["temp:render_result"])
     ctx.state[INTAKE_REQUEST_STATE_KEY] = {}
     ctx.state[INTAKE_FEEDBACK_STATE_KEY] = ""
-    yield types.Content(
-        role="model",
-        parts=[types.Part.from_text(text=result.summary)],
-    )
+    ctx.state[INTAKE_COMPLETED_MEDIA_STATE_KEY] = ctx.state.get(INTAKE_MEDIA_STATE_KEY, {})
+    ctx.state[INTAKE_MEDIA_STATE_KEY] = {}
+    return result
 
 
 video_editor_workflow = Workflow(
@@ -581,7 +650,8 @@ video_editor_workflow = Workflow(
         (validate_media_model_node, {"valid": validate_render_environment_node, "invalid": conversational_intake_node}),
         (validate_render_environment_node, {"valid": review_metadata_node, "invalid": conversational_intake_node}),
         (review_metadata_node, {"valid": classify_media_node, "invalid": conversational_intake_node}),
-        (classify_media_node, {"image": review_face_node, "video": normalise_input_video_node}),
+        (classify_media_node, {"image": validate_image_generation_node, "video": normalise_input_video_node}),
+        (validate_image_generation_node, {"valid": review_face_node, "invalid": conversational_intake_node}),
         (review_face_node, {"valid": outpaint_image_node, "invalid": conversational_intake_node}),
         (outpaint_image_node, build_creative_prompt_node, generate_video_from_image_node),
         (
