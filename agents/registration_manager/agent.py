@@ -8,7 +8,7 @@ from google.adk import Agent
 
 initialise_agent_environment()
 
-community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Community"))
+community_name = os.getenv("COMMUNITY_NAME", "Community")
 
 from .tools import (
     add_organiser,

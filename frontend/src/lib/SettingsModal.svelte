@@ -1,5 +1,5 @@
 <script>
-  import { Settings, X, Check, Globe, Cpu, Layout } from '@lucide/svelte';
+  import { Settings, X, Check, Globe } from '@lucide/svelte';
   import { DEFAULT_CONFIG } from './constants.js';
 
   let {
@@ -43,12 +43,6 @@
     const val = event.target.value;
     draft[key] = val;
     triggerAutoSave({ [key]: val });
-  }
-
-  function toggleSwitch(key) {
-    const nextVal = !draft[key];
-    draft[key] = nextVal;
-    triggerAutoSave({ [key]: nextVal });
   }
 </script>
 
@@ -101,102 +95,6 @@
                 class="ide-input"
                 maxlength="50"
               />
-            </div>
-          </div>
-        </section>
-
-        <!-- Section: Agent Execution -->
-        <section class="setting-group">
-          <div class="group-header">
-            <Cpu size={14} />
-            <h3>Agent Execution</h3>
-          </div>
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <span class="setting-title">Stream Responses</span>
-              <p class="setting-desc">Render agent output in real-time as tokens arrive from the reasoning engines.</p>
-            </div>
-            <div class="setting-control">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={draft.streamResponses}
-                aria-label="Toggle Stream Responses"
-                class="ide-switch"
-                class:active={draft.streamResponses}
-                onclick={() => toggleSwitch('streamResponses')}
-              >
-                <span class="switch-knob"></span>
-              </button>
-            </div>
-          </div>
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <span class="setting-title">Show Tool Execution Details</span>
-              <p class="setting-desc">Display intermediate function calls, OCR queries, and rendering pipeline events.</p>
-            </div>
-            <div class="setting-control">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={draft.showToolCalls}
-                aria-label="Toggle Tool Execution Details"
-                class="ide-switch"
-                class:active={draft.showToolCalls}
-                onclick={() => toggleSwitch('showToolCalls')}
-              >
-                <span class="switch-knob"></span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <!-- Section: Interface & Layout -->
-        <section class="setting-group">
-          <div class="group-header">
-            <Layout size={14} />
-            <h3>Interface & Layout</h3>
-          </div>
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <span class="setting-title">Auto-scroll Timeline</span>
-              <p class="setting-desc">Automatically follow newest messages and streaming tokens in the active conversation.</p>
-            </div>
-            <div class="setting-control">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={draft.autoScroll}
-                aria-label="Toggle Auto-scroll"
-                class="ide-switch"
-                class:active={draft.autoScroll}
-                onclick={() => toggleSwitch('autoScroll')}
-              >
-                <span class="switch-knob"></span>
-              </button>
-            </div>
-          </div>
-
-          <div class="setting-row">
-            <div class="setting-meta">
-              <span class="setting-title">Compact View Density</span>
-              <p class="setting-desc">Condense spacing between chat events for high-density multi-agent tracking.</p>
-            </div>
-            <div class="setting-control">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={draft.compactDensity}
-                aria-label="Toggle Compact View Density"
-                class="ide-switch"
-                class:active={draft.compactDensity}
-                onclick={() => toggleSwitch('compactDensity')}
-              >
-                <span class="switch-knob"></span>
-              </button>
             </div>
           </div>
         </section>
@@ -388,46 +286,6 @@
   .ide-input:focus {
     border-color: var(--primary-accent);
     box-shadow: 0 0 0 2px var(--primary-accent-container);
-  }
-
-  /* Toggle Switch (Тумблер) */
-  .ide-switch {
-    width: 36px;
-    height: 20px;
-    border-radius: var(--radius-pill);
-    background: var(--bg-surface-variant);
-    border: 1px solid var(--border-medium);
-    padding: 0;
-    position: relative;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-    outline: none;
-  }
-
-  .ide-switch:focus-visible {
-    box-shadow: 0 0 0 2px var(--primary-accent);
-  }
-
-  .ide-switch.active {
-    background: var(--primary-accent);
-    border-color: var(--primary-accent);
-    box-shadow: 0 0 8px var(--gemini-active-glow);
-  }
-
-  .switch-knob {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: #ffffff;
-    transform: translateX(2px);
-    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  }
-
-  .ide-switch.active .switch-knob {
-    transform: translateX(18px);
   }
 
   /* Footer */

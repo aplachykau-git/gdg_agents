@@ -22,7 +22,7 @@ GCLOUD_BIN="$(which gcloud || echo gcloud)"
 
 # Configuration
 REGION="${GCP_REGION:-europe-central2}"
-PROJECT_ID="${GCP_PROJECT_ID:-$($GCLOUD_BIN config get-value project 2>/dev/null)}"
+PROJECT_ID="${GCP_PROJECT_ID:-${GOOGLE_CLOUD_PROJECT:-$($GCLOUD_BIN config get-value project 2>/dev/null)}}"
 BUCKET_NAME="${GCS_BUCKET_NAME:-${PROJECT_ID}-storage}"
 
 if [ -z "$PROJECT_ID" ]; then
@@ -87,7 +87,7 @@ EOF
 echo ""
 echo "🎬 [2/6] Building & Deploying Video Editor A2A Microservice..."
 build_and_deploy "video-editor-a2a" "deploy/Dockerfile.video_editor" \
-    "VIDEO_AGENT_PROTOCOL=https,VIDEO_AGENT_PORT=443,GDG_COMMUNITY_NAME=${GDG_COMMUNITY_NAME:-Krakow},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-global},ENABLE_VIDEO_GENERATION=false,RENDER_4K=${RENDER_4K:-false},RENDER_ORDINARY=true,RENDER_GIF=true" \
+    "VIDEO_AGENT_PROTOCOL=https,VIDEO_AGENT_PORT=443,COMMUNITY_NAME=${COMMUNITY_NAME:-Krakow},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-global},ENABLE_VIDEO_GENERATION=false,RENDER_4K=${RENDER_4K:-false},RENDER_ORDINARY=true,RENDER_GIF=true" \
     "8Gi" "4" "600"
 
 VIDEO_A2A_URL=$("$GCLOUD_BIN" run services describe video-editor-a2a --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')
@@ -97,19 +97,20 @@ echo "✅ Video Editor A2A deployed at: $VIDEO_A2A_URL"
 echo ""
 echo "🧾 [3/6] Building & Deploying Receipt Scanner A2A Microservice..."
 build_and_deploy "receipt-scanner-a2a" "deploy/Dockerfile.receipt_scanner" \
-    "RECEIPT_AGENT_PROTOCOL=https,RECEIPT_AGENT_PORT=443,GDG_COMMUNITY_NAME=${GDG_COMMUNITY_NAME:-Krakow},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-global},GOOGLE_DRIVE_FOLDER_ID=${GOOGLE_DRIVE_FOLDER_ID:-}"
+    "RECEIPT_AGENT_PROTOCOL=https,RECEIPT_AGENT_PORT=443,COMMUNITY_NAME=${COMMUNITY_NAME:-Krakow},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-global},GOOGLE_DRIVE_FOLDER_ID=${GOOGLE_DRIVE_FOLDER_ID:-}"
 
-RECEIPT_A2A_URL=$("$GCLOUD_BIN" run services describe receipt-scanner-a2a --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')
-echo "✅ Receipt Scanner A2A deployed at: $RECEIPT_A2A_URL"
+RECEIPT_A2A_URL=$("$GCLOUD_BIN" run services describe receipt-scanner-a2a --region "$REGION" --project "$PROJECT_ID" --format='value(status.url)')
+echo "✅ Receipt Scanner A2A deployed at: ${RECEIPT_A2A_URL}"
 
 # 3. Deploy Root Orchestrator Agent
 echo ""
 echo "🧠 [4/6] Building & Deploying Root Orchestrator Agent (community-root-agent)..."
 build_and_deploy "community-root-agent" "deploy/Dockerfile.root" \
-    "VIDEO_AGENT_A2A_URL=${VIDEO_A2A_URL},RECEIPT_AGENT_A2A_URL=${RECEIPT_A2A_URL},COMMUNITY_NAME=${COMMUNITY_NAME:-${GDG_COMMUNITY_NAME:-Community}},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-global},ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS=true"
+    "VIDEO_AGENT_A2A_URL=${VIDEO_A2A_URL},RECEIPT_AGENT_A2A_URL=${RECEIPT_A2A_URL},COMMUNITY_NAME=${COMMUNITY_NAME:-Community},GCS_BUCKET_NAME=${BUCKET_NAME},GEMINI_API_KEY=${GEMINI_API_KEY:-},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION:-global},ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS=true" \
+    "8Gi" "4" "600"
 
-ROOT_AGENT_URL=$("$GCLOUD_BIN" run services describe community-root-agent --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')
-echo "✅ Root Orchestrator deployed at: $ROOT_AGENT_URL"
+ROOT_AGENT_URL=$("$GCLOUD_BIN" run services describe community-root-agent --region "$REGION" --project "$PROJECT_ID" --format='value(status.url)')
+echo "✅ Root Orchestrator deployed at: ${ROOT_AGENT_URL}"
 
 # 4. Build Frontend
 echo ""

@@ -8,7 +8,7 @@ from google.adk import Agent
 
 initialise_agent_environment()
 
-community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Community"))
+community_name = os.getenv("COMMUNITY_NAME", "Community")
 
 INSTRUCTION = f"""You are the {community_name} Agenda Generator Agent.
 Your sole job is to receive speaker inputs and draft a beautifully structured, highly readable, and copy-pasteable event agenda.

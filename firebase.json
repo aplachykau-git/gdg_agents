@@ -30,28 +30,28 @@
       {
         "source": "/list-apps",
         "run": {
-          "serviceId": "gdg-root-agent",
+          "serviceId": "community-root-agent",
           "region": "europe-central2"
         }
       },
       {
         "source": "/run",
         "run": {
-          "serviceId": "gdg-root-agent",
+          "serviceId": "community-root-agent",
           "region": "europe-central2"
         }
       },
       {
         "source": "/run_sse",
         "run": {
-          "serviceId": "gdg-root-agent",
+          "serviceId": "community-root-agent",
           "region": "europe-central2"
         }
       },
       {
         "source": "/apps/**",
         "run": {
-          "serviceId": "gdg-root-agent",
+          "serviceId": "community-root-agent",
           "region": "europe-central2"
         }
       },

@@ -13,7 +13,7 @@ from google.genai import types
 
 initialise_agent_environment()
 
-community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Krakow"))
+community_name = os.getenv("COMMUNITY_NAME", "Krakow")
 
 INSTRUCTION = f"""You are the LinkedIn Post Generator Agent for {community_name}.
 Your goal is to write natural, engaging, and well-developed LinkedIn announcement posts for speakers and event recap summaries.

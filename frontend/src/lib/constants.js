@@ -12,11 +12,7 @@ export const DEFAULT_APPS = [
 ];
 
 export const DEFAULT_CONFIG = {
-  communityName: 'GDG Krakow',
-  autoScroll: true,
-  streamResponses: true,
-  showToolCalls: true,
-  compactDensity: false
+  communityName: 'GDG Krakow'
 };
 
 export function getAppConfig() {
@@ -574,6 +570,10 @@ export function extractDocumentAssets(text) {
       text.includes('Waitlisted Registrants')
     ));
 
+  // Extract embedded plain-text attendee roster if present
+  const rosterMatch = text.match(/<!--\s*ATTENDEE_ROSTER_START\s*\n([\s\S]*?)\n\s*ATTENDEE_ROSTER_END\s*-->/i);
+  const rosterText = rosterMatch ? rosterMatch[1].trim() : null;
+
   return {
     primaryUrl,
     docxUrl,
@@ -581,6 +581,7 @@ export function extractDocumentAssets(text) {
     xlsxUrl,
     pdfUrl,
     txtUrl: isRegistration ? '/results/registrations_list.txt' : null,
+    rosterText,
     isRegistration,
     filename,
     fileType,
@@ -593,7 +594,10 @@ export function extractDocumentAssets(text) {
 export function cleanTextForDocumentDisplay(text) {
   if (!text) return '';
 
-  const lines = text.split('\n');
+  // First strip all HTML comments (including embedded roster payloads)
+  const cleanComments = text.replace(/<!--[\s\S]*?-->/g, '');
+
+  const lines = cleanComments.split('\n');
   const filteredLines = lines.filter(line => {
     const trimmed = line.trim();
     if (

@@ -861,7 +861,7 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
         doc_ok = True
         print(f"✅ Successfully wrote beautiful DOCX document to: {doc_path}")
 
-        # Also write clean plain-text attendee lists for instant 1-click clipboard copying
+        roster_text = ""
         try:
             txt_path = os.path.join(results_dir, "registrations_list.txt")
             names_lines = [f"🟢 Confirmed Attendees ({len(registered_list)}):"]
@@ -880,13 +880,15 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
                     clean_name = re.sub(r"\s+", " ", clean_name).strip()
                     names_lines.append(f"{att['no']}. {clean_name}")
 
+            roster_text = "\n".join(names_lines)
             with open(txt_path, "w", encoding="utf-8") as tf:
-                tf.write("\n".join(names_lines))
+                tf.write(roster_text)
             print(f"✅ Successfully wrote plain text roster to: {txt_path}")
         except Exception as txt_err:
             print(f"⚠️ Failed to write plain text roster: {txt_err}")
 
         cloud_doc_url = None
+        cloud_txt_url = None
         try:
             from agents.common.storage import upload_file_to_storage
 
@@ -897,6 +899,15 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
             )
             if cloud_doc_url:
                 print(f"☁️ [Cloud Storage] Registration document uploaded: {cloud_doc_url}")
+
+            if roster_text and os.path.exists(txt_path):
+                cloud_txt_url = upload_file_to_storage(
+                    local_path=txt_path,
+                    destination_blob_name=f"registrations/{os.path.basename(txt_path)}",
+                    content_type="text/plain; charset=utf-8",
+                )
+                if cloud_txt_url:
+                    print(f"☁️ [Cloud Storage] Plain text roster uploaded: {cloud_txt_url}")
         except Exception as upload_err:
             print(f"⚠️ [Cloud Storage Notice] {upload_err}")
     except Exception as docx_err:
@@ -916,6 +927,8 @@ Successfully processed the registrations list:
     if doc_ok:
         primary_url = cloud_doc_url or f"/results/{os.path.basename(doc_path)}"
         summary_str += f"\n- **Event Registration Document (DOCX)**: [{os.path.basename(doc_path)}]({primary_url})\n"
+        if roster_text:
+            summary_str += f"\n<!-- ATTENDEE_ROSTER_START\n{roster_text}\nATTENDEE_ROSTER_END -->\n"
     else:
         summary_str += "\n⚠️ Failed to generate Word document due to an error.\n"
     return summary_str

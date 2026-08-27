@@ -1,5 +1,5 @@
 """
-Comprehensive Integration Tests for GDG Agentic Workspace.
+Comprehensive Integration Tests for Community Studio.
 Tests agent initialization, path resolution, tool resilience, and A2A cards.
 """
 

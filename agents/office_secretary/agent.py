@@ -9,7 +9,7 @@ initialise_agent_environment()
 
 from google.adk import Agent
 
-community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Community"))
+community_name = os.getenv("COMMUNITY_NAME", "Community")
 
 INSTRUCTION = f"""You are the {community_name} Office Secretary Agent.
 Your job is to draft polite, templated emails to the office administrative team for visitor key access or Event Hub space reservations.

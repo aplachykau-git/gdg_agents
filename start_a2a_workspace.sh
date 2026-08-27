@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ==============================================================================
-# 🚀 GDG Agentic Workspace - Complete A2A Multi-Service Launcher
+# 🚀 Community Studio - Complete A2A Multi-Service Launcher
 # Launches Video Editor A2A (8081), Receipt Scanner A2A (8082),
 # Root Orchestrator (8080), and Svelte 5 Frontend (5173).
 # ==============================================================================
@@ -12,7 +12,7 @@ set -e
 cd "$(dirname "$0")"
 
 echo "================================================================"
-echo "🤖 Starting GDG Agentic Workspace (A2A Multi-Service Mode)..."
+echo "🤖 Starting Community Studio (A2A Multi-Service Mode)..."
 echo "================================================================"
 
 command -v uv >/dev/null 2>&1 || {

@@ -14,6 +14,13 @@ from google.genai import types
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel
 
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ImportError:
+    from bootstrap import initialise_agent_environment
+
+initialise_agent_environment()
+
 from agents.gemini_config import get_gemini_client
 
 from .tools import composer_tools, media_tools

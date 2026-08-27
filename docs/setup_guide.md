@@ -107,51 +107,73 @@ Open `.env` and configure the following parameters:
 
 ### 5. Customizing the Expense Report Google Doc Template
 
-The **Receipt Scanner** sub-agent compiles reports by copying a Google Doc template and populating placeholders. By default, it uses a shared, read-only template.
+The **Receipt Scanner** sub-agent compiles reports using a professional Microsoft Word `.docx` template located at `agents/receipt_scanner/assets/expense_report_template.docx`.
 
-To customize the report template (e.g., adding your own styling, custom tables, headers, or organizational details):
-1. Open the default template: [Google Docs Template](https://docs.google.com/document/d/1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw/edit).
-2. Create a copy of it in your own Google Drive (**File -> Make a copy**).
-3. Modify the copied document as you like (keep the existing placeholder tags like `{{APPROVED}}` and `{{EXPENSES_TABLE}}` where you want the dynamic content to be inserted).
-4. Extract the Document ID from the URL of your new document (e.g., `https://docs.google.com/document/d/<YOUR_DOCUMENT_ID>/edit`).
-5. Open the local file [Expense_report_template.gdoc](../agents/receipt_scanner/assets/Expense_report_template.gdoc) and replace the `"doc_id"` value with your new document ID:
-   ```json
-   {
-     "doc_id": "YOUR_NEW_DOCUMENT_ID",
-     "resource_key": ""
-   }
-   ```
+To customize the report styling, tables, headers, or organizational details:
+1. Edit or replace the template file at `agents/receipt_scanner/assets/expense_report_template.docx` in Microsoft Word, Google Docs, or LibreOffice.
+2. The agent automatically reads this template to structure and format all generated reimbursement reports.
 
 ---
 
 ## 🚀 Running the Entire Project
 
-To run the complete system with the custom Svelte frontend talking to the ADK backend agent, you need to spin up two processes in separate terminal sessions:
+### Recommended: Single Command (`make run-all`)
 
-### Terminal 1: Launch Backend (ADK FastAPI Server)
-
-The backend agent server must run on port `8080` (as Vite is configured to proxy all API requests to `127.0.0.1:8080`).
+The easiest way to start all background A2A services (Video Editor on 8081, Receipt Scanner on 8082), the ADK Web Orchestrator on 8080, and the Svelte frontend dev server on 5173 is:
 
 ```bash
-# Run the full ADK workspace so each agent is addressable directly.
-# This exposes root_agent plus all specialized sub-agents in /list-apps.
-uv run --locked adk web --port 8080 agents
+make run-all
+```
+*Press `Ctrl+C` in the terminal to gracefully stop all services.*
+
+---
+
+### Alternative: Multi-Terminal Launch
+
+If you prefer to start components individually in separate terminal sessions:
+
+#### Terminal 1: Video Editor A2A Service (Port 8081)
+```bash
+uv run --locked uvicorn agents.video_editor.a2a_server:a2a_app --host 0.0.0.0 --port 8081
 ```
 
-### Terminal 2: Launch Frontend (Svelte Dev Server)
+#### Terminal 2: Receipt Scanner A2A Service (Port 8082)
+```bash
+uv run --locked uvicorn agents.receipt_scanner.a2a_server:a2a_app --host 0.0.0.0 --port 8082
+```
 
+#### Terminal 3: Root Orchestrator (Port 8080)
+```bash
+VIDEO_AGENT_A2A_URL=http://localhost:8081 RECEIPT_AGENT_A2A_URL=http://localhost:8082 \
+  uv run --locked adk web --port 8080 agents
+```
+
+#### Terminal 4: Launch Frontend (Svelte Dev Server)
 ```bash
 cd frontend
 npm run dev
 ```
-*This starts the Vite server (typically at `http://localhost:5173`).*
 
 ### Open the Application
 
 Now, open your browser and navigate to:
 👉 **[http://localhost:5173](http://localhost:5173)**
 
-Here you will find the **Advanced Agentic Workspace** where you can select the active agent, start new chat sessions, type requests, and drag-and-drop receipts or participant rosters directly.
+Here you will find the **Community Studio** workspace where you can select the active agent, start new chat sessions, type requests, and drag-and-drop receipts or participant rosters directly.
+
+---
+
+## ☁️ Production Deployment (Cloud Run & Firebase)
+
+To build container images with Google Cloud Build and deploy all services to Google Cloud Run and Firebase Hosting:
+
+```bash
+# Full deployment of all services and web app
+make deploy
+
+# Or frontend-only deployment to Firebase Hosting
+make deploy-frontend
+```
 
 ---
 

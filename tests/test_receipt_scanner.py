@@ -31,15 +31,15 @@ async def main():
         app_name="receipt_agent", agent=receipt_agent, session_service=session_service, auto_create_session=True
     )
 
-    # Dynamically find the test invoice relative to the project root
-    file_path = project_root / "gdg_agent" / "invoice_processing" / "exemplary_data" / "case_001" / "invoice.pdf"
-    if not file_path.exists():
-        # Fallback to local sibling directory if available
-        sibling_path = (
-            project_root.parent / "gdg_agent" / "invoice_processing" / "exemplary_data" / "case_001" / "invoice.pdf"
+    # Dynamically find the test invoice relative to the project root or fixtures
+    if len(sys.argv) > 1:
+        file_path = Path(sys.argv[1]).resolve()
+    else:
+        fixtures_dir = project_root / "agents" / "receipt_scanner" / "evaluation" / "fixtures"
+        sample_files = sorted(
+            list(fixtures_dir.glob("*.jpg")) + list(fixtures_dir.glob("*.pdf")) + list(fixtures_dir.glob("*.png"))
         )
-        if sibling_path.exists():
-            file_path = sibling_path
+        file_path = sample_files[0] if sample_files else fixtures_dir / "sample_invoice.pdf"
 
     print(f"Sending request for: {file_path}...")
 

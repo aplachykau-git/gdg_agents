@@ -1,6 +1,6 @@
 import { DEFAULT_APPS } from './constants.js';
 
-export const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && (window.location.hostname.includes('web.app') || window.location.hostname.includes('firebaseapp.com')) ? 'https://gdg-root-agent-sb6iim4giq-lm.a.run.app' : '');
+export const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && (window.location.hostname.includes('web.app') || window.location.hostname.includes('firebaseapp.com')) ? 'https://community-root-agent-sb6iim4giq-lm.a.run.app' : '');
 
 export async function fetchApps() {
   try {

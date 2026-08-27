@@ -6,8 +6,7 @@
     Loader2, 
     Check, 
     Copy,
-    Users,
-    ExternalLink
+    Users
   } from '@lucide/svelte';
   import { downloadDirectFile } from './constants.js';
 
@@ -32,15 +31,23 @@
   async function handleCopyList() {
     isCopyingList = true;
     try {
-      let textToCopy = '';
-      const listUrl = doc?.txtUrl || '/results/registrations_list.txt';
-      try {
-        const res = await fetch(listUrl);
-        if (res.ok) {
-          textToCopy = await res.text();
+      let textToCopy = doc?.rosterText || '';
+      
+      // If not embedded in doc metadata, attempt to fetch from URL as fallback
+      if (!textToCopy) {
+        const listUrl = doc?.txtUrl || '/results/registrations_list.txt';
+        try {
+          const res = await fetch(listUrl);
+          if (res.ok) {
+            const fetched = await res.text();
+            // Ensure we didn't receive the SPA index.html fallback
+            if (fetched && !fetched.toLowerCase().includes('<!doctype html>') && !fetched.toLowerCase().includes('<html')) {
+              textToCopy = fetched.trim();
+            }
+          }
+        } catch (err) {
+          console.warn('Direct list fetch failed:', err);
         }
-      } catch (err) {
-        console.warn('Direct list fetch failed:', err);
       }
 
       if (textToCopy) {
@@ -50,7 +57,7 @@
           isListCopied = false;
         }, 2500);
       } else {
-        alert('Attendee list is not ready yet.');
+        alert('Attendee list is not available in the document.');
       }
     } catch (e) {
       console.warn('Failed to copy attendee list:', e);
@@ -104,7 +111,7 @@
         {/if}
       </button>
 
-      {#if doc.isRegistration || doc.txtUrl}
+      {#if doc.isRegistration || doc.rosterText || doc.txtUrl}
         <button 
           class="action-btn secondary-btn"
           disabled={isCopyingList}
@@ -130,18 +137,6 @@
           <FileSpreadsheet size={14} />
           <span>Download CSV</span>
         </button>
-      {/if}
-
-      {#if doc.primaryUrl.startsWith('http')}
-        <a 
-          href={doc.primaryUrl} 
-          target="_blank" 
-          rel="noopener noreferrer" 
-          class="action-btn icon-only-btn"
-          title="Open direct file link"
-        >
-          <ExternalLink size={14} />
-        </a>
       {/if}
     </div>
   </div>
@@ -286,18 +281,6 @@
   .secondary-btn:hover:not(:disabled) {
     background: var(--bg-hover, rgba(255, 255, 255, 0.1));
     border-color: var(--border-focus, #8ab4f8);
-  }
-
-  .icon-only-btn {
-    padding: 8px 10px;
-    background: var(--bg-surface, #1e1e2d);
-    color: var(--text-secondary, #9aa0a6);
-    border-color: var(--border-subtle, rgba(255, 255, 255, 0.12));
-  }
-
-  .icon-only-btn:hover {
-    color: var(--text-primary, #ffffff);
-    background: var(--bg-hover, rgba(255, 255, 255, 0.1));
   }
 
   :global(.copied-check) {
