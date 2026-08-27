@@ -13,9 +13,10 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "agents"))
 sys.path.insert(0, str(project_root / "agents" / "receipt_scanner"))
 
-os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1"
-os.environ["GOOGLE_CLOUD_PROJECT"] = "gdg-agents-496611"
-os.environ["GOOGLE_CLOUD_LOCATION"] = "europe-central2"
+from dotenv import load_dotenv
+
+# Load environment configuration from .env
+load_dotenv(project_root / ".env")
 
 from google.adk.runners import Runner
 from google.adk.sessions.in_memory_session_service import InMemorySessionService
@@ -30,15 +31,15 @@ async def main():
         app_name="receipt_agent", agent=receipt_agent, session_service=session_service, auto_create_session=True
     )
 
-    # Dynamically find the test invoice relative to the project root
-    file_path = project_root / "gdg_agent" / "invoice_processing" / "exemplary_data" / "case_001" / "invoice.pdf"
-    if not file_path.exists():
-        # Fallback to local sibling directory if available
-        sibling_path = (
-            project_root.parent / "gdg_agent" / "invoice_processing" / "exemplary_data" / "case_001" / "invoice.pdf"
+    # Dynamically find the test invoice relative to the project root or fixtures
+    if len(sys.argv) > 1:
+        file_path = Path(sys.argv[1]).resolve()
+    else:
+        fixtures_dir = project_root / "agents" / "receipt_scanner" / "evaluation" / "fixtures"
+        sample_files = sorted(
+            list(fixtures_dir.glob("*.jpg")) + list(fixtures_dir.glob("*.pdf")) + list(fixtures_dir.glob("*.png"))
         )
-        if sibling_path.exists():
-            file_path = sibling_path
+        file_path = sample_files[0] if sample_files else fixtures_dir / "sample_invoice.pdf"
 
     print(f"Sending request for: {file_path}...")
 

@@ -323,10 +323,9 @@ def read_receipt_file(file_path: str) -> dict:
 
         # Self-healing search across the workspace and parent directories
         found_path = None
-        search_dirs = [Path(os.getcwd())]
-        for parent in Path(os.getcwd()).parents:
-            if "Experiments" in parent.parts or "gdg_krakow_tool" in parent.parts:
-                search_dirs.append(parent)
+        search_dirs = [Path.cwd()]
+        for parent in list(Path.cwd().parents)[:3]:
+            search_dirs.append(parent)
 
         target_name = Path(file_path).name
 
@@ -590,7 +589,9 @@ def export_summary_to_google_doc(
         docx_filename = f"{safe_title}_{timestamp_str}.docx"
         local_docx_path = str(results_dir / docx_filename)
 
-        community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "GDG Krakow"))
+        community_name = os.getenv("COMMUNITY_NAME", "Community")
+        template_docx_path = Path(__file__).resolve().parent / "assets" / "expense_report_template.docx"
+        resolved_template = str(template_docx_path) if template_docx_path.exists() else None
 
         docx_bytes = generate_expense_report_docx(
             title=title,
@@ -603,6 +604,7 @@ def export_summary_to_google_doc(
             community_name=community_name,
             session_images=session_images,
             output_path=local_docx_path,
+            template_path=resolved_template,
         )
 
         # Upload generated DOCX directly to Google Cloud Storage

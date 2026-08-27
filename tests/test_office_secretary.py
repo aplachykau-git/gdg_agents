@@ -109,11 +109,12 @@ class TestOfficeSecretaryIntegration(unittest.IsolatedAsyncioTestCase):
             auto_create_session=True,
         )
 
+        community_name = os.getenv("COMMUNITY_NAME", "Community")
         hub_email_mock = (
-            "Subject: Reservation Request for Event Hub - GDG AI Meetup #10\n\n"
+            f"Subject: Reservation Request for Event Hub - {community_name} AI Meetup #10\n\n"
             "Dear colleagues,\n"
             "we would like to request support and reserve space at Event Hub for the public event:\n\n"
-            "GDG AI Meetup #10\n\n"
+            f"{community_name} AI Meetup #10\n\n"
             "The date: June 15, 2026\n\n"
             "Format: Offline event w/o recording.\n"
             "Ticketing system: Bevy\n"
@@ -137,7 +138,7 @@ class TestOfficeSecretaryIntegration(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(runner, "run_async", side_effect=fake_run_async):
             events = []
-            prompt = "Reserve Event Hub for 'GDG AI Meetup #10' on June 15, 2026. Host is Alex."
+            prompt = f"Reserve Event Hub for '{community_name} AI Meetup #10' on June 15, 2026. Host is Alex."
             async for event in runner.run_async(
                 user_id="test_organizer",
                 session_id="office_sess_03",
@@ -151,7 +152,7 @@ class TestOfficeSecretaryIntegration(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(events), 1)
             text = events[0].content.parts[0].text
             self.assertIn("Reservation Request for Event Hub", text)
-            self.assertIn("GDG AI Meetup #10", text)
+            self.assertIn(f"{community_name} AI Meetup #10", text)
             self.assertIn("June 15, 2026", text)
 
     async def test_missing_date_validation_refusal_flow(self):

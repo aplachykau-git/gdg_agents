@@ -16,7 +16,7 @@ from .tools import get_public_holidays
 
 initialise_agent_environment()
 
-community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Community"))
+community_name = os.getenv("COMMUNITY_NAME", "Community")
 current_year = datetime.date.today().year
 
 INSTRUCTION = f"""You are the {community_name} Event Planner Agent.

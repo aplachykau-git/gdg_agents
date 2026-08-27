@@ -75,9 +75,10 @@ def generate_expense_report_docx(
     rate_source: str = "Official Banking Exchange Rates",
     rate_url: str = "",
     approved_budget: str = "",
-    community_name: str = "GDG Krakow",
+    community_name: str = "Community",
     session_images: Optional[List[bytes]] = None,
     output_path: Optional[str] = None,
+    template_path: Optional[str] = None,
 ) -> bytes:
     """Generates a styled .docx expense report document.
 
@@ -109,7 +110,7 @@ def generate_expense_report_docx(
     section.right_margin = Inches(0.8)
 
     # Base Color Palette (Professional Navy & Slate)
-    PRIMARY_COLOR = RGBColor(26, 86, 219)  # #1A56DB GDG Blue
+    PRIMARY_COLOR = RGBColor(26, 86, 219)  # #1A56DB Community Blue
     TEXT_MAIN = RGBColor(15, 23, 42)  # #0F172A
     TEXT_MUTED = RGBColor(100, 116, 139)  # #64748B
     HEADER_BG_HEX = "F1F5F9"  # Slate-100

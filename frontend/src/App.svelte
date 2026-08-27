@@ -38,6 +38,8 @@
     isIntermediateEvent,
     getAppConfig,
     saveAppConfig,
+    resolveAgentId,
+    getActiveAgentFromEvents,
   } from "./lib/constants.js";
 
   import {
@@ -51,13 +53,15 @@
 
   // State Variables
   let apps = $state.raw(DEFAULT_APPS);
-  let selectedApp = $state("root_agent");
+  let selectedApp = $state("root_agent"); // The app namespace currently being browsed
+  let sessionOwnerApp = $state("root_agent"); // The top-level agent app hosting the session
   let userId = $state("user");
   let sessions = $state.raw([]);
   let selectedSessionId = $state("");
   let events = $state.raw([]);
   let queryText = $state("");
   let isLoading = $state(false);
+  let isSubmitting = $state(false);
   let errorMsg = $state("");
   let isDarkMode = $state(true);
   let studioConfig = $state(getAppConfig());
@@ -80,10 +84,33 @@
   let chatBodyElement = $state();
   let dragCounter = 0;
 
-  const activeAgentTheme = $derived(getAgentTheme(selectedApp));
+  // Dynamically resolve active agent currently handling the conversation
+  const activeAgent = $derived.by(() => {
+    if (isLoading && currentExecutingAgent) {
+      const resolved = resolveAgentId(currentExecutingAgent, apps);
+      if (resolved) return resolved;
+    }
+    return getActiveAgentFromEvents(
+      events,
+      currentExecutingAgent || sessionOwnerApp || selectedApp || "root_agent",
+      apps,
+    );
+  });
+
+  const activeAgentTheme = $derived(getAgentTheme(activeAgent));
   const filteredEvents = $derived(
     events.filter((e) => !isIntermediateEvent(e)),
   );
+
+  // Agent selector manual switch
+  function handleAgentChange(newApp) {
+    selectedApp = newApp;
+    sessionOwnerApp = newApp;
+    currentExecutingAgent = newApp;
+    selectedSessionId = "";
+    events = [];
+    loadSessions();
+  }
 
   // Theme Toggler
   function toggleTheme() {
@@ -119,6 +146,7 @@
       } else {
         selectedSessionId = "";
         events = [];
+        currentExecutingAgent = selectedApp;
       }
     } catch (e) {
       console.error(e);
@@ -127,15 +155,22 @@
   }
 
   // Start New Session
-  async function startNewSession() {
-    if (!selectedApp) return;
+  async function startNewSession(targetApp) {
+    const appToUse = (typeof targetApp === "string" && targetApp) ? targetApp : (selectedApp || "root_agent");
+    selectedApp = appToUse;
+    sessionOwnerApp = appToUse;
+    currentExecutingAgent = appToUse;
     const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     try {
       errorMsg = "";
       isLoading = true;
-      await createSession(selectedApp, userId, newSessionId);
+      events = [];
+      selectedSessionId = newSessionId;
+      queryText = "";
+      stagedFiles = [];
+      await createSession(appToUse, userId, newSessionId);
       await loadSessions();
-      selectSession(newSessionId);
+      await selectSession(newSessionId);
     } catch (e) {
       console.error(e);
       errorMsg = `Failed to start session: ${e.message}`;
@@ -153,10 +188,16 @@
     }
     try {
       errorMsg = "";
+      sessionOwnerApp = selectedApp;
       events = await fetchSessionHistory(
-        selectedApp,
+        sessionOwnerApp || selectedApp,
         userId,
         selectedSessionId,
+      );
+      currentExecutingAgent = getActiveAgentFromEvents(
+        events,
+        sessionOwnerApp || selectedApp,
+        apps,
       );
       scrollToBottom();
     } catch (e) {
@@ -173,7 +214,7 @@
       return;
     try {
       errorMsg = "";
-      await deleteSessionRequest(selectedApp, userId, sessionId);
+      await deleteSessionRequest(sessionOwnerApp || selectedApp, userId, sessionId);
       if (selectedSessionId === sessionId) {
         selectedSessionId = "";
         events = [];
@@ -276,8 +317,6 @@
     }, 50);
   }
 
-  let isSubmitting = false;
-
   // Send Message / Run Agent
   async function sendMessage() {
     if (isLoading || isSubmitting) return;
@@ -287,10 +326,12 @@
     isLoading = true;
 
     if (!selectedSessionId) {
+      const appToCreate = sessionOwnerApp || selectedApp || "root_agent";
       const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
       try {
-        await createSession(selectedApp, userId, newSessionId);
+        await createSession(appToCreate, userId, newSessionId);
         selectedSessionId = newSessionId;
+        sessionOwnerApp = appToCreate;
         loadSessions();
       } catch (err) {
         selectedSessionId = newSessionId;
@@ -306,8 +347,8 @@
     }
     stagedFiles = [];
     errorMsg = "";
-    currentExecutingAgent = selectedApp || "root_agent";
-    startStatusTicker(selectedApp);
+    currentExecutingAgent = activeAgent || sessionOwnerApp || selectedApp || "root_agent";
+    startStatusTicker(currentExecutingAgent);
 
     try {
       const parts = [];
@@ -335,7 +376,7 @@
       scrollToBottom();
 
       await runSSEStream({
-        appName: selectedApp,
+        appName: sessionOwnerApp || selectedApp || "root_agent",
         userId,
         sessionId: selectedSessionId,
         parts,
@@ -343,7 +384,8 @@
           if (!eventObj) return;
 
           if (eventObj.author && eventObj.author !== "user") {
-            currentExecutingAgent = eventObj.author;
+            const resolved = resolveAgentId(eventObj.author, apps) || cleanAuthorName(eventObj.author);
+            currentExecutingAgent = resolved;
             startStatusTicker(currentExecutingAgent);
           }
 
@@ -450,7 +492,7 @@
       <!-- New Session Button (With label) -->
       <button
         class="header-btn-new-session"
-        onclick={startNewSession}
+        onclick={() => startNewSession()}
         disabled={isLoading}
         data-tooltip="Start New Session"
         aria-label="Start New Session"
@@ -478,15 +520,16 @@
         <div
           class="select-wrapper"
           class:has-session={Boolean(selectedSessionId)}
-          class:is-main={selectedApp === "root_agent"}
+          class:is-main={activeAgent === "root_agent"}
         >
           {#if selectedSessionId}
             <span
               class="live-status-dot"
-              data-tooltip="Session Active • Connected"
-              aria-label="Session Active • Connected"
+              style="background: {activeAgentTheme.color}; box-shadow: 0 0 8px {activeAgentTheme.color}80;"
+              data-tooltip="Session Active • Connected ({activeAgentTheme.label})"
+              aria-label="Session Active • Connected ({activeAgentTheme.label})"
             ></span>
-          {:else if selectedApp === "root_agent"}
+          {:else if activeAgent === "root_agent"}
             <span
               class="main-badge-icon"
               data-tooltip="Main Coordinator"
@@ -497,11 +540,8 @@
           {/if}
           <select
             id="appSelect"
-            bind:value={selectedApp}
-            onchange={() => {
-              selectedSessionId = "";
-              loadSessions();
-            }}
+            value={activeAgent}
+            onchange={(e) => handleAgentChange(e.target.value)}
           >
             {#each apps as app}
               <option value={app.name}>
@@ -515,13 +555,13 @@
 
       <div class="header-divider"></div>
 
-      <!-- Multi-Agent DAG Architecture -->
+      <!-- Multi-Agent Architecture -->
       <button
         class="icon-btn"
         class:active={showAgentGraph}
         onclick={() => (showAgentGraph = true)}
-        data-tooltip="Multi-Agent DAG Architecture"
-        aria-label="Multi-Agent DAG Architecture"
+        data-tooltip="Multi-Agent Architecture"
+        aria-label="Multi-Agent Architecture"
       >
         <Workflow size={18} strokeWidth={1.75} />
       </button>
@@ -673,8 +713,7 @@
               class="agent-catalog-card"
               style="--card-accent: var(--agent-root); --card-bg: var(--bg-root);"
               onclick={() => {
-                selectedApp = "root_agent";
-                startNewSession();
+                startNewSession("root_agent");
               }}
             >
               <div class="agent-card-header">
@@ -700,8 +739,7 @@
               class="agent-catalog-card"
               style="--card-accent: var(--agent-receipt); --card-bg: var(--bg-receipt);"
               onclick={() => {
-                selectedApp = "receipt_scanner";
-                startNewSession();
+                startNewSession("receipt_scanner");
               }}
             >
               <div class="agent-card-header">
@@ -727,8 +765,7 @@
               class="agent-catalog-card"
               style="--card-accent: var(--agent-video); --card-bg: var(--bg-video);"
               onclick={() => {
-                selectedApp = "video_editor";
-                startNewSession();
+                startNewSession("video_editor");
               }}
             >
               <div class="agent-card-header">
@@ -754,8 +791,7 @@
               class="agent-catalog-card"
               style="--card-accent: var(--agent-linkedin); --card-bg: var(--bg-linkedin);"
               onclick={() => {
-                selectedApp = "linkedin_post_generator";
-                startNewSession();
+                startNewSession("linkedin_post_generator");
               }}
             >
               <div class="agent-card-header">
@@ -781,8 +817,7 @@
               class="agent-catalog-card"
               style="--card-accent: var(--agent-registration); --card-bg: var(--bg-registration);"
               onclick={() => {
-                selectedApp = "registration_manager";
-                startNewSession();
+                startNewSession("registration_manager");
               }}
             >
               <div class="agent-card-header">
@@ -808,8 +843,7 @@
               class="agent-catalog-card"
               style="--card-accent: var(--agent-planner); --card-bg: var(--bg-planner);"
               onclick={() => {
-                selectedApp = "event_planner";
-                startNewSession();
+                startNewSession("event_planner");
               }}
             >
               <div class="agent-card-header">
@@ -835,8 +869,7 @@
               class="agent-catalog-card"
               style="--card-accent: var(--agent-agenda); --card-bg: var(--bg-agenda);"
               onclick={() => {
-                selectedApp = "agenda_generator";
-                startNewSession();
+                startNewSession("agenda_generator");
               }}
             >
               <div class="agent-card-header">
@@ -862,8 +895,7 @@
               class="agent-catalog-card"
               style="--card-accent: var(--agent-office); --card-bg: var(--bg-office);"
               onclick={() => {
-                selectedApp = "office_secretary";
-                startNewSession();
+                startNewSession("office_secretary");
               }}
             >
               <div class="agent-card-header">
@@ -1140,17 +1172,16 @@
   onClose={() => (showSettings = false)}
 />
 
-<!-- Multi-Agent DAG Modal -->
+<!-- Multi-Agent Architecture Modal -->
 {#if showAgentGraph}
   <AgentGraph
     {events}
-    {currentExecutingAgent}
+    currentExecutingAgent={activeAgent}
     {isLoading}
-    {selectedApp}
+    selectedApp={sessionOwnerApp || selectedApp}
     onSelectAgent={(agentId) => {
-      selectedApp = agentId;
-      selectedSessionId = "";
-      loadSessions();
+      handleAgentChange(agentId);
+      showAgentGraph = false;
     }}
     onClose={() => (showAgentGraph = false)}
   />

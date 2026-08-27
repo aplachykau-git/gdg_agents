@@ -14,6 +14,13 @@ from google.genai import types
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel
 
+try:
+    from agents.bootstrap import initialise_agent_environment
+except ImportError:
+    from bootstrap import initialise_agent_environment
+
+initialise_agent_environment()
+
 from agents.gemini_config import get_gemini_client
 
 from .tools import composer_tools, media_tools
@@ -551,11 +558,14 @@ def render_outputs_node(ctx: Context) -> None:
 
 
 @node(name="publish_outputs")
-def publish_outputs_node(ctx: Context) -> RenderResult:
+async def publish_outputs_node(ctx: Context) -> AsyncGenerator[types.Content, None]:
     result = RenderResult.model_validate(ctx.state["temp:render_result"])
     ctx.state[INTAKE_REQUEST_STATE_KEY] = {}
     ctx.state[INTAKE_FEEDBACK_STATE_KEY] = ""
-    return result
+    yield types.Content(
+        role="model",
+        parts=[types.Part.from_text(text=result.summary)],
+    )
 
 
 video_editor_workflow = Workflow(

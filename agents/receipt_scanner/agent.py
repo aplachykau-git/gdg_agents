@@ -11,7 +11,7 @@ from .tools import export_summary_to_google_doc, get_usd_pln_rate, read_receipt_
 
 initialise_agent_environment()
 
-community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Community"))
+community_name = os.getenv("COMMUNITY_NAME", "Community")
 current_year = datetime.date.today().year
 
 INSTRUCTION = f"""

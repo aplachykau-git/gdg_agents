@@ -82,76 +82,98 @@ bash <(curl -sSL https://storage.googleapis.com/cloud-samples-data/adc/setup_adc
 
 ### 4. Configuration Settings (.env)
 
-The root agent requires a `.env` file to be present in the project root directory. You can use the template [.env.example](../.env.example) to create it:
+The system uses a **single unified `.env` file** located in the project root directory. All agents, A2A microservices (Video Editor, Receipt Scanner), and test suites automatically read from this root file. You can use the template [.env.example](../.env.example) to create it:
 
 ```bash
 # Copy the example configuration to .env
 cp .env.example .env
 ```
 
-Open `.env` and fill in the following parameters:
+Open `.env` and configure the following parameters:
 - `GOOGLE_API_KEY`: Your preferred API key from [Google AI Studio](https://aistudio.google.com/). It is used when `GOOGLE_GENAI_USE_VERTEXAI=0`; all Gemini model calls then use this key instead of Vertex credentials.
 - `GEMINI_API_KEY`: Backwards-compatible fallback when `GOOGLE_API_KEY` is not configured.
 - `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run Gemini calls through Vertex AI endpoints, or `0` to run Gemini calls through the Gemini Developer API. In API mode, `GOOGLE_API_KEY` or `GEMINI_API_KEY` must be set.
 - `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID from [Google Cloud Console](https://console.cloud.google.com/).
-- `GOOGLE_CLOUD_LOCATION`: The GCP region/location (e.g. `europe-central2`).
+- `GOOGLE_CLOUD_LOCATION`: The GCP region/location for Vertex AI model inference (use `global` for optimal multi-region availability across Gemini models; Veo video generation automatically routes to `us-central1`).
 - `GOOGLE_DRIVE_FOLDER_ID`: The ID of your target Google Drive folder (found in the folder's URL).
 - `VIDEO_ENGINE`: Video generation engine — set to `veo` (Vertex AI Google Veo 3.1) or `omni` (Google AI Gemini Omni Flash preview via Interactions API). API mode requires `omni`; `veo` is rejected because it requires Vertex AI.
 - `ENABLE_VIDEO_GENERATION`: Set to `true` to run live AI video animation, or `false` for layout-only dry-runs using local placeholder media.
-- `RENDER_4K`: Set to `true` (default) to render high-resolution 4K Ultra-HD MP4 compositions.
-- `RENDER_ORDINARY`: Set to `true` to render 1080p Full-HD MP4 compositions.
-- `RENDER_GIF`: Set to `true` to generate animated GIF previews via FFmpeg.
+- `RENDER_4K`: Set to `true` to render high-resolution 4K Ultra-HD MP4 compositions.
+- `RENDER_ORDINARY`: Set to `true` (default) to render 1080p Full-HD MP4 compositions.
+- `RENDER_GIF`: Set to `true` (default) to generate animated GIF previews via FFmpeg.
 
 > [!TIP]
-> **Cost & Token Optimization**: Video generation using Google Veo or Gemini Omni Flash consumes significant quotas. During layout tweaking and text debugging, keep `ENABLE_VIDEO_GENERATION=false`. The system will automatically use the high-quality local placeholder and execute the full GSAP layout and rendering pipeline instantly.
+> **Unified Configuration**: Avoid placing separate `.env` files inside individual subdirectories (`agents/root_agent/`, `agents/receipt_scanner/`, etc.). The workspace root `.env` serves as the single source of truth for all microservices.
 
 ### 5. Customizing the Expense Report Google Doc Template
 
-The **Receipt Scanner** sub-agent compiles reports by copying a Google Doc template and populating placeholders. By default, it uses a shared, read-only template.
+The **Receipt Scanner** sub-agent compiles reports using a professional Microsoft Word `.docx` template located at `agents/receipt_scanner/assets/expense_report_template.docx`.
 
-To customize the report template (e.g., adding your own styling, custom tables, headers, or organizational details):
-1. Open the default template: [Google Docs Template](https://docs.google.com/document/d/1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw/edit).
-2. Create a copy of it in your own Google Drive (**File -> Make a copy**).
-3. Modify the copied document as you like (keep the existing placeholder tags like `{{APPROVED}}` and `{{EXPENSES_TABLE}}` where you want the dynamic content to be inserted).
-4. Extract the Document ID from the URL of your new document (e.g., `https://docs.google.com/document/d/<YOUR_DOCUMENT_ID>/edit`).
-5. Open the local file [Expense_report_template.gdoc](../agents/receipt_scanner/assets/Expense_report_template.gdoc) and replace the `"doc_id"` value with your new document ID:
-   ```json
-   {
-     "doc_id": "YOUR_NEW_DOCUMENT_ID",
-     "resource_key": ""
-   }
-   ```
+To customize the report styling, tables, headers, or organizational details:
+1. Edit or replace the template file at `agents/receipt_scanner/assets/expense_report_template.docx` in Microsoft Word, Google Docs, or LibreOffice.
+2. The agent automatically reads this template to structure and format all generated reimbursement reports.
 
 ---
 
 ## 🚀 Running the Entire Project
 
-To run the complete system with the custom Svelte frontend talking to the ADK backend agent, you need to spin up two processes in separate terminal sessions:
+### Recommended: Single Command (`make run-all`)
 
-### Terminal 1: Launch Backend (ADK FastAPI Server)
-
-The backend agent server must run on port `8080` (as Vite is configured to proxy all API requests to `127.0.0.1:8080`).
+The easiest way to start all background A2A services (Video Editor on 8081, Receipt Scanner on 8082), the ADK Web Orchestrator on 8080, and the Svelte frontend dev server on 5173 is:
 
 ```bash
-# Run the full ADK workspace so each agent is addressable directly.
-# This exposes root_agent plus all specialized sub-agents in /list-apps.
-uv run --locked adk web --port 8080 agents
+make run-all
+```
+*Press `Ctrl+C` in the terminal to gracefully stop all services.*
+
+---
+
+### Alternative: Multi-Terminal Launch
+
+If you prefer to start components individually in separate terminal sessions:
+
+#### Terminal 1: Video Editor A2A Service (Port 8081)
+```bash
+uv run --locked uvicorn agents.video_editor.a2a_server:a2a_app --host 0.0.0.0 --port 8081
 ```
 
-### Terminal 2: Launch Frontend (Svelte Dev Server)
+#### Terminal 2: Receipt Scanner A2A Service (Port 8082)
+```bash
+uv run --locked uvicorn agents.receipt_scanner.a2a_server:a2a_app --host 0.0.0.0 --port 8082
+```
 
+#### Terminal 3: Root Orchestrator (Port 8080)
+```bash
+VIDEO_AGENT_A2A_URL=http://localhost:8081 RECEIPT_AGENT_A2A_URL=http://localhost:8082 \
+  uv run --locked adk web --port 8080 agents
+```
+
+#### Terminal 4: Launch Frontend (Svelte Dev Server)
 ```bash
 cd frontend
 npm run dev
 ```
-*This starts the Vite server (typically at `http://localhost:5173`).*
 
 ### Open the Application
 
 Now, open your browser and navigate to:
 👉 **[http://localhost:5173](http://localhost:5173)**
 
-Here you will find the **Advanced Agentic Workspace** where you can select the active agent, start new chat sessions, type requests, and drag-and-drop receipts or participant rosters directly.
+Here you will find the **Community Studio** workspace where you can select the active agent, start new chat sessions, type requests, and drag-and-drop receipts or participant rosters directly.
+
+---
+
+## ☁️ Production Deployment (Cloud Run & Firebase)
+
+To build container images with Google Cloud Build and deploy all services to Google Cloud Run and Firebase Hosting:
+
+```bash
+# Full deployment of all services and web app
+make deploy
+
+# Or frontend-only deployment to Firebase Hosting
+make deploy-frontend
+```
 
 ---
 

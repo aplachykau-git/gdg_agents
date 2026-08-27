@@ -1,5 +1,5 @@
 {
-  "name": "gdg-tool-workspace",
+  "name": "community-studio-workspace",
   "private": true,
   "scripts": {
     "start": "./start_a2a_workspace.sh",

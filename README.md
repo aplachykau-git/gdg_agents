@@ -32,13 +32,13 @@ This project is a multi-agent system built on the [Google Agent Development Kit 
 flowchart TB
     subgraph CLIENT_LAYER["🖥️ 1. CLIENT & INTERACTION LAYER (A2UI)"]
         direction LR
-        UI["<b>Svelte 5 Workspace Dashboard</b><br/><i>Port :5173 (Vite + Runes)</i><br/>• Floating Prompt Bar & Stager<br/>• Interactive Agenda Timeline<br/>• Multi-variant Post Deck<br/>• Multi-Agent DAG Topology"]
+        UI["<b>Svelte 5 Workspace Dashboard</b><br/><i>Port :5173 (Vite + Runes)</i><br/>• Floating Prompt Bar & Stager<br/>• Interactive Agenda Timeline<br/>• Multi-variant Post Deck<br/>• Multi-Agent Network Topology"]
     end
 
     subgraph GATEWAY_LAYER["🌐 2. INGRESS & ADK ORCHESTRATION GATEWAY"]
         direction LR
         GW["<b>ADK Web Server / Reverse Proxy</b><br/><i>Port :8080 (FastAPI Engine)</i><br/>• SSE Streaming: <code>/run_sse</code><br/>• Apps & State Hub: <code>/list-apps</code>"]
-        ROOT["<b>Root Orchestrator Agent</b><br/><i>gemini-2.5-flash</i><br/>• Intent Parsing & Decomposition<br/>• Sub-agent Routing & State Handoff"]
+        ROOT["<b>Root Orchestrator Agent</b><br/><i>gemini-3.5-flash-lite</i><br/>• Intent Parsing & Decomposition<br/>• Sub-agent Routing & State Handoff"]
         GW <-->|Bidirectional SSE / REST| ROOT
     end
 
@@ -47,17 +47,17 @@ flowchart TB
         
         subgraph LOCAL_AGENTS["⚡ Local Sub-Agents (In-Process Delegation)"]
             direction LR
-            A_LINKEDIN["📱 <b>LinkedIn Post Generator</b><br/><i>gemini-2.5-flash</i><br/>• 3 Style Post Variants<br/>• Anti-Hallucination Guard"]
+            A_LINKEDIN["📱 <b>LinkedIn Post Generator</b><br/><i>gemini-3.5-flash-lite</i><br/>• 3 Style Post Variants<br/>• Anti-Hallucination Guard"]
             A_REG["📋 <b>Registration Manager</b><br/><i>Data Partitioning Engine</i><br/>• CSV Parsing & Dedup<br/>• VIP & DOCX Exporter"]
-            A_PLANNER["📅 <b>Event Planner</b><br/><i>gemini-2.5-flash</i><br/>• Tech Calendar Conflicts<br/>• Nager.Date Polish Holidays"]
-            A_AGENDA["⏱️ <b>Agenda Formatter</b><br/><i>gemini-2.5-flash</i><br/>• Dynamic Slot Snapping<br/>• Interactive UI Timeline"]
-            A_OFFICE["🔑 <b>Office Secretary</b><br/><i>gemini-2.5-flash</i><br/>• Key Access Management<br/>• Event Hub Reservations"]
+            A_PLANNER["📅 <b>Event Planner</b><br/><i>gemini-3.5-flash-lite</i><br/>• Tech Calendar Conflicts<br/>• Nager.Date Polish Holidays"]
+            A_AGENDA["⏱️ <b>Agenda Formatter</b><br/><i>gemini-3.5-flash-lite</i><br/>• Dynamic Slot Snapping<br/>• Interactive UI Timeline"]
+            A_OFFICE["🔑 <b>Office Secretary</b><br/><i>gemini-3.5-flash-lite</i><br/>• Key Access Management<br/>• Event Hub Reservations"]
         end
 
         subgraph REMOTE_A2A["🔗 Distributed A2A Microservices (Agent-to-Agent Protocol)"]
             direction LR
             A_VIDEO["🎬 <b>Live Video Editor A2A</b><br/><i>Port :8081 (Uvicorn / A2A App)</i><br/>• Face Landmark Verification<br/>• 9:16 Portrait Outpainting<br/>• Veo 3.1 / Omni Video Engine<br/>• HyperFrames GSAP 4K Render"]
-            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>Port :8082 (Uvicorn / A2A App)</i><br/>• gemini-2.5-pro OCR Engine<br/>• Pekao & NBP FX Rate Fetcher<br/>• Google Docs Report Exporter"]
+            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>Port :8082 (Uvicorn / A2A App)</i><br/>• gemini-3.6-flash OCR Engine<br/>• Pekao & NBP FX Rate Fetcher<br/>• Google Docs Report Exporter"]
         end
     end
 
@@ -167,23 +167,40 @@ The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 pri
 
 ---
 
-## 🚀 Quick Start: Launch the Entire Workspace (A2A Architecture)
+## 🚀 Quick Start: Launch the Entire Workspace
 
 To spin up the complete distributed multi-agent system (Video Editor A2A on port 8081, Receipt Scanner A2A on port 8082, Root Orchestrator on port 8080, and the Svelte 5 frontend on port 5173), run **a single command**:
 
 ```bash
-# Start all A2A microservices and frontend concurrently
-./start_a2a_workspace.sh
-# or
+# Recommended: start all A2A services, ADK web and frontend concurrently
+make run-all
+
+# Or using npm / script directly:
 npm start
+# or
+./start_a2a_workspace.sh
 ```
 
 ### 🌐 Running Services
 
 * **Frontend UI Dashboard**: [http://localhost:5173](http://localhost:5173)
-- **Root Orchestrator Agent**: [http://localhost:8080](http://localhost:8080)
-- **Video Editor A2A Service**: [http://localhost:8081/.well-known/agent-card.json](http://localhost:8081/.well-known/agent-card.json)
-- **Receipt Scanner A2A Service**: [http://localhost:8082/.well-known/agent-card.json](http://localhost:8082/.well-known/agent-card.json)
+* **Root Orchestrator Agent**: [http://localhost:8080](http://localhost:8080)
+* **Video Editor A2A Service**: [http://localhost:8081/.well-known/agent-card.json](http://localhost:8081/.well-known/agent-card.json)
+* **Receipt Scanner A2A Service**: [http://localhost:8082/.well-known/agent-card.json](http://localhost:8082/.well-known/agent-card.json)
+
+---
+
+### ☁️ Cloud Run & Firebase Production Deployment
+
+To build container images with Cloud Build and deploy all microservices to Google Cloud Run and Firebase Hosting:
+
+```bash
+# Deploy all Cloud Run services (community-root-agent, video-editor-a2a, receipt-scanner-a2a) and Firebase Hosting
+make deploy
+
+# Or deploy frontend-only updates to Firebase Hosting
+make deploy-frontend
+```
 
 ---
 

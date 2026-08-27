@@ -27,7 +27,7 @@ class TestAgendaGeneratorAgent(unittest.TestCase):
         self.assertEqual(agenda_agent.tools, [])
 
     def test_community_name_environment_variable(self):
-        with patch.dict(os.environ, {"GDG_COMMUNITY_NAME": "Warsaw"}):
+        with patch.dict(os.environ, {"COMMUNITY_NAME": "Warsaw"}):
             import importlib
 
             import agents.agenda_generator.agent as ag_mod
@@ -37,7 +37,7 @@ class TestAgendaGeneratorAgent(unittest.TestCase):
             self.assertIn("Warsaw", ag_mod.agenda_agent.instruction)
 
         # Restore default
-        with patch.dict(os.environ, {"GDG_COMMUNITY_NAME": "Krakow"}):
+        with patch.dict(os.environ, {"COMMUNITY_NAME": "Krakow"}):
             importlib.reload(ag_mod)
 
 

@@ -67,7 +67,7 @@ if receipt_a2a_url:
     except Exception as e:
         print(f"⚠️ Failed to connect receipt_scanner over A2A ({e}). Falling back to local sub-agent.")
 
-community_name = os.getenv("COMMUNITY_NAME", os.getenv("GDG_COMMUNITY_NAME", "Community"))
+community_name = os.getenv("COMMUNITY_NAME", "Community")
 
 INSTRUCTION = f"""You are the main Root Agent for Community Studio ({community_name}).
 Your task is to orchestrate developer tools and coordinate sub-agents to handle user requests flawlessly.
