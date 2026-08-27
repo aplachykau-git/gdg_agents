@@ -16,7 +16,8 @@
     cleanTextForMediaDisplay,
     extractDocumentAssets,
     cleanTextForDocumentDisplay,
-    shouldShowDelegationHandoff 
+    shouldShowDelegationHandoff,
+    getEventAgent
   } from './constants.js';
   import AgendaTimeline from './AgendaTimeline.svelte';
   import VariantCard from './VariantCard.svelte';
@@ -32,7 +33,8 @@
   } = $props();
 
   const errInfo = $derived(getEventError(event));
-  const theme = $derived(getAgentTheme(event?.author));
+  const eventAgent = $derived(getEventAgent(event));
+  const theme = $derived(getAgentTheme(eventAgent || event?.author));
   const showHandoff = $derived(shouldShowDelegationHandoff(event, index, allEvents));
   const messageParts = $derived.by(() => {
     if (event?.content?.parts && event.content.parts.length > 0) {

@@ -61,6 +61,142 @@ export function getAgentTheme(author) {
   return { color: 'var(--primary-accent)', bg: 'var(--primary-accent-container)', label: formatted };
 }
 
+export function getAgentFromToolName(name) {
+  if (!name || typeof name !== 'string') return null;
+  const lower = name.toLowerCase();
+
+  // 1. Direct transfer_to_* pattern
+  if (lower.startsWith('transfer_to_') || lower.startsWith('transferto')) {
+    const sub = lower.replace(/^transfer_to_|^transferto/, '');
+    if (sub.includes('video')) return 'video_editor';
+    if (sub.includes('receipt')) return 'receipt_scanner';
+    if (sub.includes('linkedin') || sub.includes('post')) return 'linkedin_post_generator';
+    if (sub.includes('registration')) return 'registration_manager';
+    if (sub.includes('planner') || sub.includes('event')) return 'event_planner';
+    if (sub.includes('agenda')) return 'agenda_generator';
+    if (sub.includes('office') || sub.includes('secretary')) return 'office_secretary';
+  }
+
+  // 2. Specific known tools
+  // Video Editor tools:
+  if (
+    lower.includes('portrait') ||
+    lower.includes('animate_photo') ||
+    lower.includes('composer') ||
+    lower.includes('render_composer') ||
+    lower.includes('speaker_video') ||
+    lower.includes('validate_metadata') ||
+    lower.includes('stage_uploaded_media')
+  ) {
+    return 'video_editor';
+  }
+
+  // Receipt Scanner tools:
+  if (
+    lower.includes('receipt') ||
+    lower.includes('usd_pln') ||
+    lower.includes('convert_currency') ||
+    lower.includes('google_doc') ||
+    lower.includes('expense')
+  ) {
+    return 'receipt_scanner';
+  }
+
+  // Registration Manager tools:
+  if (
+    lower.includes('registration') ||
+    lower.includes('filter_and_clean') ||
+    lower.includes('process_registrations') ||
+    lower.includes('stage_manual_text')
+  ) {
+    return 'registration_manager';
+  }
+
+  // Event Planner tools:
+  if (
+    lower.includes('holidays') ||
+    lower.includes('optimal_meetup') ||
+    lower.includes('meetup_date') ||
+    lower.includes('google_search')
+  ) {
+    return 'event_planner';
+  }
+
+  // Agenda Formatter tools:
+  if (lower.includes('agenda') || lower.includes('timeline')) {
+    return 'agenda_generator';
+  }
+
+  // Office Secretary tools:
+  if (
+    lower.includes('office_email') ||
+    lower.includes('visitor_access') ||
+    lower.includes('reservation_email')
+  ) {
+    return 'office_secretary';
+  }
+
+  return null;
+}
+
+export function getEventAgent(ev, appsList = DEFAULT_APPS) {
+  if (!ev) return null;
+  
+  // 1. Check direct actions transfer
+  const actionTarget = ev.actions?.transfer_to_agent || ev.actions?.transferToAgent;
+  if (actionTarget) {
+    const resolved = resolveAgentId(actionTarget, appsList);
+    if (resolved) return resolved;
+  }
+
+  // 2. Check parts for tool calls, function responses, or transfer args
+  if (ev.content?.parts) {
+    for (const part of ev.content.parts) {
+      const fc = part.function_call || part.functionCall;
+      if (fc) {
+        if (fc.name === 'transfer_to_agent' || fc.name === 'transferToAgent') {
+          const target = fc.args?.agent_name || fc.args?.target_agent || fc.args?.agentName;
+          if (target) {
+            const resolved = resolveAgentId(target, appsList);
+            if (resolved) return resolved;
+          }
+        }
+        const toolAgent = getAgentFromToolName(fc.name);
+        if (toolAgent) return toolAgent;
+      }
+
+      const fr = part.function_response || part.functionResponse;
+      if (fr) {
+        if (fr.name === 'transfer_to_agent' || fr.name === 'transferToAgent') {
+          const target = fr.response?.agent_name || fr.response?.target_agent || fr.response?.agentName;
+          if (target) {
+            const resolved = resolveAgentId(target, appsList);
+            if (resolved) return resolved;
+          }
+        }
+        const toolAgent = getAgentFromToolName(fr.name);
+        if (toolAgent) return toolAgent;
+      }
+    }
+  }
+
+  // 3. Check author if it is a specific subagent (not generic root/main/user)
+  if (ev.author && ev.author !== 'user') {
+    const clean = cleanAuthorName(ev.author).toLowerCase();
+    if (clean !== 'root_agent' && clean !== 'root' && clean !== 'main' && clean !== 'orchestrator') {
+      const resolved = resolveAgentId(ev.author, appsList);
+      if (resolved) return resolved;
+    }
+  }
+
+  // 4. If author is root_agent / main, return 'root_agent'
+  if (ev.author && ev.author !== 'user') {
+    return resolveAgentId(ev.author, appsList) || 'root_agent';
+  }
+
+  return null;
+}
+
 export function resolveAgentId(author, appsList = DEFAULT_APPS) {
   if (!author) return null;
   const clean = cleanAuthorName(author).toLowerCase().trim();
@@ -76,9 +212,9 @@ export function resolveAgentId(author, appsList = DEFAULT_APPS) {
   if (clean === 'root' || clean === 'main' || clean === 'orchestrator' || clean === 'root_agent') return 'root_agent';
   if (clean.includes('receipt')) return 'receipt_scanner';
   if (clean.includes('video') || clean.includes('avatar')) return 'video_editor';
-  if (clean.includes('linkedin')) return 'linkedin_post_generator';
+  if (clean.includes('linkedin') || clean.includes('post')) return 'linkedin_post_generator';
   if (clean.includes('registration')) return 'registration_manager';
-  if (clean.includes('planner')) return 'event_planner';
+  if (clean.includes('planner') || clean.includes('event')) return 'event_planner';
   if (clean.includes('agenda')) return 'agenda_generator';
   if (clean.includes('office') || clean.includes('secretary')) return 'office_secretary';
 
@@ -95,21 +231,19 @@ export function getActiveAgentFromEvents(eventsList, fallback = 'root_agent', ap
   if (!eventsList || eventsList.length === 0) return fallback;
   for (let i = eventsList.length - 1; i >= 0; i--) {
     const ev = eventsList[i];
-    if (ev && ev.author && ev.author !== 'user') {
+    if (!ev || ev.author === 'user') continue;
+    
+    // Check if event has a specific sub-agent identity or delegation
+    const evAgent = getEventAgent(ev, appsList);
+    if (evAgent && evAgent !== 'root_agent') {
+      return evAgent;
+    }
+    
+    // If the event is explicitly from a sub-agent author
+    if (ev.author) {
       const resolved = resolveAgentId(ev.author, appsList);
-      if (resolved) return resolved;
-    }
-    if (ev?.actions?.transferToAgent) {
-      const resolved = resolveAgentId(ev.actions.transferToAgent, appsList);
-      if (resolved) return resolved;
-    }
-    if (ev?.content?.parts) {
-      for (const part of ev.content.parts) {
-        const fc = part.function_call || part.functionCall;
-        if (fc && fc.name) {
-          const resolved = resolveAgentId(fc.name, appsList);
-          if (resolved) return resolved;
-        }
+      if (resolved && resolved !== 'root_agent') {
+        return resolved;
       }
     }
   }
@@ -175,6 +309,12 @@ export const STATUS_TICKERS = {
 };
 
 export function getFriendlyToolCall(name, args) {
+  if (name === 'transfer_to_agent' || name === 'transferToAgent') {
+    const target = args?.agent_name || args?.target_agent || args?.agentName || '';
+    const theme = getAgentTheme(target);
+    return `🔄 Delegating task to ${theme.label || 'specialized sub-agent'}...`;
+  }
+
   const mappings = {
     transfer_to_video_editor: () => "🔄 Delegating task to Live Video Editor (A2A)...",
     transfer_to_receipt_scanner: () => "🔄 Delegating task to Receipt Scanner (A2A)...",
@@ -199,9 +339,13 @@ export function getFriendlyToolCall(name, args) {
     export_to_google_docs: () => "📄 Exporting expense report to Google Docs template...",
 
     filter_and_clean_registrations: () => "👥 Cleaning, deduplicating, and partitioning registrations...",
+    process_registrations: () => "👥 Parsing attendee CSV and generating DOCX roster...",
+    stage_manual_text_registrations: () => "📝 Staging attendee registration records...",
+    get_public_holidays: () => "📅 Checking statutory public holidays from Nager.Date...",
     find_optimal_meetup_date: () => "📅 Scanning calendars, holidays, and meetup conflicts...",
     generate_agenda: () => "⏱️ Formatting structured timeline and speaker agenda...",
-    generate_office_email: () => "✉️ Drafting office access and event reservation email..."
+    generate_office_email: () => "✉️ Drafting office access and event reservation email...",
+    generate_visitor_access_request: () => "✉️ Generating building key & access request..."
   };
 
   if (mappings[name]) {
@@ -242,6 +386,11 @@ export function getFriendlyToolResponse(name, response, args) {
   if (isToolResponseError(response)) {
     return `❌ Tool error: ${getToolErrorMessage(response)}`;
   }
+  if (name === 'transfer_to_agent' || name === 'transferToAgent') {
+    const target = args?.agent_name || args?.target_agent || args?.agentName || response?.agent_name || '';
+    const theme = getAgentTheme(target);
+    return `Workflow handed off to ${theme.label || 'specialized sub-agent'}.`;
+  }
   const mappings = {
     transfer_to_video_editor: () => "Workflow handed off to Live Video Editor.",
     transfer_to_receipt_scanner: () => "Workflow handed off to Receipt Scanner.",
@@ -266,9 +415,13 @@ export function getFriendlyToolResponse(name, response, args) {
     export_to_google_docs: () => "Document exported to Google Docs.",
 
     filter_and_clean_registrations: () => "Registration roster cleaned.",
+    process_registrations: () => "Registration records processed into DOCX.",
+    stage_manual_text_registrations: () => "Manual registrations staged.",
+    get_public_holidays: () => "Public holidays checked.",
     find_optimal_meetup_date: () => "Meetup dates evaluated.",
     generate_agenda: () => "Agenda timeline created.",
-    generate_office_email: () => "Email template generated."
+    generate_office_email: () => "Email template generated.",
+    generate_visitor_access_request: () => "Access request draft generated."
   };
 
   if (mappings[name]) {

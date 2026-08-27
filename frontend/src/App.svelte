@@ -40,6 +40,7 @@
     saveAppConfig,
     resolveAgentId,
     getActiveAgentFromEvents,
+    getEventAgent,
   } from "./lib/constants.js";
 
   import {
@@ -51,11 +52,21 @@
     runSSEStream,
   } from "./lib/api.js";
 
+  function getOrCreateUserId() {
+    if (typeof window === "undefined") return "user";
+    let stored = localStorage.getItem("community_studio_user_id");
+    if (!stored) {
+      stored = "user_" + (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10));
+      localStorage.setItem("community_studio_user_id", stored);
+    }
+    return stored;
+  }
+
   // State Variables
   let apps = $state.raw(DEFAULT_APPS);
   let selectedApp = $state("root_agent"); // The app namespace currently being browsed
   let sessionOwnerApp = $state("root_agent"); // The top-level agent app hosting the session
-  let userId = $state("user");
+  let userId = $state(getOrCreateUserId());
   let sessions = $state.raw([]);
   let selectedSessionId = $state("");
   let events = $state.raw([]);
@@ -383,10 +394,23 @@
         onEvent: (eventObj) => {
           if (!eventObj) return;
 
-          if (eventObj.author && eventObj.author !== "user") {
-            const resolved = resolveAgentId(eventObj.author, apps) || cleanAuthorName(eventObj.author);
-            currentExecutingAgent = resolved;
-            startStatusTicker(currentExecutingAgent);
+          const detected =
+            getEventAgent(eventObj, apps) ||
+            (eventObj.author && eventObj.author !== "user"
+              ? resolveAgentId(eventObj.author, apps) || cleanAuthorName(eventObj.author)
+              : null);
+
+          if (
+            detected &&
+            detected !== "user" &&
+            (!currentExecutingAgent ||
+              currentExecutingAgent === "root_agent" ||
+              detected !== "root_agent")
+          ) {
+            if (detected !== currentExecutingAgent) {
+              currentExecutingAgent = detected;
+              startStatusTicker(currentExecutingAgent);
+            }
           }
 
           const existingIdx = eventObj.id
