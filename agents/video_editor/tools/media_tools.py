@@ -293,9 +293,7 @@ def validate_video_generation_backend(engine: str) -> None:
 
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-flash-preview) via Interactions API."""
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY environment variable is required for Gemini Omni Flash video generation.")
+    api_key = get_gemini_api_key()
 
     with open(photo_path, "rb") as f:
         frame_bytes = f.read()

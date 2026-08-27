@@ -404,7 +404,7 @@ def read_receipt_file(file_path: str) -> dict:
             "Perform this extraction with maximum accuracy and detail."
         )
 
-        model = os.getenv("RECEIPT_SCANNER_MODEL", "gemini-3.6-flash")
+        model = os.getenv("RECEIPT_SCANNER_MODEL", "gemini-3.7-flash")
         response = client.models.generate_content(
             model=model,
             contents=[

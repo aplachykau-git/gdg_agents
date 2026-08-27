@@ -53,7 +53,7 @@ Run both:
 make receipt-evals-all
 ```
 
-The extraction command requires the normal Gemini or Vertex credentials and incurs model/network usage. It defaults both the agent and OCR tool to the production `gemini-3.6-flash` model; override them with `RECEIPT_EVAL_MODEL` only for an intentional model comparison. These targets are manual and are not part of CI.
+The extraction command requires the normal Gemini or Vertex credentials and incurs model/network usage. It defaults both the agent and OCR tool to the production `gemini-3.7-flash` model; override them with `RECEIPT_EVAL_MODEL` only for an intentional model comparison. These targets are manual and are not part of CI.
 
 ## Success and baselines
 

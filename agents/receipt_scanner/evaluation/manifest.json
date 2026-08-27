@@ -3,7 +3,7 @@
   "extraction_eval_set": "receipt_scanner_critical_extraction_v1",
   "conversion_eval_set": "receipt_conversion_contract_v1",
   "extraction": {
-    "model": "gemini-3.6-flash",
+    "model": "gemini-3.7-flash",
     "model_environment_override": "RECEIPT_EVAL_MODEL",
     "ocr_tool_model_environment_override": "RECEIPT_SCANNER_MODEL",
     "temperature": null,

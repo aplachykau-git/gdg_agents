@@ -16,6 +16,7 @@
     cleanTextForMediaDisplay,
     extractDocumentAssets,
     cleanTextForDocumentDisplay,
+    extractEmailDraft,
     shouldShowDelegationHandoff,
     getEventAgent
   } from './constants.js';
@@ -24,6 +25,7 @@
   import ToolCallCard from './ToolCallCard.svelte';
   import VideoPreviewCard from './VideoPreviewCard.svelte';
   import ReportDownloadCard from './ReportDownloadCard.svelte';
+  import EmailDraftCard from './EmailDraftCard.svelte';
 
   let { 
     event, 
@@ -58,7 +60,10 @@
   const hasDoc = $derived(
     messageParts.some(p => p.text && extractDocumentAssets(p.text))
   );
-  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasMedia || hasDoc));
+  const hasEmail = $derived(
+    messageParts.some(p => p.text && extractEmailDraft(p.text, event.author))
+  );
+  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasMedia || hasDoc || hasEmail));
 </script>
 
 {#if errInfo}
@@ -134,9 +139,12 @@
       {#if messageParts.length > 0}
         {#each messageParts as part}
           {#if part.text}
+            {@const emailDraft = extractEmailDraft(part.text, event.author)}
             {@const media = extractMediaAssets(part.text)}
             {@const doc = extractDocumentAssets(part.text)}
-            {#if isAgendaOutput(part.text, event.author)}
+            {#if emailDraft}
+              <EmailDraftCard {emailDraft} onRefine={onRefine} />
+            {:else if isAgendaOutput(part.text, event.author)}
               <AgendaTimeline 
                 rawText={part.text} 
                 author={event.author} 

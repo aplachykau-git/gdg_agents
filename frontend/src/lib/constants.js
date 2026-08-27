@@ -332,7 +332,7 @@ export function getFriendlyToolCall(name, args) {
     render_composer: () => "🚀 HyperFrames pipeline rendering 1080p MP4, GIF & Poster...",
 
     get_usd_pln_rate: () => "💱 Fetching live banking exchange rates (USD/PLN)...",
-    read_receipt_file: () => "🧾 Analyzing receipt image via Gemini 3.6 Flash Vision OCR...",
+    read_receipt_file: () => "🧾 Analyzing receipt image via Gemini 3.7 Flash Vision OCR...",
     export_summary_to_google_doc: () => "📄 Exporting approved expense report to Google Docs...",
     scan_receipt_with_vision: () => "🧾 Extracting items and taxes via Vision OCR...",
     convert_currency: () => "💱 Converting currencies to PLN using exchange rates...",
@@ -502,6 +502,39 @@ export function isAgendaOutput(text, author) {
   if (clean.includes('agenda') && (hasTimePattern || hasAgendaKeyword)) return true;
   if (hasAgendaKeyword && hasTimePattern && hasAgendaEmojis) return true;
   return false;
+}
+
+export function extractEmailDraft(text, author) {
+  if (!text) return null;
+  const clean = cleanAuthorName(author).toLowerCase();
+  
+  // Search for Subject: or Тема: header in the text
+  const subjectMatch = text.match(/(?:^|\n)(?:```(?:text|markdown|email)?\s*\n)?(?:\*\*|\*|#+\s*)?(?:Subject|Тема)\s*:\s*([^\n]+)\n([\s\S]+)/i);
+  if (!subjectMatch) return null;
+
+  const fullMatchIndex = text.indexOf(subjectMatch[0]);
+  const intro = fullMatchIndex > 0 ? text.substring(0, fullMatchIndex).trim() : '';
+
+  let subject = subjectMatch[1].replace(/[`*#]/g, '').trim();
+  let body = subjectMatch[2].trim();
+
+  // Clean trailing code fences from body
+  body = body.replace(/```\s*$/, '').trim();
+
+  if (!subject || !body) return null;
+
+  const fullText = `Subject: ${subject}\n\n${body}`;
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&tf=1&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  return {
+    subject,
+    body,
+    fullText,
+    intro,
+    gmailUrl,
+    mailtoUrl
+  };
 }
 
 export function parseResponseVariants(text, author) {

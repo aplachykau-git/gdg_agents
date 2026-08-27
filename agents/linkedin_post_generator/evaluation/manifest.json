@@ -8,7 +8,7 @@
     "temperature": 1.0
   },
   "judge": {
-    "model": "gemini-3.6-flash",
+    "model": "gemini-3.7-flash",
     "temperature": 0
   },
   "acceptance_thresholds": {

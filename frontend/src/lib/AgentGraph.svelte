@@ -74,7 +74,7 @@
       id: 'receipt_scanner',
       name: 'Receipt Scanner',
       role: 'Vision OCR & Exchange Rates',
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.7-flash',
       color: '#34D399',
       bg: 'rgba(52, 211, 153, 0.12)',
       icon: Receipt,

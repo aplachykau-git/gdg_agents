@@ -57,7 +57,7 @@ flowchart TB
         subgraph REMOTE_A2A["🔗 Distributed A2A Microservices (Agent-to-Agent Protocol)"]
             direction LR
             A_VIDEO["🎬 <b>Live Video Editor A2A</b><br/><i>Port :8081 (Uvicorn / A2A App)</i><br/>• Face Landmark Verification<br/>• 9:16 Portrait Outpainting<br/>• Veo 3.1 / Omni Video Engine<br/>• HyperFrames GSAP 4K Render"]
-            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>Port :8082 (Uvicorn / A2A App)</i><br/>• gemini-3.6-flash OCR Engine<br/>• Pekao & NBP FX Rate Fetcher<br/>• Google Docs Report Exporter"]
+            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>Port :8082 (Uvicorn / A2A App)</i><br/>• gemini-3.7-flash OCR Engine<br/>• Pekao & NBP FX Rate Fetcher<br/>• Google Docs Report Exporter"]
         end
     end
 
@@ -118,7 +118,7 @@ The workspace is organized into a clean, modular hierarchy:
 community_studio/
 ├── agents/                       # All Google ADK Agents & sub-agents
 │   ├── root_agent/               # Main coordinating Root Agent (gemini-3.5-flash-lite)
-│   ├── receipt_scanner/          # Receipt OCR & Google Docs expense report agent (gemini-3.6-flash)
+│   ├── receipt_scanner/          # Receipt OCR & Google Docs expense report agent (gemini-3.7-flash)
 │   ├── video_editor/             # Speaker card outpainting & Veo video generator (Veo + GSAP)
 │   ├── linkedin_post_generator/  # LinkedIn announcement & recap post agent
 │   ├── registration_manager/     # Registration sorting, capacity & organizers list agent
@@ -155,7 +155,7 @@ community_studio/
 The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 primitives:
 
 1. **Model Tiering Strategy**:
-   - **`gemini-3.6-flash`** is allocated to receipt OCR and expense reporting (`receipt_scanner`).
+   - **`gemini-3.7-flash`** is allocated to receipt OCR and expense reporting (`receipt_scanner`).
    - **`gemini-3.5-flash-lite`** is deployed across orchestrators and tool-calling agents for fast execution, high concurrency, and zero function-calling errors.
 2. **Session State & Data Passing (`session.state`)**:
    - Rather than bloating prompt contexts with raw binary payloads or giant text tables across sub-agent transfers, agents communicate via workspace files and structured session state.

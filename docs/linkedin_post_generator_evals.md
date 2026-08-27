@@ -80,5 +80,5 @@ The judge command prints a compact JSON artifact with verdict agreement and
 scores. The ADK suite prints the contract metric per case. A release requires
 the held-out judge suite and every deterministic generator case to pass.
 
-The judge defaults to `gemini-3.6-flash`; override it with
+The judge defaults to `gemini-3.7-flash`; override it with
 `LINKEDIN_JUDGE_MODEL` when needed.
