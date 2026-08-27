@@ -23,6 +23,13 @@
     Settings,
     MoreVertical,
     X,
+    FileText,
+    Image as ImageIcon,
+    FilePenLine,
+    ClipboardList,
+    MapPin,
+    Building2,
+    Megaphone,
   } from "@lucide/svelte";
 
   import AgentGraph from "./lib/AgentGraph.svelte";
@@ -35,6 +42,9 @@
     DEFAULT_APPS,
     STATUS_TICKERS,
     getAgentTheme,
+    getAgentHeading,
+    getAgentDescription,
+    getAgentStarterPrompts,
     isIntermediateEvent,
     getAppConfig,
     saveAppConfig,
@@ -42,6 +52,108 @@
     getActiveAgentFromEvents,
     getEventAgent,
   } from "./lib/constants.js";
+
+  const ICON_MAP = {
+    receipt: Receipt,
+    video: Video,
+    share: Share2,
+    users: Users,
+    calendar: Calendar,
+    clock: Clock,
+    mail: Mail,
+    layers: Layers,
+    megaphone: Megaphone,
+    "file-text": FileText,
+    image: ImageIcon,
+    "file-pen-line": FilePenLine,
+    "clipboard-list": ClipboardList,
+    "map-pin": MapPin,
+    building: Building2,
+    sparkles: Sparkles,
+  };
+
+  const CATALOG_AGENTS = [
+    {
+      id: "root_agent",
+      name: "Main",
+      tag: "Router & Coordinator",
+      desc: "Parses complex multi-step requests, verifies prerequisites, and delegates tasks to sub-agents.",
+      actionText: "Start workflow",
+      icon: Layers,
+      accent: "var(--agent-root)",
+      bg: "var(--bg-root)",
+    },
+    {
+      id: "receipt_scanner",
+      name: "Receipt Scanner",
+      tag: "OCR & Financials",
+      desc: "Extracts line items, queries live banking exchange rates, and exports formatted expense reports.",
+      actionText: "Scan receipts",
+      icon: Receipt,
+      accent: "var(--agent-receipt)",
+      bg: "var(--bg-receipt)",
+    },
+    {
+      id: "video_editor",
+      name: "Live Video Editor",
+      tag: "Veo & Media AI",
+      desc: "Detects face landmarks, executes 9:16 outpainting, and generates cinematic speaker intro videos.",
+      actionText: "Generate video",
+      icon: Video,
+      accent: "var(--agent-video)",
+      bg: "var(--bg-video)",
+    },
+    {
+      id: "linkedin_post_generator",
+      name: "LinkedIn Planner",
+      tag: "Copy & Social",
+      desc: "Drafts promotional posts, speaker spotlights, and multi-option event recap posts with hashtags.",
+      actionText: "Draft post",
+      icon: Share2,
+      accent: "var(--agent-linkedin)",
+      bg: "var(--bg-linkedin)",
+    },
+    {
+      id: "registration_manager",
+      name: "Registrations Manager",
+      tag: "Roster & Partitioning",
+      desc: "Cleans participant rosters, deduplicates names, partitions confirmed/waitlisted, and writes DOCX files.",
+      actionText: "Process roster",
+      icon: Users,
+      accent: "var(--agent-registration)",
+      bg: "var(--bg-registration)",
+    },
+    {
+      id: "event_planner",
+      name: "Event Scheduler",
+      tag: "Calendars & Holidays",
+      desc: "Cross-references Polish holidays, tech calendars, and long weekends to avoid meetup collisions.",
+      actionText: "Plan dates",
+      icon: Calendar,
+      accent: "var(--agent-planner)",
+      bg: "var(--bg-planner)",
+    },
+    {
+      id: "agenda_generator",
+      name: "Agenda Formatter",
+      tag: "Timeline & Schedule",
+      desc: "Calculates minute-level event schedules with networking and speaker sessions formatted for easy sharing.",
+      actionText: "Format agenda",
+      icon: Clock,
+      accent: "var(--agent-agenda)",
+      bg: "var(--bg-agenda)",
+    },
+    {
+      id: "office_secretary",
+      name: "Office Secretary",
+      tag: "Office & Reservations",
+      desc: "Generates polite visitor key access and room reservation requests with strict date validation.",
+      actionText: "Draft email",
+      icon: Mail,
+      accent: "var(--agent-office)",
+      bg: "var(--bg-office)",
+    },
+  ];
 
   import {
     fetchApps,
@@ -114,13 +226,22 @@
   );
 
   // Agent selector manual switch
-  function handleAgentChange(newApp) {
+  async function handleAgentChange(newApp) {
     selectedApp = newApp;
     sessionOwnerApp = newApp;
     currentExecutingAgent = newApp;
-    selectedSessionId = "";
-    events = [];
-    loadSessions();
+    errorMsg = "";
+    try {
+      sessions = await fetchSessions(newApp, userId);
+      if (sessions.length > 0) {
+        await selectSession(sessions[0].session_id);
+      } else {
+        await startNewSession(newApp);
+      }
+    } catch (e) {
+      console.warn("Error switching agent:", e);
+      await startNewSession(newApp);
+    }
   }
 
   // Theme Toggler
@@ -138,11 +259,11 @@
   // Load Apps
   async function loadApps() {
     apps = await fetchApps();
-    await loadSessions();
+    await loadSessions(true);
   }
 
   // Load Sessions
-  async function loadSessions() {
+  async function loadSessions(autoStartIfEmpty = false) {
     if (!selectedApp) return;
     try {
       errorMsg = "";
@@ -152,12 +273,10 @@
           !selectedSessionId ||
           !sessions.some((s) => s.session_id === selectedSessionId)
         ) {
-          selectSession(sessions[0].session_id);
+          await selectSession(sessions[0].session_id);
         }
-      } else {
-        selectedSessionId = "";
-        events = [];
-        currentExecutingAgent = selectedApp;
+      } else if (autoStartIfEmpty) {
+        await startNewSession(selectedApp);
       }
     } catch (e) {
       console.error(e);
@@ -172,21 +291,48 @@
     sessionOwnerApp = appToUse;
     currentExecutingAgent = appToUse;
     const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    selectedSessionId = newSessionId;
+    events = [];
+    queryText = "";
+    stagedFiles = [];
+    errorMsg = "";
+
     try {
-      errorMsg = "";
       isLoading = true;
-      events = [];
-      selectedSessionId = newSessionId;
-      queryText = "";
-      stagedFiles = [];
       await createSession(appToUse, userId, newSessionId);
-      await loadSessions();
-      await selectSession(newSessionId);
+      const fetched = await fetchSessions(appToUse, userId);
+      if (fetched && fetched.length > 0) {
+        sessions = fetched;
+      } else {
+        sessions = [{ id: newSessionId, session_id: newSessionId, state: {}, events: [] }];
+      }
     } catch (e) {
-      console.error(e);
-      errorMsg = `Failed to start session: ${e.message}`;
+      console.warn("Session creation notice:", e.message);
+      sessions = [{ id: newSessionId, session_id: newSessionId, state: {}, events: [] }];
     } finally {
       isLoading = false;
+      setTimeout(() => {
+        if (textareaElement) textareaElement.focus();
+      }, 50);
+    }
+  }
+
+  function selectStarterPrompt(prompt) {
+    const text = typeof prompt === "string" ? prompt : (prompt?.prompt || prompt?.text || "");
+    queryText = text;
+    setTimeout(() => {
+      if (textareaElement) {
+        textareaElement.style.height = "auto";
+        textareaElement.style.height = textareaElement.scrollHeight + "px";
+        textareaElement.focus();
+      }
+    }, 50);
+  }
+
+  async function startNewSessionWithPrompt(targetApp, prompt) {
+    await startNewSession(targetApp);
+    if (prompt) {
+      selectStarterPrompt(prompt);
     }
   }
 
@@ -500,8 +646,8 @@
           selectedSessionId = "";
           events = [];
         }}
-        data-tooltip="Home / Select Agent"
-        aria-label="Home / Select Agent"
+        data-tooltip="Home"
+        aria-label="Home"
       >
         <div class="brand-text">
           <span class="brand-name">Community Studio</span>
@@ -530,8 +676,8 @@
         class="icon-btn"
         class:active={showSessions}
         onclick={() => (showSessions = !showSessions)}
-        data-tooltip="Session History (Sidebar)"
-        aria-label="Session History (Sidebar)"
+        data-tooltip="Session History"
+        aria-label="Session History"
       >
         <History size={18} strokeWidth={1.75} />
       </button>
@@ -733,220 +879,116 @@
 
             <!-- Agents Catalog Grid -->
             <div class="agents-catalog-grid">
-            <button
-              class="agent-catalog-card"
-              style="--card-accent: var(--agent-root); --card-bg: var(--bg-root);"
-              onclick={() => {
-                startNewSession("root_agent");
-              }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box">
-                  <Layers size={18} strokeWidth={1.75} />
+              {#each CATALOG_AGENTS as agent}
+                {@const AgentIcon = agent.icon}
+                {@const shortcuts = getAgentStarterPrompts(agent.id)}
+                <div
+                  class="agent-catalog-card"
+                  style="--card-accent: {agent.accent}; --card-bg: {agent.bg};"
+                  role="button"
+                  tabindex="0"
+                  onclick={() => {
+                    startNewSession(agent.id);
+                  }}
+                  onkeydown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      startNewSession(agent.id);
+                    }
+                  }}
+                >
+                  <div class="agent-card-header">
+                    <div class="agent-icon-box">
+                      <AgentIcon size={18} strokeWidth={1.75} />
+                    </div>
+                    <div class="agent-title-col">
+                      <strong>{agent.name}</strong>
+                      <span class="agent-type-tag">{agent.tag}</span>
+                    </div>
+                  </div>
+                  <p class="agent-card-desc">
+                    {agent.desc}
+                  </p>
+                  {#if shortcuts.length > 0}
+                    <div class="card-shortcuts">
+                      {#each shortcuts.slice(0, 2) as shortcut}
+                        <button
+                          type="button"
+                          class="card-shortcut-chip"
+                          onclick={(e) => {
+                            e.stopPropagation();
+                            startNewSessionWithPrompt(agent.id, shortcut.prompt);
+                          }}
+                        >
+                          {#if shortcut.icon && ICON_MAP[shortcut.icon]}
+                            {@const IconComp = ICON_MAP[shortcut.icon]}
+                            <IconComp size={12} class="card-shortcut-icon" />
+                          {/if}
+                          <span class="card-shortcut-text">{shortcut.text}</span>
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                  <div class="card-footer-action">
+                    <span>{agent.actionText}</span>
+                    <ArrowRight size={14} />
+                  </div>
                 </div>
-                <div class="agent-title-col">
-                  <strong>Main</strong>
-                  <span class="agent-type-tag">Router & Coordinator</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">
-                Parses complex multi-step requests, verifies prerequisites, and
-                delegates tasks to sub-agents.
-              </p>
-              <div class="card-footer-action">
-                <span>Start workflow</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button
-              class="agent-catalog-card"
-              style="--card-accent: var(--agent-receipt); --card-bg: var(--bg-receipt);"
-              onclick={() => {
-                startNewSession("receipt_scanner");
-              }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box">
-                  <Receipt size={18} strokeWidth={1.75} />
-                </div>
-                <div class="agent-title-col">
-                  <strong>Receipt Scanner</strong>
-                  <span class="agent-type-tag">OCR & Financials</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">
-                Extracts line items, queries live banking exchange rates, and
-                exports formatted expense reports.
-              </p>
-              <div class="card-footer-action">
-                <span>Scan receipts</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button
-              class="agent-catalog-card"
-              style="--card-accent: var(--agent-video); --card-bg: var(--bg-video);"
-              onclick={() => {
-                startNewSession("video_editor");
-              }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box">
-                  <Video size={18} strokeWidth={1.75} />
-                </div>
-                <div class="agent-title-col">
-                  <strong>Live Video Editor</strong>
-                  <span class="agent-type-tag">Veo & Media AI</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">
-                Detects face landmarks, executes 9:16 outpainting, and generates
-                cinematic speaker intro videos.
-              </p>
-              <div class="card-footer-action">
-                <span>Generate video</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button
-              class="agent-catalog-card"
-              style="--card-accent: var(--agent-linkedin); --card-bg: var(--bg-linkedin);"
-              onclick={() => {
-                startNewSession("linkedin_post_generator");
-              }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box">
-                  <Share2 size={18} strokeWidth={1.75} />
-                </div>
-                <div class="agent-title-col">
-                  <strong>LinkedIn Planner</strong>
-                  <span class="agent-type-tag">Copy & Social</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">
-                Drafts promotional posts, speaker spotlights, and multi-option
-                event recap posts with hashtags.
-              </p>
-              <div class="card-footer-action">
-                <span>Draft post</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button
-              class="agent-catalog-card"
-              style="--card-accent: var(--agent-registration); --card-bg: var(--bg-registration);"
-              onclick={() => {
-                startNewSession("registration_manager");
-              }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box">
-                  <Users size={18} strokeWidth={1.75} />
-                </div>
-                <div class="agent-title-col">
-                  <strong>Registrations Manager</strong>
-                  <span class="agent-type-tag">Roster & Partitioning</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">
-                Cleans participant rosters, deduplicates names, partitions
-                confirmed/waitlisted, and writes DOCX files.
-              </p>
-              <div class="card-footer-action">
-                <span>Process roster</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button
-              class="agent-catalog-card"
-              style="--card-accent: var(--agent-planner); --card-bg: var(--bg-planner);"
-              onclick={() => {
-                startNewSession("event_planner");
-              }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box">
-                  <Calendar size={18} strokeWidth={1.75} />
-                </div>
-                <div class="agent-title-col">
-                  <strong>Event Scheduler</strong>
-                  <span class="agent-type-tag">Calendars & Holidays</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">
-                Cross-references Polish holidays, tech calendars, and long
-                weekends to avoid meetup collisions.
-              </p>
-              <div class="card-footer-action">
-                <span>Plan dates</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button
-              class="agent-catalog-card"
-              style="--card-accent: var(--agent-agenda); --card-bg: var(--bg-agenda);"
-              onclick={() => {
-                startNewSession("agenda_generator");
-              }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box">
-                  <Clock size={18} strokeWidth={1.75} />
-                </div>
-                <div class="agent-title-col">
-                  <strong>Agenda Formatter</strong>
-                  <span class="agent-type-tag">Timeline & Schedule</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">
-                Calculates minute-level event schedules with networking and
-                speaker sessions formatted for easy sharing.
-              </p>
-              <div class="card-footer-action">
-                <span>Format agenda</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button
-              class="agent-catalog-card"
-              style="--card-accent: var(--agent-office); --card-bg: var(--bg-office);"
-              onclick={() => {
-                startNewSession("office_secretary");
-              }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box">
-                  <Mail size={18} strokeWidth={1.75} />
-                </div>
-                <div class="agent-title-col">
-                  <strong>Office Secretary</strong>
-                  <span class="agent-type-tag">Office & Reservations</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">
-                Generates polite visitor key access and room reservation
-                requests with strict date validation.
-              </p>
-              <div class="card-footer-action">
-                <span>Draft email</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
+              {/each}
+            </div>
           </div>
         </div>
-      </div>
       {:else}
         <!-- Active Chat Message Stream -->
         <div class="chat-viewport" bind:this={chatBodyElement}>
           <div class="chat-stream-container">
+            {#if filteredEvents.length === 0}
+              <div
+                class="agent-welcome-card"
+                style="--agent-accent: {activeAgentTheme.color}; --agent-bg: {activeAgentTheme.bg};"
+              >
+                <div class="agent-welcome-header">
+                  <div
+                    class="agent-welcome-avatar"
+                    style="background: {activeAgentTheme.bg}; color: {activeAgentTheme.color}; border: 1px solid {activeAgentTheme.color}40;"
+                  >
+                    <Sparkles size={22} strokeWidth={1.75} />
+                  </div>
+                  <div class="agent-welcome-meta">
+                    <div
+                      class="agent-welcome-badge"
+                      style="color: {activeAgentTheme.color}; background: {activeAgentTheme.bg}; border: 1px solid {activeAgentTheme.color}30;"
+                    >
+                      {activeAgentTheme.label}
+                    </div>
+                    <h2>{getAgentHeading(activeAgent)}</h2>
+                    <p>{getAgentDescription(activeAgent)}</p>
+                  </div>
+                </div>
+
+                <div class="starter-prompts-section">
+                  <span class="starter-label">Suggested actions:</span>
+                  <div class="starter-chips">
+                    {#each getAgentStarterPrompts(activeAgent) as item}
+                      {@const promptText = typeof item === "string" ? item : item.prompt}
+                      {@const displayText = typeof item === "string" ? item : item.text}
+                      {@const iconName = typeof item === "object" ? item.icon : null}
+                      <button
+                        class="starter-chip"
+                        onclick={() => selectStarterPrompt(promptText)}
+                      >
+                        {#if iconName && ICON_MAP[iconName]}
+                          {@const IconComp = ICON_MAP[iconName]}
+                          <IconComp size={13} class="starter-chip-icon" />
+                        {/if}
+                        <span>{displayText}</span>
+                        <ArrowRight size={12} class="starter-arrow" />
+                      </button>
+                    {/each}
+                  </div>
+                </div>
+              </div>
+            {/if}
+
             {#each filteredEvents as event, idx}
               <ChatMessage
                 {event}
@@ -1729,8 +1771,57 @@
     font-size: 12.5px;
     color: var(--text-secondary);
     line-height: 1.55;
-    margin-bottom: 18px;
+    margin-bottom: 12px;
     flex: 1;
+  }
+
+  .card-shortcuts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    width: 100%;
+  }
+
+  .card-shortcut-chip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--bg-app);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 5px 8px;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-align: left;
+    transition: var(--transition-fast);
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .card-shortcut-chip:hover {
+    background: var(--card-bg, var(--bg-hover));
+    border-color: var(--card-accent, var(--primary-accent));
+    color: var(--text-primary);
+    transform: translateY(-1px);
+  }
+
+  :global(.card-shortcut-icon) {
+    color: var(--card-accent, var(--primary-accent));
+    flex-shrink: 0;
+    opacity: 0.85;
+  }
+
+  .card-shortcut-chip:hover :global(.card-shortcut-icon) {
+    opacity: 1;
+  }
+
+  .card-shortcut-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
   }
 
   .card-footer-action {
@@ -1771,6 +1862,134 @@
     max-width: 900px;
     display: flex;
     flex-direction: column;
+  }
+
+  /* Agent Welcome Card (Chat Empty State) */
+  .agent-welcome-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    margin: 24px 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .agent-welcome-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .agent-welcome-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .agent-welcome-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .agent-welcome-badge {
+    align-self: flex-start;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    margin-bottom: 2px;
+  }
+
+  .agent-welcome-meta h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .agent-welcome-meta p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .starter-prompts-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 14px;
+  }
+
+  .starter-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .starter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .starter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: var(--transition-fast);
+  }
+
+  .starter-chip:hover {
+    background: var(--bg-hover);
+    border-color: var(--agent-accent, var(--primary-accent));
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  :global(.starter-chip-icon) {
+    color: var(--agent-accent, var(--primary-accent));
+    flex-shrink: 0;
+    opacity: 0.85;
+    transition: var(--transition-fast);
+  }
+
+  .starter-chip:hover :global(.starter-chip-icon) {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  :global(.starter-arrow) {
+    color: var(--text-tertiary);
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+  }
+
+  .starter-chip:hover :global(.starter-arrow) {
+    color: var(--agent-accent, var(--primary-accent));
+    transform: translateX(2px);
   }
 
   /* Shimmer Generating Live Card */

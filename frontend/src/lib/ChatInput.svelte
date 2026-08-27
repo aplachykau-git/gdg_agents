@@ -2,7 +2,7 @@
   import { 
     Plus, 
     Sparkles, 
-    CornerDownLeft, 
+    ArrowRight, 
     FileText 
   } from '@lucide/svelte';
   import { MAX_INPUT_TOKENS } from './constants.js';
@@ -65,7 +65,7 @@
     <!-- Top Attachment & Context Strip -->
     <div class="prompt-meta-top">
       <label class="chip-action-btn" title="Add Multimodal Attachments">
-        <Plus size={15} strokeWidth={2} />
+        <Plus size={15} strokeWidth={2} class="chip-icon" />
         <span>Add files</span>
         <input type="file" multiple onchange={handleFileSelect} style="display: none;" />
       </label>
@@ -90,7 +90,7 @@
               <FileText size={20} class="staged-doc-icon" />
             {/if}
             <span class="staged-filename">{file.name}</span>
-            <button class="staged-del-btn" onclick={() => removeStagedFile(index)}>&times;</button>
+            <button class="staged-del-btn" onclick={() => removeStagedFile(index)} aria-label="Remove attachment">&times;</button>
           </div>
         {/each}
       </div>
@@ -125,10 +125,14 @@
         class="btn-run-gemini" 
         onclick={onSend} 
         disabled={isLoading || (!queryText.trim() && stagedFiles.length === 0) || isTokenLimitExceeded}
+        title="Send prompt (Ctrl+Enter)"
+        aria-label="Send prompt"
       >
-        <Sparkles size={16} strokeWidth={2} class={isLoading ? 'generating-sparkle' : ''} />
-        <span>Run</span>
-        <CornerDownLeft size={14} />
+        {#if isLoading}
+          <Sparkles size={17} strokeWidth={2} class="generating-sparkle" />
+        {:else}
+          <ArrowRight size={17} strokeWidth={2.2} class="run-arrow-icon" />
+        {/if}
       </button>
     </div>
   </div>
@@ -143,6 +147,7 @@
     z-index: 30;
     width: 100%;
     box-sizing: border-box;
+    animation: promptWrapperEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .floating-prompt-box {
@@ -157,20 +162,27 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+    transition: border-color 0.25s cubic-bezier(0.2, 0, 0, 1),
+                box-shadow 0.25s cubic-bezier(0.2, 0, 0, 1),
+                background 0.25s cubic-bezier(0.2, 0, 0, 1),
+                transform 0.25s cubic-bezier(0.2, 0, 0, 1);
     box-sizing: border-box;
+    animation: promptBoxEntrance 0.45s cubic-bezier(0.16, 1, 0.3, 1) both,
+               promptAmbientPulse 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
   }
 
   .floating-prompt-box:focus-within {
     border-color: var(--border-focus);
     box-shadow: var(--shadow-elevation-3), var(--shadow-glow);
     background: var(--bg-surface-elevated);
+    transform: translateY(-1px);
   }
 
   .prompt-meta-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    animation: promptChildSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both;
   }
 
   .chip-action-btn {
@@ -185,13 +197,31 @@
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: var(--transition-fast);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                background 0.15s ease,
+                border-color 0.15s ease,
+                color 0.15s ease,
+                box-shadow 0.15s ease;
+  }
+
+  .chip-action-btn :global(.chip-icon) {
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .chip-action-btn:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
     border-color: var(--border-focus);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  .chip-action-btn:hover :global(.chip-icon) {
+    transform: rotate(90deg);
+  }
+
+  .chip-action-btn:active {
+    transform: scale(0.96) translateY(0);
   }
 
   /* Token telemetry */
@@ -201,11 +231,13 @@
     display: flex;
     align-items: center;
     gap: 4px;
+    transition: color 0.2s ease;
   }
 
   .token-val {
     color: var(--text-secondary);
     font-weight: 600;
+    transition: color 0.2s ease;
   }
 
   .token-val-exceeded {
@@ -220,6 +252,7 @@
     padding: 2px 6px;
     border-radius: var(--radius-xs);
     margin-left: 4px;
+    animation: badgePopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   }
 
   /* Staged files */
@@ -228,6 +261,7 @@
     gap: 10px;
     overflow-x: auto;
     padding: 4px 0;
+    animation: stagedRowSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .staged-card {
@@ -240,6 +274,14 @@
     padding: 6px 10px;
     border-radius: var(--radius-md);
     max-width: 200px;
+    animation: stagedCardPopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .staged-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-medium);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   .staged-img {
@@ -247,6 +289,11 @@
     height: 28px;
     object-fit: cover;
     border-radius: var(--radius-xs);
+    transition: transform 0.2s ease;
+  }
+
+  .staged-card:hover .staged-img {
+    transform: scale(1.05);
   }
 
   .staged-filename {
@@ -265,10 +312,15 @@
     cursor: pointer;
     line-height: 1;
     padding: 0 2px;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .staged-del-btn:hover {
     color: var(--accent-red, #ea4335);
+    transform: scale(1.2) rotate(90deg);
   }
 
   textarea {
@@ -283,12 +335,14 @@
     font-family: inherit;
     max-height: 200px;
     overflow-y: auto;
+    animation: promptChildFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
   }
 
   .prompt-meta-bottom {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    animation: promptChildSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
   }
 
   .prompt-quick-tags {
@@ -299,6 +353,7 @@
   .tag-hint {
     font-size: 11px;
     color: var(--text-tertiary);
+    transition: color 0.2s ease;
   }
 
   .tag-error {
@@ -307,25 +362,43 @@
   }
 
   .btn-run-gemini {
+    width: 36px;
+    height: 36px;
+    padding: 0;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 18px;
-    border-radius: var(--radius-full);
+    justify-content: center;
+    border-radius: 50%;
     border: none;
     background: var(--primary-gradient, var(--primary-accent));
     color: #ffffff;
-    font-size: 13px;
-    font-weight: 600;
     cursor: pointer;
+    flex-shrink: 0;
     box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
-    transition: var(--transition-fast);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.2s ease,
+                filter 0.2s ease,
+                opacity 0.2s ease;
+    animation: promptBtnPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.18s both;
+  }
+
+  .btn-run-gemini :global(.run-arrow-icon) {
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   .btn-run-gemini:hover:not(:disabled) {
     filter: brightness(1.1);
-    transform: translateY(-1px);
+    transform: translateY(-1px) scale(1.06);
     box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
+  }
+
+  .btn-run-gemini:hover:not(:disabled) :global(.run-arrow-icon) {
+    transform: translateX(2px);
+  }
+
+  .btn-run-gemini:active:not(:disabled) {
+    transform: translateY(0) scale(0.95);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
   }
 
   .btn-run-gemini:disabled {
@@ -337,8 +410,146 @@
     animation: spinSlow 3s linear infinite;
   }
 
+  /* =========================================================================
+   * Micro-animation Keyframes
+   * ========================================================================= */
+  @keyframes promptWrapperEntrance {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes promptBoxEntrance {
+    0% {
+      opacity: 0;
+      transform: translateY(18px) scale(0.98);
+      filter: blur(4px);
+    }
+    60% {
+      filter: blur(0);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes promptAmbientPulse {
+    0% {
+      box-shadow: var(--shadow-elevation-2);
+    }
+    45% {
+      box-shadow: var(--shadow-elevation-2), 0 0 16px rgba(59, 130, 246, 0.28);
+    }
+    100% {
+      box-shadow: var(--shadow-elevation-2);
+    }
+  }
+
+  @keyframes promptChildSlideDown {
+    0% {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes promptChildFadeIn {
+    0% {
+      opacity: 0;
+      transform: translateY(3px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes promptChildSlideUp {
+    0% {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes promptBtnPopIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes stagedCardPopIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.84) translateY(6px);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes stagedRowSlide {
+    0% {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes badgePopIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.7);
+    }
+    70% {
+      transform: scale(1.08);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
   @keyframes spinSlow {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+  }
+
+  /* Accessibility: Prefers Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    .floating-prompt-wrapper,
+    .floating-prompt-box,
+    .prompt-meta-top,
+    textarea,
+    .prompt-meta-bottom,
+    .btn-run-gemini,
+    .staged-card,
+    .staged-media-row,
+    .token-exceeded-badge {
+      animation: none !important;
+      transition: none !important;
+      transform: none !important;
+      filter: none !important;
+    }
   }
 </style>

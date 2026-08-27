@@ -48,8 +48,8 @@
       icon: Layers,
       isRoot: true,
       port: 8080,
-      protocol: 'Local / SSE Hub',
-      desc: 'Central dispatcher. Evaluates user intent, coordinates sub-agents, and manages multi-agent handoffs across local agents and A2A microservices.',
+      protocol: 'Dispatcher / SSE Hub',
+      desc: 'Central dispatcher. Evaluates user intent, coordinates sub-agents, and manages multi-agent handoffs across sub-agents and A2A microservices.',
       tools: ['transfer_to_agent (video_editor)', 'transfer_to_agent (receipt_scanner)', 'transfer_to_agent (linkedin_post_generator)', 'transfer_to_agent (registration_manager)', 'transfer_to_agent (event_planner)', 'transfer_to_agent (agenda_generator)', 'transfer_to_agent (office_secretary)'],
       x: 50,
       y: 50
@@ -417,27 +417,21 @@
           {/each}
         </svg>
 
-        <!-- Floating Protocol Chips on Canvas Midpoints -->
+        <!-- Floating Protocol Chips on Canvas Midpoints (A2A edges) -->
         {#each AGENTS_META as agent}
-          {#if !agent.isRoot}
+          {#if !agent.isRoot && agent.isA2A}
             {@const isRunning = isAgentRunning(agent.id)}
             {@const isParticipated = isAgentParticipated(agent.id)}
             {@const midX = (50 + agent.x) / 2}
             {@const midY = (50 + agent.y) / 2}
 
             <div 
-              class="edge-protocol-chip"
-              class:chip-a2a={agent.isA2A}
+              class="edge-protocol-chip chip-a2a"
               class:chip-active={isRunning || isParticipated}
               style="left: {midX}%; top: {midY}%; --chip-color: {agent.color}"
             >
-              {#if agent.isA2A}
-                <Zap size={9} />
-                <span>A2A ⚡</span>
-              {:else}
-                <ArrowRight size={9} />
-                <span>LOCAL</span>
-              {/if}
+              <Zap size={9} />
+              <span>A2A ⚡</span>
             </div>
           {/if}
         {/each}
@@ -606,7 +600,7 @@
                   {#if inspectedAgent.isA2A}
                     <span class="agent-card-link">/.well-known/agent-card.json</span>
                   {:else}
-                    <span class="agent-card-link">Local Process Execution</span>
+                    <span class="agent-card-link">In-Process Sub-Agent</span>
                   {/if}
                 </div>
               </div>

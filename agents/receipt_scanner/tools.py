@@ -307,7 +307,7 @@ def calculate_receipt_totals(
 def read_receipt_file(file_path: str) -> dict:
     """
     Reads a receipt or invoice file (image or PDF) from the local filesystem
-    and natively processes it using gemini-2.5-pro multimodal capability.
+    and natively processes it using gemini-3.7-flash multimodal capability.
 
     Args:
         file_path: Absolute or relative path to the file (jpg, png, pdf, etc.)
@@ -396,7 +396,7 @@ def read_receipt_file(file_path: str) -> dict:
         # Initialize a client for the workspace-selected Gemini backend.
         client = get_gemini_client()
 
-        # Perform native multimodal OCR and data extraction using gemini-2.5-pro
+        # Perform native multimodal OCR and data extraction using gemini-3.7-flash
         prompt = (
             "You are a professional OCR assistant. Recognize and extract all text and structured data "
             "from this document (receipt/invoice). List all itemized positions, quantities, unit prices, "

@@ -292,7 +292,7 @@ def validate_video_generation_backend(engine: str) -> None:
 
 
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
-    """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-flash-preview) via Interactions API."""
+    """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-1.1-flash) via Interactions API."""
     api_key = get_gemini_api_key()
 
     with open(photo_path, "rb") as f:
@@ -327,7 +327,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
 
     url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
     payload = {
-        "model": "gemini-omni-flash-preview",
+        "model": "gemini-omni-1.1-flash",
         "input": [
             {"type": "image", "data": b64_img, "mime_type": mime_type},
             {"type": "text", "text": i2v_prompt},

@@ -63,7 +63,7 @@ flowchart TB
 
     subgraph FOUNDATION_LAYER["☁️ 4. EXTERNAL AI FOUNDATION & ENTERPRISE SERVICES"]
         direction LR
-        CLOUD_AI["<b>Google Vertex AI & GenAI</b><br/>• Gemini 2.5 Pro / Flash<br/>• Google Veo 3.1 & Omni Flash<br/>• Imagen Portrait Outpainting"]
+        CLOUD_AI["<b>Google Vertex AI & GenAI</b><br/>• Gemini 3.7 Flash & 3.5 Flash Lite<br/>• Google Veo 3.1 & Omni Flash<br/>• Imagen Portrait Outpainting"]
         G_SUITE["<b>Google Workspace APIs</b><br/>• Google Drive API<br/>• Google Docs Engine"]
         FIN_APIS["<b>Public Financial & Calendar APIs</b><br/>• Pekao Bank FX Scraper<br/>• NBP Exchange Rate API<br/>• Nager.Date Holiday API"]
     end
@@ -234,7 +234,7 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
 
 1. **Dual Video Generation Engines**:
    - **Google Veo 3.1 (`veo-3.1-fast-generate-001`)**: High-fidelity video generation via Vertex AI with curated cinematic lighting, subtle head motion, and realistic bokeh.
-   - **Gemini Omni Flash (`gemini-omni-flash-preview`)**: Fast multimodal Image-to-Video generation via the Google AI Interactions API with unbroken single-shot camera dynamics.
+   - **Gemini Omni Flash (`gemini-omni-1.1-flash`)**: Fast multimodal Image-to-Video generation via the Google AI Interactions API with unbroken single-shot camera dynamics.
    - Switchable dynamically via `VIDEO_ENGINE=veo` (default) or `VIDEO_ENGINE=omni` in `.env`. `veo` requires Vertex AI; when `GOOGLE_GENAI_USE_VERTEXAI=0`, select `omni`.
 
 2. **Speaker Portrait 9:16 Outpainting**:
@@ -258,7 +258,7 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
 | `GOOGLE_GENAI_USE_VERTEXAI` | `1` (default) \| `0` | Uses Vertex AI credentials for Gemini calls when `1`; uses an API key when `0`. |
 | `GOOGLE_API_KEY` | API key | Preferred API key when `GOOGLE_GENAI_USE_VERTEXAI=0`; also supported by the Omni video engine. |
 | `GEMINI_API_KEY` | API key | Backwards-compatible fallback when `GOOGLE_API_KEY` is not set. |
-| `VIDEO_ENGINE` | `veo` (default) \| `omni` | Selects the video generation model (`veo-3.1-fast-generate-001` or `gemini-omni-flash-preview`). `veo` is available only in Vertex AI mode. |
+| `VIDEO_ENGINE` | `veo` (default) \| `omni` | Selects the video generation model (`veo-3.1-fast-generate-001` or `gemini-omni-1.1-flash`). `veo` is available only in Vertex AI mode. |
 | `ENABLE_VIDEO_GENERATION` | `true` \| `false` | Set to `false` for instant layout/text dry-runs using local placeholder assets without consuming video tokens. |
 | `RENDER_4K` | `true` (default) \| `false` | Toggles rendering of the 4K Ultra HD MP4 video file. |
 | `RENDER_ORDINARY` | `true` \| `false` (default) | Toggles rendering of the 1080p Full HD MP4 video file. |

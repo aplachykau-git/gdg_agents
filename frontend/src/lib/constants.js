@@ -61,6 +61,108 @@ export function getAgentTheme(author) {
   return { color: 'var(--primary-accent)', bg: 'var(--primary-accent-container)', label: formatted };
 }
 
+export function getAgentHeading(agentId) {
+  if (!agentId) return 'Main Coordinator';
+  const clean = cleanAuthorName(agentId).toLowerCase();
+  if (clean.includes('root') || clean === 'main' || clean.includes('orchestrator')) return 'Main Coordinator';
+  if (clean.includes('receipt')) return 'Receipt Scanner & OCR';
+  if (clean.includes('video') || clean.includes('avatar')) return 'Live Video Editor';
+  if (clean.includes('linkedin')) return 'LinkedIn Planner';
+  if (clean.includes('registration')) return 'Registrations Manager';
+  if (clean.includes('planner')) return 'Event Scheduler';
+  if (clean.includes('agenda')) return 'Agenda Formatter';
+  if (clean.includes('office') || clean.includes('secretary')) return 'Office Secretary';
+  return 'Specialized Agent';
+}
+
+export function getAgentDescription(agentId) {
+  if (!agentId) return 'Root coordinator agent for Community Studio.';
+  const clean = cleanAuthorName(agentId).toLowerCase();
+  if (clean.includes('root') || clean === 'main' || clean.includes('orchestrator')) {
+    return 'Parses your requests, coordinates sub-agents, and automates community tasks across finance, media, marketing, and scheduling.';
+  }
+  if (clean.includes('receipt')) {
+    return 'Extracts line items from receipts, queries live banking exchange rates, and exports expense reports.';
+  }
+  if (clean.includes('video') || clean.includes('avatar')) {
+    return 'Performs face landmark detection, 9:16 outpainting, and generates cinematic speaker intro videos with Veo.';
+  }
+  if (clean.includes('linkedin')) {
+    return 'Drafts promotional posts, speaker spotlights, and multi-option event recap posts with hashtags.';
+  }
+  if (clean.includes('registration')) {
+    return 'Cleans participant rosters, deduplicates names, partitions confirmed vs waitlisted attendees, and exports DOCX.';
+  }
+  if (clean.includes('planner')) {
+    return 'Cross-references Polish holidays, tech calendars, and long weekends to avoid meetup collisions.';
+  }
+  if (clean.includes('agenda')) {
+    return 'Calculates minute-level event schedules with networking and speaker sessions formatted for easy sharing.';
+  }
+  if (clean.includes('office') || clean.includes('secretary')) {
+    return 'Generates polite visitor key access and room reservation requests with strict date validation.';
+  }
+  return 'Ready to assist with your community tasks.';
+}
+
+export function getAgentStarterPrompts(agentId) {
+  if (!agentId) return [];
+  const clean = cleanAuthorName(agentId).toLowerCase();
+  if (clean.includes('root') || clean === 'main' || clean.includes('orchestrator')) {
+    return [
+      { icon: 'receipt', text: 'Process receipts and export an expense report', prompt: 'Process receipts and export an expense report' },
+      { icon: 'video', text: 'Create speaker intro video and animated card', prompt: 'Create speaker intro video and animated card' },
+      { icon: 'megaphone', text: 'Draft LinkedIn speaker spotlight announcement', prompt: 'Draft LinkedIn speaker spotlight announcement' },
+      { icon: 'calendar', text: 'Find optimal meetup date next month without collisions', prompt: 'Find optimal meetup date next month without collisions' },
+      { icon: 'users', text: 'Clean registration CSV and partition attendees by capacity', prompt: 'Clean registration CSV and partition attendees by capacity' },
+      { icon: 'clock', text: 'Format event agenda starting at 17:30 with 2 talks', prompt: 'Format event agenda starting at 17:30 with 2 talks' },
+      { icon: 'mail', text: 'Draft office keys access and Event Hub reservation email', prompt: 'Draft office keys access and Event Hub reservation email' }
+    ];
+  }
+  if (clean.includes('receipt')) {
+    return [
+      { icon: 'receipt', text: 'Scan attached receipt and convert to PLN using live rates', prompt: 'Scan attached receipt and convert to PLN using live rates' },
+      { icon: 'file-text', text: 'Extract line items and export expense report to Google Docs', prompt: 'Extract line items and export expense report to Google Docs' }
+    ];
+  }
+  if (clean.includes('video') || clean.includes('avatar')) {
+    return [
+      { icon: 'video', text: 'Generate 9:16 speaker intro video with Veo', prompt: 'Generate 9:16 speaker intro video with Veo' },
+      { icon: 'image', text: 'Outpaint portrait photo and render animated card composition', prompt: 'Outpaint portrait photo and render animated card composition' }
+    ];
+  }
+  if (clean.includes('linkedin')) {
+    return [
+      { icon: 'megaphone', text: 'Draft speaker announcement post with registration link', prompt: 'Draft speaker announcement post with registration link' },
+      { icon: 'file-pen-line', text: 'Generate 3 event recap post options with hashtags', prompt: 'Generate 3 event recap post options with hashtags' }
+    ];
+  }
+  if (clean.includes('registration')) {
+    return [
+      { icon: 'users', text: 'Clean, deduplicate, and sort attendee registration list', prompt: 'Clean, deduplicate, and sort attendee registration list' },
+      { icon: 'clipboard-list', text: 'Split confirmed attendees (capacity 50) and waitlist into DOCX', prompt: 'Split confirmed attendees (capacity 50) and waitlist into DOCX' }
+    ];
+  }
+  if (clean.includes('planner')) {
+    return [
+      { icon: 'calendar', text: 'Find best meetup date next month avoiding conflicts', prompt: 'Find best meetup date next month avoiding conflicts' },
+      { icon: 'map-pin', text: 'Check Polish public holidays and tech events in Krakow', prompt: 'Check Polish public holidays and tech events in Krakow' }
+    ];
+  }
+  if (clean.includes('agenda')) {
+    return [
+      { icon: 'clock', text: 'Format agenda starting at 17:30 with 3 speaker talks and networking', prompt: 'Format agenda starting at 17:30 with 3 speaker talks and networking' }
+    ];
+  }
+  if (clean.includes('office') || clean.includes('secretary')) {
+    return [
+      { icon: 'mail', text: 'Draft visitor keys access request email for upcoming event', prompt: 'Draft visitor keys access request email for upcoming event' },
+      { icon: 'building', text: 'Draft Event Hub room reservation request email', prompt: 'Draft Event Hub room reservation request email' }
+    ];
+  }
+  return [];
+}
+
 export function getAgentFromToolName(name) {
   if (!name || typeof name !== 'string') return null;
   const lower = name.toLowerCase();
