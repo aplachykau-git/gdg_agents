@@ -82,142 +82,155 @@ def generate_expense_report_docx(
 ) -> bytes:
     """Generates a styled .docx expense report document.
 
-    Args:
-        title: Document title.
-        receipts_data: Structured receipt items with keys: category, desc, sum_curr, sum_target, image_path.
-        target_currency: Target approved currency ("USD", "EUR", "PLN").
-        exchange_rate: Exchange rate used for conversion.
-        rate_source: Source of the exchange rate.
-        rate_url: Optional URL of the rate source.
-        approved_budget: Optional approved budget string.
-        community_name: Name of the community / organization.
-        session_images: Optional list of raw image bytes attached in the session.
-        output_path: Optional local file path to save the generated document.
-
-    Returns:
-        Raw bytes of the generated .docx document.
+    If a valid `template_path` is provided, the template is loaded and its
+    placeholders, metadata table, expenses table, and proof sections are
+    populated with the recognized receipts data.
     """
     if Document is None:
         raise RuntimeError("python-docx is not installed in the current environment.")
 
-    doc = Document()
-
-    # Configure page geometry (Standard A4 / Letter with 0.8 in margins)
-    section = doc.sections[0]
-    section.top_margin = Inches(0.8)
-    section.bottom_margin = Inches(0.8)
-    section.left_margin = Inches(0.8)
-    section.right_margin = Inches(0.8)
-
-    # Base Color Palette (Professional Navy & Slate)
+    # Base Color Palette & Theme Tokens
     PRIMARY_COLOR = RGBColor(26, 86, 219)  # #1A56DB Community Blue
     TEXT_MAIN = RGBColor(15, 23, 42)  # #0F172A
     TEXT_MUTED = RGBColor(100, 116, 139)  # #64748B
     HEADER_BG_HEX = "F1F5F9"  # Slate-100
     ALT_ROW_BG_HEX = "F8FAFC"  # Slate-50
 
-    # 1. Header / Community Brand
-    p_brand = doc.add_paragraph()
-    p_brand.paragraph_format.space_after = Pt(2)
-    r_brand = p_brand.add_run(f"{community_name.upper()} • COMMUNITY STUDIO")
-    r_brand.font.name = "Arial"
-    r_brand.font.size = Pt(9.5)
-    r_brand.font.bold = True
-    r_brand.font.color.rgb = PRIMARY_COLOR
-
-    # Title
-    p_title = doc.add_paragraph()
-    p_title.paragraph_format.space_after = Pt(14)
-    r_title = p_title.add_run(title or "Expense Reimbursement Report")
-    r_title.font.name = "Arial"
-    r_title.font.size = Pt(20)
-    r_title.font.bold = True
-    r_title.font.color.rgb = TEXT_MAIN
-
-    # 2. Metadata Grid (2-column key-value summary)
+    col_widths = [Inches(0.4), Inches(1.5), Inches(2.6), Inches(1.2), Inches(1.2)]
     today_str = datetime.date.today().strftime("%d.%m.%Y")
+    rate_display = (
+        f"1 {target_currency.upper()} = {exchange_rate:.4f} PLN"
+        if target_currency.upper() != "PLN"
+        else "1.00 (Base PLN)"
+    )
 
-    meta_table = doc.add_table(rows=3, cols=2)
-    meta_table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    meta_table.autofit = False
-    _set_table_borders(meta_table, "E2E8F0")
+    use_existing_template = bool(template_path and os.path.exists(template_path))
 
+    if use_existing_template:
+        doc = Document(template_path)
+    else:
+        doc = Document()
+        section = doc.sections[0]
+        section.top_margin = Inches(0.8)
+        section.bottom_margin = Inches(0.8)
+        section.left_margin = Inches(0.8)
+        section.right_margin = Inches(0.8)
+
+    # 1. Update Title and Branding Header
+    if use_existing_template and len(doc.paragraphs) >= 2:
+        # Paragraph 0: Brand
+        doc.paragraphs[0].text = ""
+        r_brand = doc.paragraphs[0].add_run(f"{community_name.upper()} • COMMUNITY STUDIO")
+        r_brand.font.name = "Arial"
+        r_brand.font.size = Pt(9.5)
+        r_brand.font.bold = True
+        r_brand.font.color.rgb = PRIMARY_COLOR
+
+        # Paragraph 1: Title
+        doc.paragraphs[1].text = ""
+        r_title = doc.paragraphs[1].add_run(title or "Expense Reimbursement Report")
+        r_title.font.name = "Arial"
+        r_title.font.size = Pt(20)
+        r_title.font.bold = True
+        r_title.font.color.rgb = TEXT_MAIN
+    elif not use_existing_template:
+        p_brand = doc.add_paragraph()
+        p_brand.paragraph_format.space_after = Pt(2)
+        r_brand = p_brand.add_run(f"{community_name.upper()} • COMMUNITY STUDIO")
+        r_brand.font.name = "Arial"
+        r_brand.font.size = Pt(9.5)
+        r_brand.font.bold = True
+        r_brand.font.color.rgb = PRIMARY_COLOR
+
+        p_title = doc.add_paragraph()
+        p_title.paragraph_format.space_after = Pt(14)
+        r_title = p_title.add_run(title or "Expense Reimbursement Report")
+        r_title.font.name = "Arial"
+        r_title.font.size = Pt(20)
+        r_title.font.bold = True
+        r_title.font.color.rgb = TEXT_MAIN
+
+    # 2. Metadata Grid (Table 0)
     meta_items = [
         ("Report Date:", today_str, "Target Currency:", target_currency.upper()),
-        (
-            "Exchange Rate:",
-            f"1 {target_currency.upper()} = {exchange_rate:.4f} PLN"
-            if target_currency.upper() != "PLN"
-            else "1.00 (Base PLN)",
-            "Rate Source:",
-            rate_source,
-        ),
+        ("Exchange Rate:", rate_display, "Rate Source:", rate_source),
         ("Approved Budget:", approved_budget or "Standard Event Allocation", "Status:", "Ready for Reimbursement"),
     ]
 
+    if use_existing_template and len(doc.tables) >= 1:
+        meta_table = doc.tables[0]
+    else:
+        meta_table = doc.add_table(rows=3, cols=2)
+        meta_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        meta_table.autofit = False
+        _set_table_borders(meta_table, "E2E8F0")
+
     for row_idx, (k1, v1, k2, v2) in enumerate(meta_items):
-        row = meta_table.rows[row_idx]
-        _set_cell_margins(row.cells[0], top=60, bottom=60, left=80, right=80)
-        _set_cell_margins(row.cells[1], top=60, bottom=60, left=80, right=80)
+        if row_idx < len(meta_table.rows):
+            row = meta_table.rows[row_idx]
+            _set_cell_margins(row.cells[0], top=60, bottom=60, left=80, right=80)
+            _set_cell_margins(row.cells[1], top=60, bottom=60, left=80, right=80)
 
-        # Left Column
-        p1 = row.cells[0].paragraphs[0]
-        p1.paragraph_format.space_after = Pt(0)
-        r_k1 = p1.add_run(f"{k1} ")
-        r_k1.font.name = "Arial"
-        r_k1.font.size = Pt(9.5)
-        r_k1.font.bold = True
-        r_k1.font.color.rgb = TEXT_MUTED
+            # Left Column
+            row.cells[0].text = ""
+            p1 = row.cells[0].paragraphs[0]
+            p1.paragraph_format.space_after = Pt(0)
+            r_k1 = p1.add_run(f"{k1} ")
+            r_k1.font.name = "Arial"
+            r_k1.font.size = Pt(9.5)
+            r_k1.font.bold = True
+            r_k1.font.color.rgb = TEXT_MUTED
+            r_v1 = p1.add_run(str(v1))
+            r_v1.font.name = "Arial"
+            r_v1.font.size = Pt(9.5)
+            r_v1.font.color.rgb = TEXT_MAIN
 
-        r_v1 = p1.add_run(str(v1))
-        r_v1.font.name = "Arial"
-        r_v1.font.size = Pt(9.5)
-        r_v1.font.color.rgb = TEXT_MAIN
+            # Right Column
+            row.cells[1].text = ""
+            p2 = row.cells[1].paragraphs[0]
+            p2.paragraph_format.space_after = Pt(0)
+            r_k2 = p2.add_run(f"{k2} ")
+            r_k2.font.name = "Arial"
+            r_k2.font.size = Pt(9.5)
+            r_k2.font.bold = True
+            r_k2.font.color.rgb = TEXT_MUTED
+            r_v2 = p2.add_run(str(v2))
+            r_v2.font.name = "Arial"
+            r_v2.font.size = Pt(9.5)
+            r_v2.font.color.rgb = TEXT_MAIN
 
-        # Right Column
-        p2 = row.cells[1].paragraphs[0]
-        p2.paragraph_format.space_after = Pt(0)
-        r_k2 = p2.add_run(f"{k2} ")
-        r_k2.font.name = "Arial"
-        r_k2.font.size = Pt(9.5)
-        r_k2.font.bold = True
-        r_k2.font.color.rgb = TEXT_MUTED
+    # 3. Itemized Expenses Table (Table 1)
+    if use_existing_template and len(doc.tables) >= 2:
+        table = doc.tables[1]
+        # Remove sample template rows (keep only header row)
+        while len(table.rows) > 1:
+            table._tbl.remove(table.rows[1]._tr)
+    else:
+        if not use_existing_template:
+            doc.add_paragraph().paragraph_format.space_after = Pt(8)
+            p_sec1 = doc.add_paragraph()
+            p_sec1.paragraph_format.space_before = Pt(12)
+            p_sec1.paragraph_format.space_after = Pt(6)
+            r_sec1 = p_sec1.add_run("1. Itemized Expenses & Proofs")
+            r_sec1.font.name = "Arial"
+            r_sec1.font.size = Pt(13)
+            r_sec1.font.bold = True
+            r_sec1.font.color.rgb = TEXT_MAIN
 
-        r_v2 = p2.add_run(str(v2))
-        r_v2.font.name = "Arial"
-        r_v2.font.size = Pt(9.5)
-        r_v2.font.color.rgb = TEXT_MAIN
-
-    doc.add_paragraph().paragraph_format.space_after = Pt(8)
-
-    # 3. Itemized Expenses Table
-    p_sec1 = doc.add_paragraph()
-    p_sec1.paragraph_format.space_before = Pt(12)
-    p_sec1.paragraph_format.space_after = Pt(6)
-    r_sec1 = p_sec1.add_run("1. Itemized Expenses & Proofs")
-    r_sec1.font.name = "Arial"
-    r_sec1.font.size = Pt(13)
-    r_sec1.font.bold = True
-    r_sec1.font.color.rgb = TEXT_MAIN
-
-    # Calculate table row count: header + items + totals row
-    num_items = len(receipts_data) if receipts_data else 1
-    table = doc.add_table(rows=num_items + 2, cols=5)
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table.autofit = False
-    _set_table_borders(table, "CBD5E1")
-
-    # Column Widths
-    col_widths = [Inches(0.4), Inches(1.5), Inches(2.6), Inches(1.2), Inches(1.2)]
-    headers = ["#", "Category", "Description", "Original Sum", f"Sum ({target_currency.upper()})"]
+        table = doc.add_table(rows=1, cols=5)
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        table.autofit = False
+        _set_table_borders(table, "CBD5E1")
 
     # Format Header Row
+    headers = ["#", "Category", "Description", "Original Sum", f"Sum ({target_currency.upper()})"]
     header_row = table.rows[0]
     header_row._tr.get_or_add_trPr().append(parse_xml(f"<w:tblHeader {nsdecls('w')}/>"))
     for idx, (cell, h_text) in enumerate(zip(header_row.cells, headers)):
         cell.width = col_widths[idx]
         _set_cell_background(cell, HEADER_BG_HEX)
         _set_cell_margins(cell, top=100, bottom=100, left=100, right=100)
+        cell.text = ""
         p = cell.paragraphs[0]
         p.paragraph_format.space_after = Pt(0)
         if idx in [0, 3, 4]:
@@ -235,7 +248,7 @@ def generate_expense_report_docx(
     totals_by_curr: Dict[str, float] = {}
 
     for row_idx, item in enumerate(receipts_data or []):
-        row = table.rows[row_idx + 1]
+        row = table.add_row()
         bg_hex = ALT_ROW_BG_HEX if row_idx % 2 == 1 else "FFFFFF"
 
         cat = item.get("category") or "General Expense"
@@ -243,7 +256,6 @@ def generate_expense_report_docx(
         sum_curr = item.get("sum_curr") or item.get("sum_pln") or "0.00 PLN"
         sum_target = item.get("sum_target") or item.get("sum_usd") or f"0.00 {target_currency.upper()}"
 
-        # Parse amounts for total calculation
         try:
             val_t = float(sum_target.split()[0].replace(",", ""))
             total_target_amount += val_t
@@ -271,6 +283,7 @@ def generate_expense_report_docx(
             cell.width = col_widths[col_idx]
             _set_cell_background(cell, bg_hex)
             _set_cell_margins(cell, top=80, bottom=80, left=100, right=100)
+            cell.text = ""
             p = cell.paragraphs[0]
             p.paragraph_format.space_after = Pt(0)
             p.alignment = align
@@ -281,15 +294,13 @@ def generate_expense_report_docx(
             r.font.color.rgb = TEXT_MAIN
 
     # Format Totals Row
-    totals_row = table.rows[-1]
-    _set_cell_background(totals_row.cells[0], HEADER_BG_HEX)
-    _set_cell_background(totals_row.cells[1], HEADER_BG_HEX)
-    _set_cell_background(totals_row.cells[2], HEADER_BG_HEX)
-    _set_cell_background(totals_row.cells[3], HEADER_BG_HEX)
-    _set_cell_background(totals_row.cells[4], HEADER_BG_HEX)
-
-    for cell in totals_row.cells:
+    totals_row = table.add_row()
+    for col_idx in range(5):
+        cell = totals_row.cells[col_idx]
+        cell.width = col_widths[col_idx]
+        _set_cell_background(cell, HEADER_BG_HEX)
         _set_cell_margins(cell, top=100, bottom=100, left=100, right=100)
+        cell.text = ""
 
     p_tot_label = totals_row.cells[2].paragraphs[0]
     p_tot_label.paragraph_format.space_after = Pt(0)
@@ -300,7 +311,6 @@ def generate_expense_report_docx(
     r_tot_label.font.bold = True
     r_tot_label.font.color.rgb = PRIMARY_COLOR
 
-    # Original totals string
     orig_tot_str = ", ".join(f"{amt:.2f} {curr}" for curr, amt in totals_by_curr.items()) if totals_by_curr else "—"
     p_tot_orig = totals_row.cells[3].paragraphs[0]
     p_tot_orig.paragraph_format.space_after = Pt(0)
@@ -310,7 +320,6 @@ def generate_expense_report_docx(
     r_tot_orig.font.size = Pt(9.5)
     r_tot_orig.font.bold = True
 
-    # Target total string
     p_tot_target = totals_row.cells[4].paragraphs[0]
     p_tot_target.paragraph_format.space_after = Pt(0)
     p_tot_target.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -321,18 +330,6 @@ def generate_expense_report_docx(
     r_tot_target.font.color.rgb = PRIMARY_COLOR
 
     # 4. Embedded Receipt Images / Proofs Section
-    doc.add_paragraph().paragraph_format.space_after = Pt(12)
-
-    p_sec2 = doc.add_paragraph()
-    p_sec2.paragraph_format.space_before = Pt(16)
-    p_sec2.paragraph_format.space_after = Pt(6)
-    r_sec2 = p_sec2.add_run("2. Attached Document Proofs")
-    r_sec2.font.name = "Arial"
-    r_sec2.font.size = Pt(13)
-    r_sec2.font.bold = True
-    r_sec2.font.color.rgb = TEXT_MAIN
-
-    # Gather images to embed: check local paths in receipts_data or session_images
     images_to_embed: List[bytes] = []
 
     if session_images:
@@ -347,21 +344,44 @@ def generate_expense_report_docx(
             except Exception as e:
                 print(f"[WARNING] Could not read image file {img_p}: {e}")
 
-    if not images_to_embed:
+    # Remove template placeholder paragraph if images exist
+    if use_existing_template and images_to_embed:
+        for p in list(doc.paragraphs):
+            if "Original receipts verified via Vision OCR." in p.text:
+                p._element.getparent().remove(p._element)
+
+    if not use_existing_template:
+        doc.add_paragraph().paragraph_format.space_after = Pt(12)
+        p_sec2 = doc.add_paragraph()
+        p_sec2.paragraph_format.space_before = Pt(16)
+        p_sec2.paragraph_format.space_after = Pt(6)
+        r_sec2 = p_sec2.add_run("2. Attached Document Proofs")
+        r_sec2.font.name = "Arial"
+        r_sec2.font.size = Pt(13)
+        r_sec2.font.bold = True
+        r_sec2.font.color.rgb = TEXT_MAIN
+
+    if not images_to_embed and not use_existing_template:
         p_no_img = doc.add_paragraph()
         r_no = p_no_img.add_run("Original receipts verified via Vision OCR.")
         r_no.font.name = "Arial"
         r_no.font.size = Pt(9.5)
         r_no.font.italic = True
         r_no.font.color.rgb = TEXT_MUTED
-    else:
-        for idx, img_bytes in enumerate(images_to_embed):
+    elif images_to_embed:
+        for idx, raw_img in enumerate(images_to_embed):
             try:
-                # Open with PIL to check dimensions and auto-orient EXIF
+                img_bytes = raw_img
+                if isinstance(img_bytes, str):
+                    import base64
+
+                    try:
+                        img_bytes = base64.b64decode(img_bytes)
+                    except Exception:
+                        continue
                 pil_img = Image.open(io.BytesIO(img_bytes))
                 pil_img = ImageOps.exif_transpose(pil_img)
 
-                # Convert to RGB JPEG/PNG for docx compatibility
                 if pil_img.mode in ("RGBA", "P"):
                     pil_img = pil_img.convert("RGB")
 
@@ -369,7 +389,6 @@ def generate_expense_report_docx(
                 pil_img.save(buffer, format="JPEG", quality=90)
                 buffer.seek(0)
 
-                # Caption
                 p_cap = doc.add_paragraph()
                 p_cap.paragraph_format.space_before = Pt(10)
                 p_cap.paragraph_format.space_after = Pt(4)
@@ -379,7 +398,6 @@ def generate_expense_report_docx(
                 r_cap.font.bold = True
                 r_cap.font.color.rgb = TEXT_MUTED
 
-                # Insert Image scaled to max width 5.2 inches
                 p_img = doc.add_paragraph()
                 p_img.paragraph_format.space_after = Pt(12)
                 p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
