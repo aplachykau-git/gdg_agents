@@ -640,7 +640,7 @@
    * ========================================================================= -->
   <header class="studio-header">
     <div class="header-left">
-      <!-- Community Studio Brand Typography (Leftmost) -->
+      <!-- Community AI Studio Brand Typography (Leftmost) -->
       <button
         class="brand-badge"
         onclick={() => {
@@ -651,7 +651,7 @@
         aria-label="Home"
       >
         <div class="brand-text">
-          <span class="brand-name">Community Studio</span>
+          <span class="brand-name">Community AI Studio</span>
           <span class="brand-sub"
             >{studioConfig.communityName || "GDG Krakow"}</span
           >
@@ -1034,7 +1034,7 @@
       <header class="modal-header">
         <div class="modal-title-group">
           <Sparkles size={20} class="modal-gemini-icon" />
-          <h2>Community Studio Multi-Agent System</h2>
+          <h2>Community AI Studio Multi-Agent System</h2>
         </div>
         <button class="modal-close-btn" onclick={() => (showLegend = false)}
           >&times;</button
@@ -1043,7 +1043,7 @@
 
       <div class="modal-body">
         <p class="modal-intro">
-          The Community Studio platform is powered by Google ADK with an A2A
+          The Community AI Studio platform is powered by Google ADK with an A2A
           architecture coordinating specialized reasoning engines for {studioConfig.communityName ||
             "GDG Krakow"}:
         </p>

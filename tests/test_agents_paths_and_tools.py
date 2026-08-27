@@ -1,5 +1,5 @@
 """
-Comprehensive Integration Tests for Community Studio.
+Comprehensive Integration Tests for Community AI Studio.
 Tests agent initialization, path resolution, tool resilience, and A2A cards.
 """
 

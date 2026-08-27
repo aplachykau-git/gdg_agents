@@ -80,7 +80,7 @@ export function getAgentHeading(agentId) {
 }
 
 export function getAgentDescription(agentId) {
-  if (!agentId) return 'Root coordinator agent for Community Studio.';
+  if (!agentId) return 'Root coordinator agent for Community AI Studio.';
   const clean = cleanAuthorName(agentId).toLowerCase();
   if (clean.includes('root') || clean === 'main' || clean.includes('orchestrator')) {
     return 'Parses your requests, coordinates sub-agents, and automates community tasks across finance, media, marketing, and scheduling.';

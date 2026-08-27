@@ -1,7 +1,7 @@
 [project]
 name = "community-studio-workspace"
 version = "0.1.0"
-description = "Community Studio multi-agent orchestration workspace"
+description = "Community AI Studio multi-agent orchestration workspace"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [

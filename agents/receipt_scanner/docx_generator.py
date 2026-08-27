@@ -120,7 +120,7 @@ def generate_expense_report_docx(
     if use_existing_template and len(doc.paragraphs) >= 2:
         # Paragraph 0: Brand
         doc.paragraphs[0].text = ""
-        r_brand = doc.paragraphs[0].add_run(f"{community_name.upper()} • COMMUNITY STUDIO")
+        r_brand = doc.paragraphs[0].add_run(f"{community_name.upper()} • COMMUNITY AI STUDIO")
         r_brand.font.name = "Arial"
         r_brand.font.size = Pt(9.5)
         r_brand.font.bold = True
@@ -136,7 +136,7 @@ def generate_expense_report_docx(
     elif not use_existing_template:
         p_brand = doc.add_paragraph()
         p_brand.paragraph_format.space_after = Pt(2)
-        r_brand = p_brand.add_run(f"{community_name.upper()} • COMMUNITY STUDIO")
+        r_brand = p_brand.add_run(f"{community_name.upper()} • COMMUNITY AI STUDIO")
         r_brand.font.name = "Arial"
         r_brand.font.size = Pt(9.5)
         r_brand.font.bold = True

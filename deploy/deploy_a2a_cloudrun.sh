@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ==============================================================================
-# 🚀 Community Studio - Cloud Run & Firebase A2A Multi-Service Deployer
+# 🚀 Community AI Studio - Cloud Run & Firebase A2A Multi-Service Deployer
 # ==============================================================================
 
 set -e
