@@ -74,6 +74,7 @@ session.db
 
 # Generated Media and Video Editor Outputs (Renders & Outpainted Images)
 **/renders/
+**/workspaces/
 **/*.mp4
 **/*.gif
 **/*.webm
