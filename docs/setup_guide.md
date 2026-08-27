@@ -1,6 +1,6 @@
-# 🚀 Community Studio - Setup & Operations Guide
+# 🚀 Community AI Studio - Setup & Operations Guide
 
-Welcome to the comprehensive setup and operations guide for **Community Studio**. This project is a multi-agent orchestration workspace built using the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/) in Python (powered by Vertex AI and Gemini models) paired with a high-performance, responsive **Svelte + Vite** custom frontend.
+Welcome to the comprehensive setup and operations guide for **Community AI Studio**. This project is a multi-agent orchestration workspace built using the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/) in Python (powered by Vertex AI and Gemini models) paired with a high-performance, responsive **Svelte + Vite** custom frontend.
 
 ---
 
@@ -190,7 +190,7 @@ npm run dev
 Now, open your browser and navigate to:
 👉 **[http://localhost:5173](http://localhost:5173)**
 
-Here you will find the **Community Studio** workspace where you can select the active agent, start new chat sessions, type requests, and drag-and-drop receipts or participant rosters directly.
+Here you will find the **Community AI Studio** workspace where you can select the active agent, start new chat sessions, type requests, and drag-and-drop receipts or participant rosters directly.
 
 ---
 

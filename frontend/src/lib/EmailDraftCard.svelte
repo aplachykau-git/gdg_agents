@@ -4,7 +4,6 @@
     Copy, 
     Check, 
     RefreshCw, 
-    ExternalLink, 
     Send
   } from '@lucide/svelte';
   import { renderMarkdown } from './constants.js';
@@ -106,13 +105,8 @@
           class="action-btn gmail-btn"
           title="Open draft in Gmail web app"
         >
-          <svg class="gmail-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none">
-            <path d="M22 6L12 13 2 6v12h20V6z" fill="#EA4335"/>
-            <path d="M22 6l-10 7L2 6" stroke="#C5221F" stroke-width="1.5" stroke-linejoin="round"/>
-            <path d="M2 6v12h4V10l6 4 6-4v8h4V6l-10 7L2 6z" fill="#fff" fill-opacity="0.2"/>
-          </svg>
+          <Mail size={14} />
           <span>Open in Gmail</span>
-          <ExternalLink size={12} class="btn-ext-icon" />
         </a>
 
         <!-- System Mail App Button -->
@@ -353,14 +347,6 @@
     background: #d93025;
     color: #ffffff;
     box-shadow: 0 2px 6px rgba(234, 67, 53, 0.35);
-  }
-
-  .gmail-svg-icon {
-    flex-shrink: 0;
-  }
-
-  :global(.btn-ext-icon) {
-    opacity: 0.8;
   }
 
   .mail-client-btn:hover {

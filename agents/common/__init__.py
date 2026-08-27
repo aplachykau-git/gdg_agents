@@ -1,3 +1,3 @@
 """
-Common utilities for Community Studio.
+Common utilities for Community AI Studio.
 """

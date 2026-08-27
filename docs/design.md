@@ -1,4 +1,4 @@
-# Design System Specification: Community Studio
+# Design System Specification: Community AI Studio
 
 > **Version:** 1.0.0  
 > **Target Platform:** Web Portal / Svelte 5 + Vite  

@@ -1,6 +1,6 @@
-# Community Studio - Custom Frontend
+# Community AI Studio - Custom Frontend
 
-This is the Svelte-based frontend application for **Community Studio**. It provides a modern, responsive dashboard that interacts with backend agents to help orchestrate community workflows.
+This is the Svelte-based frontend application for **Community AI Studio**. It provides a modern, responsive dashboard that interacts with backend agents to help orchestrate community workflows.
 
 ---
 
