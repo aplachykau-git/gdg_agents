@@ -45,6 +45,7 @@
     getAgentHeading,
     getAgentDescription,
     getAgentStarterPrompts,
+    getAgentIconName,
     isIntermediateEvent,
     getAppConfig,
     saveAppConfig,
@@ -881,19 +882,11 @@
             <div class="agents-catalog-grid">
               {#each CATALOG_AGENTS as agent}
                 {@const AgentIcon = agent.icon}
-                {@const shortcuts = getAgentStarterPrompts(agent.id)}
-                <div
+                <button
                   class="agent-catalog-card"
                   style="--card-accent: {agent.accent}; --card-bg: {agent.bg};"
-                  role="button"
-                  tabindex="0"
                   onclick={() => {
                     startNewSession(agent.id);
-                  }}
-                  onkeydown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      startNewSession(agent.id);
-                    }
                   }}
                 >
                   <div class="agent-card-header">
@@ -908,31 +901,11 @@
                   <p class="agent-card-desc">
                     {agent.desc}
                   </p>
-                  {#if shortcuts.length > 0}
-                    <div class="card-shortcuts">
-                      {#each shortcuts.slice(0, 2) as shortcut}
-                        <button
-                          type="button"
-                          class="card-shortcut-chip"
-                          onclick={(e) => {
-                            e.stopPropagation();
-                            startNewSessionWithPrompt(agent.id, shortcut.prompt);
-                          }}
-                        >
-                          {#if shortcut.icon && ICON_MAP[shortcut.icon]}
-                            {@const IconComp = ICON_MAP[shortcut.icon]}
-                            <IconComp size={12} class="card-shortcut-icon" />
-                          {/if}
-                          <span class="card-shortcut-text">{shortcut.text}</span>
-                        </button>
-                      {/each}
-                    </div>
-                  {/if}
                   <div class="card-footer-action">
                     <span>{agent.actionText}</span>
                     <ArrowRight size={14} />
                   </div>
-                </div>
+                </button>
               {/each}
             </div>
           </div>
@@ -942,6 +915,8 @@
         <div class="chat-viewport" bind:this={chatBodyElement}>
           <div class="chat-stream-container">
             {#if filteredEvents.length === 0}
+              {@const agentIconName = getAgentIconName(activeAgent)}
+              {@const AgentAvatarIcon = ICON_MAP[agentIconName] || Layers}
               <div
                 class="agent-welcome-card"
                 style="--agent-accent: {activeAgentTheme.color}; --agent-bg: {activeAgentTheme.bg};"
@@ -951,7 +926,7 @@
                     class="agent-welcome-avatar"
                     style="background: {activeAgentTheme.bg}; color: {activeAgentTheme.color}; border: 1px solid {activeAgentTheme.color}40;"
                   >
-                    <Sparkles size={22} strokeWidth={1.75} />
+                    <AgentAvatarIcon size={22} strokeWidth={1.75} />
                   </div>
                   <div class="agent-welcome-meta">
                     <div
@@ -1771,57 +1746,8 @@
     font-size: 12.5px;
     color: var(--text-secondary);
     line-height: 1.55;
-    margin-bottom: 12px;
+    margin-bottom: 18px;
     flex: 1;
-  }
-
-  .card-shortcuts {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 14px;
-    width: 100%;
-  }
-
-  .card-shortcut-chip {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    background: var(--bg-app);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 5px 8px;
-    font-size: 11.5px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    text-align: left;
-    transition: var(--transition-fast);
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .card-shortcut-chip:hover {
-    background: var(--card-bg, var(--bg-hover));
-    border-color: var(--card-accent, var(--primary-accent));
-    color: var(--text-primary);
-    transform: translateY(-1px);
-  }
-
-  :global(.card-shortcut-icon) {
-    color: var(--card-accent, var(--primary-accent));
-    flex-shrink: 0;
-    opacity: 0.85;
-  }
-
-  .card-shortcut-chip:hover :global(.card-shortcut-icon) {
-    opacity: 1;
-  }
-
-  .card-shortcut-text {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.3;
   }
 
   .card-footer-action {

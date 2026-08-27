@@ -17,11 +17,16 @@
 
   const currentTokens = $derived(Math.ceil((queryText || '').length * 0.25));
   const isTokenLimitExceeded = $derived(currentTokens > MAX_INPUT_TOKENS);
+  const canSend = $derived(
+    !isLoading &&
+    (queryText.trim().length > 0 || stagedFiles.length > 0) &&
+    !isTokenLimitExceeded
+  );
 
   function handleKeyPress(e) {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
       e.preventDefault();
-      if (isLoading || (!queryText.trim() && stagedFiles.length === 0) || isTokenLimitExceeded) {
+      if (!canSend) {
         return;
       }
       onSend();
@@ -124,8 +129,8 @@
       <button 
         class="btn-run-gemini" 
         onclick={onSend} 
-        disabled={isLoading || (!queryText.trim() && stagedFiles.length === 0) || isTokenLimitExceeded}
-        title="Send prompt (Ctrl+Enter)"
+        disabled={!canSend}
+        title={canSend ? "Send prompt (Ctrl+Enter)" : "Type a prompt or attach files to send"}
         aria-label="Send prompt"
       >
         {#if isLoading}
@@ -369,21 +374,28 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    border: none;
-    background: var(--primary-gradient, var(--primary-accent));
-    color: #ffffff;
+    border: 1px solid transparent;
     cursor: pointer;
     flex-shrink: 0;
-    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
     transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
                 box-shadow 0.2s ease,
+                background 0.2s ease,
+                border-color 0.2s ease,
+                color 0.2s ease,
                 filter 0.2s ease,
                 opacity 0.2s ease;
     animation: promptBtnPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.18s both;
   }
 
+  .btn-run-gemini:not(:disabled) {
+    background: var(--primary-gradient, var(--primary-accent));
+    color: #ffffff;
+    border-color: transparent;
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
+  }
+
   .btn-run-gemini :global(.run-arrow-icon) {
-    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
   }
 
   .btn-run-gemini:hover:not(:disabled) {
@@ -402,8 +414,19 @@
   }
 
   .btn-run-gemini:disabled {
-    opacity: 0.4;
+    background: var(--bg-surface-elevated);
+    color: var(--text-tertiary);
+    border: 1px solid var(--border-subtle);
+    box-shadow: none;
     cursor: not-allowed;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  .btn-run-gemini:disabled :global(.run-arrow-icon) {
+    color: var(--text-tertiary);
+    opacity: 0.75;
+    transform: none;
   }
 
   :global(.generating-sparkle) {
