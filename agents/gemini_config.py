@@ -13,6 +13,15 @@ class GeminiConfigurationError(RuntimeError):
 def load_gemini_environment() -> None:
     """Load workspace configuration and validate Gemini API mode early."""
     load_dotenv()
+    api_key = (
+        os.getenv("GOOGLE_API_KEY", "").strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+        or os.getenv("GOOGLE_GENAI_API_KEY", "").strip()
+    )
+    if api_key:
+        os.environ["GOOGLE_API_KEY"] = api_key
+        os.environ["GEMINI_API_KEY"] = api_key
+        os.environ["GOOGLE_GENAI_API_KEY"] = api_key
     if not use_vertex_ai():
         get_gemini_api_key()
 
