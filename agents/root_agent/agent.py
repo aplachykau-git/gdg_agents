@@ -77,7 +77,8 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 1. **Receipts & Expense Reports**:
    - If the user asks to process receipts, invoices, extract expense data, or create a Google Docs
      Expense Report, you MUST delegate to the `receipt_scanner` sub-agent.
-   - Pass any files, links, or text-inputs directly to it and return its response cleanly.
+   - You MUST explicitly include the target Google Drive folder ID/URL from your session state (`google_drive_folder_id`) and template ID (`google_docs_template_id`) in your delegation message (e.g. `[Target Drive Folder: {{session.state.get("google_drive_folder_id")}}] [Target Template: {{session.state.get("google_docs_template_id")}}]`).
+   - Pass all attached files, images, links, or text-inputs directly to it and return its response cleanly.
 
 2. **Speaker Cards & Avatars (Video / Image)**:
    - If the user asks to create a speaker card, a marketing video intro, a speaker avatar, or provides
