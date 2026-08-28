@@ -271,7 +271,7 @@
               <span>Permission Setup: Share with Service Account</span>
             </div>
             <p class="drive-banner-desc">
-              Open your target Google Drive folder (and custom template), click <strong>Share (Поделиться)</strong> and grant <strong>Editor (Редактор)</strong> access to:
+              Open your target Google Drive folder (and custom template), click <strong>Share</strong> and grant <strong>Editor</strong> access to:
             </p>
             <div class="service-account-box">
               <code>{draft.serviceAccountEmail}</code>

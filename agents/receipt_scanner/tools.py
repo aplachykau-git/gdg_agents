@@ -931,7 +931,7 @@ def export_summary_to_google_doc(
                 "message": (
                     f"Unable to create Google Doc in target folder ({gdoc_err}). "
                     "Please open your target Google Drive folder (and custom template), "
-                    "click 'Share' (Поделиться), and grant Editor (Редактор) access to the Service Account email found in Settings."
+                    "click 'Share', and grant Editor access to the Service Account email found in Settings."
                 ),
             }
 

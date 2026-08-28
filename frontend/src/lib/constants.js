@@ -274,7 +274,11 @@ export function getAppConfig() {
   try {
     const saved = localStorage.getItem('community_studio_config') || localStorage.getItem('gdg_studio_config');
     if (saved) {
-      return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+      const parsed = JSON.parse(saved);
+      if (!parsed.serviceAccountEmail || parsed.serviceAccountEmail.includes('receipt-docs-bot')) {
+        parsed.serviceAccountEmail = DEFAULT_CONFIG.serviceAccountEmail;
+      }
+      return { ...DEFAULT_CONFIG, ...parsed };
     }
   } catch (e) {
     console.error('Failed to read config from localStorage:', e);
