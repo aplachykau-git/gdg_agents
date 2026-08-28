@@ -688,6 +688,13 @@ def export_summary_to_google_doc(
                 "message": "Google Drive target folder is not configured. Please specify a Google Drive folder in Settings before scanning receipts.",
             }
 
+        timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_base_title = re.sub(r"[^a-zA-Z0-9_\-]", "_", title).strip("_") or "Expense_Report"
+        if timestamp_str not in safe_base_title:
+            doc_title = f"{safe_base_title}_{timestamp_str}"
+        else:
+            doc_title = safe_base_title
+
         # Attempt native Google Docs API creation first
         google_doc_url = None
         google_doc_id = None
@@ -762,13 +769,6 @@ def export_summary_to_google_doc(
                             active_template = json.load(f).get("doc_id")
                 if not active_template:
                     active_template = "1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw"
-
-                timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                safe_base_title = re.sub(r"[^a-zA-Z0-9_\-]", "_", title).strip("_") or "Expense_Report"
-                if timestamp_str not in safe_base_title:
-                    doc_title = f"{safe_base_title}_{timestamp_str}"
-                else:
-                    doc_title = safe_base_title
 
                 copy_body = {"name": doc_title}
                 if target_folder:
