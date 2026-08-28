@@ -144,7 +144,7 @@ def update_composer(
     new_config = build_card_config(title, name, position_company, current_year)
 
     if re.search(config_pattern, content, flags=re.DOTALL):
-        content = re.sub(config_pattern, new_config, content, flags=re.DOTALL)
+        content = re.sub(config_pattern, lambda _: new_config, content, flags=re.DOTALL)
     else:
         raise ValueError("Could not locate 'const CARD_CONFIG' block in index.html.")
 
