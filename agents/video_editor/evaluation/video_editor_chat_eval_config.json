@@ -1,0 +1,14 @@
+{
+  "criteria": {"video_editor_chat_contract_score": 100.0},
+  "custom_metrics": {
+    "video_editor_chat_contract_score": {
+      "code_config": {"name": "agents.video_editor.evaluation.evaluator.video_editor_chat_contract_metric"},
+      "description": "Deterministic tool-invocation contract for video-editor chat.",
+      "metric_info": {
+        "metric_name": "video_editor_chat_contract_score",
+        "description": "100 when every video-editor chat contract check passes.",
+        "metric_value_info": {"interval": {"min_value": 0.0, "max_value": 100.0}}
+      }
+    }
+  }
+}

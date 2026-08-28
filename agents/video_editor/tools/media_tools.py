@@ -26,7 +26,20 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Toggles to enable/disable generative AI video outputs (Veo 3.1 / Gemini Omni).
 # Disabled by default to prevent unwanted cloud GPU billing. Direct uploaded video rendering is always supported.
-ENABLE_VIDEO_GENERATION = os.environ.get("ENABLE_VIDEO_GENERATION", "false").lower() in ("true", "1", "yes")
+DEFAULT_CINEMATIC_DIRECTIONS = (
+    "Gentle golden-hour lighting, subtle breathing movement, natural eye blinks, and a soft background.",
+    "Professional studio lighting, a very gentle head turn, and a natural facial expression.",
+    "Soft window side-lighting, realistic bokeh, and calm, restrained camera movement.",
+    "Clean editorial lighting, sharp focus, and minimal natural movement.",
+)
+
+
+def video_generation_enabled() -> bool:
+    return os.environ.get("ENABLE_VIDEO_GENERATION", "false").lower() in ("true", "1", "yes")
+
+
+def augment_creative_prompt(creative_prompt: str) -> str:
+    return f"{creative_prompt.rstrip('. ')}. {random.choice(DEFAULT_CINEMATIC_DIRECTIONS)}"
 
 
 def resolve_path(rel_path: str) -> str:
@@ -60,7 +73,12 @@ def resolve_path(rel_path: str) -> str:
     return stripped_path
 
 
-async def stage_uploaded_media(photo_path: str = "", tool_context: Optional[ToolContext] = None) -> str:
+async def stage_uploaded_media(
+    photo_path: str = "",
+    event_id: str = "",
+    part_index: int | None = None,
+    tool_context: Optional[ToolContext] = None,
+) -> str:
     """Finds and stages the active user uploaded photo or video from session events.
     Called by the root orchestrator in the parent context.
     """
@@ -73,13 +91,17 @@ async def stage_uploaded_media(photo_path: str = "", tool_context: Optional[Tool
             events = session.events or []
             print(f"DEBUG: Staging scanning total events: {len(events)}")
 
-            # Iterate events in REVERSE to find the most recent user-uploaded video or image
+            # Iterate events in REVERSE to find the most recent user-uploaded video or image.
             for event in reversed(events):
                 if event.author != "user":
                     continue
+                if event_id and event.id != event_id:
+                    continue
                 if not event.content or not event.content.parts:
                     continue
-                for part in event.content.parts:
+                for index, part in enumerate(event.content.parts):
+                    if part_index is not None and index != part_index:
+                        continue
                     # Check for inline_data
                     if part.inline_data and part.inline_data.data:
                         mime = part.inline_data.mime_type or ""
@@ -301,25 +323,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     b64_img = base64.b64encode(frame_bytes).decode("utf-8")
     mime_type = "image/png" if photo_path.lower().endswith(".png") else "image/jpeg"
 
-    CREATIVE_THEMES = [
-        "Gentle golden hour lighting, subtle breathing movement, natural eye blinks, soft background in a continuous single unbroken shot, no scene cuts.",
-        "Subtle holographic reflections on the subject, slow camera tilt, sharp focus on details in a continuous single unbroken shot, no scene cuts.",
-        "Soft breeze moving hair slightly, natural eye blinks, realistic bokeh background in a continuous single unbroken shot, no scene cuts.",
-        "Professional studio lighting, very gentle head turn, natural facial expression in a continuous single unbroken shot, no scene cuts.",
-        "Soft neon reflections on the face, slow camera pull-back, detailed textures in a continuous single unbroken shot, no scene cuts.",
-        "Soft ambient lighting, subtle lens flare, realistic photorealistic details in a continuous single unbroken shot, no scene cuts.",
-        "Subtle micro-movements, natural breathing, subject looking slightly towards the camera, high detail in a continuous single unbroken shot, no scene cuts.",
-        "Subtle handheld camera sway, natural skin textures, realistic depth of field in a continuous single unbroken shot, no scene cuts.",
-        "Soft dappled sunlight filtering through leaves, gentle hair movement, filmic look in a continuous single unbroken shot, no scene cuts.",
-        "Soft window side-lighting, subtle ambient dust motes in the air, calm mood in a continuous single unbroken shot, no scene cuts.",
-        "Subtle rainy day lighting, soft reflections of raindrops in the background, sharp details in a continuous single unbroken shot, no scene cuts.",
-        "Warm soft glow from a fireplace on the side, gentle ambient lighting, realistic textures in a continuous single unbroken shot, no scene cuts.",
-        "Classic black and white film style, elegant soft lighting, subtle slow-motion breathing in a continuous single unbroken shot, no scene cuts.",
-        "Clean editorial fashion lighting, sharp focus, minimal natural movement in a continuous single unbroken shot, no scene cuts.",
-    ]
-
-    selected_theme = random.choice(CREATIVE_THEMES)
-    i2v_prompt = f"{creative_prompt}. {selected_theme}"
+    i2v_prompt = augment_creative_prompt(creative_prompt)
 
     print(f'🎬 [Gemini Omni Flash Prompt] Base prompt: "{creative_prompt}"')
     print(f'   └─ Final Omni Prompt: "{i2v_prompt}"')
@@ -384,26 +388,7 @@ def _generate_with_veo(photo_path: str, creative_prompt: str) -> str:
     starting_frame = types.Image(image_bytes=frame_bytes, mime_type=mime_type)
     print(f"🖼️  Starting Frame: '{photo_path}' ({len(frame_bytes)} bytes) → Vertex AI Veo...")
 
-    # Professional Cinematic modifiers
-    CREATIVE_THEMES = [
-        "Gentle golden hour lighting, subtle breathing movement, natural eye blinks, soft background.",
-        "Subtle holographic reflections on the subject, slow camera tilt, sharp focus on details.",
-        "Soft breeze moving hair slightly, natural eye blinks, realistic bokeh background.",
-        "Professional studio lighting, very gentle head turn, natural facial expression.",
-        "Soft neon reflections on the face, slow camera pull-back, detailed textures.",
-        "Soft ambient lighting, subtle lens flare, realistic photorealistic details.",
-        "Subtle micro-movements, natural breathing, subject looking slightly towards the camera, high detail.",
-        "Subtle handheld camera sway, natural skin textures, realistic depth of field.",
-        "Soft dappled sunlight filtering through leaves, gentle hair movement, filmic look.",
-        "Soft window side-lighting, subtle ambient dust motes in the air, calm mood.",
-        "Subtle rainy day lighting, soft reflections of raindrops in the background, sharp details.",
-        "Warm soft glow from a fireplace on the side, gentle ambient lighting, realistic textures.",
-        "Classic black and white film style, elegant soft lighting, subtle slow-motion breathing.",
-        "Clean editorial fashion lighting, sharp focus, minimal natural movement.",
-    ]
-
-    selected_theme = random.choice(CREATIVE_THEMES)
-    i2v_prompt = f"{creative_prompt}. {selected_theme}"
+    i2v_prompt = augment_creative_prompt(creative_prompt)
 
     print(f'🎬 [Veo Prompt Augmented] Base prompt: "{creative_prompt}"')
     print(f'   └─ Final Veo Prompt: "{i2v_prompt}"')
@@ -513,6 +498,12 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
         return "assets/Video_example.mp4"
 
     photo_path = os.path.abspath(photo_path)
+
+    # Check if AI video generation (Veo/Omni) is disabled to prevent unwanted costs
+    if not video_generation_enabled():
+        raise RuntimeError(
+            "Image-to-video generation is disabled. Upload a source video or set ENABLE_VIDEO_GENERATION=true."
+        )
 
     # Gemini client for outpainting
     gemini_client = get_gemini_client()

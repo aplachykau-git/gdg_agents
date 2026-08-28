@@ -1,5 +1,37 @@
 import { marked } from 'marked';
 
+const ALLOWED_LINK_PROTOCOLS = new Set(['http:', 'https:']);
+
+function escapeHtml(value) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function safeLinkUrl(value) {
+  try {
+    const url = new URL(value);
+    return ALLOWED_LINK_PROTOCOLS.has(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+const markdownRenderer = {
+  link({ href, title, tokens }) {
+    const label = this.parser.parseInline(tokens);
+    const safeUrl = safeLinkUrl(href);
+    if (!safeUrl) return label;
+    const titleAttribute = title ? ` title="${escapeHtml(title)}"` : '';
+    return `<a href="${escapeHtml(safeUrl)}"${titleAttribute} target="_blank" rel="noopener noreferrer">${label}</a>`;
+  }
+};
+
+marked.use({ renderer: markdownRenderer });
+
 export const DEFAULT_APPS = [
   { name: 'root_agent', root_agent_name: 'Main' },
   { name: 'receipt_scanner', root_agent_name: 'Receipt Scanner' },
@@ -961,7 +993,7 @@ export function parseResponseVariants(text, author) {
 export function extractMediaAssets(text) {
   if (!text) return null;
 
-  const urlRegex = /(https?:\/\/[^\s\)\"\'<>]+?\.(?:mp4|webm|mov|gif|png|jpg|jpeg|webp)(?:\?[^\s\)\"\'<>]*)?)/gi;
+  const urlRegex = /((?:https?|file):\/\/[^\s\)\"\'<>]+?\.(?:mp4|webm|mov|gif|png|jpg|jpeg|webp)(?:\?[^\s\)\"\'<>]*)?)/gi;
   const matches = [...text.matchAll(urlRegex)].map(m => m[1]);
 
   if (!matches || matches.length === 0) return null;
@@ -979,7 +1011,7 @@ export function extractMediaAssets(text) {
 
   const nameMatch = text.match(/\*\*Speaker Name:\*\*\s*([^\n]+)/i) || text.match(/name:\s*"?([^"\n]+)"?/i) || text.match(/speaker:\s*"?([^"\n]+)"?/i);
   const titleMatch = text.match(/\*\*Talk Title:\*\*\s*([^\n]+)/i) || text.match(/title:\s*"?([^"\n]+)"?/i) || text.match(/talk:\s*"?([^"\n]+)"?/i);
-  const companyMatch = text.match(/\*\*Position & Company:\*\*\s*([^\n]+)/i) || text.match(/position_company:\s*"?([^"\n]+)"?/i) || text.match(/company:\s*"?([^"\n]+)"?/i);
+  const positionCompanyMatch = text.match(/\*\*Position & Company:\*\*\s*([^\n]+)/i) || text.match(/position_company:\s*"?([^"\n]+)"?/i);
 
   return {
     videoUrl,
@@ -989,13 +1021,17 @@ export function extractMediaAssets(text) {
     allUrls: matches,
     speakerName: nameMatch ? nameMatch[1].replace(/[`*]/g, '').trim() : '',
     talkTitle: titleMatch ? titleMatch[1].replace(/[`*]/g, '').trim() : '',
-    company: companyMatch ? companyMatch[1].replace(/[`*]/g, '').trim() : ''
+    positionCompany: positionCompanyMatch ? positionCompanyMatch[1].replace(/[`*]/g, '').trim() : ''
   };
 }
 
 export async function downloadDirectFile(url, suggestedFilename) {
   if (!url) return;
   const filename = suggestedFilename || url.split('/').pop()?.split('?')[0] || 'media_asset';
+  if (url.startsWith('file://')) {
+    window.location.assign(url);
+    return;
+  }
 
   try {
     const separator = url.includes('?') ? '&' : '?';
@@ -1039,9 +1075,9 @@ export function cleanTextForMediaDisplay(text) {
   const filteredLines = lines.filter(line => {
     const trimmed = line.trim();
     if (
-      trimmed.match(/^[-*•]\s*(?:🎥|🖼️|📸|👤)?.*(?:https?:\/\/[^\s\)]+?\.(?:mp4|gif|png|jpg|jpeg|webp)|\[(?:Download|View)[^\]]*\])/i) ||
-      trimmed.match(/^\[(?:Download|View)[^\]]*\]\(https?:\/\/[^\s\)]+\)/i) ||
-      trimmed.match(/^https?:\/\/[^\s\)]+?\.(?:mp4|gif|png|jpg|jpeg|webp)$/i)
+      trimmed.match(/^[-*•]\s*(?:🎥|🖼️|📸|👤)?.*(?:(?:https?|file):\/\/[^\s\)]+?\.(?:mp4|gif|png|jpg|jpeg|webp)|\[(?:Download|View)[^\]]*\])/i) ||
+      trimmed.match(/^\[(?:Download|View)[^\]]*\]\((?:https?|file):\/\/[^\s\)]+\)/i) ||
+      trimmed.match(/^(?:https?|file):\/\/[^\s\)]+?\.(?:mp4|gif|png|jpg|jpeg|webp)$/i)
     ) {
       return false;
     }
@@ -1176,4 +1212,3 @@ export function cleanTextForDocumentDisplay(text) {
 
   return filteredLines.join('\n').trim();
 }
-

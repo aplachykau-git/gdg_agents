@@ -1,0 +1,7 @@
+{
+  "suite_version": "1.0.0",
+  "agent_eval_set": "video_editor_chat_auto_v1",
+  "generator": {"model": "gemini-3.5-flash-lite", "temperature": 0},
+  "feature_flags": {"VIDEO_EDITOR_REQUIRE_CONFIRMATION": [false, true]},
+  "acceptance_thresholds": {"agent_pass_rate": 1.0}
+}
