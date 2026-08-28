@@ -77,6 +77,25 @@ cp .env.example .env
 
 ## 4. Backend Deployment (Google Cloud Run)
 
+### Option A: Terraform Infrastructure as Code (Recommended for Multi-Environment)
+
+You can provision and deploy all services declaratively using the modular [Terraform module](file:///Users/aplachykau/Experiments/gdg_krakow_tool/terraform):
+
+```bash
+# 1. Authenticate with your target GCP project:
+gcloud auth application-default login
+gcloud config set project YOUR_TARGET_GCP_PROJECT_ID
+
+# 2. Deploy infrastructure and services via Terraform:
+make tf-deploy
+# OR:
+bash deploy/deploy_terraform.sh
+```
+
+See [terraform/README.md](file:///Users/aplachykau/Experiments/gdg_krakow_tool/terraform/README.md) for custom variables (`terraform.tfvars`) and fine-grained resource tuning.
+
+### Option B: Automated Cloud Run Script
+
 The automated script [`deploy/deploy_a2a_cloudrun.sh`](file:///Users/aplachykau/Experiments/gdg_krakow_tool/deploy/deploy_a2a_cloudrun.sh) handles container builds via Cloud Build and deploys all 3 services in order:
 
 ```bash
@@ -89,8 +108,8 @@ make deploy
 bash deploy/deploy_a2a_cloudrun.sh
 ```
 
-### What the script does automatically:
-1. **Enables GCP APIs**: Cloud Run, Cloud Build, Artifact Registry, Storage.
+### What the deployment does automatically:
+1. **Enables GCP APIs**: Cloud Run, Cloud Build, Artifact Registry, Storage, Vertex AI, Docs.
 2. **Deploys Video Editor A2A**: (`deploy/Dockerfile.video_editor`) with 8Gi RAM, 4 vCPUs.
 3. **Deploys Receipt Scanner A2A**: (`deploy/Dockerfile.receipt_scanner`) with 4Gi RAM, 2 vCPUs.
 4. **Deploys Root Orchestrator**: (`deploy/Dockerfile.root`), dynamically injecting the URLs of Video Editor and Receipt Scanner.

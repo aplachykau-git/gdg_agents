@@ -94,3 +94,15 @@ deploy: ## Deploy all Cloud Run services and Firebase Hosting.
 
 deploy-frontend: ## Build and deploy frontend to Firebase Hosting.
 	npm run build --prefix frontend && npx -y firebase-tools deploy --only hosting
+
+tf-init: ## Initialize Terraform module in terraform/.
+	cd terraform && terraform init
+
+tf-plan: ## Run Terraform dry-run execution plan.
+	cd terraform && terraform plan
+
+tf-apply: ## Apply Terraform infrastructure changes.
+	cd terraform && terraform apply
+
+tf-deploy: ## Full automated container build and Terraform deployment to target GCP project.
+	./deploy/deploy_terraform.sh
