@@ -17,6 +17,18 @@ def initialise_agent_environment() -> None:
 
     # Pre-build ADK and GenAI Pydantic models to prevent 'MockValSer' SchemaSerializer errors
     try:
+        import google.genai.types as genai_types
+        from pydantic import BaseModel
+
+        types_namespace = vars(genai_types)
+        for attr_name in dir(genai_types):
+            obj = getattr(genai_types, attr_name)
+            if isinstance(obj, type) and issubclass(obj, BaseModel):
+                try:
+                    obj.model_rebuild(_types_namespace=types_namespace)
+                except Exception:
+                    pass
+
         from google.adk.events.event import Event
         from google.adk.events.event_actions import EventActions
 
