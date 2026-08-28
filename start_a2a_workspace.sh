@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ==============================================================================
-# 🚀 Community AI Studio - Complete A2A Multi-Service Launcher
+# 🚀 Community Studio - Complete A2A Multi-Service Launcher
 # Launches Video Editor A2A (8081), Receipt Scanner A2A (8082),
 # Root Orchestrator (8080), and Svelte 5 Frontend (5173).
 # ==============================================================================
