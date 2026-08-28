@@ -876,13 +876,16 @@
             title="Account & Options ({currentUser.displayName || 'Google Account'})"
             aria-label="Account and options"
           >
-            {#if currentUser.photoURL}
-              <img src={currentUser.photoURL} alt="User avatar" class="header-avatar-img" />
-            {:else}
-              <span class="header-avatar-fallback">
-                {(currentUser.displayName || 'U').charAt(0).toUpperCase()}
-              </span>
-            {/if}
+            <div class="user-avatar-wrap">
+              {#if currentUser.photoURL}
+                <img src={currentUser.photoURL} alt="User avatar" class="header-avatar-img" />
+              {:else}
+                <span class="header-avatar-fallback">
+                  {(currentUser.displayName || 'U').charAt(0).toUpperCase()}
+                </span>
+              {/if}
+            </div>
+            <ChevronDown size={11} strokeWidth={2.2} class="profile-dropdown-arrow" />
           </button>
 
           {#if showUserMenu}
@@ -2121,24 +2124,44 @@
   }
 
   .user-header-profile {
-    background: transparent;
-    border: 1.5px solid var(--border-subtle);
-    padding: 1px;
-    border-radius: 50%;
+    background: var(--bg-surface-elevated, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border-subtle);
+    padding: 2px 6px 2px 2px;
+    border-radius: 16px;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: 4px;
     cursor: pointer;
     transition: var(--transition-fast);
-    width: 30px;
     height: 30px;
     box-sizing: border-box;
   }
 
-  .user-header-profile:hover {
-    background: var(--bg-surface-elevated);
+  .user-header-profile:hover,
+  .user-header-profile.active {
+    background: var(--bg-surface-variant);
     border-color: var(--primary-accent);
-    transform: scale(1.05);
+  }
+
+  .user-header-profile.active :global(.profile-dropdown-arrow) {
+    transform: rotate(180deg);
+  }
+
+  :global(.profile-dropdown-arrow) {
+    color: var(--text-tertiary);
+    transition: transform var(--transition-fast), color var(--transition-fast);
+    flex-shrink: 0;
+  }
+
+  .user-header-profile:hover :global(.profile-dropdown-arrow) {
+    color: var(--text-primary);
+  }
+
+  .user-avatar-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
   }
 
   .header-avatar-img {
