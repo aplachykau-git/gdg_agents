@@ -113,7 +113,7 @@
         target.style.height = 'auto';
         target.style.height = (target.scrollHeight) + 'px';
       }}
-      placeholder="Type your prompt here, or press Ctrl+Enter to execute..."
+      placeholder="Type your prompt here..."
       rows="1"
       disabled={isLoading}
     ></textarea>
@@ -126,8 +126,6 @@
             <AlertCircle size={12} class="tag-alert-icon" />
             Please trim your prompt below {MAX_INPUT_TOKENS.toLocaleString()} tokens
           </span>
-        {:else}
-          <span class="tag-hint">Ctrl + ↵ to Run</span>
         {/if}
       </div>
 
@@ -136,7 +134,7 @@
         class:btn-stop-generating={isLoading}
         onclick={isLoading ? onStop : onSend} 
         disabled={!isLoading && ((!queryText.trim() && stagedFiles.length === 0) || isTokenLimitExceeded)}
-        title={isLoading ? "Stop generation (Esc)" : "Send prompt (Ctrl+Enter)"}
+        title={isLoading ? "Stop generation" : "Send prompt"}
         aria-label={isLoading ? "Stop generation" : "Send prompt"}
       >
         {#if isLoading}
