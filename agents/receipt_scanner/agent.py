@@ -29,7 +29,7 @@ You MUST verify that a target Google Drive folder is configured.
 - If NO Google Drive folder is specified (the folder ID is empty or not provided anywhere):
   YOU MUST NOT PROCEED WITH SCANNING OR ANALYZING THE RECEIPTS!
   Do NOT call `read_receipt_file` or `export_summary_to_google_doc`.
-  Immediately stop and inform the user in a helpful, user-friendly message that scanning cannot start without a Google Drive folder. Ask them to configure their Google Drive folder in Studio Settings ⚙️ (Target Google Drive Folder) or provide the folder link/ID in their message before scanning receipts.
+  Immediately stop and inform the user in a helpful, user-friendly message that scanning cannot start without a Google Drive folder. Ask them to configure their Google Drive folder in Settings (Target Google Drive Folder) before scanning receipts.
 
 **Step 1.** If a Google Drive folder is configured: for each file provided by the user, analyze its content to extract all products, services, quantities, unit prices, taxes, totals, dates, and currencies.
 - If the user attached files directly in the chat interface, YOU ALREADY SEE THEM. **DO NOT** call the `read_receipt_file` tool for chat attachments. Use your native multimodal vision to analyze the attached files directly.
@@ -79,7 +79,7 @@ You MUST automatically determine the title of the document using the following r
 
 ## Rules:
 - Do not invent any numbers; use only what is visible on the documents.
-- If `export_summary_to_google_doc` returns a missing Google Drive folder notification (`MISSING_GOOGLE_DRIVE_FOLDER`), inform the user to configure their Google Drive folder in Settings ⚙️ (Target Folder URL / ID) or in `.env` before retrying.
+- If `export_summary_to_google_doc` returns a missing Google Drive folder notification (`MISSING_GOOGLE_DRIVE_FOLDER`), inform the user to configure their Google Drive folder in Settings (Target Folder URL / ID).
 """
 
 receipt_agent = Agent(

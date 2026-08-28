@@ -685,7 +685,7 @@ def export_summary_to_google_doc(
             return {
                 "success": False,
                 "error": "MISSING_GOOGLE_DRIVE_FOLDER",
-                "message": "Google Drive target folder is not configured. Please specify a Google Drive folder in Settings (⚙️) or provide the folder link before scanning receipts.",
+                "message": "Google Drive target folder is not configured. Please specify a Google Drive folder in Settings before scanning receipts.",
             }
 
         # Attempt native Google Docs API creation first
