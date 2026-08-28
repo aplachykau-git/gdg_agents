@@ -39,6 +39,7 @@
   import SettingsModal from "./lib/SettingsModal.svelte";
   import CapabilitiesModal from "./lib/CapabilitiesModal.svelte";
   import studioLogo from "./assets/community-ai-studio.png";
+  import squareLogo from "./assets/community-ai-studio-logo.png";
 
   import {
     DEFAULT_APPS,
@@ -768,7 +769,7 @@
      * ========================================================================= -->
     <header class="studio-header">
     <div class="header-left">
-      <!-- Community AI Studio Brand Logo (Leftmost) -->
+      <!-- Community AI Studio Brand Badge (Leftmost) -->
       <button
         class="brand-badge"
         onclick={() => {
@@ -779,10 +780,14 @@
         aria-label="Home"
       >
         <img
-          src={studioLogo}
+          src={squareLogo}
           alt="Community AI Studio"
-          class="brand-logo-img"
+          class="brand-icon-img"
         />
+        <div class="brand-text">
+          <span class="brand-name">Community AI Studio</span>
+          <span class="brand-sub">{studioConfig.communityName || "GDG Krakow"}</span>
+        </div>
       </button>
 
       <div class="header-divider"></div>
@@ -903,7 +908,6 @@
                   {/if}
                   <div class="user-dropdown-info">
                     <div class="user-dropdown-name">{currentUser.displayName || 'Google Account'}</div>
-                    <div class="user-dropdown-community">{studioConfig.communityName || 'GDG Krakow'}</div>
                   </div>
                 </div>
               </div>
@@ -1252,6 +1256,7 @@
   .brand-badge {
     display: flex;
     align-items: center;
+    gap: 9px;
     padding: 0;
     user-select: none;
     background: transparent;
@@ -1259,6 +1264,7 @@
     cursor: pointer;
     text-align: left;
     outline: none;
+    transition: opacity 0.15s ease;
   }
 
   .brand-badge:hover,
@@ -1268,19 +1274,36 @@
     border: none;
     box-shadow: none;
     outline: none;
+    opacity: 0.88;
   }
 
-  .brand-logo-img {
-    height: 38px;
-    width: auto;
-    max-width: 220px;
-    object-fit: contain;
-    display: block;
-    transition: transform 0.15s ease;
+  .brand-icon-img {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    object-fit: cover;
+    flex-shrink: 0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
   }
 
-  .brand-logo-img:hover {
-    transform: scale(1.02);
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+  }
+
+  .brand-name {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--text-primary);
+  }
+
+  .brand-sub {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.01em;
   }
 
   .header-btn-new-session {
@@ -2215,18 +2238,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.25;
-  }
-
-  .user-dropdown-community {
-    font-size: 11.5px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.2;
-    margin-top: 1px;
   }
 
 
