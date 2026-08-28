@@ -924,80 +924,36 @@ def export_summary_to_google_doc(
                         except Exception as fb_err:
                             print(f"⚠️ [Google Docs Image Fallback Notice] {fb_err}")
         except Exception as gdoc_err:
-            print(f"⚠️ [Google Docs API Notice] Could not create cloud Google Doc ({gdoc_err}). Using .docx fallback.")
+            print(f"⚠️ [Google Docs API Error] {gdoc_err}")
+            return {
+                "success": False,
+                "error": "GOOGLE_DOCS_ACCESS_ERROR",
+                "message": (
+                    f"Unable to create Google Doc in target folder ({gdoc_err}). "
+                    "Please open your target Google Drive folder (and custom template), "
+                    "click 'Share' (Поделиться), and grant Editor (Редактор) access to the Service Account email found in Settings."
+                ),
+            }
 
-        # Generate DOCX document bytes
-        results_dir = agent_dir / "results"
-        results_dir.mkdir(parents=True, exist_ok=True)
-
-        docx_filename = f"{doc_title}.docx"
-        local_docx_path = str(results_dir / docx_filename)
-
-        community_name = os.getenv("COMMUNITY_NAME", "Community")
-        template_docx_path = Path(__file__).resolve().parent / "assets" / "expense_report_template.docx"
-        resolved_template = str(template_docx_path) if template_docx_path.exists() else None
-
-        docx_bytes = generate_expense_report_docx(
-            title=title,
-            receipts_data=receipts_data,
-            target_currency=target_currency,
-            exchange_rate=rate_val or 1.0,
-            rate_source=rate_source_name,
-            rate_url=rate_url,
-            approved_budget=approved_budget,
-            community_name=community_name,
-            session_images=session_images,
-            output_path=local_docx_path,
-            template_path=resolved_template,
-        )
-
-        # Upload generated DOCX directly to Google Cloud Storage
-        cloud_docx_url = upload_bytes_to_storage(
-            data=docx_bytes,
-            destination_blob_name=f"reports/{docx_filename}",
-            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        )
-
-        # Also generate CSV backup
-        total_curr_str, total_target_str = calculate_receipt_totals(receipts_data, target_currency)
-        cloud_csv_url = None
-        if receipts_data:
-            try:
-                csv_lines = ["Description,Original Amount,Target Currency Amount (" + target_currency + ")"]
-                for r in receipts_data:
-                    d = r.get("desc", "Expense").replace('"', '""')
-                    sc = r.get("sum_curr", "")
-                    st = r.get("sum_target", "")
-                    csv_lines.append(f'"{d}","{sc}","{st}"')
-                csv_lines.append(f'"TOTAL","{total_curr_str}","{total_target_str}"')
-                csv_content = "\n".join(csv_lines).encode("utf-8")
-                cloud_csv_url = upload_bytes_to_storage(
-                    data=csv_content,
-                    destination_blob_name=f"reports/{doc_title}.csv",
-                    content_type="text/csv",
-                )
-            except Exception as storage_err:
-                print(f"⚠️ [Cloud Storage Notice] {storage_err}")
-
-        primary_url = google_doc_url or cloud_docx_url or f"/results/{docx_filename}"
+        if not google_doc_url:
+            return {
+                "success": False,
+                "error": "GOOGLE_DOCS_NOT_CREATED",
+                "message": (
+                    "Could not generate Google Doc report. Please make sure your target Google Drive folder "
+                    "and Google Docs template are shared with Editor permissions."
+                ),
+            }
 
         return {
             "success": True,
-            "file_name": docx_filename,
-            "document_id": google_doc_id or docx_filename,
-            "document_url": primary_url,
+            "document_id": google_doc_id,
+            "document_url": google_doc_url,
             "google_doc_url": google_doc_url,
-            "docx_url": cloud_docx_url or f"/results/{docx_filename}",
-            "download_url": cloud_docx_url or f"/results/{docx_filename}",
-            "storage_file_url": cloud_csv_url,
             "target_currency": target_currency,
             "exchange_rate": rate_val,
             "receipts_count": len(receipts_data or []),
-            "message": (
-                f"Successfully generated Expense Reimbursement report in Google Docs: [{title}]({google_doc_url})"
-                if google_doc_url
-                else f"Successfully generated Expense Reimbursement report: [{docx_filename}]({primary_url})"
-            ),
+            "message": f"Successfully generated Expense Reimbursement report in Google Docs: [{title}]({google_doc_url})",
         }
 
     except Exception as e:

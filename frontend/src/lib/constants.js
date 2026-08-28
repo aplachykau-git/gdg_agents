@@ -18,7 +18,7 @@ export const DEFAULT_CONFIG = {
   communityName: 'GDG Krakow',
   googleDriveFolderId: '',
   googleDocsTemplateId: '',
-  serviceAccountEmail: 'receipt-docs-bot@gdg-agents-6b59a.iam.gserviceaccount.com',
+  serviceAccountEmail: '876483189679-compute@developer.gserviceaccount.com',
   // Video Editor rendering toggles
   render4k: true,
   renderGif: true,

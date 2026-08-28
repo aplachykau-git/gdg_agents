@@ -264,6 +264,29 @@
             <h3>Google Drive & Docs Storage</h3>
           </div>
 
+          <!-- Prominent Access Setup Card -->
+          <div class="drive-access-banner">
+            <div class="drive-banner-header">
+              <Info size={14} class="banner-info-icon" />
+              <span>Permission Setup: Share with Service Account</span>
+            </div>
+            <p class="drive-banner-desc">
+              Open your target Google Drive folder (and custom template), click <strong>Share (Поделиться)</strong> and grant <strong>Editor (Редактор)</strong> access to:
+            </p>
+            <div class="service-account-box">
+              <code>{draft.serviceAccountEmail}</code>
+              <button type="button" class="btn-copy-sa" onclick={copyServiceAccountEmail} title="Copy email" aria-label="Copy service account email">
+                {#if emailCopied}
+                  <Check size={13} class="copied-check" />
+                  <span class="copy-text copied-text">Copied</span>
+                {:else}
+                  <Copy size={13} />
+                  <span class="copy-text">Copy</span>
+                {/if}
+              </button>
+            </div>
+          </div>
+
           <div class="setting-row">
             <div class="setting-meta">
               <label for="setting-drive-folder" class="setting-title">Target Folder URL / ID</label>
@@ -808,6 +831,53 @@
     border-color: var(--primary-accent);
   }
 
+  /* Drive Access Setup Banner */
+  .drive-access-banner {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-left: 3px solid var(--primary-accent);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin: 4px 10px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .drive-banner-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .drive-banner-header :global(.banner-info-icon) {
+    color: var(--primary-accent);
+  }
+
+  .drive-banner-desc {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .drive-banner-desc strong {
+    color: var(--text-primary);
+  }
+
+  .copy-text {
+    font-size: 11px;
+    margin-left: 4px;
+    font-weight: 500;
+  }
+
+  .copied-text {
+    color: var(--status-success);
+  }
+
   .service-account-box {
     display: flex;
     align-items: center;
@@ -831,11 +901,12 @@
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    padding: 4px;
+    padding: 4px 8px;
     border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 4px;
     transition: var(--transition-fast);
   }
 
