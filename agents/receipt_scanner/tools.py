@@ -749,7 +749,13 @@ def export_summary_to_google_doc(
             elif not credentials:
                 credentials, _ = google.auth.default(scopes=scopes)
 
-            if credentials and credentials.valid:
+            if credentials:
+                if not getattr(credentials, "valid", False):
+                    try:
+                        credentials.refresh(Request())
+                    except Exception as ref_err:
+                        print(f"Notice: Initial credential refresh: {ref_err}")
+
                 docs_service = build("docs", "v1", credentials=credentials)
                 drive_service = build("drive", "v3", credentials=credentials)
 
