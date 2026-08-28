@@ -61,6 +61,19 @@ class TestGoogleDriveAndDocParsers(unittest.TestCase):
         self.assertIsNone(extract_google_doc_id(None))
         self.assertIsNone(extract_google_doc_id("https://drive.google.com/drive/folders/12345"))
 
+    def test_export_summary_blocks_when_google_drive_folder_is_missing(self):
+        from unittest.mock import patch
+
+        from agents.receipt_scanner.tools import export_summary_to_google_doc
+
+        with patch.dict("os.environ", {}, clear=True):
+            res = export_summary_to_google_doc(
+                title="Expense_Report",
+                receipts_data=[{"original_amount": 10.0, "currency": "PLN", "desc": "Taxi"}],
+            )
+            self.assertFalse(res.get("success"))
+            self.assertEqual(res.get("error"), "MISSING_GOOGLE_DRIVE_FOLDER")
+
 
 class TestGoogleDocTemplateValidation(unittest.TestCase):
     """Tests structure extraction and placeholder validation for Google Docs templates."""

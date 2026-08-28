@@ -671,7 +671,7 @@ def export_summary_to_google_doc(
                         if getattr(part, "inline_data", None) and getattr(part.inline_data, "data", None):
                             session_images.append(part.inline_data.data)
 
-        # Resolve target Google Drive folder (optional)
+        # Resolve target Google Drive folder (required)
         target_folder = folder_id
         if not target_folder and tool_context and hasattr(tool_context, "session") and tool_context.session:
             target_folder = tool_context.session.state.get("google_drive_folder_id") or tool_context.session.state.get(
@@ -680,6 +680,13 @@ def export_summary_to_google_doc(
         if not target_folder:
             target_folder = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
         target_folder = extract_google_drive_folder_id(target_folder)
+
+        if not target_folder:
+            return {
+                "success": False,
+                "error": "MISSING_GOOGLE_DRIVE_FOLDER",
+                "message": "Google Drive target folder is not configured. Please specify a Google Drive folder in Settings (⚙️) or provide the folder link before scanning receipts.",
+            }
 
         # Attempt native Google Docs API creation first
         google_doc_url = None
