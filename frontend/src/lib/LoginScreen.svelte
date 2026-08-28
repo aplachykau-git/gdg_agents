@@ -5,6 +5,7 @@
     CalendarCheck,
     ArrowRight
   } from '@lucide/svelte';
+  import studioLogo from '../assets/community-ai-studio.png';
 
   let {
     onLogin = () => {},
@@ -39,7 +40,7 @@
   <div class="ambient-glow glow-red"></div>
 
   <div class="login-card">
-    <h1 class="brand-title">Community AI Studio</h1>
+    <img src={studioLogo} alt="Community AI Studio" class="login-brand-logo" />
     <p class="brand-tagline">
       Autonomous multi-agent platform for event coordination, creative media generation, and community operations.
     </p>
@@ -179,12 +180,13 @@
     to { opacity: 1; transform: scale(1) translateY(0); }
   }
 
-  .brand-title {
-    font-size: 25px;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    color: #ffffff;
-    margin: 0 0 8px;
+  .login-brand-logo {
+    height: 48px;
+    width: auto;
+    max-width: 260px;
+    object-fit: contain;
+    margin: 0 0 12px;
+    display: block;
   }
 
   .brand-tagline {

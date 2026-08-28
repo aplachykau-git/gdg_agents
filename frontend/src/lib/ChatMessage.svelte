@@ -17,6 +17,7 @@
     extractDocumentAssets,
     cleanTextForDocumentDisplay,
     extractEmailDraft,
+    extractEventDates,
     shouldShowDelegationHandoff,
     getEventAgent
   } from './constants.js';
@@ -26,6 +27,7 @@
   import VideoPreviewCard from './VideoPreviewCard.svelte';
   import ReportDownloadCard from './ReportDownloadCard.svelte';
   import EmailDraftCard from './EmailDraftCard.svelte';
+  import EventDateCard from './EventDateCard.svelte';
 
   let { 
     event, 
@@ -54,6 +56,9 @@
   const hasAgenda = $derived(
     messageParts.some(p => p.text && isAgendaOutput(p.text, event.author))
   );
+  const hasEventDate = $derived(
+    messageParts.some(p => p.text && extractEventDates(p.text, event.author))
+  );
   const hasMedia = $derived(
     messageParts.some(p => p.text && extractMediaAssets(p.text))
   );
@@ -63,7 +68,7 @@
   const hasEmail = $derived(
     messageParts.some(p => p.text && extractEmailDraft(p.text, event.author))
   );
-  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasMedia || hasDoc || hasEmail));
+  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasEventDate || hasMedia || hasDoc || hasEmail));
 </script>
 
 {#if errInfo}
@@ -140,6 +145,7 @@
         {#each messageParts as part}
           {#if part.text}
             {@const emailDraft = extractEmailDraft(part.text, event.author)}
+            {@const eventData = extractEventDates(part.text, event.author)}
             {@const media = extractMediaAssets(part.text)}
             {@const doc = extractDocumentAssets(part.text)}
             {#if emailDraft}
@@ -150,6 +156,9 @@
                 author={event.author} 
                 onRefine={(refinedText) => onRefine(refinedText)} 
               />
+            {:else if eventData}
+              <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
+              <EventDateCard {eventData} onRefine={onRefine} />
             {:else if media}
               {@const cleanedText = cleanTextForMediaDisplay(part.text)}
               {#if cleanedText}

@@ -38,6 +38,7 @@
   import ChatInput from "./lib/ChatInput.svelte";
   import SettingsModal from "./lib/SettingsModal.svelte";
   import CapabilitiesModal from "./lib/CapabilitiesModal.svelte";
+  import studioLogo from "./assets/community-ai-studio.png";
 
   import {
     DEFAULT_APPS,
@@ -766,7 +767,7 @@
      * ========================================================================= -->
     <header class="studio-header">
     <div class="header-left">
-      <!-- Community AI Studio Brand Typography (Leftmost) -->
+      <!-- Community AI Studio Brand Logo (Leftmost) -->
       <button
         class="brand-badge"
         onclick={() => {
@@ -776,12 +777,11 @@
         data-tooltip="Home"
         aria-label="Home"
       >
-        <div class="brand-text">
-          <span class="brand-name">Community AI Studio</span>
-          <span class="brand-sub"
-            >{studioConfig.communityName || "GDG Krakow"}</span
-          >
-        </div>
+        <img
+          src={studioLogo}
+          alt="Community AI Studio"
+          class="brand-logo-img"
+        />
       </button>
 
       <div class="header-divider"></div>
@@ -902,6 +902,7 @@
                   {/if}
                   <div class="user-dropdown-info">
                     <div class="user-dropdown-name">{currentUser.displayName || 'Google Account'}</div>
+                    <div class="user-dropdown-community">{studioConfig.communityName || 'GDG Krakow'}</div>
                   </div>
                 </div>
               </div>
@@ -1025,7 +1026,6 @@
         <div class="hub-welcome-view">
           <div class="hub-container">
             <div class="hub-header">
-              <h1 class="hub-title">Specialized AI Agents</h1>
               <p class="hub-subtitle">
                 Select an agent to begin, or use the <strong>Main</strong> agent to automatically coordinate tasks.
               </p>
@@ -1258,40 +1258,35 @@
   .brand-badge {
     display: flex;
     align-items: center;
-    padding: 4px 8px;
+    padding: 0;
     user-select: none;
     background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
+    border: none;
     cursor: pointer;
     text-align: left;
-    transition: var(--transition-fast);
+    outline: none;
   }
 
-  .brand-badge:hover {
-    background: var(--bg-surface-elevated);
-    border-color: var(--border-subtle);
+  .brand-badge:hover,
+  .brand-badge:focus,
+  .brand-badge:active {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
   }
 
-  .brand-text {
-    display: flex;
-    flex-direction: column;
+  .brand-logo-img {
+    height: 38px;
+    width: auto;
+    max-width: 220px;
+    object-fit: contain;
+    display: block;
+    transition: transform 0.15s ease;
   }
 
-  .brand-name {
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--text-primary);
-    line-height: 1.2;
-  }
-
-  .brand-sub {
-    font-size: 9.5px;
-    color: var(--text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-weight: 600;
+  .brand-logo-img:hover {
+    transform: scale(1.02);
   }
 
   .header-btn-new-session {
@@ -1652,19 +1647,10 @@
 
   .hub-header {
     text-align: center;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-  }
-
-  .hub-title {
-    font-size: 24px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--text-primary);
-    margin: 0;
   }
 
   .hub-subtitle {
@@ -2236,6 +2222,18 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.25;
+  }
+
+  .user-dropdown-community {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+    margin-top: 1px;
   }
 
 

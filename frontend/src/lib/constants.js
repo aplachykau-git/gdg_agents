@@ -1212,3 +1212,147 @@ export function cleanTextForDocumentDisplay(text) {
 
   return filteredLines.join('\n').trim();
 }
+
+/**
+ * Parses and extracts recommended meetup dates and calendar event payloads
+ * from Event Planner / Scheduler responses for interactive A2UI rendering.
+ */
+export function extractEventDates(text, author) {
+  if (!text) return null;
+  const clean = cleanAuthorName(author).toLowerCase();
+
+  const isEventPlanner =
+    clean.includes('event_planner') ||
+    clean.includes('planner') ||
+    clean.includes('scheduler') ||
+    clean.includes('root') ||
+    clean.includes('main');
+
+  const hasDateIndicator =
+    /(?:Recommended Date|Optimal Date|Proposed Date|Selected Date|Alternative Date|Option \d+:\s*(?:Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|\w+,\s*\w+\s*\d+)|Primary Recommendation)/i.test(text) ||
+    /(?:Thursday|Tuesday|Wednesday),\s*(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:st|nd|rd|th)?,\s*202\d/i.test(text) ||
+    /\b202\d-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])\b/.test(text);
+
+  if (!isEventPlanner || !hasDateIndicator) return null;
+
+  // Month names mapping
+  const monthMap = {
+    january: 0, feb: 1, february: 1, mar: 2, march: 2, apr: 3, april: 3,
+    may: 4, jun: 5, june: 5, jul: 6, july: 6, aug: 7, august: 7,
+    sep: 8, sept: 8, september: 8, oct: 9, october: 9, nov: 10, november: 10,
+    dec: 11, december: 11
+  };
+
+  // Find all date matches
+  const dateRegex = /(?:(\w+day),?\s+)?(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(202\d)/gi;
+  const foundDates = [];
+  let match;
+
+  while ((match = dateRegex.exec(text)) !== null) {
+    const rawWeekday = match[1] || '';
+    const monthName = match[2];
+    const day = parseInt(match[3], 10);
+    const year = parseInt(match[4], 10);
+    const monthIdx = monthMap[monthName.toLowerCase()];
+
+    if (monthIdx !== undefined && day >= 1 && day <= 31) {
+      const dObj = new Date(year, monthIdx, day, 18, 0, 0);
+      const weekday = rawWeekday || dObj.toLocaleDateString('en-US', { weekday: 'long' });
+      const isoDate = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const fullDateStr = `${weekday}, ${monthName} ${day}, ${year}`;
+
+      // Avoid duplicates
+      if (!foundDates.some(fd => fd.isoDate === isoDate)) {
+        foundDates.push({
+          fullDateStr,
+          isoDate,
+          weekday,
+          day,
+          monthName,
+          year,
+          monthShort: monthName.slice(0, 3).toUpperCase(),
+          dateObj: dObj
+        });
+      }
+    }
+  }
+
+  if (foundDates.length === 0) return null;
+
+  // Extract Event Title if mentioned in text
+  let eventTitle = '';
+  const titleMatch = text.match(/(?:for|organize|planning|meetup|event)\s+([A-Z0-9][A-Za-z0-9\s:\-_]{4,50}(?:Meetup|Night|Workshop|Conference|AI|GDG|Summit))/i);
+  if (titleMatch) {
+    eventTitle = titleMatch[1].trim();
+  } else {
+    const genericMatch = text.match(/(?:GDG\s+[A-Za-z0-9\s]+(?:Night|Meetup|AI|Summit|Day))/i);
+    if (genericMatch) {
+      eventTitle = genericMatch[0].trim();
+    }
+  }
+
+  // Location: ONLY extract if explicitly mentioned in text (e.g. at/in Location), do NOT hardcode!
+  let location = '';
+  const locationMatch = text.match(/(?:at|venue|location)\s*:\s*([^\n,]+(?:Hub|Office|Hall|Room|ul\.|Street|Center)[^\n]*)/i);
+  if (locationMatch) {
+    location = locationMatch[1].trim();
+  }
+
+  const description = eventTitle
+    ? `Community Technical Meetup: ${eventTitle}.`
+    : 'Community Technical Meetup.';
+
+  // Format dates with Google Calendar & ICS payloads
+  const dates = foundDates.map((item, idx) => {
+    // 18:00 to 21:30 local time
+    const startStr = `${item.year}${String(item.dateObj.getMonth() + 1).padStart(2, '0')}${String(item.day).padStart(2, '0')}T180000`;
+    const endStr = `${item.year}${String(item.dateObj.getMonth() + 1).padStart(2, '0')}${String(item.day).padStart(2, '0')}T213000`;
+
+    const calTitle = eventTitle || 'Community AI Meetup';
+    let gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(calTitle)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(description)}&ctz=Europe/Warsaw`;
+    if (location) {
+      gcalUrl += `&location=${encodeURIComponent(location)}`;
+    }
+
+    // Standard RFC 5545 iCalendar payload
+    const icsLines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Community AI Studio//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `UID:meetup-${item.isoDate}@gdg-agents.web.app`,
+      `DTSTAMP:${item.year}0101T000000Z`,
+      `DTSTART;TZID=Europe/Warsaw:${startStr}`,
+      `DTEND;TZID=Europe/Warsaw:${endStr}`,
+      `SUMMARY:${calTitle}`,
+      `DESCRIPTION:${description.replace(/\n/g, '\\n')}`
+    ];
+    if (location) {
+      icsLines.push(`LOCATION:${location}`);
+    }
+    icsLines.push('STATUS:CONFIRMED', 'END:VEVENT', 'END:VCALENDAR');
+
+    const icsPayload = icsLines.join('\r\n');
+    const icsDataUri = `data:text/calendar;charset=utf8,${encodeURIComponent(icsPayload)}`;
+
+    return {
+      ...item,
+      isPrimary: idx === 0,
+      label: idx === 0 ? 'Optimal Choice' : `Alternative Option ${idx + 1}`,
+      timeRange: '18:00 – 21:30',
+      gcalUrl,
+      icsDataUri,
+      icsFilename: `event_${item.isoDate}.ics`
+    };
+  });
+
+  return {
+    eventTitle,
+    location,
+    dates,
+    primaryDate: dates[0],
+    totalOptions: dates.length
+  };
+}
