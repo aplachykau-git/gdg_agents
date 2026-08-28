@@ -113,7 +113,7 @@
         target.style.height = 'auto';
         target.style.height = (target.scrollHeight) + 'px';
       }}
-      placeholder={isLoading ? "Generating response... Click stop button or press Esc to cancel" : "Type your prompt here, or press Ctrl+Enter to execute..."}
+      placeholder="Type your prompt here, or press Ctrl+Enter to execute..."
       rows="1"
       disabled={isLoading}
     ></textarea>
@@ -126,8 +126,6 @@
             <AlertCircle size={12} class="tag-alert-icon" />
             Please trim your prompt below {MAX_INPUT_TOKENS.toLocaleString()} tokens
           </span>
-        {:else if isLoading}
-          <span class="tag-hint tag-running">Click stop or press Esc to cancel</span>
         {:else}
           <span class="tag-hint">Ctrl + ↵ to Run</span>
         {/if}
@@ -375,12 +373,6 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-  }
-
-  .tag-running {
-    color: var(--accent-red, #ea4335);
-    font-weight: 500;
-    animation: promptChildFadeIn 0.2s ease;
   }
 
   .btn-run-gemini {
