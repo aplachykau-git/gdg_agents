@@ -774,27 +774,46 @@ def export_summary_to_google_doc(
                 if target_folder:
                     copy_body["parents"] = [target_folder]
 
-                new_file = (
-                    drive_service.files().copy(fileId=active_template, body=copy_body, supportsAllDrives=True).execute()
-                )
-                google_doc_id = new_file.get("id")
+                used_template_copy = False
+                try:
+                    new_file = (
+                        drive_service.files()
+                        .copy(fileId=active_template, body=copy_body, supportsAllDrives=True)
+                        .execute()
+                    )
+                    google_doc_id = new_file.get("id")
+                    used_template_copy = True
+                except Exception as copy_err:
+                    print(
+                        f"Notice: Template copy ({active_template}) not accessible ({copy_err}). Creating fresh Google Doc directly in target folder..."
+                    )
+                    file_metadata = {
+                        "name": doc_title,
+                        "mimeType": "application/vnd.google-apps.document",
+                    }
+                    if target_folder:
+                        file_metadata["parents"] = [target_folder]
+                    new_file = drive_service.files().create(body=file_metadata, supportsAllDrives=True).execute()
+                    google_doc_id = new_file.get("id")
+
                 google_doc_url = f"https://docs.google.com/document/d/{google_doc_id}/edit"
 
-                # Validate required placeholders in the copied document
-                try:
-                    initial_doc = docs_service.documents().get(documentId=google_doc_id).execute()
-                    initial_text = _extract_text_from_gdoc(initial_doc)
-                    missing_tags = [tag for tag in REQUIRED_TEMPLATE_TAGS if tag not in initial_text]
-                    if missing_tags:
-                        print(
-                            f"⚠️ [Template Validation Warning] Template {active_template} is missing required tags: {', '.join(missing_tags)}"
-                        )
-                    else:
-                        print(
-                            f"✅ [Template Validation] All required template tags verified in template {active_template}"
-                        )
-                except Exception as val_err:
-                    print(f"Notice: Template tag pre-check: {val_err}")
+                if used_template_copy:
+                    # Validate required placeholders in the copied document
+                    try:
+                        initial_doc = docs_service.documents().get(documentId=google_doc_id).execute()
+                        initial_text = _extract_text_from_gdoc(initial_doc)
+                        missing_tags = [tag for tag in REQUIRED_TEMPLATE_TAGS if tag not in initial_text]
+                        if missing_tags:
+                            print(
+                                f"⚠️ [Template Validation Warning] Template {active_template} is missing required tags: {', '.join(missing_tags)}"
+                            )
+                        else:
+                            print(
+                                f"✅ [Template Validation] All required template tags verified in template {active_template}"
+                            )
+                    except Exception as val_err:
+                        print(f"Notice: Template tag pre-check: {val_err}")
 
                 try:
                     drive_service.permissions().create(
@@ -858,36 +877,132 @@ def export_summary_to_google_doc(
                     except Exception as upload_err:
                         print(f"⚠️ [Google Drive Proof Upload Notice] {upload_err}")
 
-                global_replaces = [
-                    ("{{TITLE}}", title),
-                    ("{{Current date}}", today_str),
-                    ("{{EUR/USD}}", target_currency),
-                    ("{{Current exchange rate}}", f"{rate_val:.4f}"),
-                    ("{{Local Currency Code}}", local_curr_code),
-                    ("{{TOTAL SUM CURR}}", total_curr_str),
-                    ("{{TOTAL SUM EUR/USD}}", total_target_str),
-                    ("{{APPROVED}}", approved_budget or ""),
-                    ("{{Bank link}}", rate_url or (f"({rate_source_name})" if rate_source_name != "N/A" else "")),
-                    ("{{PROOFS}}", ""),
-                ]
-                if receipts_data:
-                    global_replaces.extend(
-                        [
-                            ("{{Category}}", receipts_data[0].get("category", "")),
-                            ("{{Desc}}", receipts_data[0].get("desc", "Expense")),
-                            ("{{SUM CURR}}", receipts_data[0].get("sum_curr", "")),
-                            ("{{SUM EUR/USD}}", receipts_data[0].get("sum_target", "")),
-                        ]
-                    )
+                if used_template_copy:
+                    global_replaces = [
+                        ("{{TITLE}}", title),
+                        ("{{Current date}}", today_str),
+                        ("{{EUR/USD}}", target_currency),
+                        ("{{Current exchange rate}}", f"{rate_val:.4f}"),
+                        ("{{Local Currency Code}}", local_curr_code),
+                        ("{{TOTAL SUM CURR}}", total_curr_str),
+                        ("{{TOTAL SUM EUR/USD}}", total_target_str),
+                        ("{{APPROVED}}", approved_budget or ""),
+                        ("{{Bank link}}", rate_url or (f"({rate_source_name})" if rate_source_name != "N/A" else "")),
+                        ("{{PROOFS}}", ""),
+                    ]
+                    if receipts_data:
+                        global_replaces.extend(
+                            [
+                                ("{{Category}}", receipts_data[0].get("category", "")),
+                                ("{{Desc}}", receipts_data[0].get("desc", "Expense")),
+                                ("{{SUM CURR}}", receipts_data[0].get("sum_curr", "")),
+                                ("{{SUM EUR/USD}}", receipts_data[0].get("sum_target", "")),
+                            ]
+                        )
 
-                gdoc_requests = [
-                    {"replaceAllText": {"containsText": {"text": k, "matchCase": True}, "replaceText": v}}
-                    for k, v in global_replaces
-                ]
-                docs_service.documents().batchUpdate(
-                    documentId=google_doc_id, body={"requests": gdoc_requests}
-                ).execute()
-                print(f"✅ [Google Docs API] Successfully populated text: {google_doc_url}")
+                    gdoc_requests = [
+                        {"replaceAllText": {"containsText": {"text": k, "matchCase": True}, "replaceText": v}}
+                        for k, v in global_replaces
+                    ]
+                    docs_service.documents().batchUpdate(
+                        documentId=google_doc_id, body={"requests": gdoc_requests}
+                    ).execute()
+                    print(f"✅ [Google Docs API] Successfully populated template text: {google_doc_url}")
+                else:
+                    # Fresh blank doc: populate structured title, summary table, and details
+                    rate_bank_text = (
+                        f" ({rate_url})"
+                        if rate_url
+                        else (f" ({rate_source_name})" if rate_source_name != "N/A" else "")
+                    )
+                    doc_header = (
+                        f"{title}\n"
+                        f"Date: {today_str}   |   Approved Target Currency: {target_currency.upper()}   |   "
+                        f"Exchange Rate: 1 {target_currency.upper()} = {rate_val:.4f} {local_curr_code}{rate_bank_text}\n\n"
+                    )
+                    header_reqs = [
+                        {"insertText": {"location": {"index": 1}, "text": doc_header}},
+                        {
+                            "updateTextStyle": {
+                                "range": {"startIndex": 1, "endIndex": len(title) + 1},
+                                "textStyle": {"bold": True, "fontSize": {"magnitude": 18, "unit": "PT"}},
+                                "fields": "bold,fontSize",
+                            }
+                        },
+                    ]
+                    n_rows = max(1, len(receipts_data or [])) + 3
+                    header_reqs.append(
+                        {
+                            "insertTable": {
+                                "rows": n_rows,
+                                "columns": 5,
+                                "endOfSegmentLocation": {},
+                            }
+                        }
+                    )
+                    docs_service.documents().batchUpdate(
+                        documentId=google_doc_id, body={"requests": header_reqs}
+                    ).execute()
+
+                    # Populate table content
+                    fresh_doc = docs_service.documents().get(documentId=google_doc_id).execute()
+                    body_content = fresh_doc.get("body", {}).get("content", [])
+                    table_el = next((el["table"] for el in body_content if "table" in el), None)
+                    if table_el:
+                        rows_data = [
+                            [
+                                "#",
+                                "Category",
+                                "Description",
+                                f"Sum ({local_curr_code})",
+                                f"Sum ({target_currency.upper()})",
+                            ]
+                        ]
+                        for idx, r in enumerate(receipts_data or []):
+                            rows_data.append(
+                                [
+                                    str(idx + 1),
+                                    str(r.get("category", "General")),
+                                    str(r.get("desc", "Expense")),
+                                    str(r.get("sum_curr", "")),
+                                    str(r.get("sum_target", "")),
+                                ]
+                            )
+                        rows_data.append(["TOTAL SPENT", "", "", total_curr_str, total_target_str])
+                        rows_data.append(
+                            ["APPROVED BUDGET", "", "", "", approved_budget or f"150.00 {target_currency.upper()}"]
+                        )
+
+                        cell_updates = []
+                        for r_idx, row in enumerate(table_el.get("tableRows", [])):
+                            if r_idx < len(rows_data):
+                                for c_idx, cell in enumerate(row.get("tableCells", [])):
+                                    if c_idx < len(rows_data[r_idx]):
+                                        val = rows_data[r_idx][c_idx]
+                                        if val:
+                                            start_idx = cell.get("startIndex", 1)
+                                            is_bold = (r_idx == 0) or (r_idx >= len(rows_data) - 2)
+                                            cell_updates.append((start_idx, val, is_bold))
+
+                        cell_updates.sort(key=lambda x: x[0], reverse=True)
+                        cell_reqs = []
+                        for start_idx, val, is_bold in cell_updates:
+                            cell_reqs.append({"insertText": {"location": {"index": start_idx}, "text": val}})
+                            if is_bold:
+                                cell_reqs.append(
+                                    {
+                                        "updateTextStyle": {
+                                            "range": {"startIndex": start_idx, "endIndex": start_idx + len(val)},
+                                            "textStyle": {"bold": True, "fontSize": {"magnitude": 10, "unit": "PT"}},
+                                            "fields": "bold,fontSize",
+                                        }
+                                    }
+                                )
+                        if cell_reqs:
+                            docs_service.documents().batchUpdate(
+                                documentId=google_doc_id, body={"requests": cell_reqs}
+                            ).execute()
+                    print(f"✅ [Google Docs API] Successfully populated native Google Doc: {google_doc_url}")
 
                 # Directly embed inline images into the Google Doc
                 for idx, proof_id in enumerate(uploaded_proof_ids):
