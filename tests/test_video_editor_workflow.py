@@ -1,9 +1,10 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from agents.video_editor.tools.composer_tools import build_card_config
+from agents.video_editor.tools.composer_tools import build_card_config, render_composer
+from agents.video_editor.tools.media_tools import animate_photo
 from agents.video_editor.workflow import (
     classify_media_path,
     validate_render_environment,
@@ -105,6 +106,104 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         self.assertIn('title: "Talk: \\"quotes\\"\\nnew line"', config)
         self.assertIn('name: "A \\"quoted\\" name"', config)
         self.assertIn('position_company: "R&D \\\\ Platform"', config)
+
+    def test_render_composer_session_state_blocks_when_all_disabled(self):
+        mock_context = MagicMock()
+        mock_context.session.state = {
+            "render_ordinary": False,
+            "render_gif": False,
+            "render_4k": False,
+        }
+
+        with self.assertRaises(ValueError) as ctx_err:
+            render_composer(tool_context=mock_context)
+        self.assertIn("All rendering options are disabled", str(ctx_err.exception))
+
+    def test_animate_photo_session_state_disables_video_generation(self):
+        mock_context = MagicMock()
+        mock_context.session.state = {
+            "enable_video_generation": False,
+            "generate_avatar": False,
+        }
+
+        result = animate_photo("speaker.png", "prompt", tool_context=mock_context)
+        self.assertTrue(result.startswith("Error:"))
+        self.assertIn("Generative AI video models", result)
+
+    def test_animate_photo_with_video_file_succeeds_without_ai_generation(self):
+        mock_context = MagicMock()
+        mock_context.session.state = {
+            "enable_video_generation": False,
+        }
+        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as vid:
+            vid.write(b"video content")
+            vid_path = vid.name
+        self.addCleanup(Path(vid_path).unlink, missing_ok=True)
+
+        result = animate_photo(vid_path, "prompt", tool_context=mock_context)
+        self.assertEqual(result, "assets/Video_example.mp4")
+
+    def test_outpaint_image_node_invokes_outpainting_for_image(self):
+        from agents.video_editor.workflow import outpaint_image_node
+
+        mock_ctx = MagicMock()
+        mock_ctx.state = {
+            "temp:resolved_media": {
+                "source_path": "assets/speaker_sample.png",
+                "media_type": "image",
+                "placeholder_used": False,
+            },
+        }
+
+        with patch("agents.video_editor.workflow.get_gemini_client") as mock_client:
+            with patch(
+                "agents.video_editor.workflow.media_tools.outpaint_to_9_16",
+                return_value="assets/outpainted.png",
+            ) as mock_outpaint:
+                func = getattr(outpaint_image_node, "_func", outpaint_image_node)
+                func(mock_ctx)
+                mock_outpaint.assert_called_once_with("assets/speaker_sample.png", mock_client.return_value)
+                self.assertEqual(mock_ctx.state["temp:outpainted_image_path"], "assets/outpainted.png")
+
+    def test_generate_video_from_image_node_passes_tool_context(self):
+        from agents.video_editor.workflow import generate_video_from_image_node
+
+        mock_ctx = MagicMock()
+        mock_ctx.state = {
+            "enable_video_generation": False,
+            "temp:outpainted_image_path": "assets/outpainted.png",
+            "temp:creative_prompt": "cinematic presentation",
+            "temp:resolved_media": {
+                "source_path": "assets/speaker.png",
+                "media_type": "image",
+                "placeholder_used": False,
+            },
+        }
+
+        with patch(
+            "agents.video_editor.workflow.media_tools.animate_photo",
+            return_value="assets/Video_example.mp4",
+        ) as mock_animate:
+            with patch("agents.video_editor.workflow._read_video_duration", return_value=5.0):
+                func = getattr(generate_video_from_image_node, "_func", generate_video_from_image_node)
+                func(mock_ctx)
+                mock_animate.assert_called_once_with(
+                    photo_path="assets/outpainted.png",
+                    creative_prompt="cinematic presentation",
+                    tool_context=mock_ctx,
+                )
+
+    def test_render_composer_accepts_camel_case_session_state(self):
+        mock_context = MagicMock()
+        mock_context.session.state = {
+            "renderOrdinary": False,
+            "renderGif": False,
+            "render4k": False,
+        }
+
+        with self.assertRaises(ValueError) as ctx_err:
+            render_composer(tool_context=mock_context)
+        self.assertIn("All rendering options are disabled", str(ctx_err.exception))
 
 
 if __name__ == "__main__":

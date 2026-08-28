@@ -6,7 +6,8 @@
     Loader2, 
     Check, 
     Copy,
-    Users
+    Users,
+    ExternalLink
   } from '@lucide/svelte';
   import { downloadDirectFile } from './constants.js';
 
@@ -96,20 +97,33 @@
 
     <!-- Action Buttons Row -->
     <div class="doc-actions-row">
-      <button 
-        class="action-btn primary-download"
-        disabled={isDownloading}
-        onclick={() => handleDownload(doc.primaryUrl, doc.filename)}
-        title="Download {doc.fileType} Document"
-      >
-        {#if isDownloading}
-          <Loader2 size={15} class="spin-icon" />
-          <span>Downloading...</span>
-        {:else}
-          <Download size={15} />
-          <span>Download {doc.fileType}</span>
-        {/if}
-      </button>
+      {#if doc.isGoogleDoc || doc.gdocUrl || doc.primaryUrl?.includes('docs.google.com')}
+        <a 
+          class="action-btn primary-download"
+          href={doc.gdocUrl || doc.primaryUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open Report in Google Docs"
+        >
+          <ExternalLink size={15} />
+          <span>Open in Google Docs</span>
+        </a>
+      {:else}
+        <button 
+          class="action-btn primary-download"
+          disabled={isDownloading}
+          onclick={() => handleDownload(doc.primaryUrl, doc.filename)}
+          title="Download {doc.fileType || 'DOCX'} Document"
+        >
+          {#if isDownloading}
+            <Loader2 size={15} class="spin-icon" />
+            <span>Downloading...</span>
+          {:else}
+            <Download size={15} />
+            <span>Download {doc.fileType || 'DOCX'}</span>
+          {/if}
+        </button>
+      {/if}
 
       {#if doc.isRegistration || doc.rosterText || doc.txtUrl}
         <button 
@@ -128,7 +142,7 @@
         </button>
       {/if}
 
-      {#if doc.csvUrl && doc.csvUrl !== doc.primaryUrl}
+      {#if doc.csvUrl && doc.csvUrl !== doc.primaryUrl && !doc.isGoogleDoc}
         <button 
           class="action-btn secondary-btn"
           onclick={() => handleDownload(doc.csvUrl, doc.csvUrl.split('/').pop() || 'report.csv')}

@@ -105,13 +105,44 @@ Open `.env` and configure the following parameters:
 > [!TIP]
 > **Unified Configuration**: Avoid placing separate `.env` files inside individual subdirectories (`agents/root_agent/`, `agents/receipt_scanner/`, etc.). The workspace root `.env` serves as the single source of truth for all microservices.
 
-### 5. Customizing the Expense Report Google Doc Template
+### 5. Google Drive & Google Docs Service Account Setup (Cloud & Native Google Docs)
 
-The **Receipt Scanner** sub-agent compiles reports using a professional Microsoft Word `.docx` template located at `agents/receipt_scanner/assets/expense_report_template.docx`.
+The **Receipt Scanner** sub-agent can generate native **Google Docs** directly in Google Drive without interactive user popups by using a free **GCP Service Account**.
 
-To customize the report styling, tables, headers, or organizational details:
-1. Edit or replace the template file at `agents/receipt_scanner/assets/expense_report_template.docx` in Microsoft Word, Google Docs, or LibreOffice.
-2. The agent automatically reads this template to structure and format all generated reimbursement reports.
+#### Step 1: Enable Google Docs and Google Drive APIs
+```bash
+gcloud services enable docs.googleapis.com drive.googleapis.com --project=YOUR_PROJECT_ID
+```
+
+#### Step 2: Create a Dedicated Service Account
+```bash
+gcloud iam service-accounts create receipt-docs-bot \
+  --description="Service Account for Google Docs & Drive Expense Reports" \
+  --display-name="Receipt Docs Bot" \
+  --project=YOUR_PROJECT_ID
+```
+
+#### Step 3: Generate and Download the Key
+Download the JSON key directly into `configs/service_account.json` (this file is automatically excluded by `.gitignore`):
+```bash
+mkdir -p configs
+gcloud iam service-accounts keys create configs/service_account.json \
+  --iam-account=receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com \
+  --project=YOUR_PROJECT_ID
+```
+
+#### Step 4: Share Your Google Doc Template or Folder
+1. Open your Google Doc template (e.g., [Google Docs Template](https://docs.google.com/document/d/1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw/edit)) or your target Google Drive folder.
+2. Click **Share** (Поделиться) in the top-right corner.
+3. Add your service account email (e.g. `receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com`) with **Viewer** (Читатель) or **Editor** (Редактор) permissions.
+
+> [!TIP]
+> **Hybrid Generation & Fallback**: When `configs/service_account.json` is present and access is granted, the agent directly creates real Google Docs with live editable URLs (`https://docs.google.com/document/d/.../edit`). If offline or without cloud credentials, it automatically falls back to generating standard `.docx` files.
+
+### 6. Customizing the Expense Report Template
+
+- **Google Docs Template**: To customize the cloud template, create a copy of the default template, modify it, and update `agents/receipt_scanner/assets/Expense_report_template.gdoc` with the new `"doc_id"`.
+- **Local .docx Template**: Edit `agents/receipt_scanner/assets/expense_report_template.docx` in Word or LibreOffice. Tag placeholders like `{{TITLE}}`, `{{Current date}}`, `{{EUR/USD}}`, `{{Category}}`, `{{Desc}}`, `{{SUM CURR}}`, `{{APPROVED}}`, and `{{PROOFS}}` are populated dynamically.
 
 ---
 

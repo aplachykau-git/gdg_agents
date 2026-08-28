@@ -1,4 +1,4 @@
-# Community Studio
+# Community AI Studio
 
 This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/), written in Python. It leverages the capabilities of Vertex AI (Gemini and Veo) models to automate events operations, document templates compilation, receipt scanning, scheduling conflicts analysis, and social media posting.
 
@@ -222,7 +222,12 @@ npm run dev
 
 > `npm run a2a:root` serves the whole `agents/` workspace, so the frontend can open `root_agent` **or** any specialized sub-agent directly.
 
-*For detailed setup instructions, including Google Cloud authentication and template folder mapping, check out the [Setup Guide](docs/setup_guide.md).*
+### 🧾 Google Docs & Google Drive Setup (Receipt Scanner)
+The **Receipt Scanner** sub-agent can generate native **Google Docs** directly in Google Drive using a free **GCP Service Account** (`receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com`).
+- To set up the Service Account in 1 minute and share your Google Doc template, see the [Setup Guide (Step 5)](docs/setup_guide.md#5-google-drive--google-docs-service-account-setup-cloud--native-google-docs).
+- If offline or unconfigured, the agent automatically falls back to local `.docx` generation.
+
+*For complete setup instructions, including Google Cloud authentication and template folder mapping, check out the [Setup Guide](docs/setup_guide.md).*
 
 ---
 

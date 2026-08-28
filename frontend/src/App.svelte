@@ -37,10 +37,12 @@
   import ChatMessage from "./lib/ChatMessage.svelte";
   import ChatInput from "./lib/ChatInput.svelte";
   import SettingsModal from "./lib/SettingsModal.svelte";
+  import CapabilitiesModal from "./lib/CapabilitiesModal.svelte";
 
   import {
     DEFAULT_APPS,
     STATUS_TICKERS,
+    cleanAuthorName,
     getAgentTheme,
     getAgentHeading,
     getAgentDescription,
@@ -76,8 +78,8 @@
     {
       id: "root_agent",
       name: "Main",
-      tag: "Router & Coordinator",
-      desc: "Parses complex multi-step requests, verifies prerequisites, and delegates tasks to sub-agents.",
+      tag: "Multi-Agent Hub",
+      desc: "Coordinates tasks across agents and answers questions for your community events.",
       actionText: "Start workflow",
       icon: Layers,
       accent: "var(--agent-root)",
@@ -86,8 +88,8 @@
     {
       id: "receipt_scanner",
       name: "Receipt Scanner",
-      tag: "OCR & Financials",
-      desc: "Extracts line items, queries live banking exchange rates, and exports formatted expense reports.",
+      tag: "Expenses & Finance",
+      desc: "Scans receipts, checks live bank exchange rates, and creates expense reports in Google Drive.",
       actionText: "Scan receipts",
       icon: Receipt,
       accent: "var(--agent-receipt)",
@@ -96,8 +98,8 @@
     {
       id: "video_editor",
       name: "Live Video Editor",
-      tag: "Veo & Media AI",
-      desc: "Detects face landmarks, executes 9:16 outpainting, and generates cinematic speaker intro videos.",
+      tag: "Speaker Video & Media",
+      desc: "Turns speaker portrait photos into animated video intros and speaker cards.",
       actionText: "Generate video",
       icon: Video,
       accent: "var(--agent-video)",
@@ -106,8 +108,8 @@
     {
       id: "linkedin_post_generator",
       name: "LinkedIn Planner",
-      tag: "Copy & Social",
-      desc: "Drafts promotional posts, speaker spotlights, and multi-option event recap posts with hashtags.",
+      tag: "Social Media & Posts",
+      desc: "Writes engaging speaker announcements, event invitations, and post-event recaps with hashtags.",
       actionText: "Draft post",
       icon: Share2,
       accent: "var(--agent-linkedin)",
@@ -116,8 +118,8 @@
     {
       id: "registration_manager",
       name: "Registrations Manager",
-      tag: "Roster & Partitioning",
-      desc: "Cleans participant rosters, deduplicates names, partitions confirmed/waitlisted, and writes DOCX files.",
+      tag: "Attendee Rosters",
+      desc: "Cleans attendee lists, removes duplicates, and organizes confirmed and waitlisted guests.",
       actionText: "Process roster",
       icon: Users,
       accent: "var(--agent-registration)",
@@ -126,8 +128,8 @@
     {
       id: "event_planner",
       name: "Event Scheduler",
-      tag: "Calendars & Holidays",
-      desc: "Cross-references Polish holidays, tech calendars, and long weekends to avoid meetup collisions.",
+      tag: "Dates & Holidays",
+      desc: "Scans meetup calendars and holidays to find the best dates for community events.",
       actionText: "Plan dates",
       icon: Calendar,
       accent: "var(--agent-planner)",
@@ -136,8 +138,8 @@
     {
       id: "agenda_generator",
       name: "Agenda Formatter",
-      tag: "Timeline & Schedule",
-      desc: "Calculates minute-level event schedules with networking and speaker sessions formatted for easy sharing.",
+      tag: "Event Agendas",
+      desc: "Creates structured event schedules with talks, networking sessions, and break times.",
       actionText: "Format agenda",
       icon: Clock,
       accent: "var(--agent-agenda)",
@@ -146,14 +148,31 @@
     {
       id: "office_secretary",
       name: "Office Secretary",
-      tag: "Office & Reservations",
-      desc: "Generates polite visitor key access and room reservation requests with strict date validation.",
+      tag: "Office & Access",
+      desc: "Prepares building visitor access requests and meeting room reservation emails.",
       actionText: "Draft email",
       icon: Mail,
       accent: "var(--agent-office)",
       bg: "var(--bg-office)",
     },
   ];
+
+  function getAgentIcon(agentId) {
+    if (!agentId) return Layers;
+    const clean = cleanAuthorName(agentId).toLowerCase();
+    const found = CATALOG_AGENTS.find(
+      (a) => a.id === agentId || a.id.toLowerCase() === clean
+    );
+    if (found) return found.icon;
+    if (clean.includes("receipt")) return Receipt;
+    if (clean.includes("video") || clean.includes("avatar")) return Video;
+    if (clean.includes("linkedin")) return Share2;
+    if (clean.includes("registration")) return Users;
+    if (clean.includes("planner")) return Calendar;
+    if (clean.includes("agenda")) return Clock;
+    if (clean.includes("office") || clean.includes("secretary")) return Mail;
+    return Layers;
+  }
 
   import {
     fetchApps,
@@ -163,6 +182,14 @@
     deleteSessionRequest,
     runSSEStream,
   } from "./lib/api.js";
+  import {
+    auth,
+    loginWithGoogle,
+    logoutUser,
+    onAuthStateChanged,
+  } from "./lib/firebase.js";
+  import LoginScreen from "./lib/LoginScreen.svelte";
+  import { LogOut } from "@lucide/svelte";
 
   function getOrCreateUserId() {
     if (typeof window === "undefined") return "user";
@@ -188,13 +215,17 @@
   let errorMsg = $state("");
   let isDarkMode = $state(true);
   let studioConfig = $state(getAppConfig());
+  let currentUser = $state(null);
+  let isAuthLoading = $state(true);
+  let isLoggingIn = $state(false);
+  let authError = $state("");
+  let showUserMenu = $state(false);
 
   // Layout Panels & Drawers
   let showSessions = $state(false);
   let showLegend = $state(false);
   let showAgentGraph = $state(false);
   let showSettings = $state(false);
-  let showMoreMenu = $state(false);
 
   // Staged files & Drag State
   let isDragging = $state(false);
@@ -259,25 +290,15 @@
   // Load Apps
   async function loadApps() {
     apps = await fetchApps();
-    await loadSessions(true);
+    await loadSessions();
   }
 
-  // Load Sessions
-  async function loadSessions(autoStartIfEmpty = false) {
+  // Load Sessions (fetch history for sidebar without navigating away from Home)
+  async function loadSessions() {
     if (!selectedApp) return;
     try {
       errorMsg = "";
       sessions = await fetchSessions(selectedApp, userId);
-      if (sessions.length > 0) {
-        if (
-          !selectedSessionId ||
-          !sessions.some((s) => s.session_id === selectedSessionId)
-        ) {
-          await selectSession(sessions[0].session_id);
-        }
-      } else if (autoStartIfEmpty) {
-        await startNewSession(selectedApp);
-      }
     } catch (e) {
       console.error(e);
       errorMsg = `Failed to load sessions: ${e.message}`;
@@ -285,8 +306,24 @@
   }
 
   // Start New Session
-  async function startNewSession(targetApp) {
-    const appToUse = (typeof targetApp === "string" && targetApp) ? targetApp : (selectedApp || "root_agent");
+  function getSessionStatePayload() {
+    return {
+      community_name: studioConfig?.communityName || "GDG Krakow",
+      google_drive_folder_id: studioConfig?.googleDriveFolderId || "",
+      google_docs_template_id: studioConfig?.googleDocsTemplateId || "",
+      render_4k: studioConfig?.render4k ?? true,
+      render_gif: studioConfig?.renderGif ?? true,
+      generate_avatar: studioConfig?.generateAvatar ?? true,
+      enable_video_generation: studioConfig?.enableVideoGeneration ?? false,
+      render4k: studioConfig?.render4k ?? true,
+      renderGif: studioConfig?.renderGif ?? true,
+      generateAvatar: studioConfig?.generateAvatar ?? true,
+      enableVideoGeneration: studioConfig?.enableVideoGeneration ?? false,
+    };
+  }
+
+  async function startNewSession(agentId = null) {
+    const appToUse = agentId || selectedApp || "root_agent";
     selectedApp = appToUse;
     sessionOwnerApp = appToUse;
     currentExecutingAgent = appToUse;
@@ -299,16 +336,17 @@
 
     try {
       isLoading = true;
-      await createSession(appToUse, userId, newSessionId);
+      const statePayload = getSessionStatePayload();
+      await createSession(appToUse, userId, newSessionId, statePayload);
       const fetched = await fetchSessions(appToUse, userId);
       if (fetched && fetched.length > 0) {
         sessions = fetched;
       } else {
-        sessions = [{ id: newSessionId, session_id: newSessionId, state: {}, events: [] }];
+        sessions = [{ id: newSessionId, session_id: newSessionId, state: statePayload, events: [] }];
       }
     } catch (e) {
       console.warn("Session creation notice:", e.message);
-      sessions = [{ id: newSessionId, session_id: newSessionId, state: {}, events: [] }];
+      sessions = [{ id: newSessionId, session_id: newSessionId, state: getSessionStatePayload(), events: [] }];
     } finally {
       isLoading = false;
       setTimeout(() => {
@@ -474,10 +512,35 @@
     }, 50);
   }
 
+  let currentAbortController = null;
+
+  function stopGeneration() {
+    if (currentAbortController) {
+      try {
+        currentAbortController.abort();
+      } catch (e) {
+        console.warn("Abort error:", e);
+      }
+      currentAbortController = null;
+    }
+    isLoading = false;
+    isSubmitting = false;
+    clearInterval(statusInterval);
+  }
+
   // Send Message / Run Agent
   async function sendMessage() {
     if (isLoading || isSubmitting) return;
     if (!queryText.trim() && stagedFiles.length === 0) return;
+
+    if (currentAbortController) {
+      try {
+        currentAbortController.abort();
+      } catch (e) {
+        // ignore
+      }
+    }
+    currentAbortController = new AbortController();
 
     isSubmitting = true;
     isLoading = true;
@@ -486,7 +549,8 @@
       const appToCreate = sessionOwnerApp || selectedApp || "root_agent";
       const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
       try {
-        await createSession(appToCreate, userId, newSessionId);
+        const statePayload = getSessionStatePayload();
+        await createSession(appToCreate, userId, newSessionId, statePayload);
         selectedSessionId = newSessionId;
         sessionOwnerApp = appToCreate;
         loadSessions();
@@ -537,6 +601,8 @@
         userId,
         sessionId: selectedSessionId,
         parts,
+        state: getSessionStatePayload(),
+        signal: currentAbortController.signal,
         onEvent: (eventObj) => {
           if (!eventObj) return;
 
@@ -597,11 +663,16 @@
         },
       });
     } catch (e) {
-      console.error(e);
-      errorMsg = e.message || "Execution failed";
+      if (e.name === "AbortError" || currentAbortController?.signal?.aborted) {
+        console.info("Generation cancelled by user.");
+      } else {
+        console.error(e);
+        errorMsg = e.message || "Execution failed";
+      }
     } finally {
       isLoading = false;
       isSubmitting = false;
+      currentAbortController = null;
       clearInterval(statusInterval);
       scrollToBottom();
     }
@@ -612,34 +683,90 @@
     saveAppConfig(newConfig);
   }
 
+  async function handleGoogleLogin() {
+    isLoggingIn = true;
+    authError = "";
+    try {
+      const res = await loginWithGoogle();
+      currentUser = res.user;
+      selectedSessionId = "";
+      events = [];
+      queryText = "";
+      stagedFiles = [];
+    } catch (err) {
+      console.error("Google Auth failed:", err);
+      if (err.code === "auth/popup-closed-by-user") {
+        authError = "Sign-in popup was closed. Please try again.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        authError = "Domain is not authorized in Firebase Authentication.";
+      } else {
+        authError = err.message || "Failed to sign in with Google.";
+      }
+    } finally {
+      isLoggingIn = false;
+    }
+  }
+
+  async function handleGoogleLogout() {
+    await logoutUser();
+    currentUser = null;
+    showUserMenu = false;
+  }
+
   onMount(() => {
     document.documentElement.classList.add("dark");
     document.documentElement.setAttribute("data-theme", "dark");
     loadApps();
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      isAuthLoading = false;
+      if (user && user.uid) {
+        userId = `user_${user.uid.slice(0, 10)}`;
+      }
+    });
+
+    return () => {
+      if (unsubscribeAuth) unsubscribeAuth();
+    };
   });
 </script>
 
 <svelte:window
   onkeydown={(e) => {
-    if (e.key === "Escape") showMoreMenu = false;
+    if (e.key === "Escape") {
+      showUserMenu = false;
+    }
   }}
   onclick={(e) => {
-    if (showMoreMenu && !e.target.closest?.(".more-menu-container"))
-      showMoreMenu = false;
+    if (showUserMenu && !e.target.closest?.(".user-menu-container"))
+      showUserMenu = false;
   }}
 />
 
-<div
-  class="studio-layout"
-  class:thinking-active={isLoading}
-  style="--active-agent-color: {activeAgentTheme.color}"
->
-  <!-- =========================================================================
-   * TOP APP BAR (Sleek Modern Header)
-   * ========================================================================= -->
-  <header class="studio-header">
+{#if isAuthLoading}
+  <div class="auth-loading-screen">
+    <div class="auth-loading-spinner"></div>
+    <span class="auth-loading-text">Connecting to Community AI Studio...</span>
+  </div>
+{:else if !currentUser}
+  <LoginScreen 
+    onLogin={handleGoogleLogin} 
+    {isLoggingIn} 
+    errorMessage={authError} 
+  />
+{:else}
+  <div
+    class="studio-layout"
+    class:thinking-active={isLoading}
+    style="--active-agent-color: {activeAgentTheme.color}"
+  >
+    <!-- =========================================================================
+     * TOP APP BAR (Sleek Modern Header)
+     * ========================================================================= -->
+    <header class="studio-header">
     <div class="header-left">
-      <!-- Community Studio Brand Typography (Leftmost) -->
+      <!-- Community AI Studio Brand Typography (Leftmost) -->
       <button
         class="brand-badge"
         onclick={() => {
@@ -650,7 +777,7 @@
         aria-label="Home"
       >
         <div class="brand-text">
-          <span class="brand-name">Community Studio</span>
+          <span class="brand-name">Community AI Studio</span>
           <span class="brand-sub"
             >{studioConfig.communityName || "GDG Krakow"}</span
           >
@@ -736,63 +863,104 @@
         <Workflow size={18} strokeWidth={1.75} />
       </button>
 
-      <!-- More Options Dropdown Menu (Theme, Capabilities, Settings) -->
-      <div class="more-menu-container">
-        <button
-          class="icon-btn"
-          class:active={showMoreMenu}
-          onclick={(e) => {
-            e.stopPropagation();
-            showMoreMenu = !showMoreMenu;
-          }}
-          data-tooltip="More options"
-          aria-label="More options"
-        >
-          <MoreVertical size={18} strokeWidth={1.75} />
-        </button>
+      <!-- User Profile & Workspace Options Dropdown (Combined) -->
+      {#if currentUser}
+        <div class="user-menu-container">
+          <button 
+            class="user-header-profile" 
+            class:active={showUserMenu}
+            onclick={(e) => {
+              e.stopPropagation();
+              showUserMenu = !showUserMenu;
+            }} 
+            title="Account & Options ({currentUser.displayName || 'Google Account'})"
+            aria-label="Account and options"
+          >
+            {#if currentUser.photoURL}
+              <img src={currentUser.photoURL} alt="User avatar" class="header-avatar-img" />
+            {:else}
+              <span class="header-avatar-fallback">
+                {(currentUser.displayName || 'U').charAt(0).toUpperCase()}
+              </span>
+            {/if}
+          </button>
 
-        {#if showMoreMenu}
-          <div class="dropdown-menu">
-            <button
-              class="dropdown-item"
-              onclick={() => {
-                toggleTheme();
-                showMoreMenu = false;
-              }}
-            >
-              {#if isDarkMode}
-                <Sun size={15} strokeWidth={1.75} class="dropdown-icon" />
-                <span>Light Theme</span>
-              {:else}
-                <Moon size={15} strokeWidth={1.75} class="dropdown-icon" />
-                <span>Dark Theme</span>
-              {/if}
-            </button>
+          {#if showUserMenu}
+            <div class="dropdown-menu user-dropdown">
+              <!-- Account info header -->
+              <div class="user-dropdown-header">
+                <div class="user-dropdown-top">
+                  {#if currentUser.photoURL}
+                    <img src={currentUser.photoURL} alt="Avatar" class="dropdown-avatar-img" />
+                  {:else}
+                    <span class="dropdown-avatar-fallback">
+                      {(currentUser.displayName || 'U').charAt(0).toUpperCase()}
+                    </span>
+                  {/if}
+                  <div class="user-dropdown-info">
+                    <div class="user-dropdown-name">{currentUser.displayName || 'Google Account'}</div>
+                  </div>
+                </div>
+              </div>
 
-            <button
-              class="dropdown-item"
-              onclick={() => {
-                showLegend = true;
-                showMoreMenu = false;
-              }}
-            >
-              <HelpCircle size={15} strokeWidth={1.75} class="dropdown-icon" />
-              <span>Capabilities</span>
-            </button>
+              <div class="dropdown-divider"></div>
 
-            <button
-              class="dropdown-item"
-              onclick={() => {
-                showSettings = true;
-                showMoreMenu = false;
-              }}
-            >
-              <Settings size={15} strokeWidth={1.75} class="dropdown-icon" />
-              <span>Settings</span>
-            </button>
-          </div>
-        {/if}
-      </div>
+              <!-- Workspace Theme / Capabilities / Settings -->
+              <button
+                class="dropdown-item"
+                onclick={() => {
+                  toggleTheme();
+                  showUserMenu = false;
+                }}
+              >
+                {#if isDarkMode}
+                  <Sun size={15} strokeWidth={1.75} class="dropdown-icon" />
+                  <span>Light Theme</span>
+                {:else}
+                  <Moon size={15} strokeWidth={1.75} class="dropdown-icon" />
+                  <span>Dark Theme</span>
+                {/if}
+              </button>
+
+              <button
+                class="dropdown-item"
+                onclick={() => {
+                  showLegend = true;
+                  showUserMenu = false;
+                }}
+              >
+                <HelpCircle size={15} strokeWidth={1.75} class="dropdown-icon" />
+                <span>Capabilities</span>
+              </button>
+
+              <button
+                class="dropdown-item"
+                onclick={() => {
+                  showSettings = true;
+                  showUserMenu = false;
+                }}
+              >
+                <Settings size={15} strokeWidth={1.75} class="dropdown-icon" />
+                <span>Settings</span>
+              </button>
+
+              <div class="dropdown-divider"></div>
+
+              <!-- Logout -->
+              <button
+                class="dropdown-item dropdown-item-danger"
+                onclick={() => {
+                  handleGoogleLogout();
+                  showUserMenu = false;
+                }}
+              >
+                <LogOut size={15} strokeWidth={1.75} class="dropdown-icon" />
+                <span>Sign out</span>
+              </button>
+            </div>
+          {/if}
+        </div>
+      {/if}
     </div>
   </header>
 
@@ -817,15 +985,16 @@
       ondragleave={handleDragLeave}
       ondrop={handleDrop}
     >
-      <!-- Drag & Drop Overlay -->
+      <!-- Drag & Drop Overlay (Expansive) -->
       {#if isDragging}
         <div class="drag-zone-overlay">
           <div class="drag-zone-card">
-            <Paperclip size={36} class="drag-icon" />
-            <h3>Drop Files for Multimodal Inference</h3>
+            <div class="drag-icon-circle">
+              <Paperclip size={36} class="drag-icon" />
+            </div>
+            <h3>Drop Files Anywhere to Attach</h3>
             <p>
-              Accepts receipts, invoice images, portrait photos, spreadsheets,
-              and PDFs
+              Receipts, invoices, portraits, spreadsheets, or attendee rosters will be attached directly to your active session.
             </p>
           </div>
         </div>
@@ -881,7 +1050,6 @@
             <div class="agents-catalog-grid">
               {#each CATALOG_AGENTS as agent}
                 {@const AgentIcon = agent.icon}
-                {@const shortcuts = getAgentStarterPrompts(agent.id)}
                 <div
                   class="agent-catalog-card"
                   style="--card-accent: {agent.accent}; --card-bg: {agent.bg};"
@@ -908,26 +1076,6 @@
                   <p class="agent-card-desc">
                     {agent.desc}
                   </p>
-                  {#if shortcuts.length > 0}
-                    <div class="card-shortcuts">
-                      {#each shortcuts.slice(0, 2) as shortcut}
-                        <button
-                          type="button"
-                          class="card-shortcut-chip"
-                          onclick={(e) => {
-                            e.stopPropagation();
-                            startNewSessionWithPrompt(agent.id, shortcut.prompt);
-                          }}
-                        >
-                          {#if shortcut.icon && ICON_MAP[shortcut.icon]}
-                            {@const IconComp = ICON_MAP[shortcut.icon]}
-                            <IconComp size={12} class="card-shortcut-icon" />
-                          {/if}
-                          <span class="card-shortcut-text">{shortcut.text}</span>
-                        </button>
-                      {/each}
-                    </div>
-                  {/if}
                   <div class="card-footer-action">
                     <span>{agent.actionText}</span>
                     <ArrowRight size={14} />
@@ -942,6 +1090,7 @@
         <div class="chat-viewport" bind:this={chatBodyElement}>
           <div class="chat-stream-container">
             {#if filteredEvents.length === 0}
+              {@const CurrentAgentIcon = getAgentIcon(activeAgent)}
               <div
                 class="agent-welcome-card"
                 style="--agent-accent: {activeAgentTheme.color}; --agent-bg: {activeAgentTheme.bg};"
@@ -951,7 +1100,7 @@
                     class="agent-welcome-avatar"
                     style="background: {activeAgentTheme.bg}; color: {activeAgentTheme.color}; border: 1px solid {activeAgentTheme.color}40;"
                   >
-                    <Sparkles size={22} strokeWidth={1.75} />
+                    <CurrentAgentIcon size={22} strokeWidth={1.75} />
                   </div>
                   <div class="agent-welcome-meta">
                     <div
@@ -1036,6 +1185,7 @@
           bind:textareaElement
           {isLoading}
           onSend={sendMessage}
+          onStop={stopGeneration}
         />
       {/if}
     </main>
@@ -1043,192 +1193,11 @@
 </div>
 
 <!-- Capabilities Modal -->
-{#if showLegend}
-  <div
-    class="modal-backdrop"
-    role="button"
-    tabindex="-1"
-    onclick={(e) => {
-      if (e.target === e.currentTarget) showLegend = false;
-    }}
-    onkeydown={(e) => {
-      if (e.key === "Enter" || e.key === " ") showLegend = false;
-    }}
-  >
-    <div class="modal-card">
-      <header class="modal-header">
-        <div class="modal-title-group">
-          <Sparkles size={20} class="modal-gemini-icon" />
-          <h2>Community Studio Multi-Agent System</h2>
-        </div>
-        <button class="modal-close-btn" onclick={() => (showLegend = false)}
-          >&times;</button
-        >
-      </header>
-
-      <div class="modal-body">
-        <p class="modal-intro">
-          The Community Studio platform is powered by Google ADK with an A2A
-          architecture coordinating specialized reasoning engines for {studioConfig.communityName ||
-            "GDG Krakow"}:
-        </p>
-
-        <div class="capabilities-grid">
-          <div
-            class="capability-card"
-            style="--card-accent: var(--agent-root); --card-bg: var(--bg-root)"
-          >
-            <div class="capability-top">
-              <div
-                class="capability-icon-box"
-                style="color: var(--agent-root);"
-              >
-                <Layers size={16} strokeWidth={1.75} />
-              </div>
-              <h3>Main</h3>
-            </div>
-            <p>
-              Directs incoming intent, verifies task prerequisites, and invokes
-              specialized sub-agents via tool-calling and A2A protocols.
-            </p>
-          </div>
-          <div
-            class="capability-card"
-            style="--card-accent: var(--agent-receipt); --card-bg: var(--bg-receipt)"
-          >
-            <div class="capability-top">
-              <div
-                class="capability-icon-box"
-                style="color: var(--agent-receipt);"
-              >
-                <Receipt size={16} strokeWidth={1.75} />
-              </div>
-              <h3>Receipt Scanner</h3>
-            </div>
-            <p>
-              Vision OCR analyzer. Extracts line items, VAT, fetches live banking
-              exchange rates, and exports formatted expense reports.
-            </p>
-          </div>
-          <div
-            class="capability-card"
-            style="--card-accent: var(--agent-video); --card-bg: var(--bg-video)"
-          >
-            <div class="capability-top">
-              <div
-                class="capability-icon-box"
-                style="color: var(--agent-video);"
-              >
-                <Video size={16} strokeWidth={1.75} />
-              </div>
-              <h3>Live Video Editor</h3>
-            </div>
-            <p>
-              Speaker portrait outpainting and cinematic video animation
-              generation using Veo models.
-            </p>
-          </div>
-          <div
-            class="capability-card"
-            style="--card-accent: var(--agent-linkedin); --card-bg: var(--bg-linkedin)"
-          >
-            <div class="capability-top">
-              <div
-                class="capability-icon-box"
-                style="color: var(--agent-linkedin);"
-              >
-                <Share2 size={16} strokeWidth={1.75} />
-              </div>
-              <h3>LinkedIn Planner</h3>
-            </div>
-            <p>
-              Generates high-engagement speaker announcements and structured
-              multi-option event recap posts.
-            </p>
-          </div>
-          <div
-            class="capability-card"
-            style="--card-accent: var(--agent-registration); --card-bg: var(--bg-registration)"
-          >
-            <div class="capability-top">
-              <div
-                class="capability-icon-box"
-                style="color: var(--agent-registration);"
-              >
-                <Users size={16} strokeWidth={1.75} />
-              </div>
-              <h3>Registrations Manager</h3>
-            </div>
-            <p>
-              Cleans participant datasets, filters duplicates, normalizes names
-              across scripts, and generates clean DOCX files.
-            </p>
-          </div>
-          <div
-            class="capability-card"
-            style="--card-accent: var(--agent-planner); --card-bg: var(--bg-planner)"
-          >
-            <div class="capability-top">
-              <div
-                class="capability-icon-box"
-                style="color: var(--agent-planner);"
-              >
-                <Calendar size={16} strokeWidth={1.75} />
-              </div>
-              <h3>Event Scheduler</h3>
-            </div>
-            <p>
-              Detects meetup schedule conflicts against Luma and Meetup.com,
-              checks statutory Polish holidays, and flags risk dates.
-            </p>
-          </div>
-          <div
-            class="capability-card"
-            style="--card-accent: var(--agent-agenda); --card-bg: var(--bg-agenda)"
-          >
-            <div class="capability-top">
-              <div
-                class="capability-icon-box"
-                style="color: var(--agent-agenda);"
-              >
-                <Clock size={16} strokeWidth={1.75} />
-              </div>
-              <h3>Agenda Formatter</h3>
-            </div>
-            <p>
-              Computes minute-by-minute meetup schedules with speaker talks,
-              networking, and pizza breaks, formatted for copy-pasting.
-            </p>
-          </div>
-          <div
-            class="capability-card"
-            style="--card-accent: var(--agent-office); --card-bg: var(--bg-office)"
-          >
-            <div class="capability-top">
-              <div
-                class="capability-icon-box"
-                style="color: var(--agent-office);"
-              >
-                <Mail size={16} strokeWidth={1.75} />
-              </div>
-              <h3>Office Secretary</h3>
-            </div>
-            <p>
-              Drafts polite visitor keys access card and Event Hub reservation
-              request emails with mandatory date validation.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <footer class="modal-actions">
-        <button class="btn-primary" onclick={() => (showLegend = false)}
-          >Close</button
-        >
-      </footer>
-    </div>
-  </div>
-{/if}
+<CapabilitiesModal
+  show={showLegend}
+  communityName={studioConfig.communityName || "GDG Krakow"}
+  onClose={() => (showLegend = false)}
+/>
 
 <!-- Settings Modal -->
 <SettingsModal
@@ -1251,6 +1220,7 @@
     }}
     onClose={() => (showAgentGraph = false)}
   />
+{/if}
 {/if}
 
 <style>
@@ -1429,12 +1399,6 @@
     color: var(--text-tertiary);
   }
 
-  /* More Options Menu */
-  .more-menu-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
 
   .dropdown-menu {
     position: absolute;
@@ -1495,6 +1459,23 @@
     color: var(--primary-accent);
   }
 
+  .dropdown-item-danger {
+    color: #ef4444 !important;
+  }
+
+  .dropdown-item-danger :global(.dropdown-icon) {
+    color: #ef4444 !important;
+  }
+
+  .dropdown-item-danger:hover {
+    background: rgba(239, 68, 68, 0.12) !important;
+    color: #ef4444 !important;
+  }
+
+  .dropdown-item-danger:hover :global(.dropdown-icon) {
+    color: #ef4444 !important;
+  }
+
   .icon-btn {
     width: 36px;
     height: 36px;
@@ -1537,30 +1518,71 @@
     background: var(--bg-app);
   }
 
-  /* Drag & Drop */
+  /* Drag & Drop Overlay - Expansive & Immersive */
   .drag-zone-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(11, 12, 14, 0.85);
-    backdrop-filter: blur(6px);
+    background: rgba(8, 11, 18, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     z-index: 100;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 32px;
+    padding: 24px;
+    box-sizing: border-box;
+    pointer-events: none;
+    animation: fadeIn 0.2s ease-out;
   }
 
   .drag-zone-card {
-    border: 2px dashed var(--primary-accent);
-    background: var(--bg-surface);
-    border-radius: var(--radius-xl);
-    padding: 48px;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    border: 2.5px dashed var(--primary-accent);
+    background: rgba(66, 133, 244, 0.04);
+    box-shadow: 
+      0 0 40px rgba(66, 133, 244, 0.15),
+      inset 0 0 60px rgba(66, 133, 244, 0.06);
+    border-radius: var(--radius-2xl, 24px);
+    padding: 32px;
+    box-sizing: border-box;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
-    max-width: 480px;
+    justify-content: center;
+    gap: 14px;
+    transition: all 0.2s ease;
+  }
+
+  .drag-icon-circle {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: rgba(66, 133, 244, 0.15);
+    border: 1px solid rgba(66, 133, 244, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2px;
+    box-shadow: 0 8px 24px rgba(66, 133, 244, 0.25);
+  }
+
+  .drag-zone-card h3 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .drag-zone-card p {
+    font-size: 14px;
+    color: var(--text-secondary, #94a3b8);
+    max-width: 520px;
+    line-height: 1.5;
+    margin: 0;
   }
 
   :global(.drag-icon) {
@@ -1775,54 +1797,6 @@
     flex: 1;
   }
 
-  .card-shortcuts {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 14px;
-    width: 100%;
-  }
-
-  .card-shortcut-chip {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    background: var(--bg-app);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    padding: 5px 8px;
-    font-size: 11.5px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    text-align: left;
-    transition: var(--transition-fast);
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .card-shortcut-chip:hover {
-    background: var(--card-bg, var(--bg-hover));
-    border-color: var(--card-accent, var(--primary-accent));
-    color: var(--text-primary);
-    transform: translateY(-1px);
-  }
-
-  :global(.card-shortcut-icon) {
-    color: var(--card-accent, var(--primary-accent));
-    flex-shrink: 0;
-    opacity: 0.85;
-  }
-
-  .card-shortcut-chip:hover :global(.card-shortcut-icon) {
-    opacity: 1;
-  }
-
-  .card-shortcut-text {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.3;
-  }
 
   .card-footer-action {
     display: flex;
@@ -2105,149 +2079,141 @@
     }
   }
 
-  /* Modals */
-  .modal-backdrop {
+  /* Auth Initial Loading Screen */
+  .auth-loading-screen {
     position: fixed;
     inset: 0;
-    background: rgba(11, 12, 14, 0.8);
-    backdrop-filter: blur(4px);
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-
-  .modal-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-xl);
-    max-width: 720px;
-    width: 100%;
-    max-height: 85vh;
+    width: 100vw;
+    height: 100vh;
+    background: #080b11;
     display: flex;
     flex-direction: column;
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
-  }
-
-  .modal-header {
-    display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border-subtle);
+    justify-content: center;
+    gap: 16px;
+    z-index: 9999;
   }
 
-  .modal-title-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  .auth-loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #4285F4;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
   }
 
-  :global(.modal-gemini-icon) {
-    color: var(--primary-accent);
-  }
-
-  .modal-header h2 {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .modal-close-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 20px;
-    cursor: pointer;
-  }
-
-  .modal-body {
-    padding: 24px;
-    overflow-y: auto;
-  }
-
-  .modal-intro {
+  .auth-loading-text {
     font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 20px;
-    line-height: 1.5;
+    font-weight: 500;
+    color: #94a3b8;
   }
 
-  .capabilities-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 
-  .capability-card {
-    background: var(--card-bg, var(--bg-surface-elevated));
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 14px;
+  /* User Menu & Avatar */
+  .user-menu-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .user-header-profile {
+    background: transparent;
+    border: 1.5px solid var(--border-subtle);
+    padding: 1px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
     transition: var(--transition-fast);
+    width: 30px;
+    height: 30px;
+    box-sizing: border-box;
   }
 
-  .capability-card:hover {
-    border-color: var(--card-accent, var(--primary-accent));
+  .user-header-profile:hover {
+    background: var(--bg-surface-elevated);
+    border-color: var(--primary-accent);
+    transform: scale(1.05);
   }
 
-  .capability-top {
+  .header-avatar-img {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .header-avatar-fallback {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--primary-accent);
+    color: #ffffff;
+    font-size: 11.5px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .user-dropdown {
+    right: 0;
+    top: calc(100% + 8px);
+    width: 220px;
+    padding: 8px;
+    z-index: 1000;
+  }
+
+  .user-dropdown-header {
+    padding: 6px 6px 8px;
+  }
+
+  .user-dropdown-top {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 8px;
   }
 
-  .capability-icon-box {
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
+  .dropdown-avatar-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .dropdown-avatar-fallback {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary-accent);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
 
-  .capability-top h3 {
+  .user-dropdown-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .user-dropdown-name {
     font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .capability-card p {
-    font-size: 11px;
-    color: var(--text-secondary);
-    line-height: 1.4;
-    margin: 0;
-  }
 
-  .modal-actions {
-    padding: 16px 24px;
-    border-top: 1px solid var(--border-subtle);
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .btn-primary {
-    background: var(--primary-gradient, var(--primary-accent));
-    color: #ffffff;
-    border: none;
-    padding: 8px 20px;
-    border-radius: var(--radius-full);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
-    transition: var(--transition-fast);
-  }
-
-  .btn-primary:hover {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
-  }
 </style>

@@ -41,7 +41,7 @@ In any of these cases, you MUST IMMEDIATELY ABORT execution:
 You MUST automatically determine the title of the document using the following rules:
 1. Extract dates from all recognized receipts/invoices.
 2. Select the **latest date (closest to today)**.
-3. Format the document title strictly as: `Expense_report_day_month_year` (where day, month, and year are numeric digits. For example, if the latest receipt date is May 17, {current_year}, the title must be `Expense_report_17_05_{current_year}`; if January 7, {current_year}, it must be `Expense_report_07_01_{current_year}`).
+3. Format the document title as: `Expense_report_day_month_year` (where day, month, and year are numeric digits. For example, `Expense_report_17_05_{current_year}`). The system automatically attaches an accurate timestamp tag to ensure chronological sorting on Google Drive.
 4. To perfectly populate the Google Docs template, you **MUST pass** the following arguments to `export_summary_to_google_doc`:
    - `target_currency`: String. The target currency for the report (e.g., "USD", "EUR", "PLN", "GBP", "CAD", or any other ISO currency code). If the user explicitly requested a specific target currency, use it. Otherwise, default to "USD" (or the dominant currency of the receipts).
    - `approved_budget`: String. The approved budget limit specified by the user in the prompt (e.g., "500 EUR", "100 USD"). You MUST extract this from the user's message if they specified a budget amount and its currency. If not specified, pass an empty string "".
@@ -58,10 +58,19 @@ You MUST automatically determine the title of the document using the following r
      - `"currency"`: String. The currency code of the receipt (e.g., `"PLN"`, `"USD"`, `"EUR"`).
      - `"image_path"`: String. The absolute local path of the receipt file or the attachment reference.
      - `"date"`: String. The date extracted from the receipt (e.g. `"{current_year}-05-17"`).
-5. Immediately invoke `export_summary_to_google_doc` with these parameters and display the clickable direct URL to the created document to the user. Perform this export automatically without asking the user for confirmation!
+6. Immediately invoke `export_summary_to_google_doc` with these parameters.
+
+**Step 3. Final Response to User (Strict Formatting Rules):**
+- Output a clean, brief summary (1-2 sentences) mentioning:
+  1. The count of analyzed receipts/invoices (e.g., "Analyzed 2 receipts: Uber Ride (Transport) and Hotel Lodging (Hotel).").
+  2. The date of the receipts.
+  3. Confirmation that the Google Docs expense reimbursement report has been generated.
+- **STRICT PROHIBITION ON PRICES & NUMBERS**: You MUST NOT include any monetary amounts, currency figures, converted sums, unit prices, or exchange rates in your response text (all financial amounts and calculations are formatted inside the generated Google Doc).
+- Include the direct link to the Google Doc returned by `export_summary_to_google_doc`: `https://docs.google.com/document/d/...`.
 
 ## Rules:
 - Do not invent any numbers; use only what is visible on the documents.
+- If `export_summary_to_google_doc` returns a missing Google Drive folder notification (`MISSING_GOOGLE_DRIVE_FOLDER`), inform the user to configure their Google Drive folder in Settings ⚙️ (Target Folder URL / ID) or in `.env` before retrying.
 """
 
 receipt_agent = Agent(
@@ -70,7 +79,7 @@ receipt_agent = Agent(
     description=(
         "Agent for recognizing receipts and invoices. "
         "Natively analyzes images and PDFs using gemini-3.7-flash, "
-        "converts currencies using live banking exchange rates, and exports professional DOCX expense reports."
+        "converts currencies using live banking exchange rates, and exports professional Google Docs expense reports."
     ),
     instruction=INSTRUCTION,
     tools=[get_usd_pln_rate, read_receipt_file, export_summary_to_google_doc],

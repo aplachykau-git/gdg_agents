@@ -1,6 +1,29 @@
 <script>
-  import { Settings, X, Check, Globe } from '@lucide/svelte';
-  import { DEFAULT_CONFIG } from './constants.js';
+  import { 
+    Settings, 
+    X, 
+    Check, 
+    Globe, 
+    HardDrive, 
+    AlertCircle, 
+    FileText, 
+    ExternalLink, 
+    Copy, 
+    ChevronDown, 
+    ChevronRight,
+    Info,
+    Video,
+    AlertTriangle
+  } from '@lucide/svelte';
+  import { 
+    DEFAULT_CONFIG, 
+    DEFAULT_TEMPLATE_URL,
+    DEFAULT_TEMPLATE_ID,
+    extractDriveFolderId, 
+    validateDriveFolderInput,
+    extractGoogleDocId,
+    validateGoogleDocTemplateInput
+  } from './constants.js';
 
   let {
     show = false,
@@ -11,6 +34,12 @@
 
   let draft = $state({ ...DEFAULT_CONFIG });
   let saveStatus = $state('');
+  let driveFolderError = $state('');
+  let driveFolderInputRaw = $state('');
+  let templateError = $state('');
+  let templateInputRaw = $state('');
+  let isTemplateGuideOpen = $state(false);
+  let emailCopied = $state(false);
   let saveTimer = null;
 
   // Sync draft state whenever modal opens or external config changes
@@ -20,6 +49,10 @@
         ...DEFAULT_CONFIG,
         ...config
       };
+      driveFolderInputRaw = config?.googleDriveFolderId || '';
+      driveFolderError = '';
+      templateInputRaw = config?.googleDocsTemplateId || '';
+      templateError = '';
       saveStatus = '';
     }
   });
@@ -39,10 +72,55 @@
     }, 1800);
   }
 
+  function handleToggle(key) {
+    const currentVal = draft[key] !== undefined ? draft[key] : (DEFAULT_CONFIG[key] ?? false);
+    const newVal = !currentVal;
+    draft[key] = newVal;
+    triggerAutoSave({ [key]: newVal });
+  }
+
   function handleTextInput(key, event) {
-    const val = event.target.value;
-    draft[key] = val;
-    triggerAutoSave({ [key]: val });
+    let rawVal = event.target.value;
+    if (key === 'googleDriveFolderId') {
+      driveFolderInputRaw = rawVal;
+      const validation = validateDriveFolderInput(rawVal);
+      if (!validation.valid) {
+        driveFolderError = validation.error;
+        return;
+      }
+      driveFolderError = '';
+      const resolvedId = validation.folderId;
+      draft[key] = resolvedId;
+      triggerAutoSave({ [key]: resolvedId });
+    } else if (key === 'googleDocsTemplateId') {
+      templateInputRaw = rawVal;
+      const validation = validateGoogleDocTemplateInput(rawVal);
+      if (!validation.valid) {
+        templateError = validation.error;
+        return;
+      }
+      templateError = '';
+      const resolvedId = validation.docId;
+      draft[key] = resolvedId;
+      triggerAutoSave({ [key]: resolvedId });
+    } else {
+      draft[key] = rawVal;
+      triggerAutoSave({ [key]: rawVal });
+    }
+  }
+
+  async function copyServiceAccountEmail() {
+    if (draft.serviceAccountEmail) {
+      try {
+        await navigator.clipboard.writeText(draft.serviceAccountEmail);
+        emailCopied = true;
+        setTimeout(() => {
+          emailCopied = false;
+        }, 2000);
+      } catch (err) {
+        console.error('Failed to copy email:', err);
+      }
+    }
   }
 </script>
 
@@ -98,6 +176,214 @@
             </div>
           </div>
         </section>
+
+        <!-- Section: Video Generation Settings -->
+        <section class="setting-group">
+          <div class="group-header">
+            <Video size={14} />
+            <h3>Video Generation Settings</h3>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <label for="setting-render-4k" class="setting-title">4K Ultra-HD Rendering</label>
+              <p class="setting-desc">Renders high-bitrate 4K vertical video files alongside standard 1080p.</p>
+            </div>
+            <div class="setting-control">
+              <button
+                id="setting-render-4k"
+                type="button"
+                role="switch"
+                aria-label="Toggle 4K Ultra-HD Rendering"
+                aria-checked={draft.render4k ?? true}
+                class="toggle-switch"
+                class:toggle-active={draft.render4k ?? true}
+                onclick={() => handleToggle('render4k')}
+              >
+                <span class="toggle-handle"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <label for="setting-render-gif" class="setting-title">Animated GIF Generation</label>
+              <p class="setting-desc">Creates animated GIF previews for speaker cards and email newsletters.</p>
+            </div>
+            <div class="setting-control">
+              <button
+                id="setting-render-gif"
+                type="button"
+                role="switch"
+                aria-label="Toggle Animated GIF Generation"
+                aria-checked={draft.renderGif ?? true}
+                class="toggle-switch"
+                class:toggle-active={draft.renderGif ?? true}
+                onclick={() => handleToggle('renderGif')}
+              >
+                <span class="toggle-handle"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="setting-row setting-row-highlight">
+            <div class="setting-meta">
+              <div class="setting-title-with-badge">
+                <label for="setting-enable-video" class="setting-title">Omni / Veo Video AI Loops</label>
+                <span class="cost-badge">Paid API Tokens</span>
+              </div>
+              <p class="setting-desc">Generates dynamic generative AI background animations via Omni / Veo models.</p>
+              {#if draft.enableVideoGeneration}
+                <div class="cost-warning-alert">
+                  <AlertTriangle size={13} />
+                  <span>Notice: Generative AI video models consume paid API credits per generation.</span>
+                </div>
+              {/if}
+            </div>
+            <div class="setting-control">
+              <button
+                id="setting-enable-video"
+                type="button"
+                role="switch"
+                aria-label="Toggle Omni and Veo Video AI Loops"
+                aria-checked={draft.enableVideoGeneration ?? false}
+                class="toggle-switch"
+                class:toggle-active={draft.enableVideoGeneration ?? false}
+                onclick={() => handleToggle('enableVideoGeneration')}
+              >
+                <span class="toggle-handle"></span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section: Google Drive & Docs Storage -->
+        <section class="setting-group">
+          <div class="group-header">
+            <HardDrive size={14} />
+            <h3>Google Drive & Docs Storage</h3>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <label for="setting-drive-folder" class="setting-title">Target Folder URL / ID</label>
+              <p class="setting-desc">Folder on Google Drive where generated expense reports and docs are stored.</p>
+            </div>
+            <div class="setting-control setting-control-column">
+              <input
+                id="setting-drive-folder"
+                type="text"
+                value={driveFolderInputRaw}
+                oninput={(e) => handleTextInput('googleDriveFolderId', e)}
+                placeholder="https://drive.google.com/drive/folders/... or Folder ID"
+                class="ide-input ide-input-wide"
+                class:input-invalid={driveFolderError}
+              />
+              {#if driveFolderError}
+                <div class="input-error-msg">
+                  <AlertCircle size={12} />
+                  <span>{driveFolderError}</span>
+                </div>
+              {:else if draft.googleDriveFolderId && draft.googleDriveFolderId !== driveFolderInputRaw}
+                <div class="input-success-msg">
+                  <Check size={12} />
+                  <span>Resolved Folder ID: <code>{draft.googleDriveFolderId}</code></span>
+                </div>
+              {/if}
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <label for="setting-doc-template" class="setting-title">Custom Template URL / ID</label>
+              <p class="setting-desc">Custom Google Docs template. Leave empty to use the default GDG template.</p>
+            </div>
+            <div class="setting-control setting-control-column">
+              <input
+                id="setting-doc-template"
+                type="text"
+                value={templateInputRaw}
+                oninput={(e) => handleTextInput('googleDocsTemplateId', e)}
+                placeholder="https://docs.google.com/document/d/... (optional)"
+                class="ide-input ide-input-wide"
+                class:input-invalid={templateError}
+              />
+              {#if templateError}
+                <div class="input-error-msg">
+                  <AlertCircle size={12} />
+                  <span>{templateError}</span>
+                </div>
+              {:else if draft.googleDocsTemplateId && draft.googleDocsTemplateId !== templateInputRaw}
+                <div class="input-success-msg">
+                  <Check size={12} />
+                  <span>Resolved Template ID: <code>{draft.googleDocsTemplateId}</code></span>
+                </div>
+              {/if}
+            </div>
+          </div>
+
+          <!-- Collapsible Template Guide Accordion -->
+          <div class="template-guide-container">
+            <button 
+              type="button" 
+              class="guide-toggle-btn" 
+              onclick={() => isTemplateGuideOpen = !isTemplateGuideOpen}
+              aria-expanded={isTemplateGuideOpen}
+            >
+              <div class="guide-toggle-left">
+                <FileText size={14} class="guide-icon" />
+                <span class="guide-toggle-title">How to use your custom Google Docs template</span>
+              </div>
+              {#if isTemplateGuideOpen}
+                <ChevronDown size={15} />
+              {:else}
+                <ChevronRight size={15} />
+              {/if}
+            </button>
+
+            {#if isTemplateGuideOpen}
+              <div class="guide-content-panel">
+                <div class="guide-step">
+                  <span class="step-num">1</span>
+                  <div class="step-details">
+                    <strong>Get the base template</strong>
+                    <p>Open the standard expense template in Google Docs and make a copy to your Google Drive.</p>
+                    <a href={DEFAULT_TEMPLATE_URL} target="_blank" rel="noreferrer" class="btn-guide-action">
+                      <ExternalLink size={13} />
+                      <span>Open Default Template</span>
+                    </a>
+                  </div>
+                </div>
+
+                <div class="guide-step">
+                  <span class="step-num">2</span>
+                  <div class="step-details">
+                    <strong>Keep template placeholders intact</strong>
+                    <p>When adjusting logos, typography, or styling, do not remove the existing placeholder tags so the agent can automatically fill in your expense tables, dates, and receipts.</p>
+                  </div>
+                </div>
+
+                <div class="guide-step">
+                  <span class="step-num">3</span>
+                  <div class="step-details">
+                    <strong>Share access with the Agent</strong>
+                    <p>Click <strong>Share</strong> in your Google Doc and set <em>"Anyone with the link can view"</em>, OR share directly with the agent service account:</p>
+                    <div class="service-account-box">
+                      <code>{draft.serviceAccountEmail}</code>
+                      <button type="button" class="btn-copy-sa" onclick={copyServiceAccountEmail} title="Copy email">
+                        {#if emailCopied}
+                          <Check size={13} class="copied-check" />
+                        {:else}
+                          <Copy size={13} />
+                        {/if}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {/if}
+          </div>
+        </section>
       </div>
 
       <!-- Clean Footer -->
@@ -128,7 +414,7 @@
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     width: 100%;
-    max-width: 540px;
+    max-width: 520px;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
@@ -143,7 +429,7 @@
     justify-content: space-between;
     padding: 14px 18px;
     border-bottom: 1px solid var(--border-subtle);
-    background: var(--bg-surface-elevated);
+    background: var(--bg-surface);
   }
 
   .header-title-area {
@@ -152,16 +438,15 @@
     gap: 8px;
   }
 
-  :global(.header-icon) {
+  .header-title-area :global(.header-icon) {
     color: var(--primary-accent);
   }
 
-  .dialog-header h2 {
+  .header-title-area h2 {
     font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
-    letter-spacing: -0.01em;
   }
 
   .autosave-badge {
@@ -202,13 +487,13 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
   }
 
   .setting-group {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
   }
 
   .group-header {
@@ -216,8 +501,9 @@
     align-items: center;
     gap: 6px;
     color: var(--text-tertiary);
-    margin-bottom: 6px;
+    margin-bottom: 4px;
     padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   .group-header h3 {
@@ -234,7 +520,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 10px 12px;
+    padding: 8px 10px;
     border-radius: var(--radius-sm);
     transition: background var(--transition-fast);
   }
@@ -270,9 +556,87 @@
     align-items: center;
   }
 
+  .setting-control-column {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+  }
+
+  /* Toggle Switch */
+  .toggle-switch {
+    width: 38px;
+    height: 22px;
+    border-radius: 12px;
+    background: var(--bg-surface-elevated, #2a2b2e);
+    border: 1px solid var(--border-medium, #444);
+    padding: 2px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    outline: none;
+    position: relative;
+  }
+
+  .toggle-switch:focus-visible {
+    box-shadow: 0 0 0 2px var(--primary-accent-container);
+  }
+
+  .toggle-switch.toggle-active {
+    background: var(--primary-accent, #4285F4);
+    border-color: var(--primary-accent, #4285F4);
+  }
+
+  .toggle-handle {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    transition: transform var(--transition-fast);
+    transform: translateX(0);
+  }
+
+  .toggle-switch.toggle-active .toggle-handle {
+    transform: translateX(16px);
+  }
+
+  .setting-title-with-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cost-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--status-warning, #f59e0b);
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .cost-warning-alert {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: var(--radius-sm);
+    color: #f59e0b;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
   /* Input */
   .ide-input {
-    width: 190px;
+    width: 200px;
     background: var(--bg-app);
     border: 1px solid var(--border-subtle);
     color: var(--text-primary);
@@ -283,9 +647,205 @@
     transition: var(--transition-fast);
   }
 
+  .ide-input-wide {
+    width: 240px;
+  }
+
   .ide-input:focus {
     border-color: var(--primary-accent);
     box-shadow: 0 0 0 2px var(--primary-accent-container);
+  }
+
+  .ide-input.input-invalid {
+    border-color: #ef4444;
+  }
+
+  .ide-input.input-invalid:focus {
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+  }
+
+  .input-error-msg {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #ef4444;
+    max-width: 240px;
+    text-align: right;
+    line-height: 1.3;
+  }
+
+  .input-success-msg {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #34a853;
+    max-width: 240px;
+    text-align: right;
+  }
+
+  .input-success-msg code {
+    font-family: var(--font-mono, monospace);
+    background: rgba(52, 168, 83, 0.12);
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+
+  /* Template Guide Accordion */
+  .template-guide-container {
+    margin-top: 10px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--bg-surface);
+    overflow: hidden;
+  }
+
+  .guide-toggle-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: var(--transition-fast);
+    text-align: left;
+  }
+
+  .guide-toggle-btn:hover {
+    background: var(--bg-surface-elevated);
+    color: var(--text-primary);
+  }
+
+  .guide-toggle-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .guide-toggle-left :global(.guide-icon) {
+    color: var(--primary-accent);
+  }
+
+  .guide-toggle-title {
+    font-weight: 500;
+  }
+
+  .guide-content-panel {
+    padding: 14px 16px;
+    background: var(--bg-app);
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    animation: fadeIn 0.15s ease-out;
+  }
+
+  .guide-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary-accent-container);
+    color: var(--primary-accent-text);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .step-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .step-details strong {
+    font-size: 12.5px;
+    color: var(--text-primary);
+  }
+
+  .step-details p {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .btn-guide-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--primary-accent);
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 11.5px;
+    font-weight: 500;
+    text-decoration: none;
+    width: fit-content;
+    transition: var(--transition-fast);
+  }
+
+  .btn-guide-action:hover {
+    background: var(--primary-accent-container);
+    color: var(--primary-accent-text);
+    border-color: var(--primary-accent);
+  }
+
+  .service-account-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    margin-top: 6px;
+  }
+
+  .service-account-box code {
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    color: var(--text-primary);
+    word-break: break-all;
+  }
+
+  .btn-copy-sa {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+  }
+
+  .btn-copy-sa:hover {
+    background: var(--bg-surface-elevated);
+    color: var(--primary-accent);
+  }
+
+  .btn-copy-sa :global(.copied-check) {
+    color: var(--status-success);
   }
 
   /* Footer */

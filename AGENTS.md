@@ -62,6 +62,25 @@ Keep pull requests focused. Include a short summary, tests/evals run, linked
 issue when applicable, and screenshots for visible frontend changes. Call out
 changes to prompts, manifests, baselines, or held-out eval data explicitly.
 
+## Agent Visual Identity & Iconography Standards (Mandatory)
+
+Whenever rendering agents in UI components (catalog cards, active chat avatars, execution badges, modals, graph views, and logs), you MUST strictly use the canonical Lucide icons and colors defined below. NEVER substitute with generic sparkles or placeholder icons:
+
+| Agent ID | Display Name | Lucide Icon | Accent Color Token | Domain & Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `root_agent` | **Main** | `Layers` | `--agent-root` (`#4285F4`) | Root Orchestrator & Multi-agent Router |
+| `receipt_scanner` | **Receipt Scanner** | `Receipt` | `--agent-receipt` (`#34A853`) | Receipt OCR, Banking FX, Google Docs |
+| `video_editor` | **Live Video Editor** | `Video` | `--agent-video` (`#FBBC04`) | Face Detection, 9:16 Outpainting, Omni Videos |
+| `linkedin_post_generator` | **LinkedIn Planner** | `Share2` | `--agent-linkedin` (`#0A66C2`) | Speaker Announcements & Recap Posts |
+| `registration_manager` | **Registrations Manager** | `Users` | `--agent-registration` (`#A142F4`) | Participant Roster Clean & Partitioning |
+| `event_planner` | **Event Scheduler** | `Calendar` | `--agent-planner` (`#EA4335`) | Polish Holidays & Tech Meetup Calendars |
+| `agenda_generator` | **Agenda Formatter** | `Clock` | `--agent-agenda` (`#24C1E0`) | Event Agendas & Minute-level Timelines |
+| `office_secretary` | **Office Secretary** | `Mail` | `--agent-office` (`#FA7B17`) | Visitor Key Access & Room Reservation Emails |
+
+### Iconography & Emoji Rule (Mandatory)
+- **NO Raw Emoji in UI**: Never use standard/raw emoji characters (e.g. `⚙️`, `🚀`, `🧾`, `📸`, `📊`, `📑`, `💡`) in UI components, buttons, dropzones, chips, cards, dialogs, or headers.
+- **Lucide Icons Exclusively**: Always use vector SVG icons from `@lucide/svelte` with semantic sizing (`14px`, `16px`, `18px`, `20px`, `24px`) and theme color tokens.
+
 ## AI Skills & Agent Workflows
 
 Manage agent skills via [skills.sh](https://skills.sh/) (`npx skills`). Store `skills-lock.json` in the repository root instead of committing local skill markdown files for public sources. Restore installed skills using:

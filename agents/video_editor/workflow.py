@@ -498,6 +498,7 @@ def generate_video_from_image_node(ctx: Context) -> None:
     video_path = media_tools.animate_photo(
         photo_path=str(ctx.state["temp:outpainted_image_path"]),
         creative_prompt=str(ctx.state["temp:creative_prompt"]),
+        tool_context=ctx,
     )
     resolved_media = ResolvedMedia.model_validate(ctx.state["temp:resolved_media"])
     ctx.state["temp:prepared_media"] = PreparedMedia(
@@ -549,7 +550,7 @@ def update_composer_node(ctx: Context) -> None:
 
 @node(name="render_outputs")
 def render_outputs_node(ctx: Context) -> None:
-    summary = composer_tools.render_composer()
+    summary = composer_tools.render_composer(tool_context=ctx)
     ctx.state["temp:render_result"] = RenderResult(
         status="completed",
         assets=_collect_assets_from_summary(summary),

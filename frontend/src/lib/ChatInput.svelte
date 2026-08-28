@@ -1,9 +1,10 @@
 <script>
   import { 
     Plus, 
-    Sparkles, 
+    Square, 
     ArrowRight, 
-    FileText 
+    FileText,
+    AlertCircle
   } from '@lucide/svelte';
   import { MAX_INPUT_TOKENS } from './constants.js';
 
@@ -12,13 +13,19 @@
     stagedFiles = $bindable([]),
     isLoading = false,
     textareaElement = $bindable(),
-    onSend = () => {}
+    onSend = () => {},
+    onStop = () => {}
   } = $props();
 
   const currentTokens = $derived(Math.ceil((queryText || '').length * 0.25));
   const isTokenLimitExceeded = $derived(currentTokens > MAX_INPUT_TOKENS);
 
   function handleKeyPress(e) {
+    if (e.key === 'Escape' && isLoading) {
+      e.preventDefault();
+      onStop();
+      return;
+    }
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
       e.preventDefault();
       if (isLoading || (!queryText.trim() && stagedFiles.length === 0) || isTokenLimitExceeded) {
@@ -106,7 +113,7 @@
         target.style.height = 'auto';
         target.style.height = (target.scrollHeight) + 'px';
       }}
-      placeholder="Type your prompt here, or press Ctrl+Enter to execute..."
+      placeholder={isLoading ? "Generating response... Click stop button or press Esc to cancel" : "Type your prompt here, or press Ctrl+Enter to execute..."}
       rows="1"
       disabled={isLoading}
     ></textarea>
@@ -115,7 +122,12 @@
     <div class="prompt-meta-bottom">
       <div class="prompt-quick-tags">
         {#if isTokenLimitExceeded}
-          <span class="tag-hint tag-error">⚠️ Please trim your prompt below {MAX_INPUT_TOKENS.toLocaleString()} tokens</span>
+          <span class="tag-hint tag-error">
+            <AlertCircle size={12} class="tag-alert-icon" />
+            Please trim your prompt below {MAX_INPUT_TOKENS.toLocaleString()} tokens
+          </span>
+        {:else if isLoading}
+          <span class="tag-hint tag-running">Click stop or press Esc to cancel</span>
         {:else}
           <span class="tag-hint">Ctrl + ↵ to Run</span>
         {/if}
@@ -123,13 +135,14 @@
 
       <button 
         class="btn-run-gemini" 
-        onclick={onSend} 
-        disabled={isLoading || (!queryText.trim() && stagedFiles.length === 0) || isTokenLimitExceeded}
-        title="Send prompt (Ctrl+Enter)"
-        aria-label="Send prompt"
+        class:btn-stop-generating={isLoading}
+        onclick={isLoading ? onStop : onSend} 
+        disabled={!isLoading && ((!queryText.trim() && stagedFiles.length === 0) || isTokenLimitExceeded)}
+        title={isLoading ? "Stop generation (Esc)" : "Send prompt (Ctrl+Enter)"}
+        aria-label={isLoading ? "Stop generation" : "Send prompt"}
       >
         {#if isLoading}
-          <Sparkles size={17} strokeWidth={2} class="generating-sparkle" />
+          <Square size={13} fill="currentColor" strokeWidth={0} class="stop-square-icon" />
         {:else}
           <ArrowRight size={17} strokeWidth={2.2} class="run-arrow-icon" />
         {/if}
@@ -359,6 +372,15 @@
   .tag-error {
     color: var(--accent-red, #ea4335);
     font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .tag-running {
+    color: var(--accent-red, #ea4335);
+    font-weight: 500;
+    animation: promptChildFadeIn 0.2s ease;
   }
 
   .btn-run-gemini {
@@ -378,6 +400,7 @@
     transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
                 box-shadow 0.2s ease,
                 filter 0.2s ease,
+                background 0.2s ease,
                 opacity 0.2s ease;
     animation: promptBtnPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.18s both;
   }
@@ -406,8 +429,40 @@
     cursor: not-allowed;
   }
 
-  :global(.generating-sparkle) {
-    animation: spinSlow 3s linear infinite;
+  /* Stop Generation Mode (Red Square) */
+  .btn-run-gemini.btn-stop-generating {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    box-shadow: 0 2px 12px rgba(239, 68, 68, 0.45);
+    color: #ffffff;
+    opacity: 1;
+    cursor: pointer;
+    border-radius: var(--radius-md, 8px);
+  }
+
+  .btn-run-gemini.btn-stop-generating:hover {
+    filter: brightness(1.12);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.65);
+    transform: translateY(-1px) scale(1.08);
+  }
+
+  .btn-run-gemini.btn-stop-generating:active {
+    transform: translateY(0) scale(0.94);
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+  }
+
+  .btn-run-gemini :global(.stop-square-icon) {
+    animation: stopSquarePop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  @keyframes stopSquarePop {
+    0% {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
   }
 
   /* =========================================================================

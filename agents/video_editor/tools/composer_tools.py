@@ -6,6 +6,7 @@ import random
 import re
 import shutil
 import subprocess
+from typing import Any, Optional
 
 from PIL import Image, ImageDraw
 
@@ -248,7 +249,7 @@ def update_composer(
     return f"Successfully updated index.html with duration ({target_duration}s), colors (breaks: {break_color}, circle: {circle_color}, pill: {pill_color}, hexagon: {hexagon_color}, year: {current_year}) and video asset."
 
 
-def render_composer() -> str:
+def render_composer(tool_context: Optional[Any] = None) -> str:
     """Executes the HyperFrames compiler to render the updated composition into configured high-quality formats sequentially."""
     print("\n🚀 [Tool: render_composer] Starting sequential HyperFrames rendering pipeline...")
 
@@ -267,6 +268,29 @@ def render_composer() -> str:
         if os.getenv("RENDER_4K") is not None
         else RENDER_CONFIG["4k"]
     )
+
+    # Check session state overrides from user frontend settings
+    state = {}
+    if tool_context:
+        if hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
+            state = tool_context.state
+        elif hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
+            state = tool_context.session.state or {}
+
+    if "render_4k" in state or "render4k" in state:
+        val = state.get("render_4k") if "render_4k" in state else state.get("render4k")
+        if val is not None:
+            render_4k = bool(val)
+    if "render_gif" in state or "renderGif" in state:
+        val = state.get("render_gif") if "render_gif" in state else state.get("renderGif")
+        if val is not None:
+            render_gif = bool(val)
+    if "render_ordinary" in state or "renderOrdinary" in state:
+        val = state.get("render_ordinary") if "render_ordinary" in state else state.get("renderOrdinary")
+        if val is not None:
+            render_ordinary = bool(val)
+
+    print(f"⚙️  [Render Config] 4K: {render_4k}, GIF: {render_gif}, 1080p: {render_ordinary}")
 
     # 1. Block rendering if everything is turned off
     if not render_ordinary and not render_gif and not render_4k:

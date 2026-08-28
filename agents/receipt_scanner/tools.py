@@ -1,4 +1,6 @@
+import base64
 import datetime
+import io
 import json
 import mimetypes
 import os
@@ -23,16 +25,105 @@ except ImportError:
 
 try:
     from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload
+    from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
 except ImportError:
     build = None
     MediaFileUpload = None
+    MediaIoBaseUpload = None
 
 from agents.common.storage import upload_bytes_to_storage
 from agents.gemini_config import get_gemini_client
 
 from .docx_generator import generate_expense_report_docx
 from .utils import _auto_rotate_image, _pdf_to_png_screenshot
+
+
+def extract_google_drive_folder_id(raw_input: Optional[str]) -> Optional[str]:
+    """
+    Extracts and validates a Google Drive Folder ID from a raw ID or full Google Drive URL.
+    Supports URLs such as:
+      - https://drive.google.com/drive/folders/1aBcDeFgHiJkLmNoPqRsTuVwXyZ
+      - https://drive.google.com/drive/u/0/folders/1aBcDeFgHiJkLmNoPqRsTuVwXyZ?usp=sharing
+      - https://drive.google.com/open?id=1aBcDeFgHiJkLmNoPqRsTuVwXyZ
+      - Raw alphanumeric IDs (e.g. 1aBcDeFgHiJkLmNoPqRsTuVwXyZ)
+    """
+    if not raw_input or not str(raw_input).strip():
+        return None
+    val = str(raw_input).strip()
+
+    # If it's a full URL
+    if val.startswith("http://") or val.startswith("https://"):
+        # Match /folders/<id>
+        match = re.search(r"/folders/([a-zA-Z0-9_-]+)", val)
+        if match:
+            return match.group(1)
+        # Match ?id=<id> or &id=<id>
+        match_id = re.search(r"[?&]id=([a-zA-Z0-9_-]+)", val)
+        if match_id:
+            return match_id.group(1)
+        return None
+
+    # If raw ID, validate characters
+    if re.match(r"^[a-zA-Z0-9_-]{10,80}$", val):
+        return val
+    return None
+
+
+def extract_google_doc_id(raw_input: Optional[str]) -> Optional[str]:
+    """
+    Extracts and validates a Google Doc ID from a raw ID or full Google Docs URL.
+    Supports URLs such as:
+      - https://docs.google.com/document/d/1aBcDeFgHiJkLmNoPqRsTuVwXyZ/edit
+      - https://docs.google.com/open?id=1aBcDeFgHiJkLmNoPqRsTuVwXyZ
+      - Raw alphanumeric IDs (e.g. 1aBcDeFgHiJkLmNoPqRsTuVwXyZ)
+    """
+    if not raw_input or not str(raw_input).strip():
+        return None
+    val = str(raw_input).strip()
+
+    if val.startswith("http://") or val.startswith("https://"):
+        match = re.search(r"/document/d/([a-zA-Z0-9_-]+)", val)
+        if match:
+            return match.group(1)
+        match_id = re.search(r"[?&]id=([a-zA-Z0-9_-]+)", val)
+        if match_id:
+            return match_id.group(1)
+        return None
+
+    if re.match(r"^[a-zA-Z0-9_-]{10,80}$", val):
+        return val
+    return None
+
+
+def _extract_text_from_gdoc(doc_struct: dict) -> str:
+    """Extracts all raw text content from a Google Docs document structure."""
+    chunks = []
+
+    def _recurse(node):
+        if isinstance(node, dict):
+            if "content" in node and isinstance(node["content"], str):
+                chunks.append(node["content"])
+            for v in node.values():
+                _recurse(v)
+        elif isinstance(node, list):
+            for item in node:
+                _recurse(item)
+
+    _recurse(doc_struct.get("body", {}))
+    return "".join(chunks)
+
+
+REQUIRED_TEMPLATE_TAGS = [
+    "{{TITLE}}",
+    "{{Current date}}",
+    "{{TOTAL SUM CURR}}",
+    "{{TOTAL SUM EUR/USD}}",
+    "{{Category}}",
+    "{{Desc}}",
+    "{{SUM CURR}}",
+    "{{SUM EUR/USD}}",
+]
+
 
 # ---------------------------------------------------------------------------
 # Tool: get_usd_pln_rate
@@ -580,13 +671,259 @@ def export_summary_to_google_doc(
                         if getattr(part, "inline_data", None) and getattr(part.inline_data, "data", None):
                             session_images.append(part.inline_data.data)
 
+        # Resolve target Google Drive folder (optional)
+        target_folder = folder_id
+        if not target_folder and tool_context and hasattr(tool_context, "session") and tool_context.session:
+            target_folder = tool_context.session.state.get("google_drive_folder_id") or tool_context.session.state.get(
+                "drive_folder_id"
+            )
+        if not target_folder:
+            target_folder = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+        target_folder = extract_google_drive_folder_id(target_folder)
+
+        # Attempt native Google Docs API creation first
+        google_doc_url = None
+        google_doc_id = None
+        try:
+            scopes = [
+                "https://www.googleapis.com/auth/documents",
+                "https://www.googleapis.com/auth/drive",
+                "https://www.googleapis.com/auth/drive.file",
+            ]
+            sa_file = None
+            for p in [
+                project_root / "configs" / "service_account.json",
+                project_root / "service_account.json",
+                Path.cwd() / "configs" / "service_account.json",
+                Path.cwd() / "service_account.json",
+                agent_dir / "service_account.json",
+            ]:
+                if p.exists():
+                    sa_file = p
+                    break
+
+            client_secrets_file = None
+            for p in [
+                project_root / "configs" / "credentials.json",
+                project_root / "credentials.json",
+                Path.cwd() / "configs" / "credentials.json",
+                Path.cwd() / "credentials.json",
+                agent_dir / "credentials.json",
+            ]:
+                if p.exists():
+                    client_secrets_file = p
+                    break
+
+            credentials = None
+            token_path = project_root / "configs" / "token.json"
+            if not token_path.exists() and (project_root / "token.json").exists():
+                token_path = project_root / "token.json"
+
+            if token_path.exists():
+                try:
+                    credentials = Credentials.from_authorized_user_file(str(token_path), scopes)
+                    if credentials and credentials.expired and credentials.refresh_token:
+                        credentials.refresh(Request())
+                        with open(token_path, "w") as token:
+                            token.write(credentials.to_json())
+                except Exception as load_err:
+                    print(f"Notice: Google Docs OAuth token refresh: {load_err}")
+                    credentials = None
+
+            if not credentials and sa_file:
+                credentials = service_account.Credentials.from_service_account_file(str(sa_file), scopes=scopes)
+            elif not credentials:
+                credentials, _ = google.auth.default(scopes=scopes)
+
+            if credentials and credentials.valid:
+                docs_service = build("docs", "v1", credentials=credentials)
+                drive_service = build("drive", "v3", credentials=credentials)
+
+                if not target_folder:
+                    target_folder = extract_google_drive_folder_id(folder_id or os.getenv("GOOGLE_DRIVE_FOLDER_ID"))
+                active_template = template_id
+                if not active_template and tool_context and hasattr(tool_context, "session") and tool_context.session:
+                    active_template = tool_context.session.state.get(
+                        "google_docs_template_id"
+                    ) or tool_context.session.state.get("template_id")
+                if not active_template:
+                    active_template = os.getenv("GOOGLE_DOCS_TEMPLATE_ID")
+                if not active_template:
+                    gdoc_path = agent_dir / "assets" / "Expense_report_template.gdoc"
+                    if gdoc_path.exists():
+                        with open(gdoc_path, "r") as f:
+                            active_template = json.load(f).get("doc_id")
+                if not active_template:
+                    active_template = "1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw"
+
+                timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                safe_base_title = re.sub(r"[^a-zA-Z0-9_\-]", "_", title).strip("_") or "Expense_Report"
+                if timestamp_str not in safe_base_title:
+                    doc_title = f"{safe_base_title}_{timestamp_str}"
+                else:
+                    doc_title = safe_base_title
+
+                copy_body = {"name": doc_title}
+                if target_folder:
+                    copy_body["parents"] = [target_folder]
+
+                new_file = (
+                    drive_service.files().copy(fileId=active_template, body=copy_body, supportsAllDrives=True).execute()
+                )
+                google_doc_id = new_file.get("id")
+                google_doc_url = f"https://docs.google.com/document/d/{google_doc_id}/edit"
+
+                # Validate required placeholders in the copied document
+                try:
+                    initial_doc = docs_service.documents().get(documentId=google_doc_id).execute()
+                    initial_text = _extract_text_from_gdoc(initial_doc)
+                    missing_tags = [tag for tag in REQUIRED_TEMPLATE_TAGS if tag not in initial_text]
+                    if missing_tags:
+                        print(
+                            f"⚠️ [Template Validation Warning] Template {active_template} is missing required tags: {', '.join(missing_tags)}"
+                        )
+                    else:
+                        print(
+                            f"✅ [Template Validation] All required template tags verified in template {active_template}"
+                        )
+                except Exception as val_err:
+                    print(f"Notice: Template tag pre-check: {val_err}")
+
+                try:
+                    drive_service.permissions().create(
+                        fileId=google_doc_id,
+                        body={"type": "anyone", "role": "writer"},
+                        fields="id",
+                        supportsAllDrives=True,
+                    ).execute()
+                except Exception as perm_err:
+                    print(f"Notice: Public link permission creation: {perm_err}")
+
+                today_str = datetime.date.today().strftime("%d.%m.%Y")
+                total_curr_str, total_target_str = calculate_receipt_totals(receipts_data, target_currency)
+
+                # Upload receipt proof images to Google Drive alongside the doc and embed into Google Doc
+                uploaded_proof_ids = []
+                for idx, raw_img in enumerate(session_images):
+                    try:
+                        img_b = raw_img
+                        if isinstance(img_b, str):
+                            if os.path.exists(img_b):
+                                with open(img_b, "rb") as f:
+                                    img_b = f.read()
+                            elif img_b.startswith("data:") and "," in img_b:
+                                img_b = base64.b64decode(img_b.split(",", 1)[1])
+                            else:
+                                img_b = base64.b64decode(img_b)
+
+                        if (
+                            img_b
+                            and isinstance(img_b, (bytes, bytearray))
+                            and len(img_b) > 10
+                            and drive_service
+                            and MediaIoBaseUpload
+                        ):
+                            media_img = MediaIoBaseUpload(io.BytesIO(img_b), mimetype="image/jpeg", resumable=True)
+                            img_drive_body = {"name": f"Receipt_{idx + 1}.jpg"}
+                            if target_folder:
+                                img_drive_body["parents"] = [target_folder]
+                            uploaded_img = (
+                                drive_service.files()
+                                .create(
+                                    body=img_drive_body,
+                                    media_body=media_img,
+                                    fields="id, webViewLink",
+                                    supportsAllDrives=True,
+                                )
+                                .execute()
+                            )
+                            proof_id = uploaded_img.get("id")
+                            if proof_id:
+                                try:
+                                    drive_service.permissions().create(
+                                        fileId=proof_id,
+                                        body={"type": "anyone", "role": "reader"},
+                                        supportsAllDrives=True,
+                                    ).execute()
+                                except Exception:
+                                    pass
+                                uploaded_proof_ids.append(proof_id)
+                    except Exception as upload_err:
+                        print(f"⚠️ [Google Drive Proof Upload Notice] {upload_err}")
+
+                global_replaces = [
+                    ("{{TITLE}}", title),
+                    ("{{Current date}}", today_str),
+                    ("{{EUR/USD}}", target_currency),
+                    ("{{Current exchange rate}}", f"{rate_val:.4f}"),
+                    ("{{Local Currency Code}}", local_curr_code),
+                    ("{{TOTAL SUM CURR}}", total_curr_str),
+                    ("{{TOTAL SUM EUR/USD}}", total_target_str),
+                    ("{{APPROVED}}", approved_budget or ""),
+                    ("{{Bank link}}", rate_url or (f"({rate_source_name})" if rate_source_name != "N/A" else "")),
+                    ("{{PROOFS}}", ""),
+                ]
+                if receipts_data:
+                    global_replaces.extend(
+                        [
+                            ("{{Category}}", receipts_data[0].get("category", "")),
+                            ("{{Desc}}", receipts_data[0].get("desc", "Expense")),
+                            ("{{SUM CURR}}", receipts_data[0].get("sum_curr", "")),
+                            ("{{SUM EUR/USD}}", receipts_data[0].get("sum_target", "")),
+                        ]
+                    )
+
+                gdoc_requests = [
+                    {"replaceAllText": {"containsText": {"text": k, "matchCase": True}, "replaceText": v}}
+                    for k, v in global_replaces
+                ]
+                docs_service.documents().batchUpdate(
+                    documentId=google_doc_id, body={"requests": gdoc_requests}
+                ).execute()
+                print(f"✅ [Google Docs API] Successfully populated text: {google_doc_url}")
+
+                # Directly embed inline images into the Google Doc
+                for idx, proof_id in enumerate(uploaded_proof_ids):
+                    try:
+                        # Direct Google Drive CDN thumbnail / content URI
+                        image_uri = f"https://lh3.googleusercontent.com/d/{proof_id}"
+                        image_req = {
+                            "insertInlineImage": {
+                                "endOfSegmentLocation": {},
+                                "uri": image_uri,
+                                "objectSize": {
+                                    "width": {"magnitude": 450, "unit": "PT"},
+                                    "height": {"magnitude": 300, "unit": "PT"},
+                                },
+                            }
+                        }
+                        docs_service.documents().batchUpdate(
+                            documentId=google_doc_id, body={"requests": [image_req]}
+                        ).execute()
+                        print(f"✅ [Google Docs API] Embedded inline proof image #{idx + 1} directly into doc.")
+                    except Exception as embed_err:
+                        print(f"⚠️ [Google Docs Image Embed Notice] {embed_err}")
+                        try:
+                            fallback_uri = f"https://drive.google.com/uc?export=download&id={proof_id}"
+                            docs_service.documents().batchUpdate(
+                                documentId=google_doc_id,
+                                body={
+                                    "requests": [
+                                        {"insertInlineImage": {"endOfSegmentLocation": {}, "uri": fallback_uri}}
+                                    ]
+                                },
+                            ).execute()
+                            print(f"✅ [Google Docs API] Embedded inline proof image #{idx + 1} using fallback URI.")
+                        except Exception as fb_err:
+                            print(f"⚠️ [Google Docs Image Fallback Notice] {fb_err}")
+        except Exception as gdoc_err:
+            print(f"⚠️ [Google Docs API Notice] Could not create cloud Google Doc ({gdoc_err}). Using .docx fallback.")
+
         # Generate DOCX document bytes
         results_dir = agent_dir / "results"
         results_dir.mkdir(parents=True, exist_ok=True)
 
-        safe_title = re.sub(r"[^a-zA-Z0-9_\-]", "_", title).strip("_") or "Expense_Report"
-        timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        docx_filename = f"{safe_title}_{timestamp_str}.docx"
+        docx_filename = f"{doc_title}.docx"
         local_docx_path = str(results_dir / docx_filename)
 
         community_name = os.getenv("COMMUNITY_NAME", "Community")
@@ -629,26 +966,31 @@ def export_summary_to_google_doc(
                 csv_content = "\n".join(csv_lines).encode("utf-8")
                 cloud_csv_url = upload_bytes_to_storage(
                     data=csv_content,
-                    destination_blob_name=f"reports/{safe_title}_{timestamp_str}.csv",
+                    destination_blob_name=f"reports/{doc_title}.csv",
                     content_type="text/csv",
                 )
             except Exception as storage_err:
                 print(f"⚠️ [Cloud Storage Notice] {storage_err}")
 
-        primary_url = cloud_docx_url or f"/results/{docx_filename}"
+        primary_url = google_doc_url or cloud_docx_url or f"/results/{docx_filename}"
 
         return {
             "success": True,
             "file_name": docx_filename,
-            "document_id": docx_filename,
+            "document_id": google_doc_id or docx_filename,
             "document_url": primary_url,
-            "docx_url": primary_url,
-            "download_url": primary_url,
+            "google_doc_url": google_doc_url,
+            "docx_url": cloud_docx_url or f"/results/{docx_filename}",
+            "download_url": cloud_docx_url or f"/results/{docx_filename}",
             "storage_file_url": cloud_csv_url,
             "target_currency": target_currency,
             "exchange_rate": rate_val,
             "receipts_count": len(receipts_data or []),
-            "message": f"Successfully generated Expense Reimbursement DOCX report: [{docx_filename}]({primary_url})",
+            "message": (
+                f"Successfully generated Expense Reimbursement report in Google Docs: [{title}]({google_doc_url})"
+                if google_doc_url
+                else f"Successfully generated Expense Reimbursement report: [{docx_filename}]({primary_url})"
+            ),
         }
 
     except Exception as e:

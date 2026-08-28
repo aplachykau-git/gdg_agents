@@ -11,9 +11,263 @@ export const DEFAULT_APPS = [
   { name: 'office_secretary', root_agent_name: 'Office Secretary' }
 ];
 
+export const DEFAULT_TEMPLATE_ID = '1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw';
+export const DEFAULT_TEMPLATE_URL = `https://docs.google.com/document/d/${DEFAULT_TEMPLATE_ID}/edit`;
+
 export const DEFAULT_CONFIG = {
-  communityName: 'GDG Krakow'
+  communityName: 'GDG Krakow',
+  googleDriveFolderId: '',
+  googleDocsTemplateId: '',
+  serviceAccountEmail: 'receipt-docs-bot@gdg-agents-6b59a.iam.gserviceaccount.com',
+  // Video Editor rendering toggles
+  render4k: true,
+  renderGif: true,
+  generateAvatar: true,
+  enableVideoGeneration: false
 };
+
+export const AGENT_CAPABILITIES_CATALOG = [
+  {
+    id: 'root_agent',
+    name: 'Main',
+    tag: 'Primary Coordinator',
+    accent: 'var(--agent-root)',
+    bg: 'var(--bg-root)',
+    icon: 'layers',
+    summary: 'Your primary AI assistant for community management. Understands plain-language requests, answers general questions, and coordinates specialized agents to handle multi-step tasks across finances, media, marketing, and event planning.',
+    whatItDoes: 'Directs your requests to the right specialist agent, merges multi-step outputs, and assists with all general community organization tasks.',
+    whenToUse: [
+      'When you have a multi-step request (e.g. process receipts AND draft an announcement).',
+      'When you are unsure which specialized agent is best suited for your task.',
+      'For general questions about event planning, GDG guidelines, or community logistics.'
+    ],
+    starterPrompts: [
+      'Here is a receipt from yesterday\'s meetup dinner — calculate expenses and prepare a report for reimbursement',
+      'Help me organize our next AI meetup: find a conflict-free date in November and format an agenda starting at 17:30',
+      'Create a 9:16 speaker intro video for Anna Kowalska and draft a LinkedIn announcement with registration link'
+    ]
+  },
+  {
+    id: 'receipt_scanner',
+    name: 'Receipt Scanner',
+    tag: 'Expenses & Finance',
+    accent: 'var(--agent-receipt)',
+    bg: 'var(--bg-receipt)',
+    icon: 'receipt',
+    summary: 'Automates expense reimbursements and financial tracking. Reads attached receipts or invoices, calculates currency conversions to PLN using live official bank rates, and creates ready-to-share Google Docs expense reports in your Google Drive.',
+    whatItDoes: 'Extracts line items, dates, and amounts from receipt photos/PDFs, converts USD/EUR to PLN with live rates, and generates Google Docs reports.',
+    whenToUse: [
+      'Processing receipts for pizza, catering, equipment, venue rental, or travel expenses.',
+      'Checking current official USD/PLN and EUR/PLN exchange rates from the National Bank of Poland.',
+      'Compiling formatted expense summaries for sponsors, community leads, or accounting.'
+    ],
+    starterPrompts: [
+      'I attached a photo of our catering invoice ($145.50). Extract line items, convert to PLN with today\'s bank rate, and create a Google Doc report',
+      'What is today\'s official NBP banking exchange rate for USD/PLN and EUR/PLN?',
+      'Scan this receipt for event badges (350 PLN) and export an expense report to our Google Drive folder'
+    ]
+  },
+  {
+    id: 'video_editor',
+    name: 'Live Video Editor',
+    tag: 'Speaker Video & Cards',
+    accent: 'var(--agent-video)',
+    bg: 'var(--bg-video)',
+    icon: 'video',
+    summary: 'Generates branded video intros and presentation cards from speaker photos. Automatically centers portraits, expands them to a 9:16 vertical video with dynamic AI animated backgrounds, and renders 1080p MP4 videos, animated GIFs, and high-res posters.',
+    whatItDoes: 'Transforms portrait photos into vertical 9:16 video cards and posters with speaker names, titles, and animated backgrounds.',
+    whenToUse: [
+      'Creating vertical video teasers for Instagram Reels, YouTube Shorts, or LinkedIn.',
+      'Generating animated intro cards to display on stage screens before a speaker talk.',
+      'Rendering high-resolution speaker announcement posters.'
+    ],
+    starterPrompts: [
+      'Create a 9:16 vertical speaker intro video for attached photo: John Doe, Staff Engineer at Google, Talk: "Building AI Agents"',
+      'Generate an animated speaker card with a dynamic neon tech background for Anna Kowalska, Lead Architect',
+      'Render a 1080p MP4 video, animated GIF, and poster card for our keynote speaker'
+    ]
+  },
+  {
+    id: 'linkedin_post_generator',
+    name: 'LinkedIn Planner',
+    tag: 'Social Media & Posts',
+    accent: 'var(--agent-linkedin)',
+    bg: 'var(--bg-linkedin)',
+    icon: 'share',
+    summary: 'Writes high-impact LinkedIn posts for tech meetups. Crafts engaging speaker spotlight announcements with key talk takeaways, event invitations with registration links, and generates multiple recap post options with hashtags after the event.',
+    whatItDoes: 'Drafts ready-to-publish LinkedIn announcements, registration reminders, and post-event recaps with tailored hashtags.',
+    whenToUse: [
+      'Announcing a new speaker, presentation topic, and key learning points.',
+      'Publishing last-chance registration reminders before seats run out.',
+      'Sharing 3 variations of post-event summaries (short highlights, technical recap, community conversational).'
+    ],
+    starterPrompts: [
+      'Draft an exciting speaker announcement for Alex River on "Agentic Workflows" with registration link https://gdg.community.dev/events/...',
+      'Generate 3 different recap post options with hashtags for our Cloud & AI meetup that finished yesterday with 65 attendees',
+      'Write a last-chance registration reminder post: only 15 seats left for this Thursday\'s meetup at Google Krakow'
+    ]
+  },
+  {
+    id: 'registration_manager',
+    name: 'Registrations Manager',
+    tag: 'Attendee Rosters',
+    accent: 'var(--agent-registration)',
+    bg: 'var(--bg-registration)',
+    icon: 'users',
+    summary: 'Cleans and organizes attendee registration lists from Meetup, Luma, Google Forms, or CSV/text files. Removes test registrations and duplicate names, partitions attendees by venue capacity into Confirmed and Waitlist groups, and generates clean DOCX check-in sheets.',
+    whatItDoes: 'Cleans dirty attendee lists, removes duplicates, splits guests by venue capacity, and exports printable Word check-in rosters.',
+    whenToUse: [
+      'Sanitizing registration CSV files or copied text before an event.',
+      'Splitting attendees when registrations exceed room capacity (e.g. venue limit 50).',
+      'Creating an alphabetized printable check-in roster for reception volunteers.'
+    ],
+    starterPrompts: [
+      'Here is our attendee CSV export. Venue capacity is 50 people. Clean duplicate names, remove test entries, and export confirmed/waitlist lists to DOCX',
+      'Check this pasted list of registrations, remove duplicate names, and sort everyone alphabetically by last name',
+      'Split our attendee list into 60 confirmed attendees and a waitlist, making sure organizers are protected in the confirmed list'
+    ]
+  },
+  {
+    id: 'event_planner',
+    name: 'Event Scheduler',
+    tag: 'Dates & Holidays',
+    accent: 'var(--agent-planner)',
+    bg: 'var(--bg-planner)',
+    icon: 'calendar',
+    summary: 'Finds conflict-free dates for community meetups and workshops. Checks Polish statutory public holidays, church holidays, long weekend bridge days (długie weekendy), and local Krakow tech calendars to recommend the best mid-week dates for high attendance.',
+    whatItDoes: 'Analyzes dates against Polish holidays, long weekends, and local tech events to recommend optimal days (Tue–Thu).',
+    whenToUse: [
+      'Picking the best date for next month\'s meetup to maximize attendance.',
+      'Checking if a specific date clashes with public holidays or competing IT conferences in Krakow.',
+      'Finding long weekend dates to avoid low-turnout days.'
+    ],
+    starterPrompts: [
+      'Find the best date for our next GDG meetup in November: recommend a Tuesday or Thursday without holiday conflicts or long weekends',
+      'Check if November 14 is a good date for a meetup in Krakow: are there any holiday collisions or competing tech events?',
+      'List all Polish public holidays and long weekends for next quarter so we can plan our event calendar'
+    ]
+  },
+  {
+    id: 'agenda_generator',
+    name: 'Agenda Formatter',
+    tag: 'Event Agendas',
+    accent: 'var(--agent-agenda)',
+    bg: 'var(--bg-agenda)',
+    icon: 'clock',
+    summary: 'Calculates minute-level event timelines for tech meetups and workshops. You provide the start time (e.g. 17:30) and list of talks — the agent calculates exact timestamps, allocates time for welcome remarks, speaker sessions, Q&A, and pizza networking breaks.',
+    whatItDoes: 'Calculates exact start and end times for all agenda items, talks, Q&A sessions, and networking breaks.',
+    whenToUse: [
+      'Creating a clear, professional schedule for event landing pages and slides.',
+      'Planning talk durations, Q&A time, and networking breaks so the event finishes on time.',
+      'Reformatting an agenda when talk lengths or speaker counts change.'
+    ],
+    starterPrompts: [
+      'Format an event agenda starting at 17:30 with welcome (10m), 2 talks (30m each with 10m Q&A), a 20m pizza break, and networking until 20:30',
+      'Create a 3-hour workshop schedule starting at 18:00 with 3 hands-on modules and a 15-minute coffee pause',
+      'Format a Lightning Talks schedule starting at 18:30 with five 10-minute slots and closing remarks'
+    ]
+  },
+  {
+    id: 'office_secretary',
+    name: 'Office Secretary',
+    tag: 'Access & Logistics',
+    accent: 'var(--agent-office)',
+    bg: 'var(--bg-office)',
+    icon: 'mail',
+    summary: 'Drafts formal, polite administrative emails for venue access and room reservations. Prepares building security visitor key requests and Event Hub reservation drafts, with one-click buttons to open pre-filled emails directly in Gmail or your default email client.',
+    whatItDoes: 'Writes visitor security key access requests and room booking emails with 1-click launch in Gmail and mailto.',
+    whenToUse: [
+      'Requesting visitor keys and access badges from building security for upcoming events.',
+      'Booking the Event Hub or meeting rooms with date, time, and attendee count details.',
+      'Notifying building reception about external guest speakers arriving.'
+    ],
+    starterPrompts: [
+      'Draft a visitor keys access request email to building security for next Tuesday\'s meetup from 17:30 to 21:00 for 50 attendees',
+      'Prepare an Event Hub room reservation email to facility management for October 24 (17:00 - 21:30)',
+      'Draft a security access notification for 2 external guest speakers arriving at 17:00 this Thursday'
+    ]
+  }
+];
+
+export function extractDriveFolderId(input) {
+  if (!input || typeof input !== 'string') return '';
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+
+  // Extract from /folders/<id>
+  const folderMatch = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (folderMatch) return folderMatch[1];
+
+  // Extract from ?id=<id> or &id=<id>
+  const idParamMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idParamMatch) return idParamMatch[1];
+
+  return trimmed;
+}
+
+export function validateDriveFolderInput(input) {
+  if (!input || typeof input !== 'string') return { valid: true, folderId: '', error: '' };
+  const trimmed = input.trim();
+  if (!trimmed) return { valid: true, folderId: '', error: '' };
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (!trimmed.includes('drive.google.com') && !trimmed.includes('docs.google.com')) {
+      return { valid: false, folderId: '', error: 'Only Google Drive links (drive.google.com) or folder IDs are supported.' };
+    }
+    const extracted = extractDriveFolderId(trimmed);
+    if (!extracted || extracted === trimmed || !/^[a-zA-Z0-9_-]{10,80}$/.test(extracted)) {
+      return { valid: false, folderId: '', error: 'Could not find a valid Google Drive folder ID in the URL.' };
+    }
+    return { valid: true, folderId: extracted, error: '' };
+  }
+
+  // Raw ID check
+  if (!/^[a-zA-Z0-9_-]{10,80}$/.test(trimmed)) {
+    return { valid: false, folderId: '', error: 'Invalid Google Drive folder ID format.' };
+  }
+
+  return { valid: true, folderId: trimmed, error: '' };
+}
+
+export function extractGoogleDocId(input) {
+  if (!input || typeof input !== 'string') return '';
+  const trimmed = input.trim();
+  if (!trimmed) return '';
+
+  // Extract from /document/d/<id>
+  const docMatch = trimmed.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+  if (docMatch) return docMatch[1];
+
+  // Extract from ?id=<id> or &id=<id>
+  const idParamMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idParamMatch) return idParamMatch[1];
+
+  return trimmed;
+}
+
+export function validateGoogleDocTemplateInput(input) {
+  if (!input || typeof input !== 'string') return { valid: true, docId: '', error: '' };
+  const trimmed = input.trim();
+  if (!trimmed) return { valid: true, docId: '', error: '' };
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (!trimmed.includes('docs.google.com')) {
+      return { valid: false, docId: '', error: 'Only Google Docs links (docs.google.com/document/d/...) or Doc IDs are supported.' };
+    }
+    const extracted = extractGoogleDocId(trimmed);
+    if (!extracted || extracted === trimmed || !/^[a-zA-Z0-9_-]{10,80}$/.test(extracted)) {
+      return { valid: false, docId: '', error: 'Could not find a valid Google Doc ID in the URL.' };
+    }
+    return { valid: true, docId: extracted, error: '' };
+  }
+
+  // Raw ID check
+  if (!/^[a-zA-Z0-9_-]{10,80}$/.test(trimmed)) {
+    return { valid: false, docId: '', error: 'Invalid Google Doc ID format.' };
+  }
+
+  return { valid: true, docId: trimmed, error: '' };
+}
 
 export function getAppConfig() {
   if (typeof window === 'undefined') return DEFAULT_CONFIG;
@@ -76,31 +330,31 @@ export function getAgentHeading(agentId) {
 }
 
 export function getAgentDescription(agentId) {
-  if (!agentId) return 'Root coordinator agent for Community Studio.';
+  if (!agentId) return 'Root coordinator agent for Community AI Studio.';
   const clean = cleanAuthorName(agentId).toLowerCase();
   if (clean.includes('root') || clean === 'main' || clean.includes('orchestrator')) {
-    return 'Parses your requests, coordinates sub-agents, and automates community tasks across finance, media, marketing, and scheduling.';
+    return 'Coordinates tasks across agents and answers questions for your community events.';
   }
   if (clean.includes('receipt')) {
-    return 'Extracts line items from receipts, queries live banking exchange rates, and exports expense reports.';
+    return 'Scans receipts, checks live bank exchange rates, and creates expense reports in Google Drive.';
   }
   if (clean.includes('video') || clean.includes('avatar')) {
-    return 'Performs face landmark detection, 9:16 outpainting, and generates cinematic speaker intro videos with Veo.';
+    return 'Turns speaker portrait photos into animated video intros and speaker cards.';
   }
   if (clean.includes('linkedin')) {
-    return 'Drafts promotional posts, speaker spotlights, and multi-option event recap posts with hashtags.';
+    return 'Writes engaging speaker announcements, event invitations, and post-event recaps with hashtags.';
   }
   if (clean.includes('registration')) {
-    return 'Cleans participant rosters, deduplicates names, partitions confirmed vs waitlisted attendees, and exports DOCX.';
+    return 'Cleans attendee lists, removes duplicates, and organizes confirmed and waitlisted guests.';
   }
   if (clean.includes('planner')) {
-    return 'Cross-references Polish holidays, tech calendars, and long weekends to avoid meetup collisions.';
+    return 'Scans meetup calendars and holidays to find the best dates for community events.';
   }
   if (clean.includes('agenda')) {
-    return 'Calculates minute-level event schedules with networking and speaker sessions formatted for easy sharing.';
+    return 'Creates structured event schedules with talks, networking sessions, and break times.';
   }
   if (clean.includes('office') || clean.includes('secretary')) {
-    return 'Generates polite visitor key access and room reservation requests with strict date validation.';
+    return 'Prepares building visitor access requests and meeting room reservation emails.';
   }
   return 'Ready to assist with your community tasks.';
 }
@@ -115,7 +369,7 @@ export function getAgentStarterPrompts(agentId) {
       { icon: 'megaphone', text: 'Draft LinkedIn speaker spotlight announcement', prompt: 'Draft LinkedIn speaker spotlight announcement' },
       { icon: 'calendar', text: 'Find optimal meetup date next month without collisions', prompt: 'Find optimal meetup date next month without collisions' },
       { icon: 'users', text: 'Clean registration CSV and partition attendees by capacity', prompt: 'Clean registration CSV and partition attendees by capacity' },
-      { icon: 'clock', text: 'Format event agenda starting at 17:30 with 2 talks', prompt: 'Format event agenda starting at 17:30 with 2 talks' },
+      { icon: 'clock', text: 'Format event agenda with 2 speaker talks and networking', prompt: 'Format event agenda with 2 speaker talks and networking' },
       { icon: 'mail', text: 'Draft office keys access and Event Hub reservation email', prompt: 'Draft office keys access and Event Hub reservation email' }
     ];
   }
@@ -127,8 +381,8 @@ export function getAgentStarterPrompts(agentId) {
   }
   if (clean.includes('video') || clean.includes('avatar')) {
     return [
-      { icon: 'video', text: 'Generate 9:16 speaker intro video with Veo', prompt: 'Generate 9:16 speaker intro video with Veo' },
-      { icon: 'image', text: 'Outpaint portrait photo and render animated card composition', prompt: 'Outpaint portrait photo and render animated card composition' }
+      { icon: 'video', text: 'Generate speaker intro video with Omni', prompt: 'Generate speaker intro video with Omni' },
+      { icon: 'image', text: 'Enhance portrait photo and render animated speaker card', prompt: 'Enhance portrait photo and render animated speaker card' }
     ];
   }
   if (clean.includes('linkedin')) {
@@ -151,7 +405,7 @@ export function getAgentStarterPrompts(agentId) {
   }
   if (clean.includes('agenda')) {
     return [
-      { icon: 'clock', text: 'Format agenda starting at 17:30 with 3 speaker talks and networking', prompt: 'Format agenda starting at 17:30 with 3 speaker talks and networking' }
+      { icon: 'clock', text: 'Format agenda with 3 speaker talks and networking', prompt: 'Format agenda with 3 speaker talks and networking' }
     ];
   }
   if (clean.includes('office') || clean.includes('secretary')) {
@@ -368,45 +622,35 @@ export const STATUS_TICKERS = {
     'Generating Docs Expense Report...'
   ],
   video_editor: [
-    'Staging uploaded photo/video in workspace assets...',
-    'Validating speaker metadata & text limits...',
-    'Analyzing portrait facial landmarks...',
-    'Executing AI Outpainting to 9:16 vertical canvas...',
-    'Generating Veo cinematic background video animation...',
-    'Injecting speaker typography into HyperFrames composition...',
-    'Launching headless Chromium rendering pipeline...',
-    'Compiling 1080p MP4 video & stripping audio tracks...',
-    'Encoding high-framerate animated GIF...',
-    'Extracting high-resolution card poster...',
-    'Uploading generated assets to Google Cloud Storage...'
+    'Staging uploaded photo in workspace assets...',
+    'Validating speaker details...',
+    'Analyzing portrait photo...',
+    'Generating animated background video with Omni...',
+    'Composing speaker video card...',
+    'Rendering animated video card and preview poster...',
+    'Saving generated assets...'
   ],
   registration_manager: [
     'Scanning participant registration list...',
-    'Fetching organizers database...',
-    'Performing phonetic fuzzy name matching...',
-    'Filtering test and corrupt registrations...',
-    'Sorting multilingual lists alphabetically...',
-    'Compiling clean DOCX registration document...'
+    'Filtering test and duplicate registrations...',
+    'Sorting attendees alphabetically...',
+    'Organizing attendance roster...'
   ],
   event_planner: [
-    'Searching local Luma AI meetup calendar...',
-    'Scanning Meetup.com for local tech conflicts...',
-    'Checking statutory public holidays...',
-    'Identifying long holiday weekends...',
-    'Recommending optimal mid-week dates (Tue-Thu)...'
+    'Checking meetup calendars...',
+    'Checking public holidays and long weekends...',
+    'Finding optimal dates for meetup...'
   ],
   agenda_generator: [
-    'Calculating timeline starting at 17:30...',
+    'Calculating event timeline...',
     'Formatting speaker session durations...',
-    'Integrating coffee breaks and pizza pauses...',
-    'Rounding timeline boundary finish times...',
-    'Generating copy-pasteable English summary...'
+    'Adding networking and break times...',
+    'Generating clean schedule summary...'
   ],
   office_secretary: [
-    'Checking request type...',
-    'Validating mandatory date presence...',
-    'Formulating polite visitor keys request...',
-    'Composing Hub reservation email draft...'
+    'Validating event details...',
+    'Composing visitor access request...',
+    'Drafting room reservation email...'
   ]
 };
 
@@ -414,22 +658,22 @@ export function getFriendlyToolCall(name, args) {
   if (name === 'transfer_to_agent' || name === 'transferToAgent') {
     const target = args?.agent_name || args?.target_agent || args?.agentName || '';
     const theme = getAgentTheme(target);
-    return `🔄 Delegating task to ${theme.label || 'specialized sub-agent'}...`;
+    return `Delegating task to ${theme.label || 'specialized sub-agent'}...`;
   }
 
   const mappings = {
-    transfer_to_video_editor: () => "🔄 Delegating task to Live Video Editor (A2A)...",
-    transfer_to_receipt_scanner: () => "🔄 Delegating task to Receipt Scanner (A2A)...",
-    transfer_to_linkedin_post_generator: () => "🔄 Delegating task to LinkedIn Planner...",
-    transfer_to_event_planner: () => "🔄 Delegating task to Event Scheduler...",
-    transfer_to_registration_manager: () => "🔄 Delegating task to Registrations Manager...",
-    transfer_to_agenda_generator: () => "🔄 Delegating task to Agenda Formatter...",
-    transfer_to_office_secretary: () => "🔄 Delegating task to Office Secretary...",
+    transfer_to_video_editor: () => "Delegating task to Live Video Editor (A2A)...",
+    transfer_to_receipt_scanner: () => "Delegating task to Receipt Scanner (A2A)...",
+    transfer_to_linkedin_post_generator: () => "Delegating task to LinkedIn Planner...",
+    transfer_to_event_planner: () => "Delegating task to Event Scheduler...",
+    transfer_to_registration_manager: () => "Delegating task to Registrations Manager...",
+    transfer_to_agenda_generator: () => "Delegating task to Agenda Formatter...",
+    transfer_to_office_secretary: () => "Delegating task to Office Secretary...",
 
     stage_uploaded_media: () => "📦 Staging attached media to workspace assets...",
     validate_metadata: (a) => `📏 Validating text character limits for "${a?.name || 'speaker'}"...`,
     verify_portrait_photo: () => "🔍 Running facial detection on portrait photo...",
-    animate_photo: (a) => `🎬 Animating 9:16 background video with Veo (${a?.creative_prompt ? 'AI Prompt' : 'Direct Video'})...`,
+    animate_photo: (a) => `🎬 Animating 9:16 background video with Omni (${a?.creative_prompt ? 'AI Prompt' : 'Direct Video'})...`,
     update_composer: (a) => `🎨 Updating HTML5 composition layout for "${a?.name || 'speaker'}"...`,
     render_composer: () => "🚀 HyperFrames pipeline rendering 1080p MP4, GIF & Poster...",
 
@@ -503,21 +747,21 @@ export function getFriendlyToolResponse(name, response, args) {
     transfer_to_office_secretary: () => "Workflow handed off to Office Secretary.",
 
     stage_uploaded_media: () => "Media staged in workspace assets.",
-    validate_metadata: () => "Speaker metadata & text character limits verified.",
-    verify_portrait_photo: () => "Face detected and aligned.",
-    animate_photo: () => "Background video animation generated via Veo.",
-    update_composer: () => "HyperFrames HTML5 composition layout updated.",
-    render_composer: () => "1080p MP4, GIF & Poster rendered and stored in Cloud Storage.",
+    validate_metadata: () => "Speaker details verified.",
+    verify_portrait_photo: () => "Portrait photo verified.",
+    animate_photo: () => "Background video generated with Omni.",
+    update_composer: () => "Speaker card layout updated.",
+    render_composer: () => "Animated video card rendered.",
 
     get_usd_pln_rate: (r) => r?.rate ? `Rate fetched: 1 USD = ${r.rate} PLN` : "Exchange rate fetched.",
-    read_receipt_file: () => "Receipt OCR extracted.",
-    export_summary_to_google_doc: (r) => r?.document_url ? `Expense doc ready: ${r.document_url}` : "Document exported.",
+    read_receipt_file: () => "Receipt extracted.",
+    export_summary_to_google_doc: (r) => r?.document_url ? `Expense report ready: ${r.document_url}` : "Document exported.",
     scan_receipt_with_vision: () => "Receipt parsed.",
     convert_currency: () => "Currency converted.",
-    export_to_google_docs: () => "Document exported to Google Docs.",
+    export_to_google_docs: () => "Expense report exported to Google Docs.",
 
     filter_and_clean_registrations: () => "Registration roster cleaned.",
-    process_registrations: () => "Registration records processed into DOCX.",
+    process_registrations: () => "Registration records organized into roster.",
     stage_manual_text_registrations: () => "Manual registrations staged.",
     get_public_holidays: () => "Public holidays checked.",
     find_optimal_meetup_date: () => "Meetup dates evaluated.",
@@ -806,6 +1050,27 @@ export function cleanTextForMediaDisplay(text) {
 export function extractDocumentAssets(text) {
   if (!text) return null;
 
+  // Regex to match Google Docs URLs
+  const gdocRegex = /https?:\/\/docs\.google\.com\/document\/d\/[a-zA-Z0-9_-]+[^\s\)\"\'<>]*/gi;
+  const gdocMatches = text.match(gdocRegex) || [];
+
+  if (gdocMatches.length > 0) {
+    const gdocUrl = gdocMatches[0].replace(/[\)\]\.\,]+$/, '');
+    const titleMatch = text.match(/(?:Expense Reimbursement Report|Expense Report|Reimbursement Report|Expense_report_[^\s\n\)\"\'<>]+|Report)[\s\:\*\#\-]*([^\n]+)?/i);
+    const docTitle = titleMatch ? titleMatch[0].replace(/[`*#\[\]\(\)]/g, '').trim() : 'Expense Reimbursement Report';
+
+    return {
+      primaryUrl: gdocUrl,
+      gdocUrl: gdocUrl,
+      isGoogleDoc: true,
+      filename: docTitle,
+      fileType: 'Google Docs',
+      typeLabel: 'Google Docs Expense Report',
+      title: docTitle,
+      allUrls: [gdocUrl]
+    };
+  }
+
   // Regex to match .docx, .xlsx, .csv, .pdf URLs or direct markdown links (including file:// and /results/)
   const urlRegex = /(?:https?:\/\/[^\s\)\"\'<>]+|\/results\/[^\s\)\"\'<>]+|file:\/\/[^\s\)\"\'<>]+)\.(?:docx|xlsx|csv|pdf)(?:\?[^\s\)\"\'<>]*)?/gi;
   const rawMatches = text.match(urlRegex) || [];
@@ -831,7 +1096,7 @@ export function extractDocumentAssets(text) {
 
   // Determine doc type & label
   let fileType = 'DOCX';
-  let typeLabel = 'Formatted Document (Word & Docs)';
+  let typeLabel = 'Word & Google Docs Compatible';
   if (primaryUrl.toLowerCase().includes('.docx')) {
     fileType = 'DOCX';
     typeLabel = 'Word & Google Docs Compatible';
@@ -889,10 +1154,12 @@ export function cleanTextForDocumentDisplay(text) {
   const filteredLines = lines.filter(line => {
     const trimmed = line.trim();
     if (
-      // Markdown links with documents
+      // Markdown links with documents or Google Docs
       trimmed.match(/^[-*•]?\s*(?:📄|📑|📊|💾|📁|📥)?\s*.*(?:\/results\/|https?:\/\/|file:\/\/)[^\s\)]+?\.(?:docx|xlsx|csv|pdf)/i) ||
-      trimmed.match(/^\[(?:Download|View|Expense|Successfully|Скачать)[^\]]*\]\([^\)]+\)/i) ||
+      trimmed.match(/^[-*•]?\s*(?:📄|📑|📊|💾|📁|📥)?\s*.*https?:\/\/docs\.google\.com\/document\/d\/[^\s\)]+/i) ||
+      trimmed.match(/^\[(?:Download|View|Expense|Successfully|Open|Скачать|Открыть)[^\]]*\]\([^\)]+\)/i) ||
       trimmed.match(/^(?:https?:\/\/|\/results\/|file:\/\/)[^\s\)]+?\.(?:docx|xlsx|csv|pdf)$/i) ||
+      trimmed.match(/^https?:\/\/docs\.google\.com\/document\/d\/[^\s]+$/i) ||
       // Redundant download sentences
       trimmed.match(/^(?:Вы можете скачать|Скачать отчет|You can download the report|Download link|Generated Deliverables)/i) ||
       trimmed.match(/^[-*•]?\s*(?:📁|📥)\s*(?:Скачать|Download)/i) ||

@@ -1,4 +1,12 @@
 {
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "GDG Community Studio",
+        "supportEmail": "alexander.plachykov@gmail.com"
+      }
+    }
+  },
   "hosting": {
     "public": "frontend/dist",
     "ignore": [

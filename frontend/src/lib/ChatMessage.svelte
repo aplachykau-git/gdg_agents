@@ -284,7 +284,7 @@
   }
 
   :global(.badge-paperclip) {
-    color: var(--primary-accent);
+    color: var(--text-tertiary);
   }
 
   .badge-status-dot {

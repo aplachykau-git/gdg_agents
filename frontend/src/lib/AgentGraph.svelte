@@ -22,8 +22,10 @@
     Radio,
     FileCode2,
     Clock3,
-    ArrowUpRight
+    ArrowUpRight,
+    FileText
   } from '@lucide/svelte';
+  import { AGENT_CAPABILITIES_CATALOG } from './constants.js';
 
   let { 
     events = [],
@@ -49,7 +51,7 @@
       isRoot: true,
       port: 8080,
       protocol: 'Dispatcher / SSE Hub',
-      desc: 'Central dispatcher. Evaluates user intent, coordinates sub-agents, and manages multi-agent handoffs across sub-agents and A2A microservices.',
+      desc: 'Central dispatcher. Coordinates specialized agents and manages multi-agent workflows for community tasks.',
       tools: ['transfer_to_agent (video_editor)', 'transfer_to_agent (receipt_scanner)', 'transfer_to_agent (linkedin_post_generator)', 'transfer_to_agent (registration_manager)', 'transfer_to_agent (event_planner)', 'transfer_to_agent (agenda_generator)', 'transfer_to_agent (office_secretary)'],
       x: 50,
       y: 50
@@ -57,15 +59,15 @@
     {
       id: 'video_editor',
       name: 'Live Video Editor',
-      role: 'Speaker Video & Outpainting',
-      model: 'Veo 3.1 / Omni Flash',
+      role: 'Speaker Video & Cards',
+      model: 'Omni Video / Omni Flash',
       color: '#C084FC',
       bg: 'rgba(192, 132, 252, 0.12)',
       icon: Video,
       isA2A: true,
       port: 8080,
       protocol: 'A2A Protocol (JSON-RPC)',
-      desc: 'Validates facial landmarks, outpaints portrait photos to 9:16 vertical ratio, generates 8s Veo video loops, and renders 1080p MP4 / GIF cards to GCS.',
+      desc: 'Transforms portrait photos into animated speaker intro videos and branded presentation cards with Omni.',
       tools: ['verify_portrait_photo', 'stage_uploaded_media', 'animate_photo', 'update_composer', 'render_composer', 'extend_portrait_canvas'],
       x: 18,
       y: 20
@@ -73,7 +75,7 @@
     {
       id: 'receipt_scanner',
       name: 'Receipt Scanner',
-      role: 'Vision OCR & Exchange Rates',
+      role: 'Expenses & Exchange Rates',
       model: 'gemini-3.7-flash',
       color: '#34D399',
       bg: 'rgba(52, 211, 153, 0.12)',
@@ -81,7 +83,7 @@
       isA2A: true,
       port: 8080,
       protocol: 'A2A Protocol (JSON-RPC)',
-      desc: 'High-reasoning Vision OCR for receipts and invoices. Fetches live banking exchange rates, converts currencies, and populates Google Docs expense reports.',
+      desc: 'Reads receipts and invoices, fetches live banking exchange rates, converts currencies, and creates Google Docs reports.',
       tools: ['read_receipt_file', 'get_usd_pln_rate', 'export_summary_to_google_doc', 'scan_receipt_with_vision'],
       x: 82,
       y: 20
@@ -96,7 +98,7 @@
       icon: Share2,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
-      desc: 'Generates viral speaker announcements and multi-variant event recap posts with hashtag tuning and tone adjustments.',
+      desc: 'Generates engaging speaker announcements and multi-variant event recap posts with tailored hashtags.',
       tools: ['generate_speaker_announcement', 'generate_recap_variants'],
       x: 14,
       y: 56
@@ -104,14 +106,14 @@
     {
       id: 'registration_manager',
       name: 'Registrations Manager',
-      role: 'Capacity & Duplicate Filter',
+      role: 'Capacity & Rosters',
       model: 'gemini-3.5-flash-lite',
       color: '#FB923C',
       bg: 'rgba(251, 146, 60, 0.12)',
       icon: Users,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
-      desc: 'Performs fuzzy phonetic deduplication, capacity thresholding, organizer verification, and exports clean DOCX participant lists.',
+      desc: 'Cleans attendee registration lists, filters duplicates, and partitions confirmed attendees and waitlists.',
       tools: ['process_registrations', 'stage_uploaded_registration', 'stage_manual_text_registrations', 'get_organisers_list', 'add_organiser', 'remove_organiser'],
       x: 86,
       y: 56
@@ -119,14 +121,14 @@
     {
       id: 'event_planner',
       name: 'Event Scheduler',
-      role: 'Meetup & Holiday Radar',
+      role: 'Meetups & Holidays',
       model: 'gemini-3.5-flash-lite',
       color: '#F472B6',
       bg: 'rgba(244, 114, 182, 0.12)',
       icon: Calendar,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
-      desc: 'Scans tech meetups on Luma and Meetup.com, checks statutory holiday clashes, and recommends optimal mid-week dates.',
+      desc: 'Scans tech meetup calendars and public holidays to recommend optimal, conflict-free event dates.',
       tools: ['get_public_holidays', 'google_search'],
       x: 24,
       y: 84
@@ -134,14 +136,14 @@
     {
       id: 'agenda_generator',
       name: 'Agenda Formatter',
-      role: 'Timeline Math & 5m Snapping',
+      role: 'Timelines & Breaks',
       model: 'gemini-3.5-flash-lite',
       color: '#FBBF24',
       bg: 'rgba(251, 191, 36, 0.12)',
       icon: Clock,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
-      desc: 'Dynamically computes minute-by-minute session schedules from 17:30 with 5-minute interval rounding, talk durations, and break pauses.',
+      desc: 'Computes structured minute-by-minute session schedules with talk durations, networking, and breaks.',
       tools: ['generate_agenda_timeline'],
       x: 50,
       y: 88
@@ -149,14 +151,14 @@
     {
       id: 'office_secretary',
       name: 'Office Secretary',
-      role: 'Visitor Access & Event Hub',
+      role: 'Visitor Access & Requests',
       model: 'gemini-3.5-flash-lite',
       color: '#2DD4BF',
       bg: 'rgba(45, 212, 191, 0.12)',
       icon: Mail,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
-      desc: 'Validates mandatory dates, composes polite key access requests for external guests, and handles Event Hub space reservations.',
+      desc: 'Composes polite building security visitor access requests and meeting room reservation emails.',
       tools: ['generate_office_email'],
       x: 76,
       y: 84
@@ -165,6 +167,10 @@
 
   const inspectedAgent = $derived.by(() => {
     return AGENTS_META.find(a => a.id === inspectedAgentId) || AGENTS_META[0];
+  });
+
+  const inspectedAgentDetails = $derived.by(() => {
+    return AGENT_CAPABILITIES_CATALOG.find(a => a.id === inspectedAgent.id);
   });
 
   // Determine which agents have actively participated in the current session events
@@ -576,9 +582,24 @@
           <!-- Tab 2: Capabilities & Registered Tools -->
           <div class="inspector-body">
             <div class="inspector-section">
-              <span class="section-label">Capabilities & Description</span>
-              <p class="section-desc">{inspectedAgent.desc}</p>
+              <span class="section-label">Overview & Purpose</span>
+              <p class="section-desc">{inspectedAgentDetails?.summary || inspectedAgent.desc}</p>
             </div>
+
+            {#if inspectedAgentDetails?.whenToUse || inspectedAgentDetails?.keyCapabilities}
+              {@const list = inspectedAgentDetails.whenToUse || inspectedAgentDetails.keyCapabilities}
+              <div class="inspector-section">
+                <span class="section-label">When to Use ({list.length})</span>
+                <div class="capabilities-list-compact">
+                  {#each list as cap}
+                    <div class="cap-item-compact">
+                      <CheckCircle2 size={12} class="cap-check-icon" style="color: {inspectedAgent.color};" />
+                      <span>{cap}</span>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
 
             <div class="inspector-section">
               <span class="section-label">Registered Tools ({inspectedAgent.tools.length})</span>
@@ -591,6 +612,16 @@
                 {/each}
               </div>
             </div>
+
+            {#if inspectedAgentDetails?.outputDeliverables}
+              <div class="inspector-section">
+                <span class="section-label">Primary Deliverable</span>
+                <div class="deliverable-card-compact">
+                  <FileText size={12} class="deliverable-icon-compact" />
+                  <span>{inspectedAgentDetails.outputDeliverables}</span>
+                </div>
+              </div>
+            {/if}
 
             {#if inspectedAgent.port}
               <div class="inspector-section">
@@ -1287,6 +1318,43 @@
     font-size: var(--font-size-body-sm);
     color: var(--text-secondary);
     line-height: 1.5;
+  }
+
+  .capabilities-list-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .cap-item-compact {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .cap-item-compact :global(.cap-check-icon) {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .deliverable-card-compact {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    padding: 6px 10px;
+    border-radius: var(--radius-xs);
+    font-size: 11.5px;
+    color: var(--text-secondary);
+  }
+
+  .deliverable-card-compact :global(.deliverable-icon-compact) {
+    color: var(--primary-accent);
+    flex-shrink: 0;
   }
 
   .tools-chips-grid {
