@@ -144,7 +144,9 @@ def _copy_workspace_template(workspace: Path) -> None:
 
 @contextmanager
 def isolated_workspace(session_id: str) -> Iterator[Path]:
-    safe_session_id = "".join(character if character.isalnum() or character in "-_" else "_" for character in session_id)
+    safe_session_id = "".join(
+        character if character.isalnum() or character in "-_" else "_" for character in session_id
+    )
     WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
     workspace = Path(tempfile.mkdtemp(prefix=f"{safe_session_id[:48]}-", dir=WORKSPACE_ROOT))
     _copy_workspace_template(workspace)

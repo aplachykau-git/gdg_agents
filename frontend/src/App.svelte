@@ -53,7 +53,6 @@
     resolveAgentId,
     getActiveAgentFromEvents,
     getEventAgent,
-    cleanAuthorName,
   } from "./lib/constants.js";
 
   const ICON_MAP = {

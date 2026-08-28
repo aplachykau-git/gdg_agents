@@ -115,7 +115,9 @@ async def create_video_card(
     ],
     media_type: Annotated[
         Literal["image", "video"],
-        Field(description="Required type of the uploaded source media: `image` for a portrait image or `video` for a source video."),
+        Field(
+            description="Required type of the uploaded source media: `image` for a portrait image or `video` for a source video."
+        ),
     ],
     creative_direction: str | None = None,
     confirm_render: bool = False,

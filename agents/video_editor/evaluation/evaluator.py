@@ -13,7 +13,9 @@ TOOL_NAME = "create_video_card"
 
 def _text(content: Any) -> str:
     parts = content.get("parts", []) if isinstance(content, dict) else getattr(content, "parts", []) or []
-    return "".join(part.get("text", "") if isinstance(part, dict) else getattr(part, "text", "") or "" for part in parts)
+    return "".join(
+        part.get("text", "") if isinstance(part, dict) else getattr(part, "text", "") or "" for part in parts
+    )
 
 
 def video_editor_chat_contract_metric(

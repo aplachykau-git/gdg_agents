@@ -87,13 +87,16 @@ class VideoCardToolResult(BaseModel):
     code: str | None = None
     message: str
     retryable: bool = True
-    requested_action: Literal[
-        "provide_details",
-        "replace_media",
-        "correct_text",
-        "confirm_render",
-        "retry",
-    ] | None = None
+    requested_action: (
+        Literal[
+            "provide_details",
+            "replace_media",
+            "correct_text",
+            "confirm_render",
+            "retry",
+        ]
+        | None
+    ) = None
     missing_fields: list[str] = Field(default_factory=list)
     assets: list[RenderedAsset] = Field(default_factory=list)
     draft: VideoEditorDraft | None = None

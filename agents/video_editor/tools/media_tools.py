@@ -519,7 +519,7 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
         elif hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
             state = tool_context.session.state or {}
 
-    enable_vid = ENABLE_VIDEO_GENERATION
+    enable_vid = video_generation_enabled()
     if "enable_video_generation" in state or "enableVideoGeneration" in state:
         val = (
             state.get("enable_video_generation")
