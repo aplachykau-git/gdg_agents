@@ -108,18 +108,26 @@ Open `.env` and configure the following parameters:
 > [!TIP]
 > **Unified Configuration**: Avoid placing separate `.env` files inside individual subdirectories (`agents/root_agent/`, `agents/receipt_scanner/`, etc.). The workspace root `.env` serves as the single source of truth for all microservices.
 
-### 5. Google Drive & Google Docs Service Account Setup (Cloud & Native Google Docs)
+### 5. Google Drive & Google Docs Storage Architecture (Bring Your Own Drive)
 
-The **Receipt Scanner** sub-agent can generate native **Google Docs** directly in Google Drive without interactive user popups by using a free **GCP Service Account**.
+The **Receipt Scanner** sub-agent generates native **Google Docs** directly in Google Drive using a modern, zero-admin multi-tenant model.
 
-#### Step 1: Enable Google Docs and Google Drive APIs
+#### Primary Mode: Personal Google Sign-In (User-Delegated OAuth) — Recommended
+- **No Service Account Setup Required**: When users log in via **"Sign in with Google"** in the web interface, the system uses user-delegated OAuth tokens.
+- **Dynamic Configuration**: Each user enters their private **Google Drive Folder URL / ID** and optional **Custom Template URL / ID** directly in **Settings (⚙️)**.
+- **Strict Privacy & $0 Storage Cost**: Reports are written directly to each user's private Google Drive folder. Folders and reports remain 100% private to the user without needing to share permissions with external service accounts.
 
+---
+
+#### Optional Mode: Unattended Backend Service Account (CLI / Batch Scripts Only)
+For headless batch jobs or automated CI scripts running without user interaction:
+
+1. **Enable APIs**:
 ```bash
 gcloud services enable docs.googleapis.com drive.googleapis.com --project=YOUR_PROJECT_ID
 ```
 
-#### Step 2: Create a Dedicated Service Account
-
+2. **Create Service Account**:
 ```bash
 gcloud iam service-accounts create receipt-docs-bot \
   --description="Service Account for Google Docs & Drive Expense Reports" \
@@ -127,22 +135,13 @@ gcloud iam service-accounts create receipt-docs-bot \
   --project=YOUR_PROJECT_ID
 ```
 
-#### Step 3: Generate and Download the Key
-
-Download the JSON key directly into `configs/service_account.json` (this file is automatically excluded by `.gitignore`):
-
+3. **Generate Key (Saved to `configs/service_account.json`)**:
 ```bash
 mkdir -p configs
 gcloud iam service-accounts keys create configs/service_account.json \
   --iam-account=receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com \
   --project=YOUR_PROJECT_ID
 ```
-
-#### Step 4: Share Your Google Doc Template or Folder
-
-1. Open your Google Doc template (e.g., [Google Docs Template](https://docs.google.com/document/d/1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw/edit)) or your target Google Drive folder.
-2. Click **Share** (Поделиться) in the top-right corner.
-3. Add your service account email (e.g. `receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com`) with **Viewer** (Читатель) or **Editor** (Редактор) permissions.
 
 > [!TIP]
 > **Hybrid Generation & Fallback**: When `configs/service_account.json` is present and access is granted, the agent directly creates real Google Docs with live editable URLs (`https://docs.google.com/document/d/.../edit`). If offline or without cloud credentials, it automatically falls back to generating standard `.docx` files.
