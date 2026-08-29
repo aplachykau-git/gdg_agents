@@ -9,19 +9,15 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-import google.auth
 import requests
 from google import genai
 from google.adk.tools import ToolContext
-from google.auth.transport.requests import Request
 from google.genai import types
-from google.oauth2 import service_account
-from google.oauth2.credentials import Credentials
 
 try:
-    from google_auth_oauthlib.flow import InstalledAppFlow
-except ImportError:
-    InstalledAppFlow = None
+    from .google_auth import get_google_credentials
+except (ImportError, ValueError):
+    from agents.receipt_scanner.google_auth import get_google_credentials
 
 try:
     from googleapiclient.discovery import build
@@ -557,7 +553,6 @@ def export_summary_to_google_doc(
     """
     try:
         agent_dir = Path(__file__).resolve().parent
-        project_root = agent_dir.parent.parent
 
         target_currency = (target_currency or "USD").upper().strip()
 
@@ -699,68 +694,11 @@ def export_summary_to_google_doc(
         google_doc_url = None
         google_doc_id = None
         try:
-            scopes = [
-                "https://www.googleapis.com/auth/documents",
-                "https://www.googleapis.com/auth/drive",
-                "https://www.googleapis.com/auth/drive.file",
-            ]
-            sa_file = None
-            for p in [
-                project_root / "configs" / "service_account.json",
-                project_root / "service_account.json",
-                Path.cwd() / "configs" / "service_account.json",
-                Path.cwd() / "service_account.json",
-                agent_dir / "service_account.json",
-            ]:
-                if p.exists():
-                    sa_file = p
-                    break
-
-            client_secrets_file = None
-            for p in [
-                project_root / "configs" / "credentials.json",
-                project_root / "credentials.json",
-                Path.cwd() / "configs" / "credentials.json",
-                Path.cwd() / "credentials.json",
-                agent_dir / "credentials.json",
-            ]:
-                if p.exists():
-                    client_secrets_file = p
-                    break
-
-            credentials = None
-            token_path = project_root / "configs" / "token.json"
-            if not token_path.exists() and (project_root / "token.json").exists():
-                token_path = project_root / "token.json"
-
-            if token_path.exists():
-                try:
-                    credentials = Credentials.from_authorized_user_file(str(token_path), scopes)
-                    if credentials and credentials.expired and credentials.refresh_token:
-                        credentials.refresh(Request())
-                        with open(token_path, "w") as token:
-                            token.write(credentials.to_json())
-                except Exception as load_err:
-                    print(f"Notice: Google Docs OAuth token refresh: {load_err}")
-                    credentials = None
-
-            if not credentials and sa_file:
-                credentials = service_account.Credentials.from_service_account_file(str(sa_file), scopes=scopes)
-            elif not credentials:
-                credentials, _ = google.auth.default(scopes=scopes)
+            credentials = get_google_credentials()
 
             if credentials:
-                if not getattr(credentials, "valid", False):
-                    try:
-                        credentials.refresh(Request())
-                    except Exception as ref_err:
-                        print(f"Notice: Initial credential refresh: {ref_err}")
-
                 docs_service = build("docs", "v1", credentials=credentials)
                 drive_service = build("drive", "v3", credentials=credentials)
-
-                if not target_folder:
-                    target_folder = extract_google_drive_folder_id(folder_id or os.getenv("GOOGLE_DRIVE_FOLDER_ID"))
                 active_template = template_id
                 if not active_template and tool_context and hasattr(tool_context, "session") and tool_context.session:
                     active_template = tool_context.session.state.get(

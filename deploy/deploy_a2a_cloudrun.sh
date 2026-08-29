@@ -164,7 +164,7 @@ echo "✅ Root Orchestrator deployed at: ${ROOT_AGENT_URL}"
 # 4. Build Frontend
 echo ""
 echo "💻 [5/6] Building Svelte 5 Production Frontend..."
-npm run build --prefix frontend
+VITE_STUDIO_SA_EMAIL="$SA_EMAIL" npm run build --prefix frontend
 
 # 5. Deploy to Firebase Hosting
 echo ""
