@@ -17,8 +17,32 @@ const firebaseConfig = {
   projectNumber: import.meta.env.VITE_FIREBASE_PROJECT_NUMBER || "876483189679"
 };
 
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 export const auth = getAuth(app);
+
+// Initialize Firebase App Check to protect against abuse and automated scrapers
+let appCheck = null;
+if (typeof window !== 'undefined') {
+  const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || import.meta.env.VITE_FIREBASE_APP_CHECK_KEY;
+  if (recaptchaKey) {
+    try {
+      if (import.meta.env.DEV) {
+        // @ts-ignore
+        self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+      }
+      appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(recaptchaKey),
+        isTokenAutoRefreshEnabled: true
+      });
+      console.log('🛡️ [App Check] Initialized with reCAPTCHA v3 provider.');
+    } catch (err) {
+      console.warn('⚠️ [App Check] Initialization notice:', err);
+    }
+  }
+}
+export { appCheck };
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({

@@ -90,12 +90,12 @@ resource "google_cloud_run_v2_service" "video_editor" {
   ]
 }
 
-resource "google_cloud_run_v2_service_iam_member" "video_editor_public" {
+resource "google_cloud_run_v2_service_iam_member" "video_editor_invoker" {
   project  = var.project_id
   location = var.region
   name     = google_cloud_run_v2_service.video_editor.name
   role     = "roles/run.invoker"
-  member   = "allUsers"
+  member   = "serviceAccount:${google_service_account.studio_sa.email}"
 }
 
 # 2. Receipt Scanner A2A Service
@@ -170,16 +170,16 @@ resource "google_cloud_run_v2_service" "receipt_scanner" {
     google_project_service.enabled_apis,
     google_storage_bucket.assets_bucket,
     google_project_iam_member.sa_vertex_user,
-    google_project_iam_member.sa_storage_admin
+    google_storage_bucket_iam_member.sa_storage_user
   ]
 }
 
-resource "google_cloud_run_v2_service_iam_member" "receipt_scanner_public" {
+resource "google_cloud_run_v2_service_iam_member" "receipt_scanner_invoker" {
   project  = var.project_id
   location = var.region
   name     = google_cloud_run_v2_service.receipt_scanner.name
   role     = "roles/run.invoker"
-  member   = "allUsers"
+  member   = "serviceAccount:${google_service_account.studio_sa.email}"
 }
 
 # 3. Root Orchestrator Agent (community-root-agent)
@@ -252,7 +252,7 @@ resource "google_cloud_run_v2_service" "root_agent" {
     google_project_service.enabled_apis,
     google_storage_bucket.assets_bucket,
     google_project_iam_member.sa_vertex_user,
-    google_project_iam_member.sa_storage_admin
+    google_storage_bucket_iam_member.sa_storage_user
   ]
 }
 

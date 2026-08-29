@@ -19,12 +19,12 @@ This guide explains step-by-step how to deploy **Community AI Studio** to a bran
 
 ```mermaid
 graph TD
-    User([Web User / Browser]) -->|HTTPS| Frontend[Svelte 5 Frontend <br> Firebase Hosting / Vercel]
-    Frontend -->|REST / SSE /list-apps, /run_sse| RootAgent[community-root-agent <br> Google Cloud Run :443]
+    User([Web User / Browser]) -->|HTTPS / App Check| Frontend[Svelte 5 Frontend <br> Firebase Hosting :443]
+    Frontend -->|Proxied REST / SSE /run_sse, /list-apps| RootAgent[community-root-agent <br> Google Cloud Run :443 <br> Headless ADK API Server]
     
-    subgraph "A2A Distributed Network"
-        RootAgent -->|A2A Protocol| VideoAgent[video-editor-a2a <br> Cloud Run :443]
-        RootAgent -->|A2A Protocol| ReceiptAgent[receipt-scanner-a2a <br> Cloud Run :443]
+    subgraph "Private A2A Distributed Network (GCP IAM OIDC Auth)"
+        RootAgent -->|Bearer ID Token / OIDC| VideoAgent[video-editor-a2a <br> Cloud Run :443 <br> Private 403 External]
+        RootAgent -->|Bearer ID Token / OIDC| ReceiptAgent[receipt-scanner-a2a <br> Cloud Run :443 <br> Private 403 External]
     end
     
     subgraph "In-Process Specialized Agents"
@@ -36,10 +36,11 @@ graph TD
     end
 ```
 
-All microservices communicate via dynamic URLs configured via environment variables:
-- **`VIDEO_AGENT_A2A_URL`**: Full URL to the Video Editor A2A service.
-- **`RECEIPT_AGENT_A2A_URL`**: Full URL to the Receipt Scanner A2A service.
-- **`VITE_API_URL`**: Full URL to the Root Orchestrator backend (or empty if using Firebase Hosting rewrites).
+All microservices communicate via dynamic URLs configured via environment variables and IAM:
+- **`VIDEO_AGENT_A2A_URL`**: Full HTTPS URL to the Video Editor A2A service. Authenticated via Google OIDC ID tokens.
+- **`RECEIPT_AGENT_A2A_URL`**: Full HTTPS URL to the Receipt Scanner A2A service. Authenticated via Google OIDC ID tokens.
+- **`VITE_API_URL`**: Full URL to the Root Orchestrator backend (empty in production to leverage native Firebase Hosting rewrites).
+- **Service Account**: `community-studio-runtime@<project_id>.iam.gserviceaccount.com` (Least privilege).
 
 ---
 

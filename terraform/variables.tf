@@ -73,5 +73,5 @@ variable "artifact_registry_repo_name" {
 variable "service_account_id" {
   description = "Custom service account ID for running Cloud Run microservices"
   type        = string
-  default     = "community-studio-sa"
+  default     = "community-studio-runtime"
 }

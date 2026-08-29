@@ -39,6 +39,11 @@ except (ModuleNotFoundError, ImportError):
     from agents.receipt_scanner.agent import receipt_agent
     from agents.registration_manager.agent import root_agent as registration_agent
 
+try:
+    from common.a2a_auth import create_authenticated_a2a_config
+except (ImportError, ValueError):
+    from agents.common.a2a_auth import create_authenticated_a2a_config
+
 from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
 
 video_a2a_url = os.getenv(
@@ -50,19 +55,19 @@ video_agent = RemoteA2aAgent(
     name="video_editor",
     description="Standalone conversational workflow for speaker-card video generation.",
     agent_card=f"{video_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}",
+    config=create_authenticated_a2a_config(video_a2a_url),
 )
 
 receipt_a2a_url = os.getenv("RECEIPT_AGENT_A2A_URL")
 if receipt_a2a_url:
     try:
-        from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
-
         card_url = f"{receipt_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}"
         print(f"🔗 [A2A Connected] receipt_scanner agent linked via A2A at: {card_url}")
         receipt_agent = RemoteA2aAgent(
             name="receipt_scanner",
             description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-3.7-flash, converts to PLN and USD using live banking exchange rates, exports reports to Google Docs.",
             agent_card=card_url,
+            config=create_authenticated_a2a_config(receipt_a2a_url),
         )
     except Exception as e:
         print(f"⚠️ Failed to connect receipt_scanner over A2A ({e}). Falling back to local sub-agent.")

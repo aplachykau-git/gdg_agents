@@ -32,32 +32,32 @@ This project is a multi-agent system built on the [Google Agent Development Kit 
 flowchart TB
     subgraph CLIENT_LAYER["🖥️ 1. CLIENT & INTERACTION LAYER (A2UI)"]
         direction LR
-        UI["<b>Svelte 5 Workspace Dashboard</b><br/><i>Port :5173 (Vite + Runes)</i><br/>• Floating Prompt Bar & Stager<br/>• Interactive Agenda Timeline<br/>• Multi-variant Post Deck<br/>• Multi-Agent Network Topology"]
+        UI["<b>Svelte 5 Workspace Dashboard</b><br/><i>Firebase Hosting / Dev :5173</i><br/>• Floating Prompt Bar & Stager<br/>• Firebase App Check Protected<br/>• Multi-variant Post Deck & Agendas"]
     end
 
     subgraph GATEWAY_LAYER["🌐 2. INGRESS & ADK ORCHESTRATION GATEWAY"]
         direction LR
-        GW["<b>ADK Web Server / Reverse Proxy</b><br/><i>Port :8080 (FastAPI Engine)</i><br/>• SSE Streaming: <code>/run_sse</code><br/>• Apps & State Hub: <code>/list-apps</code>"]
-        ROOT["<b>Root Orchestrator Agent</b><br/><i>gemini-3.5-flash-lite</i><br/>• Intent Parsing & Decomposition<br/>• Sub-agent Routing & State Handoff"]
+        GW["<b>ADK Headless API Server</b><br/><i>adk api_server (FastAPI Engine)</i><br/>• SSE Streaming: <code>/run_sse</code><br/>• App Hub: <code>/list-apps</code><br/>• Protected: No Public Debug UI"]
+        ROOT["<b>Root Orchestrator Agent</b><br/><i>gemini-3.5-flash-lite</i><br/>• Intent Parsing & Routing<br/>• Service Account OIDC Auth Client"]
         GW <-->|Bidirectional SSE / REST| ROOT
     end
 
-    subgraph AGENT_LAYER["🤖 3. SPECIALIZED WORKER AGENTS (Local & Remote A2A)"]
+    subgraph AGENT_LAYER["🤖 3. SPECIALIZED WORKER AGENTS (Local & Private Remote A2A)"]
         direction TB
         
         subgraph LOCAL_AGENTS["⚡ Local Sub-Agents (In-Process Delegation)"]
             direction LR
             A_LINKEDIN["📱 <b>LinkedIn Post Generator</b><br/><i>gemini-3.5-flash-lite</i><br/>• 3 Style Post Variants<br/>• Anti-Hallucination Guard"]
-            A_REG["📋 <b>Registration Manager</b><br/><i>Data Partitioning Engine</i><br/>• CSV Parsing & Dedup<br/>• VIP & DOCX Exporter"]
+            A_REG["📋 <b>Registration Manager</b><br/><i>Data Partitioning Engine</i><br/>• CSV Parsing & Dedup<br/>• Privacy Guard & DOCX Exporter"]
             A_PLANNER["📅 <b>Event Planner</b><br/><i>gemini-3.5-flash-lite</i><br/>• Tech Calendar Conflicts<br/>• Nager.Date Polish Holidays"]
             A_AGENDA["⏱️ <b>Agenda Formatter</b><br/><i>gemini-3.5-flash-lite</i><br/>• Dynamic Slot Snapping<br/>• Interactive UI Timeline"]
             A_OFFICE["🔑 <b>Office Secretary</b><br/><i>gemini-3.5-flash-lite</i><br/>• Key Access Management<br/>• Event Hub Reservations"]
         end
 
-        subgraph REMOTE_A2A["🔗 Distributed A2A Microservices (Agent-to-Agent Protocol)"]
+        subgraph REMOTE_A2A["🔒 Distributed Private A2A Microservices (IAM OIDC Auth)"]
             direction LR
-            A_VIDEO["🎬 <b>Live Video Editor A2A</b><br/><i>Port :8081 (Uvicorn / A2A App)</i><br/>• Face Landmark Verification<br/>• 9:16 Portrait Outpainting<br/>• Veo 3.1 / Omni Video Engine<br/>• HyperFrames GSAP 4K Render"]
-            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>Port :8082 (Uvicorn / A2A App)</i><br/>• gemini-3.7-flash OCR Engine<br/>• Pekao & NBP FX Rate Fetcher<br/>• Google Docs Report Exporter"]
+            A_VIDEO["🎬 <b>Live Video Editor A2A</b><br/><i>Port :8081 (Private Cloud Run)</i><br/>• Face Landmark Verification<br/>• 9:16 Portrait Outpainting<br/>• Veo 3.1 / Omni Video Engine<br/>• HyperFrames GSAP 4K Render"]
+            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>Port :8082 (Private Cloud Run)</i><br/>• gemini-3.7-flash OCR Engine<br/>• Pekao & NBP FX Rate Fetcher<br/>• Google Docs Report Exporter"]
         end
     end
 
@@ -71,7 +71,7 @@ flowchart TB
     subgraph STORAGE_LAYER["💾 5. STORAGE, ARTIFACTS & STATE STORE"]
         direction LR
         S_STATE["<b>ADK Session Memory</b><br/>• InMemory / LocalStorage<br/>• Per-Agent Session State"]
-        S_FILES["<b>Local Artifact File Store</b><br/>• <code>renders/</code> (4K MP4, GIF)<br/>• <code>assets/</code> (Staged Media)<br/>• <code>results/</code> (Generated DOCX)"]
+        S_FILES["<b>GCS & Artifact Store</b><br/>• <code>renders/</code> (4K MP4, GIF)<br/>• <code>assets/</code> (Staged Media)<br/>• <code>results/</code> (Generated DOCX)"]
     end
 
     %% Flows & Connections
@@ -79,7 +79,7 @@ flowchart TB
     GW -->|2. Stream Real-time Events & Shimmer| UI
     
     ROOT -->|3a. Direct Transfer| LOCAL_AGENTS
-    ROOT -->|3b. JSON-RPC Agent Card| REMOTE_A2A
+    ROOT -->|3b. Authenticated OIDC A2A RPC| REMOTE_A2A
 
     LOCAL_AGENTS -->|4a. Multimodal Prompt & Tools| CLOUD_AI
     LOCAL_AGENTS -->|4b. Public APIs| FIN_APIS

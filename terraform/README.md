@@ -9,11 +9,16 @@ This Terraform module provides **Infrastructure as Code (IaC)** to deploy the fu
 1. **Google Cloud APIs**: Automatically enables Cloud Run, Cloud Build, Artifact Registry, Storage, Vertex AI, Docs, and Drive APIs.
 2. **Artifact Registry**: Docker container repository (`community-studio-containers`).
 3. **Google Cloud Storage**: Dedicated asset bucket (`${project_id}-storage`) with CORS configuration for frontend asset downloads and report storage.
-4. **Service Account & IAM**: Dedicated `community-studio-sa` with least-privilege roles (`roles/aiplatform.user`, `roles/storage.objectAdmin`, `roles/run.invoker`).
+4. **Service Account & Least Privilege IAM**: Dedicated `community-studio-runtime` service account with scoped roles:
+   - `roles/aiplatform.user` (Vertex AI / Gemini models)
+   - `roles/logging.logWriter` (Cloud Logging)
+   - `roles/cloudtrace.agent` (Cloud Trace telemetry)
+   - `roles/storage.objectUser` (scoped specifically to the deliverables GCS bucket)
+   - `roles/run.invoker` (service-to-service invocation for private A2A services)
 5. **Cloud Run Microservices**:
-   - `video-editor-a2a` (8Gi RAM, 4 vCPU, 600s timeout)
-   - `receipt-scanner-a2a` (4Gi RAM, 2 vCPU, 300s timeout)
-   - `community-root-agent` (8Gi RAM, 4 vCPU, 600s timeout) with automatic service URL wiring.
+   - `video-editor-a2a` (8Gi RAM, 4 vCPU, 600s timeout, **Private IAM Auth**)
+   - `receipt-scanner-a2a` (4Gi RAM, 2 vCPU, 300s timeout, **Private IAM Auth**)
+   - `community-root-agent` (8Gi RAM, 4 vCPU, 600s timeout, Headless `adk api_server` with automatic service URL wiring)
 
 ---
 
