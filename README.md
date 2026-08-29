@@ -48,7 +48,7 @@ flowchart TB
         subgraph LOCAL_AGENTS["⚡ Local Sub-Agents (In-Process Delegation)"]
             direction LR
             A_LINKEDIN["📱 <b>LinkedIn Post Generator</b><br/><i>gemini-3.5-flash-lite</i><br/>• 3 Style Post Variants<br/>• Anti-Hallucination Guard"]
-            A_REG["📋 <b>Registration Manager</b><br/><i>Data Partitioning Engine</i><br/>• CSV Parsing & Dedup<br/>• Privacy Guard & DOCX Exporter"]
+            A_REG["📋 <b>Registration Manager</b><br/><i>gemini-3.5-flash-lite</i><br/>• CSV Parsing & Dedup<br/>• Privacy Guard & DOCX Exporter"]
             A_PLANNER["📅 <b>Event Planner</b><br/><i>gemini-3.5-flash-lite</i><br/>• Tech Calendar Conflicts<br/>• Nager.Date Polish Holidays"]
             A_AGENDA["⏱️ <b>Agenda Formatter</b><br/><i>gemini-3.5-flash-lite</i><br/>• Dynamic Slot Snapping<br/>• Interactive UI Timeline"]
             A_OFFICE["🔑 <b>Office Secretary</b><br/><i>gemini-3.5-flash-lite</i><br/>• Key Access Management<br/>• Event Hub Reservations"]
@@ -56,14 +56,14 @@ flowchart TB
 
         subgraph REMOTE_A2A["🔒 Distributed Private A2A Microservices (IAM OIDC Auth)"]
             direction LR
-            A_VIDEO["🎬 <b>Live Video Editor A2A</b><br/><i>Port :8081 (Private Cloud Run)</i><br/>• Face Landmark Verification<br/>• 9:16 Portrait Outpainting<br/>• Veo 3.1 / Omni Video Engine<br/>• HyperFrames GSAP 4K Render"]
-            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>Port :8082 (Private Cloud Run)</i><br/>• gemini-3.7-flash OCR Engine<br/>• Pekao & NBP FX Rate Fetcher<br/>• Google Docs Report Exporter"]
+            A_VIDEO["🎬 <b>Live Video Editor A2A</b><br/><i>gemini-3.5-flash-lite + Veo 3.1 / Omni</i><br/>• Face Landmark Verification<br/>• gemini-3.1-flash-lite-image Outpaint<br/>• Veo 3.1 & Omni Flash Video<br/>• HyperFrames GSAP 4K Render"]
+            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>gemini-3.7-flash (Multimodal OCR)</i><br/>• Pekao & NBP FX Rate Fetcher<br/>• Google Docs Report Exporter"]
         end
     end
 
     subgraph FOUNDATION_LAYER["☁️ 4. EXTERNAL AI FOUNDATION & ENTERPRISE SERVICES"]
         direction LR
-        CLOUD_AI["<b>Google Vertex AI & GenAI</b><br/>• Gemini 3.7 Flash & 3.5 Flash Lite<br/>• Google Veo 3.1 & Omni Flash<br/>• Imagen Portrait Outpainting"]
+        CLOUD_AI["<b>Google Vertex AI & GenAI</b><br/>• Gemini 3.7 Flash (Multimodal OCR)<br/>• Gemini 3.5 Flash Lite (Agent Reasoning)<br/>• Google Veo 3.1 & Gemini Omni 1.1 Flash<br/>• Gemini 3.1 Flash Lite Image (Outpainting)"]
         G_SUITE["<b>Google Workspace APIs</b><br/>• Google Drive API<br/>• Google Docs Engine"]
         FIN_APIS["<b>Public Financial & Calendar APIs</b><br/>• Pekao Bank FX Scraper<br/>• NBP Exchange Rate API<br/>• Nager.Date Holiday API"]
     end
@@ -119,12 +119,12 @@ community_studio/
 ├── agents/                       # All Google ADK Agents & sub-agents
 │   ├── root_agent/               # Main coordinating Root Agent (gemini-3.5-flash-lite)
 │   ├── receipt_scanner/          # Receipt OCR & Google Docs expense report agent (gemini-3.7-flash)
-│   ├── video_editor/             # Speaker card outpainting & Veo video generator (Veo + GSAP)
-│   ├── linkedin_post_generator/  # LinkedIn announcement & recap post agent
-│   ├── registration_manager/     # Registration sorting, capacity & organizers list agent
-│   ├── event_planner/            # Tech calendar & holiday clash analyzer agent
-│   ├── agenda_generator/         # Event timeline & speaker agenda formatting agent
-│   └── office_secretary/         # Office key access & Event Hub reservation agent
+│   ├── video_editor/             # Speaker outpainting & video generator (gemini-3.5-flash-lite, Veo 3.1, Omni, GSAP)
+│   ├── linkedin_post_generator/  # LinkedIn announcement & recap post agent (gemini-3.5-flash-lite)
+│   ├── registration_manager/     # Registration sorting, capacity & privacy agent (gemini-3.5-flash-lite)
+│   ├── event_planner/            # Tech calendar & holiday clash analyzer agent (gemini-3.5-flash-lite)
+│   ├── agenda_generator/         # Event timeline & speaker agenda formatting agent (gemini-3.5-flash-lite)
+│   └── office_secretary/         # Office key access & Event Hub reservation agent (gemini-3.5-flash-lite)
 │
 ├── frontend/                     # Custom Svelte 5 + Vite single-page dashboard
 │   ├── src/
@@ -155,8 +155,10 @@ community_studio/
 The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 primitives:
 
 1. **Model Tiering Strategy**:
-   - **`gemini-3.7-flash`** is allocated to receipt OCR and expense reporting (`receipt_scanner`).
-   - **`gemini-3.5-flash-lite`** is deployed across orchestrators and tool-calling agents for fast execution, high concurrency, and zero function-calling errors.
+   - **`gemini-3.7-flash`**: High-precision multimodal document analysis and OCR (`receipt_scanner`), and LLM-as-a-judge evaluation scoring.
+   - **`gemini-3.5-flash-lite`**: Ultra-fast, low-latency reasoning and structured tool-calling across orchestrators, planner, agenda, registration, secretary, and LinkedIn agents.
+   - **`gemini-3.1-flash-lite-image`**: 9:16 portrait outpainting and background synthesis for video frames.
+   - **`veo-3.1-fast-generate-001` / `gemini-omni-1.1-flash`**: Cinematic AI video animation and camera movement generation.
 2. **Session State & Data Passing (`session.state`)**:
    - Rather than bloating prompt contexts with raw binary payloads or giant text tables across sub-agent transfers, agents communicate via workspace files and structured session state.
    - Staged media files (`assets/staged_media.mp4`, CSVs, generated posters) are managed per-agent and referenced through local storage paths.

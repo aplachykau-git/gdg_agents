@@ -180,7 +180,7 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
         part = types.Part.from_bytes(data=img_bytes, mime_type=mime_type)
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash-image",
+            model="gemini-3.1-flash-lite-image",
             contents=[
                 part,
                 types.Part.from_text(
