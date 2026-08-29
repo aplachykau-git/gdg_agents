@@ -32,8 +32,7 @@ def get_google_credentials():
             return creds
         if method == "oauth":
             raise RuntimeError(
-                "GOOGLE_AUTH_METHOD=oauth but no valid token.json found. "
-                "Run scripts/auth_google_docs.py first."
+                "GOOGLE_AUTH_METHOD=oauth but no valid token.json found. Run scripts/auth_google_docs.py first."
             )
 
     if method in ("auto", "service_account"):
@@ -42,8 +41,7 @@ def get_google_credentials():
             return creds
         if method == "service_account":
             raise RuntimeError(
-                "GOOGLE_AUTH_METHOD=service_account but no service_account.json found "
-                "in configs/ or project root."
+                "GOOGLE_AUTH_METHOD=service_account but no service_account.json found in configs/ or project root."
             )
 
     credentials, _ = google.auth.default(scopes=SCOPES)
@@ -75,9 +73,7 @@ def _try_service_account():
     ]:
         if candidate.exists():
             try:
-                return service_account.Credentials.from_service_account_file(
-                    str(candidate), scopes=SCOPES
-                )
+                return service_account.Credentials.from_service_account_file(str(candidate), scopes=SCOPES)
             except Exception as err:
                 print(f"Notice: Service account load failed ({candidate}): {err}")
     return None

@@ -42,9 +42,9 @@ You MUST automatically determine the title of the document using the following r
 1. Extract dates from all recognized receipts/invoices.
 2. Select the **latest date (closest to today)**.
 3. Format the document title as: `Expense_report_day_month_year` (where day, month, and year are numeric digits. For example, `Expense_report_17_05_{current_year}`). The system automatically attaches an accurate timestamp tag to ensure chronological sorting on Google Drive.
-4. To perfectly populate the Google Docs template, you **MUST pass** the following arguments to `export_summary_to_google_doc`:
-   - `folder_id`: String. The Google Drive folder ID or URL extracted from session state (`google_drive_folder_id`), delegation context (`[Target Drive Folder: ...]`), prompt, or environment.
-   - `template_id`: String. The Google Docs template ID or URL (from `google_docs_template_id`, `[Target Template: ...]`, or prompt).
+4. To export the expense report, you MUST UNCONDITIONALLY INVOKE `export_summary_to_google_doc` for every valid receipt! Do NOT attempt to check if `folder_id` is visible in your prompt before calling — the tool automatically retrieves the target folder, template, and authorization tokens from the system session state.
+   - `folder_id`: String. The Google Drive folder ID or URL if mentioned in prompt/context (e.g. `[Target Drive Folder: ...]`), otherwise `""`.
+   - `template_id`: String. The Google Docs template ID or URL if mentioned, otherwise `""`.
    - `target_currency`: String. The target currency for the report (e.g., "USD", "EUR", "PLN", "GBP", "CAD", or any other ISO currency code). If the user explicitly requested a specific target currency, use it. Otherwise, default to "USD" (or the dominant currency of the receipts).
    - `approved_budget`: String. The approved budget limit specified by the user in the prompt (e.g., "500 EUR", "100 USD"). You MUST extract this from the user's message if they specified a budget amount and its currency. If not specified, pass an empty string "".
    - `receipts_data`: A list of dictionaries representing each receipt. Each dictionary must contain the following keys:

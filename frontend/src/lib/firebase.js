@@ -45,6 +45,9 @@ if (typeof window !== 'undefined') {
 export { appCheck };
 
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('https://www.googleapis.com/auth/drive');
+googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
+googleProvider.addScope('https://www.googleapis.com/auth/documents');
 googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
@@ -54,6 +57,9 @@ export async function loginWithGoogle() {
     const result = await signInWithPopup(auth, googleProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const token = credential?.accessToken;
+    if (token && typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('google_drive_token', token);
+    }
     return {
       user: result.user,
       accessToken: token

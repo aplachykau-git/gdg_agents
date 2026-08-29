@@ -652,28 +652,36 @@ def export_summary_to_google_doc(
 
         receipts_data = normalized_receipts
 
-        # Gather session attachments (raw image bytes) if available
+        # Gather session attachments and text blobs
         session_images = []
+        session_text_blobs = []
         if tool_context and hasattr(tool_context, "session") and tool_context.session:
             events = getattr(tool_context.session, "events", []) or []
             for event in events:
-                if (
-                    getattr(event, "author", "") == "user"
-                    and getattr(event, "content", None)
-                    and getattr(event.content, "parts", None)
-                ):
+                if getattr(event, "content", None) and getattr(event.content, "parts", None):
                     for part in event.content.parts:
                         if getattr(part, "inline_data", None) and getattr(part.inline_data, "data", None):
                             session_images.append(part.inline_data.data)
+                        txt = getattr(part, "text", "") or ""
+                        if txt:
+                            session_text_blobs.append(txt)
+        combined_session_text = "\n".join(session_text_blobs)
 
         # Resolve target Google Drive folder (required)
         target_folder = folder_id
         if not target_folder and tool_context and hasattr(tool_context, "session") and tool_context.session:
-            target_folder = tool_context.session.state.get("google_drive_folder_id") or tool_context.session.state.get(
-                "drive_folder_id"
-            )
-        if not target_folder:
-            target_folder = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
+            state = getattr(tool_context.session, "state", {}) or {}
+            target_folder = state.get("google_drive_folder_id") or state.get("drive_folder_id")
+        if not target_folder and combined_session_text:
+            m_folder = re.search(r"\[Target Drive Folder:\s*([^\]]+)\]", combined_session_text, re.IGNORECASE)
+            if m_folder:
+                target_folder = m_folder.group(1).strip()
+            if not target_folder:
+                m_url = re.search(
+                    r"https://drive\.google\.com/drive/(?:u/\d+/)?folders/([a-zA-Z0-9_-]+)", combined_session_text
+                )
+                if m_url:
+                    target_folder = m_url.group(1)
         target_folder = extract_google_drive_folder_id(target_folder)
 
         if not target_folder:
@@ -694,16 +702,51 @@ def export_summary_to_google_doc(
         google_doc_url = None
         google_doc_id = None
         try:
-            credentials = get_google_credentials()
+            credentials = None
+            if tool_context and hasattr(tool_context, "session") and tool_context.session:
+                state = getattr(tool_context.session, "state", {}) or {}
+                user_token = (
+                    state.get("google_drive_access_token")
+                    or state.get("google_drive_token")
+                    or state.get("google_oauth_token")
+                )
+            else:
+                user_token = None
+
+            if not user_token and combined_session_text:
+                m_tok = re.search(r"\[Google Drive Token:\s*([^\]]+)\]", combined_session_text, re.IGNORECASE)
+                if m_tok:
+                    user_token = m_tok.group(1).strip()
+
+            if user_token:
+                try:
+                    from google.oauth2.credentials import Credentials
+
+                    credentials = Credentials(token=user_token)
+                    print("🔑 [Google Drive Auth] Successfully loaded user's personal Google OAuth access token!")
+                except Exception as oauth_err:
+                    print(f"⚠️ [Google Drive Auth] Failed to initialize user OAuth credentials: {oauth_err}")
+
+            if not credentials:
+                credentials = get_google_credentials()
 
             if credentials:
                 docs_service = build("docs", "v1", credentials=credentials)
                 drive_service = build("drive", "v3", credentials=credentials)
                 active_template = template_id
                 if not active_template and tool_context and hasattr(tool_context, "session") and tool_context.session:
-                    active_template = tool_context.session.state.get(
-                        "google_docs_template_id"
-                    ) or tool_context.session.state.get("template_id")
+                    state = getattr(tool_context.session, "state", {}) or {}
+                    active_template = state.get("google_docs_template_id") or state.get("template_id")
+                if not active_template and combined_session_text:
+                    m_tmpl = re.search(r"\[Target Template:\s*([^\]]+)\]", combined_session_text, re.IGNORECASE)
+                    if m_tmpl:
+                        active_template = m_tmpl.group(1).strip()
+                    if not active_template:
+                        m_doc_url = re.search(
+                            r"https://docs\.google\.com/document/d/([a-zA-Z0-9_-]+)", combined_session_text
+                        )
+                        if m_doc_url:
+                            active_template = m_doc_url.group(1)
                 if not active_template:
                     active_template = os.getenv("GOOGLE_DOCS_TEMPLATE_ID")
                 if not active_template:
@@ -713,6 +756,9 @@ def export_summary_to_google_doc(
                             active_template = json.load(f).get("doc_id")
                 if not active_template:
                     active_template = "1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw"
+
+                active_template = extract_google_doc_id(active_template) or active_template
+                print(f"📁 [Google Docs Export] Target Drive Folder: {target_folder}, Template ID: {active_template}")
 
                 copy_body = {"name": doc_title}
                 if target_folder:

@@ -374,11 +374,11 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
 
 def _generate_with_veo(photo_path: str, creative_prompt: str) -> str:
     """Generates an 8s 9:16 video using Vertex AI Veo 3.1 (veo-3.1-fast-generate-001)."""
-    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "gdg-agents-496611")
+    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "gdg-agents-6b59a")
     veo_client = genai.Client(
         vertexai=True,
         project=project_id,
-        location="us-central1",
+        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
     )
 
     with open(photo_path, "rb") as f:

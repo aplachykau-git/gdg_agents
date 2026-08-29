@@ -79,30 +79,46 @@
     triggerAutoSave({ [key]: newVal });
   }
 
+  function handleDone() {
+    const folderVal = (driveFolderInputRaw || '').trim();
+    const templateVal = (templateInputRaw || '').trim();
+    const resolvedFolder = extractDriveFolderId(folderVal) || folderVal;
+    const resolvedTemplate = extractGoogleDocId(templateVal) || templateVal;
+
+    const finalDraft = {
+      ...config,
+      ...draft,
+      googleDriveFolderId: resolvedFolder,
+      googleDocsTemplateId: resolvedTemplate
+    };
+    onSave(finalDraft);
+    onClose();
+  }
+
   function handleTextInput(key, event) {
     let rawVal = event.target.value;
     if (key === 'googleDriveFolderId') {
       driveFolderInputRaw = rawVal;
       const validation = validateDriveFolderInput(rawVal);
-      if (!validation.valid) {
+      if (!validation.valid && rawVal.trim().length > 0) {
         driveFolderError = validation.error;
-        return;
+      } else {
+        driveFolderError = '';
       }
-      driveFolderError = '';
-      const resolvedId = validation.folderId;
-      draft[key] = resolvedId;
-      triggerAutoSave({ [key]: resolvedId });
+      const resolvedId = (validation.valid && validation.folderId) ? validation.folderId : rawVal.trim();
+      draft.googleDriveFolderId = resolvedId;
+      triggerAutoSave({ googleDriveFolderId: resolvedId });
     } else if (key === 'googleDocsTemplateId') {
       templateInputRaw = rawVal;
       const validation = validateGoogleDocTemplateInput(rawVal);
-      if (!validation.valid) {
+      if (!validation.valid && rawVal.trim().length > 0) {
         templateError = validation.error;
-        return;
+      } else {
+        templateError = '';
       }
-      templateError = '';
-      const resolvedId = validation.docId;
-      draft[key] = resolvedId;
-      triggerAutoSave({ [key]: resolvedId });
+      const resolvedId = (validation.valid && validation.docId) ? validation.docId : rawVal.trim();
+      draft.googleDocsTemplateId = resolvedId;
+      triggerAutoSave({ googleDocsTemplateId: resolvedId });
     } else {
       draft[key] = rawVal;
       triggerAutoSave({ [key]: rawVal });
@@ -128,8 +144,8 @@
   <div 
     class="modal-backdrop" 
     role="presentation"
-    onclick={(e) => { if (e.target === e.currentTarget) onClose(); }} 
-    onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}
+    onclick={(e) => { if (e.target === e.currentTarget) handleDone(); }} 
+    onkeydown={(e) => { if (e.key === 'Escape') handleDone(); }}
   >
     <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
       <!-- Header -->
@@ -144,7 +160,7 @@
             </span>
           {/if}
         </div>
-        <button class="icon-btn-close" onclick={onClose} aria-label="Close settings" title="Close (Esc)">
+        <button class="icon-btn-close" onclick={handleDone} aria-label="Close settings" title="Close (Esc)">
           <X size={16} />
         </button>
       </header>
@@ -264,29 +280,6 @@
             <h3>Google Drive & Docs Storage</h3>
           </div>
 
-          <!-- Prominent Access Setup Card -->
-          <div class="drive-access-banner">
-            <div class="drive-banner-header">
-              <Info size={14} class="banner-info-icon" />
-              <span>Permission Setup: Share with Service Account</span>
-            </div>
-            <p class="drive-banner-desc">
-              Open your target Google Drive folder (and custom template), click <strong>Share</strong> and grant <strong>Editor</strong> access to:
-            </p>
-            <div class="service-account-box">
-              <code>{draft.serviceAccountEmail}</code>
-              <button type="button" class="btn-copy-sa" onclick={copyServiceAccountEmail} title="Copy email" aria-label="Copy service account email">
-                {#if emailCopied}
-                  <Check size={13} class="copied-check" />
-                  <span class="copy-text copied-text">Copied</span>
-                {:else}
-                  <Copy size={13} />
-                  <span class="copy-text">Copy</span>
-                {/if}
-              </button>
-            </div>
-          </div>
-
           <div class="setting-row">
             <div class="setting-meta">
               <label for="setting-drive-folder" class="setting-title">Target Folder URL / ID</label>
@@ -389,18 +382,8 @@
                 <div class="guide-step">
                   <span class="step-num">3</span>
                   <div class="step-details">
-                    <strong>Share access with the Agent</strong>
-                    <p>Click <strong>Share</strong> in your Google Doc and set <em>"Anyone with the link can view"</em>, OR share directly with the agent service account:</p>
-                    <div class="service-account-box">
-                      <code>{draft.serviceAccountEmail}</code>
-                      <button type="button" class="btn-copy-sa" onclick={copyServiceAccountEmail} title="Copy email">
-                        {#if emailCopied}
-                          <Check size={13} class="copied-check" />
-                        {:else}
-                          <Copy size={13} />
-                        {/if}
-                      </button>
-                    </div>
+                    <strong>Template Access</strong>
+                    <p>Ensure the custom template is in your own Google Drive or set to <em>"Anyone with the link can view"</em> so the agent can duplicate and populate it for your events.</p>
                   </div>
                 </div>
               </div>
@@ -412,7 +395,7 @@
       <!-- Clean Footer -->
       <footer class="dialog-footer">
         <span class="footer-hint">Settings are saved automatically to your workspace.</span>
-        <button class="btn-done" onclick={onClose}>Done</button>
+        <button class="btn-done" onclick={handleDone}>Done</button>
       </footer>
     </div>
   </div>
@@ -831,93 +814,6 @@
     border-color: var(--primary-accent);
   }
 
-  /* Drive Access Setup Banner */
-  .drive-access-banner {
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-subtle);
-    border-left: 3px solid var(--primary-accent);
-    border-radius: var(--radius-sm);
-    padding: 10px 12px;
-    margin: 4px 10px 10px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .drive-banner-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .drive-banner-header :global(.banner-info-icon) {
-    color: var(--primary-accent);
-  }
-
-  .drive-banner-desc {
-    font-size: 11.5px;
-    color: var(--text-secondary);
-    line-height: 1.4;
-    margin: 0;
-  }
-
-  .drive-banner-desc strong {
-    color: var(--text-primary);
-  }
-
-  .copy-text {
-    font-size: 11px;
-    margin-left: 4px;
-    font-weight: 500;
-  }
-
-  .copied-text {
-    color: var(--status-success);
-  }
-
-  .service-account-box {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    padding: 6px 10px;
-    border-radius: var(--radius-sm);
-    margin-top: 6px;
-  }
-
-  .service-account-box code {
-    font-family: var(--font-mono, monospace);
-    font-size: 11px;
-    color: var(--text-primary);
-    word-break: break-all;
-  }
-
-  .btn-copy-sa {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    transition: var(--transition-fast);
-  }
-
-  .btn-copy-sa:hover {
-    background: var(--bg-surface-elevated);
-    color: var(--primary-accent);
-  }
-
-  .btn-copy-sa :global(.copied-check) {
-    color: var(--status-success);
-  }
 
   /* Footer */
   .dialog-footer {

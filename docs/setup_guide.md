@@ -35,6 +35,7 @@ graph TD
 ## 📋 Prerequisites
 
 Ensure you have the following installed on your machine:
+
 * **Python 3.12+** (to run ADK and agent packages)
 * **uv** (to manage Python dependencies)
 * **Node.js v22+** (to run the custom Svelte frontend and the HyperFrames render server)
@@ -78,7 +79,8 @@ If `GOOGLE_GENAI_USE_VERTEXAI=1`, authenticate your local environment with Googl
 ```bash
 bash <(curl -sSL https://storage.googleapis.com/cloud-samples-data/adc/setup_adc.sh)
 ```
-*Provide your GCP Project ID (e.g., `gdg-agents-496611`) when prompted and complete authentication in your browser. When using `GOOGLE_GENAI_USE_VERTEXAI=0`, skip this step and configure `GOOGLE_API_KEY` instead.*
+
+*Provide your GCP Project ID (e.g., `agents-123`) when prompted and complete authentication in your browser. When using `GOOGLE_GENAI_USE_VERTEXAI=0`, skip this step and configure `GOOGLE_API_KEY` instead.*
 
 ### 4. Configuration Settings (.env)
 
@@ -90,17 +92,18 @@ cp .env.example .env
 ```
 
 Open `.env` and configure the following parameters:
-- `GOOGLE_API_KEY`: Your preferred API key from [Google AI Studio](https://aistudio.google.com/). It is used when `GOOGLE_GENAI_USE_VERTEXAI=0`; all Gemini model calls then use this key instead of Vertex credentials.
-- `GEMINI_API_KEY`: Backwards-compatible fallback when `GOOGLE_API_KEY` is not configured.
-- `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run Gemini calls through Vertex AI endpoints, or `0` to run Gemini calls through the Gemini Developer API. In API mode, `GOOGLE_API_KEY` or `GEMINI_API_KEY` must be set.
-- `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID from [Google Cloud Console](https://console.cloud.google.com/).
-- `GOOGLE_CLOUD_LOCATION`: The GCP region/location for Vertex AI model inference (use `global` for optimal multi-region availability across Gemini models; Veo video generation automatically routes to `us-central1`).
-- `GOOGLE_DRIVE_FOLDER_ID`: The ID of your target Google Drive folder (found in the folder's URL).
-- `VIDEO_ENGINE`: Video generation engine — set to `veo` (Vertex AI Google Veo 3.1) or `omni` (Google AI Gemini Omni Flash preview via Interactions API). API mode requires `omni`; `veo` is rejected because it requires Vertex AI.
-- `ENABLE_VIDEO_GENERATION`: Set to `true` to run live AI video animation, or `false` for layout-only dry-runs using local placeholder media.
-- `RENDER_4K`: Set to `true` to render high-resolution 4K Ultra-HD MP4 compositions.
-- `RENDER_ORDINARY`: Set to `true` (default) to render 1080p Full-HD MP4 compositions.
-- `RENDER_GIF`: Set to `true` (default) to generate animated GIF previews via FFmpeg.
+* `GOOGLE_API_KEY`: Your preferred API key from [Google AI Studio](https://aistudio.google.com/). It is used when `GOOGLE_GENAI_USE_VERTEXAI=0`; all Gemini model calls then use this key instead of Vertex credentials.
+* `GEMINI_API_KEY`: Backwards-compatible fallback when `GOOGLE_API_KEY` is not configured.
+* `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run Gemini calls through Vertex AI endpoints, or `0` to run Gemini calls through the Gemini Developer API. In API mode, `GOOGLE_API_KEY` or `GEMINI_API_KEY` must be set.
+* `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID from [Google Cloud Console](https://console.cloud.google.com/).
+* `VIDEO_ENGINE`: Video generation engine — set to `veo` (Vertex AI Google Veo 3.1) or `omni` (Google AI Gemini Omni Flash preview via Interactions API). API mode requires `omni`; `veo` is rejected because it requires Vertex AI.
+* `ENABLE_VIDEO_GENERATION`: Set to `true` to run live AI video animation, or `false` for layout-only dry-runs using local placeholder media.
+* `RENDER_4K`: Set to `true` to render high-resolution 4K Ultra-HD MP4 compositions.
+* `RENDER_ORDINARY`: Set to `true` (default) to render 1080p Full-HD MP4 compositions.
+* `RENDER_GIF`: Set to `true` (default) to generate animated GIF previews via FFmpeg.
+
+> [!NOTE]
+> **Google Drive & Docs Storage**: Target folder URLs/IDs and custom template documents are configured dynamically per-user in the Web UI **Settings (⚙️)** modal, rather than stored in `.env`.
 
 > [!TIP]
 > **Unified Configuration**: Avoid placing separate `.env` files inside individual subdirectories (`agents/root_agent/`, `agents/receipt_scanner/`, etc.). The workspace root `.env` serves as the single source of truth for all microservices.
@@ -110,11 +113,13 @@ Open `.env` and configure the following parameters:
 The **Receipt Scanner** sub-agent can generate native **Google Docs** directly in Google Drive without interactive user popups by using a free **GCP Service Account**.
 
 #### Step 1: Enable Google Docs and Google Drive APIs
+
 ```bash
 gcloud services enable docs.googleapis.com drive.googleapis.com --project=YOUR_PROJECT_ID
 ```
 
 #### Step 2: Create a Dedicated Service Account
+
 ```bash
 gcloud iam service-accounts create receipt-docs-bot \
   --description="Service Account for Google Docs & Drive Expense Reports" \
@@ -123,7 +128,9 @@ gcloud iam service-accounts create receipt-docs-bot \
 ```
 
 #### Step 3: Generate and Download the Key
+
 Download the JSON key directly into `configs/service_account.json` (this file is automatically excluded by `.gitignore`):
+
 ```bash
 mkdir -p configs
 gcloud iam service-accounts keys create configs/service_account.json \
@@ -132,6 +139,7 @@ gcloud iam service-accounts keys create configs/service_account.json \
 ```
 
 #### Step 4: Share Your Google Doc Template or Folder
+
 1. Open your Google Doc template (e.g., [Google Docs Template](https://docs.google.com/document/d/1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw/edit)) or your target Google Drive folder.
 2. Click **Share** (Поделиться) in the top-right corner.
 3. Add your service account email (e.g. `receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com`) with **Viewer** (Читатель) or **Editor** (Редактор) permissions.
@@ -141,8 +149,8 @@ gcloud iam service-accounts keys create configs/service_account.json \
 
 ### 6. Customizing the Expense Report Template
 
-- **Google Docs Template**: To customize the cloud template, create a copy of the default template, modify it, and update `agents/receipt_scanner/assets/Expense_report_template.gdoc` with the new `"doc_id"`.
-- **Local .docx Template**: Edit `agents/receipt_scanner/assets/expense_report_template.docx` in Word or LibreOffice. Tag placeholders like `{{TITLE}}`, `{{Current date}}`, `{{EUR/USD}}`, `{{Category}}`, `{{Desc}}`, `{{SUM CURR}}`, `{{APPROVED}}`, and `{{PROOFS}}` are populated dynamically.
+* **Google Docs Template**: To customize the cloud template, create a copy of the default template, modify it, and update `agents/receipt_scanner/assets/Expense_report_template.gdoc` with the new `"doc_id"`.
+* **Local .docx Template**: Edit `agents/receipt_scanner/assets/expense_report_template.docx` in Word or LibreOffice. Tag placeholders like `{{TITLE}}`, `{{Current date}}`, `{{EUR/USD}}`, `{{Category}}`, `{{Desc}}`, `{{SUM CURR}}`, `{{APPROVED}}`, and `{{PROOFS}}` are populated dynamically.
 
 ---
 
@@ -155,6 +163,7 @@ The easiest way to start all background A2A services (Video Editor on 8081, Rece
 ```bash
 make run-all
 ```
+
 *Press `Ctrl+C` in the terminal to gracefully stop all services.*
 
 ---
@@ -164,22 +173,26 @@ make run-all
 If you prefer to start components individually in separate terminal sessions:
 
 #### Terminal 1: Video Editor A2A Service (Port 8081)
+
 ```bash
 uv run --locked uvicorn agents.video_editor.a2a_server:a2a_app --host 0.0.0.0 --port 8081
 ```
 
 #### Terminal 2: Receipt Scanner A2A Service (Port 8082)
+
 ```bash
 uv run --locked uvicorn agents.receipt_scanner.a2a_server:a2a_app --host 0.0.0.0 --port 8082
 ```
 
 #### Terminal 3: Root Orchestrator (Port 8080)
+
 ```bash
 VIDEO_AGENT_A2A_URL=http://localhost:8081 RECEIPT_AGENT_A2A_URL=http://localhost:8082 \
   uv run --locked adk web --port 8080 agents
 ```
 
 #### Terminal 4: Launch Frontend (Svelte Dev Server)
+
 ```bash
 cd frontend
 npm run dev
@@ -211,20 +224,27 @@ make deploy-frontend
 ## 🛠️ Alternative & Diagnostic Operations
 
 ### 1. Using the Default ADK Developer UI
+
 If you want to use the default web playground provided out-of-the-box by ADK:
+
 ```bash
 uv run --locked adk web --port 8000 agents
 ```
+
 Open **`http://localhost:8000`** in your browser.
 
 ### 2. Testing Receipt Scanner via CLI
+
 You can test the receipt OCR scanner and currency converter directly using the test runner:
+
 ```bash
 uv run --locked python tests/test_receipt_scanner.py
 ```
 
 ### 3. HyperFrames Development & Preview Sandbox
+
 To preview the video composition layout, debug GSAP timelines, or check visual spacing:
+
 ```bash
 # Run local dev server with hot-reload and visual preview (scrub timeline at http://localhost:3000)
 npm run video:dev

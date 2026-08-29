@@ -310,18 +310,30 @@
 
   // Start New Session
   function getSessionStatePayload() {
+    let localSaved = {};
+    if (typeof window !== "undefined") {
+      try {
+        localSaved = JSON.parse(localStorage.getItem("community_studio_config") || "{}");
+      } catch (e) {}
+    }
+    const folderId = studioConfig?.googleDriveFolderId || localSaved.googleDriveFolderId || "";
+    const templateId = studioConfig?.googleDocsTemplateId || localSaved.googleDocsTemplateId || "";
+    const driveToken = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("google_drive_token") || "" : "";
+
     return {
-      community_name: studioConfig?.communityName || "GDG Krakow",
-      google_drive_folder_id: studioConfig?.googleDriveFolderId || "",
-      google_docs_template_id: studioConfig?.googleDocsTemplateId || "",
-      render_4k: studioConfig?.render4k ?? true,
-      render_gif: studioConfig?.renderGif ?? true,
-      generate_avatar: studioConfig?.generateAvatar ?? true,
-      enable_video_generation: studioConfig?.enableVideoGeneration ?? false,
-      render4k: studioConfig?.render4k ?? true,
-      renderGif: studioConfig?.renderGif ?? true,
-      generateAvatar: studioConfig?.generateAvatar ?? true,
-      enableVideoGeneration: studioConfig?.enableVideoGeneration ?? false,
+      community_name: studioConfig?.communityName || localSaved.communityName || "GDG Krakow",
+      google_drive_folder_id: folderId,
+      google_docs_template_id: templateId,
+      google_drive_access_token: driveToken,
+      google_drive_token: driveToken,
+      render_4k: studioConfig?.render4k ?? localSaved.render4k ?? true,
+      render_gif: studioConfig?.renderGif ?? localSaved.renderGif ?? true,
+      generate_avatar: studioConfig?.generateAvatar ?? localSaved.generateAvatar ?? true,
+      enable_video_generation: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? false,
+      render4k: studioConfig?.render4k ?? localSaved.render4k ?? true,
+      renderGif: studioConfig?.renderGif ?? localSaved.renderGif ?? true,
+      generateAvatar: studioConfig?.generateAvatar ?? localSaved.generateAvatar ?? true,
+      enableVideoGeneration: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? false,
     };
   }
 
@@ -599,12 +611,29 @@
       ];
       scrollToBottom();
 
+      const statePayload = getSessionStatePayload();
+      let metadataHeader = "";
+      if (statePayload.google_drive_folder_id) {
+        metadataHeader += `[Target Drive Folder: ${statePayload.google_drive_folder_id}] `;
+      }
+      if (statePayload.google_docs_template_id) {
+        metadataHeader += `[Target Template: ${statePayload.google_docs_template_id}] `;
+      }
+      if (statePayload.google_drive_access_token) {
+        metadataHeader += `[Google Drive Token: ${statePayload.google_drive_access_token}] `;
+      }
+
+      const streamParts = [...parts];
+      if (metadataHeader) {
+        streamParts.push({ text: metadataHeader.trim() });
+      }
+
       await runSSEStream({
         appName: sessionOwnerApp || selectedApp || "root_agent",
         userId,
         sessionId: selectedSessionId,
-        parts,
-        state: getSessionStatePayload(),
+        parts: streamParts,
+        state: statePayload,
         signal: currentAbortController.signal,
         onEvent: (eventObj) => {
           if (!eventObj) return;

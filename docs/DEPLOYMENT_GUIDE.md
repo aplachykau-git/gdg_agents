@@ -71,7 +71,6 @@ cp .env.example .env
 | `GOOGLE_CLOUD_LOCATION` | Vertex AI region (`global` or `europe-central2`) | `global` |
 | `GOOGLE_API_KEY` | Google AI Studio API Key (if `USE_VERTEXAI=0`) | `AIzaSy...` |
 | `COMMUNITY_NAME` | Community/Organizer brand name | `Your Community Name` |
-| `GOOGLE_DRIVE_FOLDER_ID` | Target Drive folder ID for expense reports | `1a2b3c...` |
 | `VIDEO_ENGINE` | Video generator engine | `omni` |
 
 ---
@@ -164,11 +163,8 @@ For automated Google Docs expense report creation:
      --description="Service account for automated expense Google Docs" \
      --display-name="Receipt Docs Bot"
    ```
-3. **Grant Drive Permissions**:
-   - In Google Drive, open the folder where expense reports should be saved.
-   - Click **Share** and add `receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com` as **Editor**.
-4. **Set Folder ID**:
-   - Copy the folder ID from the URL (`drive.google.com/drive/folders/<FOLDER_ID>`) and set `GOOGLE_DRIVE_FOLDER_ID` in `.env`.
+3. **Configure in Web UI**:
+   - In the Web UI **Settings (⚙️)**, enter your target Google Drive Folder URL or ID. Reports will be created directly on your Google Drive via OAuth user delegation.
 
 ---
 

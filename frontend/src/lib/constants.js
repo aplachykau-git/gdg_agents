@@ -50,7 +50,7 @@ export const DEFAULT_CONFIG = {
   communityName: 'GDG Krakow',
   googleDriveFolderId: '',
   googleDocsTemplateId: '',
-  serviceAccountEmail: import.meta.env.VITE_STUDIO_SA_EMAIL || '876483189679-compute@developer.gserviceaccount.com',
+  serviceAccountEmail: import.meta.env.VITE_STUDIO_SA_EMAIL || 'community-studio-runtime@gdg-agents-6b59a.iam.gserviceaccount.com',
   // Video Editor rendering toggles
   render4k: true,
   renderGif: true,
