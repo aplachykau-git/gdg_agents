@@ -152,6 +152,10 @@ resource "google_cloud_run_v2_service" "receipt_scanner" {
         value = var.google_docs_template_id
       }
       env {
+        name  = "GOOGLE_AUTH_METHOD"
+        value = "adc"
+      }
+      env {
         name  = "GOOGLE_GENAI_USE_VERTEXAI"
         value = var.use_vertex_ai
       }

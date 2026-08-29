@@ -94,7 +94,8 @@ cd "$REPO_ROOT"
 # 6. Build & Deploy Frontend
 echo ""
 echo "💻 [5/5] Building & Deploying Frontend..."
-npm run build --prefix frontend
+STUDIO_SA_EMAIL=$(cd terraform && "$TERRAFORM_BIN" output -raw service_account_email 2>/dev/null || echo "")
+VITE_STUDIO_SA_EMAIL="$STUDIO_SA_EMAIL" npm run build --prefix frontend
 npx -y firebase-tools deploy --only hosting --project "$PROJECT_ID"
 
 echo ""
