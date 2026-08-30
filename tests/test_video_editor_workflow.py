@@ -203,8 +203,7 @@ class TestVideoEditorWorkflow(unittest.TestCase):
 
         prompt = compile_creative_prompt(draft)
 
-        self.assertIn("Warm studio lighting, slow push-in, no neon.", prompt)
-        self.assertIn("one continuous shot", prompt)
+        self.assertEqual(prompt, "Warm studio lighting, slow push-in, no neon")
 
     def test_normalise_rendered_asset_keeps_https_url(self):
         asset = normalise_rendered_asset("Video", "https://example.com/video.mp4")

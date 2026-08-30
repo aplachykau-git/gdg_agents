@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import re
 import shutil
 import tempfile
 from collections.abc import Iterator
@@ -69,11 +70,24 @@ def compile_creative_prompt(draft: VideoEditorDraft) -> str:
     assert draft.name and draft.position_company and draft.title
     direction = _normalise(draft.creative_direction)
     if direction:
-        return f"{direction}. Use one continuous shot with no cuts, no text overlays, and natural subtle movement."
+        # 1. Full string removals
+        for text_to_remove in (draft.name, draft.position_company, draft.title):
+            if text_to_remove:
+                pattern = re.compile(re.escape(text_to_remove), re.IGNORECASE)
+                direction = pattern.sub("", direction)
+        # 2. Dynamic token removals for individual words in speaker name (e.g. "Katsiaryna", "Skwarek")
+        if draft.name:
+            for word in draft.name.split():
+                if len(word) >= 3:
+                    pattern = re.compile(r"\b" + re.escape(word) + r"\b", re.IGNORECASE)
+                    direction = pattern.sub("", direction)
+        direction = re.sub(r"\s+", " ", direction).strip(" .,-")
+    if direction:
+        return direction
     return (
         "Cinematic conference speaker portrait in a modern professional setting. "
         "Subtle natural breathing movement, gentle head motion, soft realistic eye blinks, "
-        "professional event atmosphere. Use one continuous shot with no cuts, no text overlays, and natural subtle movement."
+        "professional event atmosphere."
     )
 
 

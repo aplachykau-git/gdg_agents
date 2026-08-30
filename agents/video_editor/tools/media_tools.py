@@ -6,6 +6,8 @@ import shutil
 import time
 from typing import Any, Optional
 
+import google.auth
+import google.auth.transport.requests
 import requests
 from google import genai
 from google.adk.tools import ToolContext
@@ -39,18 +41,50 @@ def video_generation_enabled() -> bool:
 
 
 def sanitize_i2v_prompt(prompt: str) -> str:
-    """Strips references to specific names, likenesses, or safety-triggering phrases for AI video generation."""
-    cleaned = re.sub(r"(?i)Create a polished speaker introduction for [^.,]+[,.]?", "", prompt)
-    cleaned = re.sub(r"(?i)Preserve the person’[s|] identity and keep the subject realistic[,.]?", "", cleaned)
+    """Strips references to specific names, likenesses, character references, or safety-triggering phrases for AI video generation."""
+    cleaned = prompt
+    # Strip metadata headers if pasted into prompt
+    cleaned = re.sub(r"(?i)^(?:Name|Role|Company|Talk|Title|Speaker)\s*:\s*[^\n]+", "", cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r"(?i)Generate a speaker intro video card[^\n]*", "", cleaned)
+    # Strip Character Reference blocks e.g. [Character Reference: ...]
+    cleaned = re.sub(r"(?i)\[?\s*Character Reference:[\s\S]*?\]", "", cleaned)
+    # Strip parenthetical instructions about reference images
+    cleaned = re.sub(r"(?i)\([^\)]*(?:reference image|reference photo|visual anchor)[^\)]*\)", "", cleaned)
+    # Strip phrases referencing facial features, likeness, identity, visual anchors, reference photo
+    cleaned = re.sub(
+        r"(?i)(?:use|maintain|keep|preserve)\s+[^.,\n]*(?:facial features|likeness|identity|visual anchor|reference photo|reference image|attire)[^.,\n]*[.,]?",
+        "",
+        cleaned,
+    )
+    cleaned = re.sub(
+        r"(?i)\b(?:from the reference photo|from the reference image|raw reference image|visual anchor|character reference|exact facial features)\b",
+        "",
+        cleaned,
+    )
+    cleaned = re.sub(r"(?i)Create a polished speaker introduction for [^.,]+[,.]?", "", cleaned)
     cleaned = re.sub(r"(?i)speaking about [^.,]+[,.]?", "", cleaned)
-    cleaned = cleaned.strip(" .,\n")
-    if not cleaned:
-        cleaned = "Cinematic conference speaker portrait in a modern professional tech setting. Natural subtle movement, soft studio lighting."
+    cleaned = re.sub(r"(?i)\b(speaker|presenter|attendee|guest|subject)\s+named\s+[^,.\n]+", "", cleaned)
+    cleaned = re.sub(
+        r"(?i)\b(speaker|presenter|talk title|presentation|topic|role|company)\s*[:=]\s*[^,.\n]+", "", cleaned
+    )
+    cleaned = re.sub(r"(?i)\b(real\s+person|person'?s\s+likeness|celebrity|identity)\b", "", cleaned)
+    # Strip empty brackets/parentheses and stray punctuation
+    cleaned = re.sub(r"\(\s*[,;.]*\s*\)", "", cleaned)
+    cleaned = re.sub(r"\[\s*[,;.]*\s*\]", "", cleaned)
+    # Clean up excess whitespace and punctuation
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,\n-")
+    if not cleaned or len(cleaned) < 10:
+        cleaned = (
+            "Cinematic conference stage in a modern professional tech setting. "
+            "Gentle studio lighting, subtle natural movement, soft realistic background bokeh"
+        )
     return cleaned
 
 
 def augment_creative_prompt(creative_prompt: str) -> str:
     cleaned = sanitize_i2v_prompt(creative_prompt)
+    if len(cleaned) > 40:
+        return cleaned
     return f"{cleaned.rstrip('. ')}. {random.choice(DEFAULT_CINEMATIC_DIRECTIONS)}"
 
 
@@ -341,7 +375,31 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     print(f'   └─ Final Omni Prompt: "{i2v_prompt}"')
     print("🚀 Submitting request to Google AI Gemini Omni Flash (Interactions API)...")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    if api_key.startswith("AIza"):
+        url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
+    else:
+        # Obtain OAuth2 token from Google Cloud ADC / Service Account
+        token = None
+        try:
+            creds, _ = google.auth.default(
+                scopes=[
+                    "https://www.googleapis.com/auth/generative-language",
+                    "https://www.googleapis.com/auth/cloud-platform",
+                ]
+            )
+            auth_req = google.auth.transport.requests.Request()
+            creds.refresh(auth_req)
+            token = creds.token
+        except Exception as e:
+            print(f"⚠️ [Omni Auth] Could not obtain OAuth2 token from ADC: {e}")
+
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+            url = "https://generativelanguage.googleapis.com/v1beta/interactions"
+        else:
+            url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
+
     payload = {
         "model": "gemini-omni-1.1-flash",
         "input": [
@@ -359,7 +417,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
         },
     }
 
-    resp = requests.post(url, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+    resp = requests.post(url, headers=headers, json=payload, timeout=300)
     if resp.status_code != 200:
         raise RuntimeError(f"Gemini Omni Flash generation failed ({resp.status_code}): {resp.text}")
 
