@@ -23,11 +23,24 @@ mindmap
       Guardrails & Input Validation
       Drive OAuth Model Decision
       Firebase App Check Enforcement
-    Phase 2 Features
-      Multi-Tenancy
-      RBAC
-      RAG Memory
-      Audit Logging
+    Phase 2 Foundation & Quality
+      Global Tax & FX
+      Cross-Platform Copy
+      Security Hardening
+      Compliance Engine
+    Phase 3 Ecosystem & Cloud
+      Platform Sync
+      Speaker Portals
+      Video Builder
+    Phase 4 Optimization & Data
+      Agenda Optimizer
+      Sponsor Matching
+      Dynamic Pricing
+    Phase 5 Marketplace & Scale
+      Agent Marketplace
+      BYOK & Open A2A
+      Enterprise SaaS
+      Compliance Engine
     Observability
       Distributed Tracing
       Cost Attribution
@@ -242,59 +255,176 @@ flowchart TD
 
 ---
 
-## 3. Phase 2 Roadmap
+## 3. Roadmap
 
-### 3.1 Multi-Tenancy (Organization Workspaces)
+### Phase 1 — Hackathon MVP (current)
 
-```mermaid
-flowchart TD
-    subgraph CURRENT["Phase 1 (Current)"]
-        U1["User A"] & U2["User B"] --> RA["Shared root agent\nNo tenant isolation"]
-    end
+Community AI Studio adapted for the Polish market. Single-tenant, single-region, organizer-only access. Demonstrates core agent pipeline: event planning, receipt scanning, video generation, and registration management.
 
-    subgraph PHASE2["Phase 2 (Multi-Tenant)"]
-        T1["Tenant: gdg-krakow\nShared folder, team history"] 
-        T2["Tenant: gdg-warsaw\nIsolated quota & storage"]
-        RA2["Root agent with\ntenant_id context"]
-        T1 & T2 --> RA2
-    end
-```
+---
+
+### Phase 2 — Foundation & Quality
+
+#### 3.1 Global Tax & FX
+
+Multi-currency receipt parsing and tax-rule engine. `receipt_scanner` must handle VAT configurations beyond Polish 23% and convert amounts to a base currency for reporting.
 
 **Changes required:**
-- `tenant_id` claim in Firebase Auth custom token
-- Session state namespaced by `tenant_id`
-- GCS bucket path prefix: `gs://${bucket}/tenants/${tenant_id}/`
-- Quota enforcement per tenant (not just per user)
+- Currency detection from receipt OCR output
+- Exchange rate lookup tool (ECB or Fixer.io)
+- Tax rule registry per country (VAT/GST/HST)
 
 ---
 
-### 3.2 Role-Based Access Control (RBAC)
+#### 3.2 Cross-Platform Copy
 
-| Role | Capabilities |
-|:---|:---|
-| Super Admin | All agents, quota management, tenant config |
-| Chapter Lead | All event agents, view all member sessions |
-| Event Organizer | All event agents, own sessions only |
-| Guest | Read-only, no video generation |
+1-click social content expansion from a single agenda or announcement. Generate platform-optimized variants for X, Facebook, and Instagram simultaneously.
 
-**Implementation:** Firebase Auth custom claims + root agent middleware checking `user.claims.role` before routing.
+**Changes required:**
+- New `social_publisher` sub-agent with per-platform prompt templates
+- Character-limit and format constraints per platform
+- Optional: direct API posting via platform OAuth tokens
 
 ---
 
-### 3.3 Persistent RAG Memory
+#### 3.3 Security Hardening
 
-**Goal:** Agent retains knowledge across event seasons — past speakers, recurring venues, typical agendas.
-
-**Stack:** Vertex AI Vector Search + Cloud Firestore for metadata. ADK `VertexAiRagMemoryService` as memory backend.
-
-**Scope:**
-- Per-tenant memory corpus: past events, speaker profiles, venue contacts
-- `event_planner` reads memory to avoid rescheduling past conflicts
-- `agenda_generator` reads memory to apply community-standard time slots
+Covered in detail in §2.1. Summary targets:
+- Agent guardrails and input sanitization layer (`agents/common/guardrails.py`)
+- Output filter for PII leakage prevention
+- Max tool-call depth enforcement per agent turn
 
 ---
 
-### 3.4 Observability & Cost Attribution
+#### 3.4 Compliance Engine
+
+Automated legal and GDPR verification layer applied to agent outputs before delivery to the user.
+
+**Changes required:**
+- GDPR data minimization checks on registration exports
+- Consent flag validation before storing attendee PII
+- Legal clause templating for event T&Cs (jurisdiction-aware)
+
+---
+
+### Phase 3 — Ecosystem & Cloud
+
+#### 3.5 Platform Sync
+
+Bi-directional integration with Bevy, Sessionize, and Meetup. Agents read and write event data directly rather than relying on manual copy-paste.
+
+**Changes required:**
+- Connector tools for each platform API (Bevy, Sessionize, Meetup)
+- Conflict resolution strategy for concurrent edits
+- Webhook listeners for inbound event updates
+
+---
+
+#### 3.6 Speaker Portals
+
+Self-serve CFP (Call for Proposals) submission flow with automated email pipeline. Speakers submit via a portal; agents handle review routing and acceptance/rejection emails.
+
+**Changes required:**
+- CFP submission form (new frontend route)
+- `speaker_portal` agent for proposal triage and scoring
+- Transactional email integration (SendGrid or similar)
+
+---
+
+#### 3.7 Video Builder
+
+Drag-and-drop video template designer for event promotion assets. Extends current `video_editor` with user-controllable layout, branding, and scene ordering.
+
+**Changes required:**
+- Template schema with user-editable slots (logo, colors, speaker headshots)
+- Frontend drag-and-drop editor component
+- `video_editor_a2a` to accept template parameters alongside prompt
+
+---
+
+### Phase 4 — Optimization & Data
+
+#### 3.8 Agenda Optimizer
+
+Constraint solver for timezone-aware scheduling and speaker availability. Replaces manual agenda drafting with an optimized slot assignment engine.
+
+**Changes required:**
+- Constraint model: speaker timezones, session durations, room capacities
+- Solver integration (OR-Tools or similar)
+- `agenda_generator` delegates to solver before drafting output
+
+---
+
+#### 3.9 Sponsor Matching
+
+Contextual demographic matcher pairing sponsors with events based on audience profile and sponsor category alignment.
+
+**Changes required:**
+- Attendee demographic aggregation (anonymized)
+- Sponsor profile data model
+- Matching scoring function in a new `sponsor_matcher` tool
+
+---
+
+#### 3.10 Dynamic Pricing
+
+Demand-driven ticket tier adjustment. Pricing engine monitors registration velocity and adjusts tier thresholds accordingly.
+
+**Changes required:**
+- Registration velocity tracker (Firestore time-series)
+- Pricing rule engine with configurable tier thresholds
+- Integration with ticketing platform API (Bevy or Eventbrite)
+
+---
+
+### Phase 5 — Marketplace & Scale
+
+#### 3.11 Agent Marketplace
+
+Publish, share, and monetize custom agent workflows. Community members contribute domain-specific agents and make them available to other chapters.
+
+**Changes required:**
+- Marketplace registry (agent manifest schema, versioning)
+- Sandboxed agent execution with quota isolation
+- Billing/revenue-share model for monetized workflows
+
+---
+
+#### 3.12 BYOK & Open A2A
+
+Custom Gemini API key support per user plus open plugin hub via the A2A protocol. Users supply their own keys; third-party agents connect via standard A2A endpoints.
+
+**Changes required:**
+- Per-user API key storage (Secret Manager, scoped per `user_id`)
+- A2A discovery endpoint exposing agent card manifest
+- Key injection middleware in root agent before LLM calls
+
+---
+
+#### 3.13 Enterprise SaaS
+
+White-labeling and tenant isolation for chapters operating at scale. Each tenant gets isolated storage, quota, and a branded frontend.
+
+**Changes required:**
+- Tenant provisioning pipeline (Terraform module per tenant)
+- GCS path isolation: `gs://${bucket}/tenants/${tenant_id}/`
+- White-label config: custom domain, logo, color scheme per tenant
+- Quota enforcement and billing aggregation per tenant
+
+---
+
+#### 3.14 Compliance Engine (Enterprise Tier)
+
+Extended GDPR and cross-jurisdiction legal automation for enterprise tenants, building on the Phase 2 compliance foundation.
+
+**Changes required:**
+- Multi-jurisdiction rule registry (EU, US state laws, etc.)
+- Automated audit trail for data processing activities
+- DPA (Data Processing Agreement) generation per tenant
+
+---
+
+### 3.15 Observability & Cost Attribution
 
 **Current state:** Logging only via Cloud Logging (`roles/logging.logWriter`). No structured metrics, no per-user cost attribution, no SLO dashboards.
 
