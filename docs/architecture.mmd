@@ -1,0 +1,67 @@
+%%{init: {
+  'theme': 'dark',
+  'themeVariables': {
+    'darkMode': true,
+    'background': '#0f172a',
+    'primaryColor': '#1e293b',
+    'primaryTextColor': '#f8fafc',
+    'primaryBorderColor': '#475569',
+    'lineColor': '#38bdf8',
+    'textColor': '#f8fafc',
+    'fontSize': '13px',
+    'fontFamily': 'Inter, system-ui, -apple-system, sans-serif',
+    'clusterBkg': '#131926',
+    'clusterBorder': '#334155',
+    'edgeLabelBackground': '#1e293b',
+    'tertiaryColor': '#1e293b',
+    'tertiaryBorderColor': '#334155'
+  }
+}}%%
+
+flowchart TB
+    subgraph CLIENT_LAYER["🖥️ 1. CLIENT & INTERACTION LAYER (A2UI)"]
+        direction LR
+        UI["<b>Svelte 5 Workspace Dashboard</b><br/><i>Firebase Hosting CDN</i><br/>• Floating Dynamic Stager & Cards<br/>• BYOK Settings & Prompt Bar<br/>• Multi-agent UI & Action Badges"]
+    end
+
+    subgraph GATEWAY_LAYER["🌐 2. INGRESS & ADK ORCHESTRATION GATEWAY"]
+        direction LR
+        GW["<b>ADK Headless API Server</b><br/><i>adk api_server (Cloud Run)</i><br/>• Direct SSE Streaming: <code>/run_sse</code><br/>• Multi-app Registry: <code>/list-apps</code><br/>• Extended 10-minute Connection Timeout"]
+        ROOT["<b>Root Orchestrator Agent</b><br/><i>gemini-3.5-flash-lite</i><br/>• Intent Parsing & Dynamic Router<br/>• Service Account OIDC Auth Client"]
+        GW <-->|Bidirectional SSE / REST| ROOT
+    end
+
+    subgraph AGENT_LAYER["🤖 3. SPECIALIZED WORKER AGENTS (Local & Private Remote A2A)"]
+        direction TB
+        
+        subgraph LOCAL_AGENTS["⚡ In-Process Sub-Agents"]
+            direction LR
+            A_LINKEDIN["📱 <b>LinkedIn Post Generator</b><br/><i>gemini-3.5-flash-lite</i><br/>• 3 Style Post Variants<br/>• Anti-Hallucination Guard"]
+            A_REG["👥 <b>Registration Manager</b><br/><i>gemini-3.5-flash-lite</i><br/>• CSV Roster Clean & Dedup<br/>• Privacy Guard & DOCX Exporter"]
+            A_PLANNER["📅 <b>Event Planner</b><br/><i>gemini-3.5-flash-lite</i><br/>• Tech Calendar Conflicts<br/>• Polish Holidays (Nager.Date)"]
+            A_AGENDA["⏱️ <b>Agenda Formatter</b><br/><i>gemini-3.5-flash-lite</i><br/>• Minute-level Slot Snapping<br/>• Dynamic Interactive Timeline"]
+            A_OFFICE["✉️ <b>Office Secretary</b><br/><i>gemini-3.5-flash-lite</i><br/>• Visitor Key Access<br/>• Room Reservation Emails"]
+        end
+
+        subgraph REMOTE_A2A["🔒 Distributed Private A2A Microservices (IAM OIDC Auth)"]
+            direction LR
+            A_VIDEO["🎬 <b>Live Video Editor A2A</b><br/><i>gemini-3.5-flash-lite + Gemini Omni / Veo 3.1</i><br/>• Face Landmark Verification<br/>• 9:16 Outpainting (Flash Lite Image)<br/>• Gemini Omni Flash & Veo 3.1 Video<br/>• HyperFrames 1080p / 4K Fast Render"]
+            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>gemini-3.7-flash (Multimodal OCR)</i><br/>• Pekao & NBP Banking FX Rates<br/>• Google Docs Report Exporter"]
+        end
+    end
+
+    subgraph INFRA_LAYER["☁️ 4. STORAGE & FOUNDATIONAL AI BACKENDS"]
+        direction LR
+        GCS["🗄️ <b>Google Cloud Storage</b><br/><i>gs://gdg-agents-6b59a-storage</i><br/>• Rendered MP4s & Posters<br/>• Staged Media & Reports"]
+        AI_BACKEND["🧠 <b>Google AI & Vertex AI</b><br/>• Gemini 3.5 Flash / Flash Lite<br/>• Gemini Omni Flash (Interactions API)<br/>• Vertex AI Veo 3.1 Video"]
+        WORKSPACE["📄 <b>Google Workspace</b><br/>• Google Docs API<br/>• Google Drive Reports"]
+    end
+
+    UI -->|Direct HTTPS / SSE Streaming| GW
+    ROOT -->|Local Execution| LOCAL_AGENTS
+    ROOT -->|IAM Bearer OIDC Token| REMOTE_A2A
+    REMOTE_A2A <-->|Upload / Download| GCS
+    LOCAL_AGENTS -->|API Calls| WORKSPACE
+    LOCAL_AGENTS -->|Inference| AI_BACKEND
+    REMOTE_A2A -->|Inference & Video Gen| AI_BACKEND
+    ROOT -->|Routing Decision| AI_BACKEND

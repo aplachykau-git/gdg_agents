@@ -1,5 +1,7 @@
 # Video Editor Agent Flow
 
+> **Visual Assets**: [🖼️ PNG Diagram](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/video_editor/docs/assets/video_editor_dag.png) • [📄 PDF Document](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/video_editor/docs/assets/video_editor_dag.pdf)
+
 ```mermaid
 flowchart TD
     User[/User or root-agent request/]

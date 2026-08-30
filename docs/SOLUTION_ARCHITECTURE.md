@@ -23,6 +23,8 @@ Community AI Studio is a multi-agent orchestration platform for community leader
 
 ## 2. Architecture Overview
 
+> **Visual Assets**: [🖼️ PNG Diagram](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/assets/architecture_diagram.png) • [📄 PDF Document](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/assets/architecture_diagram.pdf) • [📐 SVG Vector](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/assets/architecture_diagram.svg)
+
 ```mermaid
 flowchart TD
     subgraph CLIENT["Client Layer"]
@@ -34,15 +36,14 @@ flowchart TD
     subgraph SECURITY["Ingress & Security Layer"]
         AppCheck["Firebase App Check\n(reCAPTCHA v3)"]
         FirebaseAuth["Firebase Auth\n(Google Sign-In)"]
-        FirebaseHosting["Firebase Reverse Proxy\n(Rewrites: /run_sse, /list-apps)"]
         Browser --> AppCheck
         Browser --> FirebaseAuth
-        Browser -->|HTTPS / SSE| FirebaseHosting
+        Browser -->|Direct HTTPS / SSE Streaming| RootAgent
     end
 
     subgraph COMPUTE["Compute & Agent Layer (Cloud Run)"]
-        RootAgent["community-root-agent\nHeadless ADK API Server\n(8Gi / 4 CPU)"]
-        FirebaseHosting -->|Proxied REST / SSE| RootAgent
+        RootAgent["community-root-agent\nHeadless ADK API Server\n(8Gi / 4 CPU · 10 min stream)"]
+
 
         subgraph INPROCESS["In-Process Agents"]
             LinkedIn["LinkedIn Planner"]
