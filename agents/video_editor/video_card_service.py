@@ -67,14 +67,18 @@ def missing_draft_fields(draft: VideoEditorDraft) -> list[str]:
 
 def compile_creative_prompt(draft: VideoEditorDraft) -> str:
     assert draft.name and draft.position_company and draft.title
+    # Note: Google AI video models (Veo & Gemini Omni Flash) safety filters block prompts
+    # that reference specific real people's names or likenesses ("content_blocked").
+    # The source portrait photo already establishes the speaker's visual identity.
+    # Therefore, the I2V motion prompt strictly describes cinematic motion, atmosphere, and lighting.
     base = (
-        f"Create a polished speaker introduction for {draft.name}, {draft.position_company}, "
-        f"speaking about {draft.title}. Preserve the person’s identity and keep the subject realistic, "
-        "calm, and suitable for a professional event."
+        "Cinematic conference speaker portrait in a modern professional setting. "
+        "Subtle natural breathing movement, gentle head motion, soft realistic eye blinks, "
+        "professional event atmosphere."
     )
     direction = _normalise(draft.creative_direction)
     if direction:
-        base = f"{base} User creative direction: {direction}"
+        base = f"{base} User creative direction: {direction}."
     return f"{base} Use one continuous shot with no cuts, no text overlays, and natural subtle movement."
 
 

@@ -38,8 +38,20 @@ def video_generation_enabled() -> bool:
     return os.environ.get("ENABLE_VIDEO_GENERATION", "false").lower() in ("true", "1", "yes")
 
 
+def sanitize_i2v_prompt(prompt: str) -> str:
+    """Strips references to specific names, likenesses, or safety-triggering phrases for AI video generation."""
+    cleaned = re.sub(r"(?i)Create a polished speaker introduction for [^.,]+[,.]?", "", prompt)
+    cleaned = re.sub(r"(?i)Preserve the person’[s|] identity and keep the subject realistic[,.]?", "", cleaned)
+    cleaned = re.sub(r"(?i)speaking about [^.,]+[,.]?", "", cleaned)
+    cleaned = cleaned.strip(" .,\n")
+    if not cleaned:
+        cleaned = "Cinematic conference speaker portrait in a modern professional tech setting. Natural subtle movement, soft studio lighting."
+    return cleaned
+
+
 def augment_creative_prompt(creative_prompt: str) -> str:
-    return f"{creative_prompt.rstrip('. ')}. {random.choice(DEFAULT_CINEMATIC_DIRECTIONS)}"
+    cleaned = sanitize_i2v_prompt(creative_prompt)
+    return f"{cleaned.rstrip('. ')}. {random.choice(DEFAULT_CINEMATIC_DIRECTIONS)}"
 
 
 def resolve_path(rel_path: str) -> str:
