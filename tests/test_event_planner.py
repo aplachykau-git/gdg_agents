@@ -109,10 +109,11 @@ class TestEventPlannerAgentIntegration(unittest.IsolatedAsyncioTestCase):
             auto_create_session=True,
         )
 
+        community_name = os.getenv("COMMUNITY_NAME", "Community")
         mock_event = MagicMock()
         mock_event.content = types.Content(
             role="model",
-            parts=[types.Part.from_text(text="I recommend Tuesday, June 9, 2026 for the GDG meetup.")],
+            parts=[types.Part.from_text(text=f"I recommend Tuesday, June 9, 2026 for the {community_name} meetup.")],
         )
 
         async def fake_run_async(*args, **kwargs):

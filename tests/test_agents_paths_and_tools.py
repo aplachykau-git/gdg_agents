@@ -1,5 +1,5 @@
 """
-Comprehensive Integration Tests for GDG Agentic Workspace.
+Comprehensive Integration Tests for Community AI Studio.
 Tests agent initialization, path resolution, tool resilience, and A2A cards.
 """
 
@@ -59,13 +59,12 @@ assert expected.issubset(agents), (agents, expected)
 
         self.assertIsNotNone(video_editor_agent)
         self.assertEqual(video_editor_agent.name, "video_editor")
-        self.assertTrue(hasattr(video_editor_agent, "graph"))
+        self.assertEqual(len(video_editor_agent.tools), 1)
 
-    def test_video_editor_workflow_import(self):
-        from agents.video_editor.workflow import video_editor_workflow
+    def test_video_editor_tool_is_registered(self):
+        from agents.video_editor.agent import video_editor_agent
 
-        self.assertIsNotNone(video_editor_workflow)
-        self.assertEqual(video_editor_workflow.name, "video_editor")
+        self.assertEqual(video_editor_agent.tools[0].__name__, "create_video_card")
 
     def test_receipt_scanner_agent_import(self):
         from agents.receipt_scanner.agent import receipt_agent

@@ -1,5 +1,5 @@
 <script>
-  import { Plus, History, Trash2 } from '@lucide/svelte';
+  import { History, Trash2, Plus } from '@lucide/svelte';
 
   let {
     sessions = [],
@@ -12,23 +12,30 @@
 </script>
 
 <aside class="studio-sidebar">
-  <div class="sidebar-top">
-    <button class="btn-new-prompt" onclick={onNewSession} disabled={isLoading}>
-      <Plus size={18} strokeWidth={2} />
-      <span>New Session</span>
+  <div class="sidebar-top-bar">
+    <div class="sidebar-section-title">
+      <History size={13} strokeWidth={1.75} />
+      <span>SESSION HISTORY</span>
+    </div>
+    <button 
+      class="sidebar-new-btn" 
+      onclick={() => onNewSession()} 
+      disabled={isLoading}
+      title="Start New Session"
+    >
+      <Plus size={14} strokeWidth={2.2} />
+      <span>New</span>
     </button>
-  </div>
-
-  <div class="sidebar-section-title">
-    <History size={13} strokeWidth={1.75} />
-    <span>SESSION HISTORY</span>
   </div>
 
   <div class="sessions-stream">
     {#if sessions.length === 0}
       <div class="empty-sessions">
         <p>No recent chats.</p>
-        <span>Click "+ New Session" to begin.</span>
+        <button class="empty-new-session-btn" onclick={() => onNewSession()} disabled={isLoading}>
+          <Plus size={13} strokeWidth={2} />
+          <span>Start New Session</span>
+        </button>
       </div>
     {:else}
       {#each sessions as session, idx}
@@ -72,40 +79,16 @@
     animation: slideInLeft 0.2s ease-out;
   }
 
-  .sidebar-top {
-    padding: 16px;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-
-  .btn-new-prompt {
-    width: 100%;
+  .sidebar-top-bar {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: var(--primary-accent);
-    color: var(--text-inverse);
-    border: none;
-    padding: 10px 16px;
-    border-radius: var(--radius-pill);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: var(--transition-fast);
-  }
-
-  .btn-new-prompt:hover:not(:disabled) {
-    background: var(--primary-accent-hover);
-    color: var(--text-inverse);
-  }
-
-  .btn-new-prompt:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    justify-content: space-between;
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 4px;
   }
 
   .sidebar-section-title {
-    padding: 16px 16px 8px;
     font-size: 11px;
     font-weight: 700;
     color: var(--text-tertiary);
@@ -113,6 +96,52 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .sidebar-new-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .sidebar-new-btn:hover:not(:disabled) {
+    background: var(--primary, #1a73e8);
+    color: #ffffff;
+    border-color: transparent;
+  }
+
+  .sidebar-new-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .empty-new-session-btn {
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--primary, #1a73e8);
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+
+  .empty-new-session-btn:hover:not(:disabled) {
+    opacity: 0.9;
   }
 
   .sessions-stream {
@@ -150,7 +179,7 @@
   }
 
   .session-item.active {
-    background: rgba(138, 180, 248, 0.12);
+    background: var(--primary-accent-container);
   }
 
   .session-nav-btn {

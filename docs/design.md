@@ -1,4 +1,4 @@
-# Design System Specification: GDG Agents
+# Design System Specification: Community AI Studio
 
 > **Version:** 1.0.0  
 > **Target Platform:** Web Portal / Svelte 5 + Vite  
@@ -153,13 +153,38 @@ A defining visual characteristic of Google AI Studio and Material 3 Expressive i
 
 ---
 
+### 1.4 Agent Visual Identity & Iconography Matrix (Mandatory)
+
+Each specialized agent has an assigned visual signature composed of its Lucide icon, semantic accent token, and container background. These mappings are mandatory across all UI contexts:
+
+| Agent ID | Display Name | Lucide Icon | Color Token | Dark Background Token | Specialization Domain |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `root_agent` | **Main** | `Layers` | `--agent-root` (`#4285F4`) | `--bg-root` | Central Orchestrator & Router |
+| `receipt_scanner` | **Receipt Scanner** | `Receipt` | `--agent-receipt` (`#34A853`) | `--bg-receipt` | OCR, Multi-currency FX, Google Docs |
+| `video_editor` | **Live Video Editor** | `Video` | `--agent-video` (`#FBBC04`) | `--bg-video` | Face Landmarks, 9:16 Outpaint, Veo |
+| `linkedin_post_generator` | **LinkedIn Planner** | `Share2` | `--agent-linkedin` (`#0A66C2`) | `--bg-linkedin` | Social Copy, Recaps, Hashtags |
+| `registration_manager` | **Registrations Manager** | `Users` | `--agent-registration` (`#A142F4`) | `--bg-registration` | Roster Clean, Deduplication, DOCX |
+| `event_planner` | **Event Scheduler** | `Calendar` | `--agent-planner` (`#EA4335`) | `--bg-planner` | Polish Holidays, Meetup Calendars |
+| `agenda_generator` | **Agenda Formatter** | `Clock` | `--agent-agenda` (`#24C1E0`) | `--bg-agenda` | Minute Schedules, Break Calculations |
+| `office_secretary` | **Office Secretary** | `Mail` | `--agent-office` (`#FA7B17`) | `--bg-office` | Key Access & Room Reservation Drafts |
+
+---
+
+### 1.5 Iconography & Emoji Policy (Strictly Enforced)
+
+- **Zero Raw / Standard Emoji Characters**: NEVER use platform emoji characters (e.g., `⚙️`, `📁`, `🚀`, `🧾`, `📸`, `📊`, `📑`, `💡`, `🤖`) in UI templates, buttons, dropzones, chips, headers, dialogs, modals, or status banners. Raw emoji render inconsistently across operating systems and degrade the professional IDE aesthetic.
+- **Lucide Icons Only**: Always use official `@lucide/svelte` SVG vector icon components (e.g. `<Settings size={14} />`, `<FileText size={16} />`, `<Paperclip size={20} />`, `<Check size={14} />`, `<ExternalLink size={14} />`, `<Sparkles size={16} />`, `<Folder size={14} />`, etc.).
+- **Typography & Icon Harmony**: Pair Lucide icons with proper token sizes (`12px`, `14px`, `16px`, `18px`, `20px`, `24px`) and theme color tokens (`var(--text-secondary)`, `var(--primary-accent)`).
+
+---
+
 ## 2. Global Layout (Streamlined Workstation Grid)
 
 The interface implements a responsive two-column workstation layout:
 
 ```
 +-------------------------------------------------------------------------------------------------------+
-|  HEADER (Top App Bar): Logo [GDG Agents] | Active Agent Selector | Capabilities | Theme Toggle        |
+|  HEADER (Top App Bar): Logo [Community AI Studio] | Active Agent Selector | Capabilities | Theme Toggle |
 +-------------------+-----------------------------------------------------------------------------------+
 |                   |                                                                                   |
 |   LEFT SIDEBAR    |                        CENTRAL WORKSPACE ZONE                                     |

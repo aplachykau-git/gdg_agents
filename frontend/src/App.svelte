@@ -1,87 +1,292 @@
 <script>
-  import { onMount } from 'svelte';
-  import { 
-    Sparkles, 
-    History, 
-    Paperclip, 
-    Sun, 
-    Moon, 
-    ChevronDown, 
-    HelpCircle, 
-    ArrowRight, 
-    Receipt, 
-    Video, 
-    Share2, 
-    Users, 
-    Calendar, 
-    Clock, 
-    Mail, 
-    Workflow, 
-    AlertCircle, 
-    X 
-  } from '@lucide/svelte';
-  
-  import AgentGraph from './lib/AgentGraph.svelte';
-  import Sidebar from './lib/Sidebar.svelte';
-  import ChatMessage from './lib/ChatMessage.svelte';
-  import ChatInput from './lib/ChatInput.svelte';
-  
-  import { 
-    DEFAULT_APPS, 
-    STATUS_TICKERS, 
-    getAgentTheme, 
-    isIntermediateEvent 
-  } from './lib/constants.js';
-  
-  import { 
-    fetchApps, 
-    fetchSessions, 
-    createSession, 
-    fetchSessionHistory, 
-    deleteSessionRequest, 
-    runSSEStream 
-  } from './lib/api.js';
+  import { onMount } from "svelte";
+  import {
+    Sparkles,
+    History,
+    Paperclip,
+    Sun,
+    Moon,
+    ChevronDown,
+    HelpCircle,
+    ArrowRight,
+    Receipt,
+    Video,
+    Share2,
+    Users,
+    Calendar,
+    Clock,
+    Mail,
+    Workflow,
+    Layers,
+    AlertCircle,
+    Plus,
+    Settings,
+    MoreVertical,
+    X,
+    FileText,
+    Image as ImageIcon,
+    FilePenLine,
+    ClipboardList,
+    MapPin,
+    Building2,
+    Megaphone,
+  } from "@lucide/svelte";
+
+  import AgentGraph from "./lib/AgentGraph.svelte";
+  import Sidebar from "./lib/Sidebar.svelte";
+  import ChatMessage from "./lib/ChatMessage.svelte";
+  import ChatInput from "./lib/ChatInput.svelte";
+  import SettingsModal from "./lib/SettingsModal.svelte";
+  import CapabilitiesModal from "./lib/CapabilitiesModal.svelte";
+  import studioLogo from "./assets/community-ai-studio.png";
+  import squareLogo from "./assets/community-ai-studio-logo.png";
+
+  import {
+    DEFAULT_APPS,
+    STATUS_TICKERS,
+    cleanAuthorName,
+    getAgentTheme,
+    getAgentHeading,
+    getAgentDescription,
+    getAgentStarterPrompts,
+    getAgentIconName,
+    isIntermediateEvent,
+    getAppConfig,
+    saveAppConfig,
+    resolveAgentId,
+    getActiveAgentFromEvents,
+    getEventAgent,
+  } from "./lib/constants.js";
+
+  const ICON_MAP = {
+    receipt: Receipt,
+    video: Video,
+    share: Share2,
+    users: Users,
+    calendar: Calendar,
+    clock: Clock,
+    mail: Mail,
+    layers: Layers,
+    megaphone: Megaphone,
+    "file-text": FileText,
+    image: ImageIcon,
+    "file-pen-line": FilePenLine,
+    "clipboard-list": ClipboardList,
+    "map-pin": MapPin,
+    building: Building2,
+    sparkles: Sparkles,
+  };
+
+  const CATALOG_AGENTS = [
+    {
+      id: "root_agent",
+      name: "Main",
+      tag: "Multi-Agent Hub",
+      desc: "Coordinates tasks across agents and answers questions for your community events.",
+      actionText: "Start workflow",
+      icon: Layers,
+      accent: "var(--agent-root)",
+      bg: "var(--bg-root)",
+    },
+    {
+      id: "receipt_scanner",
+      name: "Receipt Scanner",
+      tag: "Expenses & Finance",
+      desc: "Scans receipts, checks live bank exchange rates, and creates expense reports in Google Drive.",
+      actionText: "Scan receipts",
+      icon: Receipt,
+      accent: "var(--agent-receipt)",
+      bg: "var(--bg-receipt)",
+    },
+    {
+      id: "video_editor",
+      name: "Live Video Editor",
+      tag: "Speaker Video & Media",
+      desc: "Turns speaker portrait photos into animated video intros and speaker cards.",
+      actionText: "Generate video",
+      icon: Video,
+      accent: "var(--agent-video)",
+      bg: "var(--bg-video)",
+    },
+    {
+      id: "linkedin_post_generator",
+      name: "LinkedIn Planner",
+      tag: "Social Media & Posts",
+      desc: "Writes engaging speaker announcements, event invitations, and post-event recaps with hashtags.",
+      actionText: "Draft post",
+      icon: Share2,
+      accent: "var(--agent-linkedin)",
+      bg: "var(--bg-linkedin)",
+    },
+    {
+      id: "registration_manager",
+      name: "Registrations Manager",
+      tag: "Attendee Rosters",
+      desc: "Cleans attendee lists, removes duplicates, and organizes confirmed and waitlisted guests.",
+      actionText: "Process roster",
+      icon: Users,
+      accent: "var(--agent-registration)",
+      bg: "var(--bg-registration)",
+    },
+    {
+      id: "event_planner",
+      name: "Event Scheduler",
+      tag: "Dates & Holidays",
+      desc: "Scans meetup calendars and holidays to find the best dates for community events.",
+      actionText: "Plan dates",
+      icon: Calendar,
+      accent: "var(--agent-planner)",
+      bg: "var(--bg-planner)",
+    },
+    {
+      id: "agenda_generator",
+      name: "Agenda Formatter",
+      tag: "Event Agendas",
+      desc: "Creates structured event schedules with talks, networking sessions, and break times.",
+      actionText: "Format agenda",
+      icon: Clock,
+      accent: "var(--agent-agenda)",
+      bg: "var(--bg-agenda)",
+    },
+    {
+      id: "office_secretary",
+      name: "Office Secretary",
+      tag: "Office & Access",
+      desc: "Prepares building visitor access requests and meeting room reservation emails.",
+      actionText: "Draft email",
+      icon: Mail,
+      accent: "var(--agent-office)",
+      bg: "var(--bg-office)",
+    },
+  ];
+
+  function getAgentIcon(agentId) {
+    if (!agentId) return Layers;
+    const clean = cleanAuthorName(agentId).toLowerCase();
+    const found = CATALOG_AGENTS.find(
+      (a) => a.id === agentId || a.id.toLowerCase() === clean
+    );
+    if (found) return found.icon;
+    if (clean.includes("receipt")) return Receipt;
+    if (clean.includes("video") || clean.includes("avatar")) return Video;
+    if (clean.includes("linkedin")) return Share2;
+    if (clean.includes("registration")) return Users;
+    if (clean.includes("planner")) return Calendar;
+    if (clean.includes("agenda")) return Clock;
+    if (clean.includes("office") || clean.includes("secretary")) return Mail;
+    return Layers;
+  }
+
+  import {
+    fetchApps,
+    fetchSessions,
+    createSession,
+    fetchSessionHistory,
+    deleteSessionRequest,
+    runSSEStream,
+  } from "./lib/api.js";
+  import {
+    auth,
+    loginWithGoogle,
+    logoutUser,
+    onAuthStateChanged,
+  } from "./lib/firebase.js";
+  import LoginScreen from "./lib/LoginScreen.svelte";
+  import { LogOut } from "@lucide/svelte";
+
+  function getOrCreateUserId() {
+    if (typeof window === "undefined") return "user";
+    let stored = localStorage.getItem("community_studio_user_id");
+    if (!stored) {
+      stored = "user_" + (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10));
+      localStorage.setItem("community_studio_user_id", stored);
+    }
+    return stored;
+  }
 
   // State Variables
   let apps = $state.raw(DEFAULT_APPS);
-  let selectedApp = $state('root_agent');
-  let userId = $state('user');
+  let selectedApp = $state("root_agent"); // The app namespace currently being browsed
+  let sessionOwnerApp = $state("root_agent"); // The top-level agent app hosting the session
+  let userId = $state(getOrCreateUserId());
   let sessions = $state.raw([]);
-  let selectedSessionId = $state('');
+  let selectedSessionId = $state("");
   let events = $state.raw([]);
-  let queryText = $state('');
+  let queryText = $state("");
   let isLoading = $state(false);
-  let errorMsg = $state('');
+  let isSubmitting = $state(false);
+  let errorMsg = $state("");
   let isDarkMode = $state(true);
-  
+  let studioConfig = $state(getAppConfig());
+  let currentUser = $state(null);
+  let isAuthLoading = $state(true);
+  let isLoggingIn = $state(false);
+  let authError = $state("");
+  let showUserMenu = $state(false);
+
   // Layout Panels & Drawers
-  let showSessions = $state(true);
+  let showSessions = $state(false);
   let showLegend = $state(false);
   let showAgentGraph = $state(false);
-  
+  let showSettings = $state(false);
+
   // Staged files & Drag State
   let isDragging = $state(false);
-  let stagedFiles = $state([]); 
+  let stagedFiles = $state([]);
   let textareaElement = $state();
 
-  let statusText = $state('Orchestrating agents...');
+  let statusText = $state("Orchestrating agents...");
   let statusInterval;
-  let currentExecutingAgent = $state('root_agent');
+  let currentExecutingAgent = $state("root_agent");
   let chatBodyElement = $state();
   let dragCounter = 0;
 
-  const activeAgentTheme = $derived(getAgentTheme(selectedApp));
-  const filteredEvents = $derived(events.filter(e => !isIntermediateEvent(e)));
+  // Dynamically resolve active agent currently handling the conversation
+  const activeAgent = $derived.by(() => {
+    if (isLoading && currentExecutingAgent) {
+      const resolved = resolveAgentId(currentExecutingAgent, apps);
+      if (resolved) return resolved;
+    }
+    return getActiveAgentFromEvents(
+      events,
+      currentExecutingAgent || sessionOwnerApp || selectedApp || "root_agent",
+      apps,
+    );
+  });
+
+  const activeAgentTheme = $derived(getAgentTheme(activeAgent));
+  const filteredEvents = $derived(
+    events.filter((e) => !isIntermediateEvent(e)),
+  );
+
+  // Agent selector manual switch
+  async function handleAgentChange(newApp) {
+    selectedApp = newApp;
+    sessionOwnerApp = newApp;
+    currentExecutingAgent = newApp;
+    errorMsg = "";
+    try {
+      sessions = await fetchSessions(newApp, userId);
+      if (sessions.length > 0) {
+        await selectSession(sessions[0].session_id);
+      } else {
+        await startNewSession(newApp);
+      }
+    } catch (e) {
+      console.warn("Error switching agent:", e);
+      await startNewSession(newApp);
+    }
+  }
 
   // Theme Toggler
   function toggleTheme() {
     isDarkMode = !isDarkMode;
     if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.classList.add("dark");
+      document.documentElement.setAttribute("data-theme", "dark");
     } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.classList.remove("dark");
+      document.documentElement.setAttribute("data-theme", "light");
     }
   }
 
@@ -91,20 +296,12 @@
     await loadSessions();
   }
 
-  // Load Sessions
+  // Load Sessions (fetch history for sidebar without navigating away from Home)
   async function loadSessions() {
     if (!selectedApp) return;
     try {
-      errorMsg = '';
+      errorMsg = "";
       sessions = await fetchSessions(selectedApp, userId);
-      if (sessions.length > 0) {
-        if (!selectedSessionId || !sessions.some(s => s.session_id === selectedSessionId)) {
-          selectSession(sessions[0].session_id);
-        }
-      } else {
-        selectedSessionId = '';
-        events = [];
-      }
     } catch (e) {
       console.error(e);
       errorMsg = `Failed to load sessions: ${e.message}`;
@@ -112,20 +309,83 @@
   }
 
   // Start New Session
-  async function startNewSession() {
-    if (!selectedApp) return;
+  function getSessionStatePayload() {
+    let localSaved = {};
+    if (typeof window !== "undefined") {
+      try {
+        localSaved = JSON.parse(localStorage.getItem("community_studio_config") || "{}");
+      } catch (e) {}
+    }
+    const folderId = studioConfig?.googleDriveFolderId || localSaved.googleDriveFolderId || "";
+    const templateId = studioConfig?.googleDocsTemplateId || localSaved.googleDocsTemplateId || "";
+    const driveToken = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("google_drive_token") || "" : "";
+
+    return {
+      community_name: studioConfig?.communityName || localSaved.communityName || "GDG Krakow",
+      google_drive_folder_id: folderId,
+      google_docs_template_id: templateId,
+      google_drive_access_token: driveToken,
+      google_drive_token: driveToken,
+      render_4k: studioConfig?.render4k ?? localSaved.render4k ?? true,
+      render_gif: studioConfig?.renderGif ?? localSaved.renderGif ?? true,
+      generate_avatar: studioConfig?.generateAvatar ?? localSaved.generateAvatar ?? true,
+      enable_video_generation: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? false,
+      render4k: studioConfig?.render4k ?? localSaved.render4k ?? true,
+      renderGif: studioConfig?.renderGif ?? localSaved.renderGif ?? true,
+      generateAvatar: studioConfig?.generateAvatar ?? localSaved.generateAvatar ?? true,
+      enableVideoGeneration: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? false,
+    };
+  }
+
+  async function startNewSession(agentId = null) {
+    const appToUse = agentId || selectedApp || "root_agent";
+    selectedApp = appToUse;
+    sessionOwnerApp = appToUse;
+    currentExecutingAgent = appToUse;
     const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    selectedSessionId = newSessionId;
+    events = [];
+    queryText = "";
+    stagedFiles = [];
+    errorMsg = "";
+
     try {
-      errorMsg = '';
       isLoading = true;
-      await createSession(selectedApp, userId, newSessionId);
-      await loadSessions();
-      selectSession(newSessionId);
+      const statePayload = getSessionStatePayload();
+      await createSession(appToUse, userId, newSessionId, statePayload);
+      const fetched = await fetchSessions(appToUse, userId);
+      if (fetched && fetched.length > 0) {
+        sessions = fetched;
+      } else {
+        sessions = [{ id: newSessionId, session_id: newSessionId, state: statePayload, events: [] }];
+      }
     } catch (e) {
-      console.error(e);
-      errorMsg = `Failed to start session: ${e.message}`;
+      console.warn("Session creation notice:", e.message);
+      sessions = [{ id: newSessionId, session_id: newSessionId, state: getSessionStatePayload(), events: [] }];
     } finally {
       isLoading = false;
+      setTimeout(() => {
+        if (textareaElement) textareaElement.focus();
+      }, 50);
+    }
+  }
+
+  function selectStarterPrompt(prompt) {
+    const text = typeof prompt === "string" ? prompt : (prompt?.prompt || prompt?.text || "");
+    queryText = text;
+    setTimeout(() => {
+      if (textareaElement) {
+        textareaElement.style.height = "auto";
+        textareaElement.style.height = textareaElement.scrollHeight + "px";
+        textareaElement.focus();
+      }
+    }, 50);
+  }
+
+  async function startNewSessionWithPrompt(targetApp, prompt) {
+    await startNewSession(targetApp);
+    if (prompt) {
+      selectStarterPrompt(prompt);
     }
   }
 
@@ -137,8 +397,18 @@
       return;
     }
     try {
-      errorMsg = '';
-      events = await fetchSessionHistory(selectedApp, userId, selectedSessionId);
+      errorMsg = "";
+      sessionOwnerApp = selectedApp;
+      events = await fetchSessionHistory(
+        sessionOwnerApp || selectedApp,
+        userId,
+        selectedSessionId,
+      );
+      currentExecutingAgent = getActiveAgentFromEvents(
+        events,
+        sessionOwnerApp || selectedApp,
+        apps,
+      );
       scrollToBottom();
     } catch (e) {
       console.error(e);
@@ -148,12 +418,15 @@
 
   // Delete Session
   async function deleteSession(sessionId) {
-    if (!confirm('Are you sure you want to delete this session and its history?')) return;
+    if (
+      !confirm("Are you sure you want to delete this session and its history?")
+    )
+      return;
     try {
-      errorMsg = '';
-      await deleteSessionRequest(selectedApp, userId, sessionId);
+      errorMsg = "";
+      await deleteSessionRequest(sessionOwnerApp || selectedApp, userId, sessionId);
       if (selectedSessionId === sessionId) {
-        selectedSessionId = '';
+        selectedSessionId = "";
         events = [];
       }
       await loadSessions();
@@ -190,20 +463,20 @@
     isDragging = false;
     const files = e.dataTransfer ? e.dataTransfer.files : null;
     if (files && files.length > 0) {
-      Array.from(files).forEach(file => {
-        const isImage = file.type.startsWith('image/');
+      Array.from(files).forEach((file) => {
+        const isImage = file.type.startsWith("image/");
         const reader = new FileReader();
         reader.onload = (evt) => {
           const dataUrl = evt.target.result;
-          const base64Data = dataUrl.split(',')[1];
+          const base64Data = dataUrl.split(",")[1];
           stagedFiles = [
             ...stagedFiles,
             {
               name: file.name,
-              type: file.type || 'application/octet-stream',
+              type: file.type || "application/octet-stream",
               data: base64Data,
-              preview: isImage ? dataUrl : null
-            }
+              preview: isImage ? dataUrl : null,
+            },
           ];
         };
         reader.readAsDataURL(file);
@@ -213,7 +486,11 @@
 
   // Ticker for agent statuses
   function startStatusTicker(app) {
-    const list = STATUS_TICKERS[app] || ['Processing request...', 'Executing agent logic...', 'Invoking external tool pipeline...'];
+    const list = STATUS_TICKERS[app] || [
+      "Processing request...",
+      "Executing agent logic...",
+      "Invoking external tool pipeline...",
+    ];
     let idx = 0;
     statusText = list[0];
     clearInterval(statusInterval);
@@ -228,7 +505,7 @@
       if (chatBodyElement) {
         chatBodyElement.scrollTo({
           top: chatBodyElement.scrollHeight,
-          behavior: 'smooth'
+          behavior: "smooth",
         });
       }
     }, 50);
@@ -236,26 +513,61 @@
 
   function refineVariant(bodyText) {
     const cleanBody = bodyText.trim();
-    const quoted = cleanBody.split('\n').map(l => `> ${l}`).join('\n');
+    const quoted = cleanBody
+      .split("\n")
+      .map((l) => `> ${l}`)
+      .join("\n");
     queryText = `Please refine the following option:\n\n${quoted}\n\nMy adjustments:\n`;
     setTimeout(() => {
       if (textareaElement) {
-        textareaElement.style.height = 'auto';
-        textareaElement.style.height = (textareaElement.scrollHeight) + 'px';
+        textareaElement.style.height = "auto";
+        textareaElement.style.height = textareaElement.scrollHeight + "px";
         textareaElement.focus();
       }
     }, 50);
   }
 
+  let currentAbortController = null;
+
+  function stopGeneration() {
+    if (currentAbortController) {
+      try {
+        currentAbortController.abort();
+      } catch (e) {
+        console.warn("Abort error:", e);
+      }
+      currentAbortController = null;
+    }
+    isLoading = false;
+    isSubmitting = false;
+    clearInterval(statusInterval);
+  }
+
   // Send Message / Run Agent
   async function sendMessage() {
+    if (isLoading || isSubmitting) return;
     if (!queryText.trim() && stagedFiles.length === 0) return;
 
+    if (currentAbortController) {
+      try {
+        currentAbortController.abort();
+      } catch (e) {
+        // ignore
+      }
+    }
+    currentAbortController = new AbortController();
+
+    isSubmitting = true;
+    isLoading = true;
+
     if (!selectedSessionId) {
+      const appToCreate = sessionOwnerApp || selectedApp || "root_agent";
       const newSessionId = `session_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
       try {
-        await createSession(selectedApp, userId, newSessionId);
+        const statePayload = getSessionStatePayload();
+        await createSession(appToCreate, userId, newSessionId, statePayload);
         selectedSessionId = newSessionId;
+        sessionOwnerApp = appToCreate;
         loadSessions();
       } catch (err) {
         selectedSessionId = newSessionId;
@@ -264,25 +576,24 @@
 
     const currentText = queryText;
     const currentFiles = [...stagedFiles];
-    
-    queryText = '';
+
+    queryText = "";
     if (textareaElement) {
-      textareaElement.style.height = 'auto';
+      textareaElement.style.height = "auto";
     }
     stagedFiles = [];
-    errorMsg = '';
-    currentExecutingAgent = selectedApp || 'root_agent';
-    isLoading = true;
-    startStatusTicker(selectedApp);
+    errorMsg = "";
+    currentExecutingAgent = activeAgent || sessionOwnerApp || selectedApp || "root_agent";
+    startStatusTicker(currentExecutingAgent);
 
     try {
       const parts = [];
-      currentFiles.forEach(f => {
+      currentFiles.forEach((f) => {
         parts.push({
           inline_data: {
             mime_type: f.type,
-            data: f.data
-          }
+            data: f.data,
+          },
         });
       });
       if (currentText.trim()) {
@@ -293,160 +604,408 @@
       events = [
         ...events,
         {
-          author: 'user',
+          author: "user",
           content: { parts: parts },
-          timestamp: Date.now() / 1000
-        }
+          timestamp: Date.now() / 1000,
+        },
       ];
       scrollToBottom();
 
-      let isFirstModelToken = true;
+      const statePayload = getSessionStatePayload();
+      let metadataHeader = "";
+      if (statePayload.google_drive_folder_id) {
+        metadataHeader += `[Target Drive Folder: ${statePayload.google_drive_folder_id}] `;
+      }
+      if (statePayload.google_docs_template_id) {
+        metadataHeader += `[Target Template: ${statePayload.google_docs_template_id}] `;
+      }
+      if (statePayload.google_drive_access_token) {
+        metadataHeader += `[Google Drive Token: ${statePayload.google_drive_access_token}] `;
+      }
+
+      const streamParts = [...parts];
+      if (metadataHeader) {
+        streamParts.push({ text: metadataHeader.trim() });
+      }
 
       await runSSEStream({
-        appName: selectedApp,
+        appName: sessionOwnerApp || selectedApp || "root_agent",
         userId,
         sessionId: selectedSessionId,
-        parts,
+        parts: streamParts,
+        state: statePayload,
+        signal: currentAbortController.signal,
         onEvent: (eventObj) => {
           if (!eventObj) return;
-          
-          if (eventObj.author && eventObj.author !== 'user') {
-            currentExecutingAgent = eventObj.author;
-            startStatusTicker(currentExecutingAgent);
-          }
 
-          if (isFirstModelToken) {
-            isFirstModelToken = false;
-            events = [...events, eventObj];
-          } else {
-            const lastIdx = events.length - 1;
-            const lastEv = events[lastIdx];
+          const detected =
+            getEventAgent(eventObj, apps) ||
+            (eventObj.author && eventObj.author !== "user"
+              ? resolveAgentId(eventObj.author, apps) || cleanAuthorName(eventObj.author)
+              : null);
 
-            // If continuous text stream from same model
-            if (
-              lastEv &&
-              lastEv.author === eventObj.author &&
-              lastEv.content?.parts?.[0]?.text &&
-              eventObj.content?.parts?.[0]?.text &&
-              !eventObj.content?.parts?.[0]?.function_call &&
-              !eventObj.content?.parts?.[0]?.functionCall &&
-              !lastEv.content?.parts?.[0]?.function_call &&
-              !lastEv.content?.parts?.[0]?.functionCall
-            ) {
-              const updatedEvents = [...events];
-              updatedEvents[lastIdx] = {
-                ...lastEv,
-                content: {
-                  ...lastEv.content,
-                  parts: [
-                    {
-                      ...lastEv.content.parts[0],
-                      text: lastEv.content.parts[0].text + eventObj.content.parts[0].text
-                    }
-                  ]
-                }
-              };
-              events = updatedEvents;
-            } else {
-              events = [...events, eventObj];
+          if (
+            detected &&
+            detected !== "user" &&
+            (!currentExecutingAgent ||
+              currentExecutingAgent === "root_agent" ||
+              detected !== "root_agent")
+          ) {
+            if (detected !== currentExecutingAgent) {
+              currentExecutingAgent = detected;
+              startStatusTicker(currentExecutingAgent);
             }
           }
+
+          const existingIdx = eventObj.id
+            ? events.findIndex((e) => e.id === eventObj.id)
+            : -1;
+
+          if (existingIdx !== -1) {
+            // Existing event with same ID
+            const existingEv = events[existingIdx];
+            const updatedEvents = [...events];
+
+            if (eventObj.partial === false) {
+              // Final complete event emitted by ADK: replace with final consolidated payload
+              updatedEvents[existingIdx] = eventObj;
+            } else {
+              // Partial stream chunk: append text deltas
+              const newText = eventObj.content?.parts?.[0]?.text || "";
+              const prevText = existingEv.content?.parts?.[0]?.text || "";
+              updatedEvents[existingIdx] = {
+                ...eventObj,
+                content: {
+                  ...eventObj.content,
+                  parts: [
+                    {
+                      ...(eventObj.content?.parts?.[0] || {}),
+                      text: prevText + newText,
+                    },
+                  ],
+                },
+              };
+            }
+            events = updatedEvents;
+          } else {
+            // New event ID or first chunk
+            events = [...events, eventObj];
+          }
           scrollToBottom();
-        }
+        },
       });
     } catch (e) {
-      console.error(e);
-      errorMsg = e.message || 'Execution failed';
+      if (e.name === "AbortError" || currentAbortController?.signal?.aborted) {
+        console.info("Generation cancelled by user.");
+      } else {
+        console.error(e);
+        errorMsg = e.message || "Execution failed";
+      }
     } finally {
       isLoading = false;
+      isSubmitting = false;
+      currentAbortController = null;
       clearInterval(statusInterval);
       scrollToBottom();
     }
   }
 
+  function updateConfig(newConfig) {
+    studioConfig = newConfig;
+    saveAppConfig(newConfig);
+  }
+
+  async function handleGoogleLogin() {
+    isLoggingIn = true;
+    authError = "";
+    try {
+      const res = await loginWithGoogle();
+      currentUser = res.user;
+      selectedSessionId = "";
+      events = [];
+      queryText = "";
+      stagedFiles = [];
+    } catch (err) {
+      console.error("Google Auth failed:", err);
+      if (err.code === "auth/popup-closed-by-user") {
+        authError = "Sign-in popup was closed. Please try again.";
+      } else if (err.code === "auth/unauthorized-domain") {
+        authError = "Domain is not authorized in Firebase Authentication.";
+      } else {
+        authError = err.message || "Failed to sign in with Google.";
+      }
+    } finally {
+      isLoggingIn = false;
+    }
+  }
+
+  async function handleGoogleLogout() {
+    await logoutUser();
+    currentUser = null;
+    showUserMenu = false;
+  }
+
   onMount(() => {
-    document.documentElement.classList.add('dark');
-    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.classList.add("dark");
+    document.documentElement.setAttribute("data-theme", "dark");
     loadApps();
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      isAuthLoading = false;
+      if (user && user.uid) {
+        userId = `user_${user.uid.slice(0, 10)}`;
+      }
+    });
+
+    return () => {
+      if (unsubscribeAuth) unsubscribeAuth();
+    };
   });
 </script>
 
-<div class="studio-layout" class:thinking-active={isLoading} style="--active-agent-color: {activeAgentTheme.color}">
-  
-  <!-- =========================================================================
-   * TOP APP BAR (Google AI Studio Header)
-   * ========================================================================= -->
-  <header class="studio-header">
-    <div class="header-left">
-      <!-- Left sidebar toggle -->
-      <button 
-        class="icon-btn" 
-        class:active={showSessions} 
-        onclick={() => showSessions = !showSessions} 
-        title="Toggle History Drawer"
-      >
-        <History size={18} strokeWidth={1.75} />
-      </button>
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key === "Escape") {
+      showUserMenu = false;
+    }
+  }}
+  onclick={(e) => {
+    if (showUserMenu && !e.target.closest?.(".user-menu-container"))
+      showUserMenu = false;
+  }}
+/>
 
-      <!-- GDG Agents Logo -->
-      <div class="brand-badge">
-        <div class="brand-gemini-icon">
-          <Sparkles size={16} strokeWidth={2} class={isLoading ? 'generating-sparkle' : ''} />
-        </div>
+{#if isAuthLoading}
+  <div class="auth-loading-screen">
+    <div class="auth-loading-spinner"></div>
+    <span class="auth-loading-text">Connecting to Community AI Studio...</span>
+  </div>
+{:else if !currentUser}
+  <LoginScreen 
+    onLogin={handleGoogleLogin} 
+    {isLoggingIn} 
+    errorMessage={authError} 
+  />
+{:else}
+  <div
+    class="studio-layout"
+    class:thinking-active={isLoading}
+    style="--active-agent-color: {activeAgentTheme.color}"
+  >
+    <!-- =========================================================================
+     * TOP APP BAR (Sleek Modern Header)
+     * ========================================================================= -->
+    <header class="studio-header">
+    <div class="header-left">
+      <!-- Community AI Studio Brand Badge (Leftmost) -->
+      <button
+        class="brand-badge"
+        onclick={() => {
+          selectedSessionId = "";
+          events = [];
+        }}
+        data-tooltip="Home"
+        aria-label="Home"
+      >
+        <img
+          src={squareLogo}
+          alt="Community AI Studio"
+          class="brand-icon-img"
+        />
         <div class="brand-text">
-          <span class="brand-name">GDG Agents</span>
-          <span class="brand-sub">Autonomous Platform</span>
+          <span class="brand-name">Community AI Studio</span>
+          <span class="brand-sub">{studioConfig.communityName || "GDG Krakow"}</span>
         </div>
-      </div>
+      </button>
 
       <div class="header-divider"></div>
 
-      <!-- Breadcrumbs & Active App -->
+      <!-- New Session Button (With label) -->
+      <button
+        class="header-btn-new-session"
+        onclick={() => startNewSession()}
+        disabled={isLoading}
+        data-tooltip="Start New Session"
+        aria-label="Start New Session"
+      >
+        <Plus size={15} strokeWidth={2.2} />
+        <span>New session</span>
+      </button>
+
+      <!-- Sidebar toggle (History) -->
+      <button
+        class="icon-btn"
+        class:active={showSessions}
+        onclick={() => (showSessions = !showSessions)}
+        data-tooltip="Session History"
+        aria-label="Session History"
+      >
+        <History size={18} strokeWidth={1.75} />
+      </button>
+    </div>
+
+    <div class="header-right">
+      <!-- Active Agent Selector with integrated Online dot -->
       <div class="app-picker">
         <span class="picker-label">Agent:</span>
-        <div class="select-wrapper">
-          <select id="appSelect" bind:value={selectedApp} onchange={() => { selectedSessionId = ''; loadSessions(); }}>
+        <div
+          class="select-wrapper"
+          class:has-session={Boolean(selectedSessionId)}
+          class:is-main={activeAgent === "root_agent"}
+        >
+          {#if selectedSessionId}
+            <span
+              class="live-status-dot"
+              style="background: {activeAgentTheme.color}; box-shadow: 0 0 8px {activeAgentTheme.color}80;"
+              data-tooltip="Session Active • Connected ({activeAgentTheme.label})"
+              aria-label="Session Active • Connected ({activeAgentTheme.label})"
+            ></span>
+          {:else if activeAgent === "root_agent"}
+            <span
+              class="main-badge-icon"
+              data-tooltip="Main Coordinator"
+              aria-label="Main Coordinator"
+            >
+              <Layers size={12} strokeWidth={2} />
+            </span>
+          {/if}
+          <select
+            id="appSelect"
+            value={activeAgent}
+            onchange={(e) => handleAgentChange(e.target.value)}
+          >
             {#each apps as app}
-              <option value={app.name}>{app.root_agent_name || app.name}</option>
+              <option value={app.name}>
+                {app.root_agent_name || app.name}
+              </option>
             {/each}
           </select>
           <ChevronDown size={14} class="select-chevron" />
         </div>
       </div>
 
-      {#if selectedSessionId}
-        <div class="session-chip">
-          <span class="pulse-dot"></span>
-          <span>Online</span>
+      <div class="header-divider"></div>
+
+      <!-- Multi-Agent Architecture -->
+      <button
+        class="icon-btn"
+        class:active={showAgentGraph}
+        onclick={() => (showAgentGraph = true)}
+        data-tooltip="Multi-Agent Architecture"
+        aria-label="Multi-Agent Architecture"
+      >
+        <Workflow size={18} strokeWidth={1.75} />
+      </button>
+
+      <!-- User Profile & Workspace Options Dropdown (Combined) -->
+      {#if currentUser}
+        <div class="user-menu-container">
+          <button 
+            class="user-header-profile" 
+            class:active={showUserMenu}
+            onclick={(e) => {
+              e.stopPropagation();
+              showUserMenu = !showUserMenu;
+            }} 
+            title="Account & Options ({currentUser.displayName || 'Google Account'})"
+            aria-label="Account and options"
+          >
+            <div class="user-avatar-wrap">
+              {#if currentUser.photoURL}
+                <img src={currentUser.photoURL} alt="User avatar" class="header-avatar-img" />
+              {:else}
+                <span class="header-avatar-fallback">
+                  {(currentUser.displayName || 'U').charAt(0).toUpperCase()}
+                </span>
+              {/if}
+            </div>
+            <ChevronDown size={11} strokeWidth={2.2} class="profile-dropdown-arrow" />
+          </button>
+
+          {#if showUserMenu}
+            <div class="dropdown-menu user-dropdown">
+              <!-- Account info header -->
+              <div class="user-dropdown-header">
+                <div class="user-dropdown-top">
+                  {#if currentUser.photoURL}
+                    <img src={currentUser.photoURL} alt="Avatar" class="dropdown-avatar-img" />
+                  {:else}
+                    <span class="dropdown-avatar-fallback">
+                      {(currentUser.displayName || 'U').charAt(0).toUpperCase()}
+                    </span>
+                  {/if}
+                  <div class="user-dropdown-info">
+                    <div class="user-dropdown-name">{currentUser.displayName || 'Google Account'}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dropdown-divider"></div>
+
+              <!-- Workspace Theme / Capabilities / Settings -->
+              <button
+                class="dropdown-item"
+                onclick={() => {
+                  toggleTheme();
+                  showUserMenu = false;
+                }}
+              >
+                {#if isDarkMode}
+                  <Sun size={15} strokeWidth={1.75} class="dropdown-icon" />
+                  <span>Light Theme</span>
+                {:else}
+                  <Moon size={15} strokeWidth={1.75} class="dropdown-icon" />
+                  <span>Dark Theme</span>
+                {/if}
+              </button>
+
+              <button
+                class="dropdown-item"
+                onclick={() => {
+                  showLegend = true;
+                  showUserMenu = false;
+                }}
+              >
+                <HelpCircle size={15} strokeWidth={1.75} class="dropdown-icon" />
+                <span>Capabilities</span>
+              </button>
+
+              <button
+                class="dropdown-item"
+                onclick={() => {
+                  showSettings = true;
+                  showUserMenu = false;
+                }}
+              >
+                <Settings size={15} strokeWidth={1.75} class="dropdown-icon" />
+                <span>Settings</span>
+              </button>
+
+              <div class="dropdown-divider"></div>
+
+              <!-- Logout -->
+              <button
+                class="dropdown-item dropdown-item-danger"
+                onclick={() => {
+                  handleGoogleLogout();
+                  showUserMenu = false;
+                }}
+              >
+                <LogOut size={15} strokeWidth={1.75} class="dropdown-icon" />
+                <span>Sign out</span>
+              </button>
+            </div>
+          {/if}
         </div>
       {/if}
-    </div>
-
-    <div class="header-right">
-      <button class="header-pill-btn" onclick={() => showAgentGraph = true} title="View Multi-Agent DAG Architecture & Protocol Graph">
-        <Workflow size={15} strokeWidth={1.75} />
-        <span>Multi-Agent DAG</span>
-      </button>
-
-      <button class="header-pill-btn" onclick={() => showLegend = true} title="View Agent System Architecture">
-        <HelpCircle size={15} strokeWidth={1.75} />
-        <span>Capabilities</span>
-      </button>
-
-      <button class="icon-btn" onclick={toggleTheme} title="Toggle Theme">
-        {#if isDarkMode}
-          <Sun size={18} strokeWidth={1.75} />
-        {:else}
-          <Moon size={18} strokeWidth={1.75} />
-        {/if}
-      </button>
     </div>
   </header>
 
   <div class="studio-body">
     <!-- Left Sidebar -->
     {#if showSessions}
-      <Sidebar 
+      <Sidebar
         {sessions}
         {selectedSessionId}
         {isLoading}
@@ -457,19 +1016,24 @@
     {/if}
 
     <!-- Central Workspace -->
-    <main class="studio-main" 
-          ondragenter={handleDragEnter}
-          ondragover={handleDragOver}
-          ondragleave={handleDragLeave}
-          ondrop={handleDrop}>
-      
-      <!-- Drag & Drop Overlay -->
+    <main
+      class="studio-main"
+      ondragenter={handleDragEnter}
+      ondragover={handleDragOver}
+      ondragleave={handleDragLeave}
+      ondrop={handleDrop}
+    >
+      <!-- Drag & Drop Overlay (Expansive) -->
       {#if isDragging}
         <div class="drag-zone-overlay">
           <div class="drag-zone-card">
-            <Paperclip size={36} class="drag-icon" />
-            <h3>Drop Files for Multimodal Inference</h3>
-            <p>Accepts receipts, invoice images, portrait photos, spreadsheets, and PDFs</p>
+            <div class="drag-icon-circle">
+              <Paperclip size={36} class="drag-icon" />
+            </div>
+            <h3>Drop Files Anywhere to Attach</h3>
+            <p>
+              Receipts, invoices, portraits, spreadsheets, or attendee rosters will be attached directly to your active session.
+            </p>
           </div>
         </div>
       {/if}
@@ -481,216 +1045,155 @@
             <AlertCircle size={18} class="error-banner-icon" />
             <span class="error-banner-text">{errorMsg}</span>
           </div>
-          <button class="error-banner-close" onclick={() => errorMsg = ''} title="Dismiss error">
+          <button
+            class="error-banner-close"
+            onclick={() => (errorMsg = "")}
+            title="Dismiss error"
+          >
             <X size={15} />
           </button>
         </div>
       {/if}
 
       {#if !selectedSessionId}
-        <!-- Welcome Hub View -->
+        <!-- Welcome Hub View / Main Agents Catalog -->
         <div class="hub-welcome-view">
-          <div class="hub-hero">
-            <div class="hub-pill">
-              <span class="hub-pill-dot"></span>
-              <span>GDG Krakow Operations & Event Platform</span>
+          <div class="hub-container">
+            <div class="hub-header">
+              <p class="hub-subtitle">
+                Select an agent to begin, or use the <strong>Main</strong> agent to automatically coordinate tasks.
+              </p>
             </div>
-            <h2>Autonomous Agent Orchestration</h2>
-            <p>Select a specialized agent below or use the <strong>Root Orchestrator</strong> to automatically analyze your prompt and dispatch tasks across pipelines.</p>
-          </div>
 
-          <!-- Quick 3-Step Guide -->
-          <div class="workflow-steps-strip">
-            <div class="step-badge">
-              <span class="step-num">1</span>
-              <span>Select agent or attach docs</span>
+            <!-- Quick 3-Step Guide -->
+            <div class="workflow-steps-strip">
+              <div class="step-badge">
+                <span class="step-num">1</span>
+                <span>Select agent or attach docs</span>
+              </div>
+              <div class="step-separator"></div>
+              <div class="step-badge">
+                <span class="step-num">2</span>
+                <span>Run prompt (Ctrl+Enter)</span>
+              </div>
+              <div class="step-separator"></div>
+              <div class="step-badge">
+                <span class="step-num">3</span>
+                <span>Inspect tool calls & copy outputs</span>
+              </div>
             </div>
-            <div class="step-separator"></div>
-            <div class="step-badge">
-              <span class="step-num">2</span>
-              <span>Run prompt (Ctrl+Enter)</span>
+
+            <!-- Agents Catalog Grid -->
+            <div class="agents-catalog-grid">
+              {#each CATALOG_AGENTS as agent}
+                {@const AgentIcon = agent.icon}
+                <button
+                  class="agent-catalog-card"
+                  style="--card-accent: {agent.accent}; --card-bg: {agent.bg};"
+                  onclick={() => {
+                    startNewSession(agent.id);
+                  }}
+                >
+                  <div class="agent-card-header">
+                    <div class="agent-icon-box">
+                      <AgentIcon size={18} strokeWidth={1.75} />
+                    </div>
+                    <div class="agent-title-col">
+                      <strong>{agent.name}</strong>
+                      <span class="agent-type-tag">{agent.tag}</span>
+                    </div>
+                  </div>
+                  <p class="agent-card-desc">
+                    {agent.desc}
+                  </p>
+                  <div class="card-footer-action">
+                    <span>{agent.actionText}</span>
+                    <ArrowRight size={14} />
+                  </div>
+                </button>
+              {/each}
             </div>
-            <div class="step-separator"></div>
-            <div class="step-badge">
-              <span class="step-num">3</span>
-              <span>Inspect tool calls & copy outputs</span>
-            </div>
-          </div>
-
-          <!-- Agents Catalog Grid -->
-          <div class="agents-catalog-grid">
-            <button 
-              class="agent-catalog-card" 
-              style="--card-border: var(--agent-root);"
-              onclick={() => { selectedApp = 'root_agent'; startNewSession(); queryText = "Analyze current task requirements and coordinate suitable agents."; }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box"><Workflow size={18} strokeWidth={1.75} /></div>
-                <div class="agent-title-col">
-                  <strong>Root Orchestrator</strong>
-                  <span class="agent-type-tag">Router & Coordinator</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">Parses complex multi-step requests, verifies prerequisites, and delegates tasks to sub-agents.</p>
-              <div class="card-footer-action">
-                <span>Start workflow</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button 
-              class="agent-catalog-card" 
-              style="--card-border: var(--agent-receipt);"
-              onclick={() => { selectedApp = 'receipt_scanner'; startNewSession(); queryText = "Scan attached receipt, extract VAT & line items, convert currency and create expense report."; }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box"><Receipt size={18} strokeWidth={1.75} /></div>
-                <div class="agent-title-col">
-                  <strong>Receipt Scanner</strong>
-                  <span class="agent-type-tag">OCR & Financials</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">Extracts line items, queries NBP/Pekao exchange rates, and exports formatted expense reports.</p>
-              <div class="card-footer-action">
-                <span>Scan receipts</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button 
-              class="agent-catalog-card" 
-              style="--card-border: var(--agent-video);"
-              onclick={() => { selectedApp = 'video_editor'; startNewSession(); queryText = "Outpaint speaker portrait to 9:16 aspect ratio and generate animated intro via Veo."; }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box"><Video size={18} strokeWidth={1.75} /></div>
-                <div class="agent-title-col">
-                  <strong>Live Video Editor</strong>
-                  <span class="agent-type-tag">Veo & Media AI</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">Detects face landmarks, executes 9:16 outpainting, and generates cinematic speaker intro videos.</p>
-              <div class="card-footer-action">
-                <span>Generate video</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button 
-              class="agent-catalog-card" 
-              style="--card-border: var(--agent-linkedin);"
-              onclick={() => { selectedApp = 'linkedin_post_generator'; startNewSession(); queryText = "Draft high-converting LinkedIn speaker announcements and multi-variant event recap posts."; }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box"><Share2 size={18} strokeWidth={1.75} /></div>
-                <div class="agent-title-col">
-                  <strong>LinkedIn Planner</strong>
-                  <span class="agent-type-tag">Copy & Social</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">Drafts promotional posts, speaker spotlights, and multi-option event recap posts with hashtags.</p>
-              <div class="card-footer-action">
-                <span>Draft post</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button 
-              class="agent-catalog-card" 
-              style="--card-border: var(--agent-registration);"
-              onclick={() => { selectedApp = 'registration_manager'; startNewSession(); queryText = "Clean uploaded registration list, filter corrupt names and partition by event capacity."; }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box"><Users size={18} strokeWidth={1.75} /></div>
-                <div class="agent-title-col">
-                  <strong>Registrations Manager</strong>
-                  <span class="agent-type-tag">Roster & Partitioning</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">Cleans participant rosters, deduplicates names, partitions confirmed/waitlisted, and writes DOCX files.</p>
-              <div class="card-footer-action">
-                <span>Process roster</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button 
-              class="agent-catalog-card" 
-              style="--card-border: var(--agent-planner);"
-              onclick={() => { selectedApp = 'event_planner'; startNewSession(); queryText = "Check Luma, Meetup.com and Polish statutory public holidays to find optimal meetup dates."; }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box"><Calendar size={18} strokeWidth={1.75} /></div>
-                <div class="agent-title-col">
-                  <strong>Event Scheduler</strong>
-                  <span class="agent-type-tag">Calendars & Holidays</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">Cross-references Polish holidays, tech calendars, and long weekends to avoid meetup collisions.</p>
-              <div class="card-footer-action">
-                <span>Plan dates</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button 
-              class="agent-catalog-card" 
-              style="--card-border: var(--agent-agenda);"
-              onclick={() => { selectedApp = 'agenda_generator'; startNewSession(); queryText = "Format speaker talks, coffee breaks and pizza pauses starting at 17:30 into a clean timeline."; }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box"><Clock size={18} strokeWidth={1.75} /></div>
-                <div class="agent-title-col">
-                  <strong>Agenda Formatter</strong>
-                  <span class="agent-type-tag">Timeline & Schedule</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">Calculates minute-level event schedules with networking and speaker sessions formatted for easy sharing.</p>
-              <div class="card-footer-action">
-                <span>Format agenda</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
-
-            <button 
-              class="agent-catalog-card" 
-              style="--card-border: var(--agent-office);"
-              onclick={() => { selectedApp = 'office_secretary'; startNewSession(); queryText = "Draft visitor access request and event space reservation email for office administration."; }}
-            >
-              <div class="agent-card-header">
-                <div class="agent-icon-box"><Mail size={18} strokeWidth={1.75} /></div>
-                <div class="agent-title-col">
-                  <strong>Office Secretary</strong>
-                  <span class="agent-type-tag">Office & Reservations</span>
-                </div>
-              </div>
-              <p class="agent-card-desc">Generates polite visitor key access and room reservation requests with strict date validation.</p>
-              <div class="card-footer-action">
-                <span>Draft email</span>
-                <ArrowRight size={14} />
-              </div>
-            </button>
           </div>
         </div>
       {:else}
         <!-- Active Chat Message Stream -->
         <div class="chat-viewport" bind:this={chatBodyElement}>
           <div class="chat-stream-container">
+            {#if filteredEvents.length === 0}
+              {@const CurrentAgentIcon = getAgentIcon(activeAgent)}
+              <div
+                class="agent-welcome-card"
+                style="--agent-accent: {activeAgentTheme.color}; --agent-bg: {activeAgentTheme.bg};"
+              >
+                <div class="agent-welcome-header">
+                  <div
+                    class="agent-welcome-avatar"
+                    style="background: {activeAgentTheme.bg}; color: {activeAgentTheme.color}; border: 1px solid {activeAgentTheme.color}40;"
+                  >
+                    <CurrentAgentIcon size={22} strokeWidth={1.75} />
+                  </div>
+                  <div class="agent-welcome-meta">
+                    <div
+                      class="agent-welcome-badge"
+                      style="color: {activeAgentTheme.color}; background: {activeAgentTheme.bg}; border: 1px solid {activeAgentTheme.color}30;"
+                    >
+                      {activeAgentTheme.label}
+                    </div>
+                    <h2>{getAgentHeading(activeAgent)}</h2>
+                    <p>{getAgentDescription(activeAgent)}</p>
+                  </div>
+                </div>
+
+                <div class="starter-prompts-section">
+                  <span class="starter-label">Suggested actions:</span>
+                  <div class="starter-chips">
+                    {#each getAgentStarterPrompts(activeAgent) as item}
+                      {@const promptText = typeof item === "string" ? item : item.prompt}
+                      {@const displayText = typeof item === "string" ? item : item.text}
+                      {@const iconName = typeof item === "object" ? item.icon : null}
+                      <button
+                        class="starter-chip"
+                        onclick={() => selectStarterPrompt(promptText)}
+                      >
+                        {#if iconName && ICON_MAP[iconName]}
+                          {@const IconComp = ICON_MAP[iconName]}
+                          <IconComp size={13} class="starter-chip-icon" />
+                        {/if}
+                        <span>{displayText}</span>
+                        <ArrowRight size={12} class="starter-arrow" />
+                      </button>
+                    {/each}
+                  </div>
+                </div>
+              </div>
+            {/if}
+
             {#each filteredEvents as event, idx}
-              <ChatMessage 
-                {event} 
-                index={idx} 
-                allEvents={filteredEvents} 
-                onRefine={refineVariant} 
+              <ChatMessage
+                {event}
+                index={idx}
+                allEvents={filteredEvents}
+                onRefine={refineVariant}
               />
             {/each}
 
             {#if isLoading}
-              {@const execTheme = getAgentTheme(currentExecutingAgent || selectedApp)}
-              <div class="generating-live-card" style="--exec-color: {execTheme.color}; --exec-bg: {execTheme.bg};">
+              {@const execTheme = getAgentTheme(
+                currentExecutingAgent || selectedApp,
+              )}
+              <div
+                class="generating-live-card"
+                style="--exec-color: {execTheme.color}; --exec-bg: {execTheme.bg};"
+              >
                 <div class="generating-header">
-                  <div class="executing-agent-badge" style="background: {execTheme.bg}; color: {execTheme.color}; border: 1px solid {execTheme.color}40;">
-                    <span class="live-pulse-dot" style="background: {execTheme.color};"></span>
+                  <div
+                    class="executing-agent-badge"
+                    style="background: {execTheme.bg}; color: {execTheme.color}; border: 1px solid {execTheme.color}40;"
+                  >
+                    <span
+                      class="live-pulse-dot"
+                      style="background: {execTheme.color};"
+                    ></span>
                     <span class="executing-agent-label">{execTheme.label}</span>
                   </div>
                   <span class="generating-status">{statusText}</span>
@@ -704,92 +1207,50 @@
             {/if}
           </div>
         </div>
-      {/if}
 
-      <!-- Floating Prompt Input Bar -->
-      <ChatInput 
-        bind:queryText
-        bind:stagedFiles
-        bind:textareaElement
-        {isLoading}
-        onSend={sendMessage}
-      />
+        <!-- Floating Prompt Input Bar (only shown in active session) -->
+        <ChatInput
+          bind:queryText
+          bind:stagedFiles
+          bind:textareaElement
+          {isLoading}
+          onSend={sendMessage}
+          onStop={stopGeneration}
+        />
+      {/if}
     </main>
   </div>
 </div>
 
 <!-- Capabilities Modal -->
-{#if showLegend}
-  <div class="modal-backdrop" role="button" tabindex="-1" onclick={(e) => { if (e.target === e.currentTarget) showLegend = false; }} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') showLegend = false; }}>
-    <div class="modal-card">
-      <header class="modal-header">
-        <div class="modal-title-group">
-          <Sparkles size={20} class="modal-gemini-icon" />
-          <h2>GDG Krakow Autonomous Multi-Agent System</h2>
-        </div>
-        <button class="modal-close-btn" onclick={() => showLegend = false}>&times;</button>
-      </header>
-      
-      <div class="modal-body">
-        <p class="modal-intro">The GDG Agents platform is powered by Google ADK with an A2A architecture coordinating specialized reasoning engines:</p>
-        
-        <div class="capabilities-grid">
-          <div class="capability-card" style="--card-accent: var(--agent-root); --card-bg: var(--bg-root)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-root)"></span><h3>Root Orchestrator</h3></div>
-            <p>Directs incoming intent, verifies task prerequisites, and invokes specialized sub-agents via tool-calling and A2A protocols.</p>
-          </div>
-          <div class="capability-card" style="--card-accent: var(--agent-receipt); --card-bg: var(--bg-receipt)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-receipt)"></span><h3>Receipt Scanner</h3></div>
-            <p>Vision OCR analyzer. Extracts line items, VAT, fetches Pekao/NBP exchange rates, and exports formatted expense reports.</p>
-          </div>
-          <div class="capability-card" style="--card-accent: var(--agent-video); --card-bg: var(--bg-video)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-video)"></span><h3>Live Video Editor</h3></div>
-            <p>Speaker portrait outpainting and cinematic video animation generation using Veo models.</p>
-          </div>
-          <div class="capability-card" style="--card-accent: var(--agent-linkedin); --card-bg: var(--bg-linkedin)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-linkedin)"></span><h3>LinkedIn Planner</h3></div>
-            <p>Generates high-engagement speaker announcements and structured multi-option event recap posts.</p>
-          </div>
-          <div class="capability-card" style="--card-accent: var(--agent-registration); --card-bg: var(--bg-registration)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-registration)"></span><h3>Registrations Manager</h3></div>
-            <p>Cleans participant datasets, filters duplicates, normalizes names across scripts, and generates clean DOCX files.</p>
-          </div>
-          <div class="capability-card" style="--card-accent: var(--agent-planner); --card-bg: var(--bg-planner)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-planner)"></span><h3>Event Scheduler</h3></div>
-            <p>Detects meetup schedule conflicts against Luma and Meetup.com, checks statutory Polish holidays, and flags risk dates.</p>
-          </div>
-          <div class="capability-card" style="--card-accent: var(--agent-agenda); --card-bg: var(--bg-agenda)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-agenda)"></span><h3>Agenda Formatter</h3></div>
-            <p>Computes minute-by-minute meetup schedules with speaker talks, networking, and pizza breaks, formatted for copy-pasting.</p>
-          </div>
-          <div class="capability-card" style="--card-accent: var(--agent-office); --card-bg: var(--bg-office)">
-            <div class="capability-top"><span class="cap-indicator" style="background: var(--agent-office)"></span><h3>Office Secretary</h3></div>
-            <p>Drafts polite visitor keys access card and Event Hub reservation request emails with mandatory date validation.</p>
-          </div>
-        </div>
-      </div>
-      
-      <footer class="modal-actions">
-        <button class="btn-primary" onclick={() => showLegend = false}>Close</button>
-      </footer>
-    </div>
-  </div>
-{/if}
+<CapabilitiesModal
+  show={showLegend}
+  communityName={studioConfig.communityName || "GDG Krakow"}
+  onClose={() => (showLegend = false)}
+/>
 
-<!-- Multi-Agent DAG Modal -->
+<!-- Settings Modal -->
+<SettingsModal
+  show={showSettings}
+  config={studioConfig}
+  onSave={updateConfig}
+  onClose={() => (showSettings = false)}
+/>
+
+<!-- Multi-Agent Architecture Modal -->
 {#if showAgentGraph}
-  <AgentGraph 
+  <AgentGraph
     {events}
-    {currentExecutingAgent} 
-    {isLoading} 
-    {selectedApp} 
+    currentExecutingAgent={activeAgent}
+    {isLoading}
+    selectedApp={sessionOwnerApp || selectedApp}
     onSelectAgent={(agentId) => {
-      selectedApp = agentId;
-      selectedSessionId = '';
-      loadSessions();
+      handleAgentChange(agentId);
+      showAgentGraph = false;
     }}
-    onClose={() => showAgentGraph = false}
+    onClose={() => (showAgentGraph = false)}
   />
+{/if}
 {/if}
 
 <style>
@@ -814,7 +1275,8 @@
     z-index: 50;
   }
 
-  .header-left, .header-right {
+  .header-left,
+  .header-right {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -823,45 +1285,87 @@
   .brand-badge {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 9px;
+    padding: 0;
+    user-select: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    outline: none;
+    transition: opacity 0.15s ease;
   }
 
-  .brand-gemini-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-subtle);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--primary-accent);
+  .brand-badge:hover,
+  .brand-badge:focus,
+  .brand-badge:active {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    opacity: 0.88;
+  }
+
+  .brand-icon-img {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    object-fit: cover;
+    flex-shrink: 0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
   }
 
   .brand-text {
     display: flex;
     flex-direction: column;
+    line-height: 1.15;
   }
 
   .brand-name {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
     color: var(--text-primary);
   }
 
   .brand-sub {
-    font-size: 10px;
-    color: var(--text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.01em;
+  }
+
+  .header-btn-new-session {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+  }
+
+  .header-btn-new-session:hover:not(:disabled) {
+    background: var(--primary-accent-container);
+    border-color: var(--primary-accent);
+    color: var(--primary-accent);
+  }
+
+  .header-btn-new-session:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .header-divider {
     width: 1px;
-    height: 24px;
+    height: 20px;
     background: var(--border-subtle);
-    margin: 0 4px;
+    margin: 0 2px;
   }
 
   .app-picker {
@@ -887,7 +1391,7 @@
     background: var(--bg-surface-elevated);
     border: 1px solid var(--border-subtle);
     color: var(--text-primary);
-    padding: 6px 32px 6px 14px;
+    padding: 6px 30px 6px 14px;
     border-radius: var(--radius-pill);
     font-size: 13px;
     font-weight: 500;
@@ -896,8 +1400,40 @@
     transition: var(--transition-fast);
   }
 
+  .select-wrapper.has-session select {
+    padding-left: 24px;
+  }
+
+  .select-wrapper.is-main select {
+    padding-left: 28px;
+  }
+
   .select-wrapper select:hover {
     border-color: var(--primary-accent);
+  }
+
+  .main-badge-icon {
+    position: absolute;
+    left: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-accent);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .live-status-dot {
+    position: absolute;
+    left: 10px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-green, #34a853);
+    box-shadow: 0 0 6px var(--accent-green, #34a853);
+    pointer-events: none;
+    z-index: 2;
+    animation: pulseGlow 1.8s infinite ease-in-out;
   }
 
   :global(.select-chevron) {
@@ -907,46 +1443,81 @@
     color: var(--text-tertiary);
   }
 
-  .session-chip {
+
+  .dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 170px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 6px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: fadeInMenu 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes fadeInMenu {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .dropdown-item {
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: rgba(52, 168, 83, 0.1);
-    color: var(--accent-green, #34a853);
-    border: 1px solid rgba(52, 168, 83, 0.25);
-    padding: 3px 10px;
-    border-radius: var(--radius-pill);
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .pulse-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent-green, #34a853);
-    box-shadow: 0 0 6px var(--accent-green, #34a853);
-  }
-
-  .header-pill-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--border-subtle);
-    background: var(--bg-surface-elevated);
-    color: var(--text-secondary);
-    font-size: 12px;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
+    text-align: left;
     transition: var(--transition-fast);
   }
 
-  .header-pill-btn:hover {
+  .dropdown-item:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
-    border-color: var(--border-focus);
+  }
+
+  :global(.dropdown-icon) {
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .dropdown-item:hover :global(.dropdown-icon) {
+    color: var(--primary-accent);
+  }
+
+  .dropdown-item-danger {
+    color: #ef4444 !important;
+  }
+
+  .dropdown-item-danger :global(.dropdown-icon) {
+    color: #ef4444 !important;
+  }
+
+  .dropdown-item-danger:hover {
+    background: rgba(239, 68, 68, 0.12) !important;
+    color: #ef4444 !important;
+  }
+
+  .dropdown-item-danger:hover :global(.dropdown-icon) {
+    color: #ef4444 !important;
   }
 
   .icon-btn {
@@ -969,7 +1540,7 @@
   }
 
   .icon-btn.active {
-    background: rgba(138, 180, 248, 0.15);
+    background: var(--primary-accent-container);
     color: var(--primary-accent);
     border-color: var(--primary-accent);
   }
@@ -991,30 +1562,71 @@
     background: var(--bg-app);
   }
 
-  /* Drag & Drop */
+  /* Drag & Drop Overlay - Expansive & Immersive */
   .drag-zone-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(11, 12, 14, 0.85);
-    backdrop-filter: blur(6px);
+    background: rgba(8, 11, 18, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     z-index: 100;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 32px;
+    padding: 24px;
+    box-sizing: border-box;
+    pointer-events: none;
+    animation: fadeIn 0.2s ease-out;
   }
 
   .drag-zone-card {
-    border: 2px dashed var(--primary-accent);
-    background: var(--bg-surface);
-    border-radius: var(--radius-xl);
-    padding: 48px;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    border: 2.5px dashed var(--primary-accent);
+    background: rgba(66, 133, 244, 0.04);
+    box-shadow: 
+      0 0 40px rgba(66, 133, 244, 0.15),
+      inset 0 0 60px rgba(66, 133, 244, 0.06);
+    border-radius: var(--radius-2xl, 24px);
+    padding: 32px;
+    box-sizing: border-box;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
-    max-width: 480px;
+    justify-content: center;
+    gap: 14px;
+    transition: all 0.2s ease;
+  }
+
+  .drag-icon-circle {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: rgba(66, 133, 244, 0.15);
+    border: 1px solid rgba(66, 133, 244, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2px;
+    box-shadow: 0 8px 24px rgba(66, 133, 244, 0.25);
+  }
+
+  .drag-zone-card h3 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .drag-zone-card p {
+    font-size: 14px;
+    color: var(--text-secondary, #94a3b8);
+    max-width: 520px;
+    line-height: 1.5;
+    margin: 0;
   }
 
   :global(.drag-icon) {
@@ -1023,8 +1635,12 @@
   }
 
   @keyframes bounce {
-    from { transform: translateY(0); }
-    to { transform: translateY(-8px); }
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(-8px);
+    }
   }
 
   /* Global error banner */
@@ -1054,58 +1670,45 @@
     padding: 2px;
   }
 
-  /* Welcome Hub View */
+  /* Welcome Hub View / Main Agents Catalog */
   .hub-welcome-view {
     flex: 1;
     overflow-y: auto;
-    padding: 40px 32px;
+    padding: 32px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    max-width: 1000px;
+    max-width: 1060px;
     margin: 0 auto;
     width: 100%;
   }
 
-  .hub-hero {
-    text-align: center;
-    margin-bottom: 32px;
-  }
-
-  .hub-pill {
-    display: inline-flex;
+  .hub-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    border-radius: var(--radius-full);
-    background: rgba(138, 180, 248, 0.12);
-    color: var(--primary-accent);
-    font-size: 11px;
-    font-weight: 600;
-    margin-bottom: 16px;
+    margin: auto 0;
   }
 
-  .hub-pill-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--primary-accent);
+  .hub-header {
+    text-align: center;
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
-  .hub-hero h2 {
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin-bottom: 12px;
-    color: var(--text-primary);
-  }
-
-  .hub-hero p {
-    font-size: 14px;
+  .hub-subtitle {
+    font-size: 13.5px;
     color: var(--text-secondary);
-    max-width: 600px;
-    line-height: 1.6;
-    margin: 0 auto;
+    max-width: 560px;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .hub-subtitle strong {
+    color: var(--text-primary);
   }
 
   .workflow-steps-strip {
@@ -1114,9 +1717,9 @@
     gap: 12px;
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
-    padding: 8px 16px;
+    padding: 6px 16px;
     border-radius: var(--radius-full);
-    margin-bottom: 32px;
+    margin-bottom: 24px;
   }
 
   .step-badge {
@@ -1131,9 +1734,10 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: var(--primary-accent);
-    color: #0b0c0e;
-    font-size: 11px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-medium);
+    color: var(--text-primary);
+    font-size: 10.5px;
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -1157,60 +1761,74 @@
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
-    padding: 16px;
+    padding: 18px;
     display: flex;
     flex-direction: column;
     text-align: left;
     cursor: pointer;
     transition: var(--transition-normal);
     color: inherit;
+    position: relative;
   }
 
   .agent-catalog-card:hover {
-    border-color: var(--card-border, var(--primary-accent));
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    background: var(--bg-surface-elevated);
+    border-color: var(--card-accent, var(--primary-accent));
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35), var(--shadow-md);
   }
 
   .agent-card-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 12px;
+    margin-bottom: 12px;
   }
 
   .agent-icon-box {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-md);
-    background: var(--bg-surface-elevated);
+    background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-primary);
+    color: var(--card-accent, var(--text-primary));
+    flex-shrink: 0;
+    transition: var(--transition-fast);
+  }
+
+  .agent-catalog-card:hover .agent-icon-box {
+    border-color: var(--card-accent, var(--border-subtle));
+    box-shadow: 0 0 12px var(--card-bg, transparent);
   }
 
   .agent-title-col {
     display: flex;
     flex-direction: column;
+    gap: 2px;
   }
 
   .agent-title-col strong {
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 700;
     color: var(--text-primary);
+    line-height: 1.2;
   }
 
   .agent-type-tag {
-    font-size: 10px;
+    font-size: 10.5px;
+    font-weight: 500;
     color: var(--text-tertiary);
+    letter-spacing: 0.02em;
   }
 
   .agent-card-desc {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--text-secondary);
-    line-height: 1.5;
-    margin-bottom: 16px;
+    line-height: 1.55;
+    margin-bottom: 18px;
     flex: 1;
   }
 
@@ -1218,11 +1836,23 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--primary-accent);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
     border-top: 1px solid var(--border-subtle);
-    padding-top: 10px;
+    padding-top: 12px;
+    transition: var(--transition-fast);
+  }
+
+  .agent-catalog-card:hover .card-footer-action {
+    color: var(--text-primary);
+    border-color: var(--border-medium);
+  }
+
+  .agent-catalog-card:hover .card-footer-action :global(svg) {
+    transform: translateX(3px);
+    transition: transform 0.2s ease;
+    color: var(--text-primary);
   }
 
   /* Chat Viewport */
@@ -1242,13 +1872,145 @@
     flex-direction: column;
   }
 
+  /* Agent Welcome Card (Chat Empty State) */
+  .agent-welcome-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    margin: 24px 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .agent-welcome-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .agent-welcome-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .agent-welcome-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .agent-welcome-badge {
+    align-self: flex-start;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    margin-bottom: 2px;
+  }
+
+  .agent-welcome-meta h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .agent-welcome-meta p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .starter-prompts-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 14px;
+  }
+
+  .starter-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .starter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .starter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: var(--transition-fast);
+  }
+
+  .starter-chip:hover {
+    background: var(--bg-hover);
+    border-color: var(--agent-accent, var(--primary-accent));
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  :global(.starter-chip-icon) {
+    color: var(--agent-accent, var(--primary-accent));
+    flex-shrink: 0;
+    opacity: 0.85;
+    transition: var(--transition-fast);
+  }
+
+  .starter-chip:hover :global(.starter-chip-icon) {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  :global(.starter-arrow) {
+    color: var(--text-tertiary);
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+  }
+
+  .starter-chip:hover :global(.starter-arrow) {
+    color: var(--agent-accent, var(--primary-accent));
+    transform: translateX(2px);
+  }
+
   /* Shimmer Generating Live Card */
   .generating-live-card {
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
-    padding: 16px 20px;
+    padding: 14px 18px;
     margin-bottom: 20px;
+    width: fit-content;
+    max-width: 88%;
+    min-width: min(100%, 320px);
+    align-self: flex-start;
     animation: fadeIn 0.3s ease-out;
   }
 
@@ -1299,155 +2061,213 @@
   .skeleton-line {
     height: 12px;
     border-radius: var(--radius-xs);
-    background: linear-gradient(90deg, var(--bg-surface-elevated) 25%, var(--bg-hover) 50%, var(--bg-surface-elevated) 75%);
+    background: linear-gradient(
+      90deg,
+      var(--bg-surface-elevated) 25%,
+      var(--bg-hover) 50%,
+      var(--bg-surface-elevated) 75%
+    );
     background-size: 200% 100%;
     animation: shimmer 1.8s infinite;
   }
 
   @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 
   @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
   }
 
   @keyframes pulseGlow {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.85); }
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.4;
+      transform: scale(0.85);
+    }
   }
 
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(2px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
-  /* Modals */
-  .modal-backdrop {
+  /* Auth Initial Loading Screen */
+  .auth-loading-screen {
     position: fixed;
     inset: 0;
-    background: rgba(11, 12, 14, 0.8);
-    backdrop-filter: blur(4px);
-    z-index: 1000;
+    width: 100vw;
+    height: 100vh;
+    background: #080b11;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 9999;
+  }
+
+  .auth-loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #4285F4;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  .auth-loading-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* User Menu & Avatar */
+  .user-menu-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .user-header-profile {
+    background: var(--bg-surface-elevated, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border-subtle);
+    padding: 2px 6px 2px 2px;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    height: 30px;
+    box-sizing: border-box;
+  }
+
+  .user-header-profile:hover,
+  .user-header-profile.active {
+    background: var(--bg-surface-variant);
+    border-color: var(--primary-accent);
+  }
+
+  .user-header-profile.active :global(.profile-dropdown-arrow) {
+    transform: rotate(180deg);
+  }
+
+  :global(.profile-dropdown-arrow) {
+    color: var(--text-tertiary);
+    transition: transform var(--transition-fast), color var(--transition-fast);
+    flex-shrink: 0;
+  }
+
+  .user-header-profile:hover :global(.profile-dropdown-arrow) {
+    color: var(--text-primary);
+  }
+
+  .user-avatar-wrap {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    border-radius: 50%;
   }
 
-  .modal-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-xl);
-    max-width: 720px;
-    width: 100%;
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
+  .header-avatar-img {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
   }
 
-  .modal-header {
-    display: flex;
+  .header-avatar-fallback {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--primary-accent);
+    color: #ffffff;
+    font-size: 11.5px;
+    font-weight: 700;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--border-subtle);
+    justify-content: center;
   }
 
-  .modal-title-group {
+  .user-dropdown {
+    right: 0;
+    top: calc(100% + 8px);
+    width: 220px;
+    padding: 8px;
+    z-index: 1000;
+  }
+
+  .user-dropdown-header {
+    padding: 6px 6px 8px;
+  }
+
+  .user-dropdown-top {
     display: flex;
     align-items: center;
     gap: 10px;
   }
 
-  :global(.modal-gemini-icon) {
-    color: var(--primary-accent);
+  .dropdown-avatar-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
   }
 
-  .modal-header h2 {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .modal-close-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 20px;
-    cursor: pointer;
-  }
-
-  .modal-body {
-    padding: 24px;
-    overflow-y: auto;
-  }
-
-  .modal-intro {
+  .dropdown-avatar-fallback {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary-accent);
+    color: #ffffff;
     font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 20px;
-    line-height: 1.5;
-  }
-
-  .capabilities-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-
-  .capability-card {
-    background: var(--card-bg, var(--bg-surface-elevated));
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 14px;
-  }
-
-  .capability-top {
+    font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 6px;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
-  .cap-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+  .user-dropdown-info {
+    flex: 1;
+    min-width: 0;
   }
 
-  .capability-top h3 {
+  .user-dropdown-name {
     font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .capability-card p {
-    font-size: 11px;
-    color: var(--text-secondary);
-    line-height: 1.4;
-    margin: 0;
-  }
 
-  .modal-actions {
-    padding: 16px 24px;
-    border-top: 1px solid var(--border-subtle);
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .btn-primary {
-    background: var(--primary-accent);
-    color: #0b0c0e;
-    border: none;
-    padding: 8px 20px;
-    border-radius: var(--radius-full);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  }
 </style>

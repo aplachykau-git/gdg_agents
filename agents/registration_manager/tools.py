@@ -287,7 +287,7 @@ def get_script_priority(first_name: str, last_name: str) -> Tuple[int, str]:
 
 
 def load_organisers() -> List[str]:
-    """Loads GDG organisers list from organisers.txt file or returns default list if not found."""
+    """Loads organisers list from organisers.txt file or returns default list if not found."""
     # Try the root configs/ folder first, then the agent's folder, then fall back to defaults
     parent_dir = os.path.dirname(BASE_DIR)
     project_root = os.path.dirname(parent_dir)
@@ -518,7 +518,7 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
             }
         )
 
-    # Load GDG Organisers configuration
+    # Load Organisers configuration
     organisers_list = load_organisers()
     organisers_lower = {name.lower().strip() for name in organisers_list}
 
@@ -861,7 +861,34 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
         doc_ok = True
         print(f"✅ Successfully wrote beautiful DOCX document to: {doc_path}")
 
+        roster_text = ""
+        try:
+            txt_path = os.path.join(results_dir, "registrations_list.txt")
+            names_lines = [f"🟢 Confirmed Attendees ({len(registered_list)}):"]
+            for att in registered_list:
+                raw_name = f"{att['first_name']} {att['last_name']}".strip()
+                clean_name = re.sub(r"\d+", "", raw_name)
+                clean_name = re.sub(r"\s+", " ", clean_name).strip()
+                status_tag = f" ({att['status']})" if att.get("status") in ["organiser", "speaker"] else ""
+                names_lines.append(f"{att['no']}. {clean_name}{status_tag}")
+
+            if waitlist_list:
+                names_lines.append(f"\n🔴 Waitlist ({len(waitlist_list)}):")
+                for att in waitlist_list:
+                    raw_name = f"{att['first_name']} {att['last_name']}".strip()
+                    clean_name = re.sub(r"\d+", "", raw_name)
+                    clean_name = re.sub(r"\s+", " ", clean_name).strip()
+                    names_lines.append(f"{att['no']}. {clean_name}")
+
+            roster_text = "\n".join(names_lines)
+            with open(txt_path, "w", encoding="utf-8") as tf:
+                tf.write(roster_text)
+            print(f"✅ Successfully wrote plain text roster to: {txt_path}")
+        except Exception as txt_err:
+            print(f"⚠️ Failed to write plain text roster: {txt_err}")
+
         cloud_doc_url = None
+        cloud_txt_url = None
         try:
             from agents.common.storage import upload_file_to_storage
 
@@ -872,6 +899,15 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
             )
             if cloud_doc_url:
                 print(f"☁️ [Cloud Storage] Registration document uploaded: {cloud_doc_url}")
+
+            if roster_text and os.path.exists(txt_path):
+                cloud_txt_url = upload_file_to_storage(
+                    local_path=txt_path,
+                    destination_blob_name=f"registrations/{os.path.basename(txt_path)}",
+                    content_type="text/plain; charset=utf-8",
+                )
+                if cloud_txt_url:
+                    print(f"☁️ [Cloud Storage] Plain text roster uploaded: {cloud_txt_url}")
         except Exception as upload_err:
             print(f"⚠️ [Cloud Storage Notice] {upload_err}")
     except Exception as docx_err:
@@ -887,21 +923,14 @@ Successfully processed the registrations list:
   * *Speakers*: {len(speakers_tier)}
   * *Registered Attendees*: {len(manual_confirmed_tier) + len(confirmed_standard)}
 - **Waitlisted Registrants (waitlist)**: **{len(waitlist_list)}**
-
----
-
-### 📂 Generated Deliverables:
 """
     if doc_ok:
-        summary_str += (
-            f"- **Premium Event Registration Document (DOCX)**: [{os.path.basename(doc_path)}](file://{doc_path})\n"
-        )
-        if cloud_doc_url:
-            summary_str += (
-                f"- **Cloud Storage Download Link**: [📥 Download {os.path.basename(doc_path)}]({cloud_doc_url})\n"
-            )
+        primary_url = cloud_doc_url or f"/results/{os.path.basename(doc_path)}"
+        summary_str += f"\n- **Event Registration Document (DOCX)**: [{os.path.basename(doc_path)}]({primary_url})\n"
+        if roster_text:
+            summary_str += f"\n<!-- ATTENDEE_ROSTER_START\n{roster_text}\nATTENDEE_ROSTER_END -->\n"
     else:
-        summary_str += "⚠️ Failed to generate Word document due to an error.\n"
+        summary_str += "\n⚠️ Failed to generate Word document due to an error.\n"
     return summary_str
 
 

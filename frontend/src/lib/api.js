@@ -1,6 +1,6 @@
 import { DEFAULT_APPS } from './constants.js';
 
-export const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && (window.location.hostname.includes('web.app') || window.location.hostname.includes('firebaseapp.com')) ? 'https://gdg-root-agent-sb6iim4giq-lm.a.run.app' : '');
+export const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export async function fetchApps() {
   try {
@@ -10,7 +10,7 @@ export async function fetchApps() {
     if (Array.isArray(data)) {
       const nonAgents = ['configs', 'docs', 'frontend', 'evaluation'];
       const appNameMapping = {
-        root_agent: 'Root Orchestrator',
+        root_agent: 'Main',
         receipt_scanner: 'Receipt Scanner',
         video_editor: 'Live Video Editor',
         linkedin_post_generator: 'LinkedIn Planner',
@@ -52,12 +52,12 @@ export async function fetchSessions(appName, userId) {
   })).sort((a, b) => (b.session_id || '').localeCompare(a.session_id || ''));
 }
 
-export async function createSession(appName, userId, sessionId) {
+export async function createSession(appName, userId, sessionId, state = {}) {
   if (!appName) return;
   const res = await fetch(`${API_BASE}/apps/${appName}/users/${userId}/sessions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId })
+    body: JSON.stringify({ session_id: sessionId, state })
   });
   if (!res.ok) throw new Error(`Failed to create session: ${res.statusText}`);
   return await res.json();
@@ -80,7 +80,7 @@ export async function deleteSessionRequest(appName, userId, sessionId) {
   return true;
 }
 
-export async function runSSEStream({ appName, userId, sessionId, parts, onEvent, onError, signal }) {
+export async function runSSEStream({ appName, userId, sessionId, parts, state, onEvent, onError, signal }) {
   const payload = {
     app_name: appName,
     user_id: userId,
@@ -89,6 +89,7 @@ export async function runSSEStream({ appName, userId, sessionId, parts, onEvent,
       role: 'user',
       parts: parts
     },
+    ...(state && Object.keys(state).length > 0 ? { state_delta: state } : {}),
     streaming: true
   };
 

@@ -4,8 +4,10 @@ import random
 import re
 import shutil
 import time
-from typing import Optional
+from typing import Any, Optional
 
+import google.auth
+import google.auth.transport.requests
 import requests
 from google import genai
 from google.adk.tools import ToolContext
@@ -24,8 +26,66 @@ from agents.gemini_config import (
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Toggles to enable/disable specific rendering outputs.
-ENABLE_VIDEO_GENERATION = os.environ.get("ENABLE_VIDEO_GENERATION", "true").lower() in ("true", "1", "yes")
+# Toggles to enable/disable generative AI video outputs (Veo 3.1 / Gemini Omni).
+# Disabled by default to prevent unwanted cloud GPU billing. Direct uploaded video rendering is always supported.
+DEFAULT_CINEMATIC_DIRECTIONS = (
+    "Gentle golden-hour lighting, subtle breathing movement, natural eye blinks, and a soft background.",
+    "Professional studio lighting, a very gentle head turn, and a natural facial expression.",
+    "Soft window side-lighting, realistic bokeh, and calm, restrained camera movement.",
+    "Clean editorial lighting, sharp focus, and minimal natural movement.",
+)
+
+
+def video_generation_enabled() -> bool:
+    return os.environ.get("ENABLE_VIDEO_GENERATION", "false").lower() in ("true", "1", "yes")
+
+
+def sanitize_i2v_prompt(prompt: str) -> str:
+    """Strips references to specific names, likenesses, character references, or safety-triggering phrases for AI video generation."""
+    cleaned = prompt
+    # Strip metadata headers if pasted into prompt
+    cleaned = re.sub(r"(?i)^(?:Name|Role|Company|Talk|Title|Speaker)\s*:\s*[^\n]+", "", cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r"(?i)Generate a speaker intro video card[^\n]*", "", cleaned)
+    # Strip Character Reference blocks e.g. [Character Reference: ...]
+    cleaned = re.sub(r"(?i)\[?\s*Character Reference:[\s\S]*?\]", "", cleaned)
+    # Strip parenthetical instructions about reference images
+    cleaned = re.sub(r"(?i)\([^\)]*(?:reference image|reference photo|visual anchor)[^\)]*\)", "", cleaned)
+    # Strip phrases referencing facial features, likeness, identity, visual anchors, reference photo
+    cleaned = re.sub(
+        r"(?i)(?:use|maintain|keep|preserve)\s+[^.,\n]*(?:facial features|likeness|identity|visual anchor|reference photo|reference image|attire)[^.,\n]*[.,]?",
+        "",
+        cleaned,
+    )
+    cleaned = re.sub(
+        r"(?i)\b(?:from the reference photo|from the reference image|raw reference image|visual anchor|character reference|exact facial features)\b",
+        "",
+        cleaned,
+    )
+    cleaned = re.sub(r"(?i)Create a polished speaker introduction for [^.,]+[,.]?", "", cleaned)
+    cleaned = re.sub(r"(?i)speaking about [^.,]+[,.]?", "", cleaned)
+    cleaned = re.sub(r"(?i)\b(speaker|presenter|attendee|guest|subject)\s+named\s+[^,.\n]+", "", cleaned)
+    cleaned = re.sub(
+        r"(?i)\b(speaker|presenter|talk title|presentation|topic|role|company)\s*[:=]\s*[^,.\n]+", "", cleaned
+    )
+    cleaned = re.sub(r"(?i)\b(real\s+person|person'?s\s+likeness|celebrity|identity)\b", "", cleaned)
+    # Strip empty brackets/parentheses and stray punctuation
+    cleaned = re.sub(r"\(\s*[,;.]*\s*\)", "", cleaned)
+    cleaned = re.sub(r"\[\s*[,;.]*\s*\]", "", cleaned)
+    # Clean up excess whitespace and punctuation
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,\n-")
+    if not cleaned or len(cleaned) < 10:
+        cleaned = (
+            "Cinematic conference stage in a modern professional tech setting. "
+            "Gentle studio lighting, subtle natural movement, soft realistic background bokeh"
+        )
+    return cleaned
+
+
+def augment_creative_prompt(creative_prompt: str) -> str:
+    cleaned = sanitize_i2v_prompt(creative_prompt)
+    if len(cleaned) > 40:
+        return cleaned
+    return f"{cleaned.rstrip('. ')}. {random.choice(DEFAULT_CINEMATIC_DIRECTIONS)}"
 
 
 def resolve_path(rel_path: str) -> str:
@@ -59,7 +119,12 @@ def resolve_path(rel_path: str) -> str:
     return stripped_path
 
 
-async def stage_uploaded_media(photo_path: str = "", tool_context: Optional[ToolContext] = None) -> str:
+async def stage_uploaded_media(
+    photo_path: str = "",
+    event_id: str = "",
+    part_index: int | None = None,
+    tool_context: Optional[ToolContext] = None,
+) -> str:
     """Finds and stages the active user uploaded photo or video from session events.
     Called by the root orchestrator in the parent context.
     """
@@ -72,13 +137,17 @@ async def stage_uploaded_media(photo_path: str = "", tool_context: Optional[Tool
             events = session.events or []
             print(f"DEBUG: Staging scanning total events: {len(events)}")
 
-            # Iterate events in REVERSE to find the most recent user-uploaded video or image
+            # Iterate events in REVERSE to find the most recent user-uploaded video or image.
             for event in reversed(events):
                 if event.author != "user":
                     continue
+                if event_id and event.id != event_id:
+                    continue
                 if not event.content or not event.content.parts:
                     continue
-                for part in event.content.parts:
+                for index, part in enumerate(event.content.parts):
+                    if part_index is not None and index != part_index:
+                        continue
                     # Check for inline_data
                     if part.inline_data and part.inline_data.data:
                         mime = part.inline_data.mime_type or ""
@@ -157,7 +226,7 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
         part = types.Part.from_bytes(data=img_bytes, mime_type=mime_type)
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash-image",
+            model="gemini-3.1-flash-lite-image",
             contents=[
                 part,
                 types.Part.from_text(
@@ -291,10 +360,8 @@ def validate_video_generation_backend(engine: str) -> None:
 
 
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
-    """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-flash-preview) via Interactions API."""
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY environment variable is required for Gemini Omni Flash video generation.")
+    """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-1.1-flash) via Interactions API."""
+    api_key = get_gemini_api_key()
 
     with open(photo_path, "rb") as f:
         frame_bytes = f.read()
@@ -302,33 +369,39 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     b64_img = base64.b64encode(frame_bytes).decode("utf-8")
     mime_type = "image/png" if photo_path.lower().endswith(".png") else "image/jpeg"
 
-    CREATIVE_THEMES = [
-        "Gentle golden hour lighting, subtle breathing movement, natural eye blinks, soft background in a continuous single unbroken shot, no scene cuts.",
-        "Subtle holographic reflections on the subject, slow camera tilt, sharp focus on details in a continuous single unbroken shot, no scene cuts.",
-        "Soft breeze moving hair slightly, natural eye blinks, realistic bokeh background in a continuous single unbroken shot, no scene cuts.",
-        "Professional studio lighting, very gentle head turn, natural facial expression in a continuous single unbroken shot, no scene cuts.",
-        "Soft neon reflections on the face, slow camera pull-back, detailed textures in a continuous single unbroken shot, no scene cuts.",
-        "Soft ambient lighting, subtle lens flare, realistic photorealistic details in a continuous single unbroken shot, no scene cuts.",
-        "Subtle micro-movements, natural breathing, subject looking slightly towards the camera, high detail in a continuous single unbroken shot, no scene cuts.",
-        "Subtle handheld camera sway, natural skin textures, realistic depth of field in a continuous single unbroken shot, no scene cuts.",
-        "Soft dappled sunlight filtering through leaves, gentle hair movement, filmic look in a continuous single unbroken shot, no scene cuts.",
-        "Soft window side-lighting, subtle ambient dust motes in the air, calm mood in a continuous single unbroken shot, no scene cuts.",
-        "Subtle rainy day lighting, soft reflections of raindrops in the background, sharp details in a continuous single unbroken shot, no scene cuts.",
-        "Warm soft glow from a fireplace on the side, gentle ambient lighting, realistic textures in a continuous single unbroken shot, no scene cuts.",
-        "Classic black and white film style, elegant soft lighting, subtle slow-motion breathing in a continuous single unbroken shot, no scene cuts.",
-        "Clean editorial fashion lighting, sharp focus, minimal natural movement in a continuous single unbroken shot, no scene cuts.",
-    ]
-
-    selected_theme = random.choice(CREATIVE_THEMES)
-    i2v_prompt = f"{creative_prompt}. {selected_theme}"
+    i2v_prompt = augment_creative_prompt(creative_prompt)
 
     print(f'🎬 [Gemini Omni Flash Prompt] Base prompt: "{creative_prompt}"')
     print(f'   └─ Final Omni Prompt: "{i2v_prompt}"')
     print("🚀 Submitting request to Google AI Gemini Omni Flash (Interactions API)...")
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    if api_key.startswith("AIza"):
+        url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
+    else:
+        # Obtain OAuth2 token from Google Cloud ADC / Service Account
+        token = None
+        try:
+            creds, _ = google.auth.default(
+                scopes=[
+                    "https://www.googleapis.com/auth/generative-language",
+                    "https://www.googleapis.com/auth/cloud-platform",
+                ]
+            )
+            auth_req = google.auth.transport.requests.Request()
+            creds.refresh(auth_req)
+            token = creds.token
+        except Exception as e:
+            print(f"⚠️ [Omni Auth] Could not obtain OAuth2 token from ADC: {e}")
+
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+            url = "https://generativelanguage.googleapis.com/v1beta/interactions"
+        else:
+            url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
+
     payload = {
-        "model": "gemini-omni-flash-preview",
+        "model": "gemini-omni-1.1-flash",
         "input": [
             {"type": "image", "data": b64_img, "mime_type": mime_type},
             {"type": "text", "text": i2v_prompt},
@@ -344,7 +417,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
         },
     }
 
-    resp = requests.post(url, headers={"Content-Type": "application/json"}, json=payload, timeout=300)
+    resp = requests.post(url, headers=headers, json=payload, timeout=300)
     if resp.status_code != 200:
         raise RuntimeError(f"Gemini Omni Flash generation failed ({resp.status_code}): {resp.text}")
 
@@ -371,11 +444,11 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
 
 def _generate_with_veo(photo_path: str, creative_prompt: str) -> str:
     """Generates an 8s 9:16 video using Vertex AI Veo 3.1 (veo-3.1-fast-generate-001)."""
-    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "gdg-agents-496611")
+    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "gdg-agents-6b59a")
     veo_client = genai.Client(
         vertexai=True,
         project=project_id,
-        location="us-central1",
+        location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"),
     )
 
     with open(photo_path, "rb") as f:
@@ -385,26 +458,7 @@ def _generate_with_veo(photo_path: str, creative_prompt: str) -> str:
     starting_frame = types.Image(image_bytes=frame_bytes, mime_type=mime_type)
     print(f"🖼️  Starting Frame: '{photo_path}' ({len(frame_bytes)} bytes) → Vertex AI Veo...")
 
-    # Professional Cinematic modifiers
-    CREATIVE_THEMES = [
-        "Gentle golden hour lighting, subtle breathing movement, natural eye blinks, soft background.",
-        "Subtle holographic reflections on the subject, slow camera tilt, sharp focus on details.",
-        "Soft breeze moving hair slightly, natural eye blinks, realistic bokeh background.",
-        "Professional studio lighting, very gentle head turn, natural facial expression.",
-        "Soft neon reflections on the face, slow camera pull-back, detailed textures.",
-        "Soft ambient lighting, subtle lens flare, realistic photorealistic details.",
-        "Subtle micro-movements, natural breathing, subject looking slightly towards the camera, high detail.",
-        "Subtle handheld camera sway, natural skin textures, realistic depth of field.",
-        "Soft dappled sunlight filtering through leaves, gentle hair movement, filmic look.",
-        "Soft window side-lighting, subtle ambient dust motes in the air, calm mood.",
-        "Subtle rainy day lighting, soft reflections of raindrops in the background, sharp details.",
-        "Warm soft glow from a fireplace on the side, gentle ambient lighting, realistic textures.",
-        "Classic black and white film style, elegant soft lighting, subtle slow-motion breathing.",
-        "Clean editorial fashion lighting, sharp focus, minimal natural movement.",
-    ]
-
-    selected_theme = random.choice(CREATIVE_THEMES)
-    i2v_prompt = f"{creative_prompt}. {selected_theme}"
+    i2v_prompt = augment_creative_prompt(creative_prompt)
 
     print(f'🎬 [Veo Prompt Augmented] Base prompt: "{creative_prompt}"')
     print(f'   └─ Final Veo Prompt: "{i2v_prompt}"')
@@ -492,12 +546,13 @@ def _generate_with_veo(photo_path: str, creative_prompt: str) -> str:
     return "assets/Video_example.mp4"
 
 
-def animate_photo(photo_path: str = "", creative_prompt: str = "") -> str:
+def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context: Optional[Any] = None) -> str:
     """Animates a static portrait photo into a 9:16 cinematic video using Google Veo or Gemini Omni Flash based on VIDEO_ENGINE config.
 
     Args:
         photo_path: The absolute or relative path to the static portrait image or video.
         creative_prompt: Detailed prompt generated by Gemini to animate the portrait.
+        tool_context: ADK execution context for accessing session state overrides.
     """
     print("\n🎬 [Tool: animate_photo] Animating photo using AI Video Engine or processing background video...")
     print(f'💡 [Creative Prompt]: "{creative_prompt}"')
@@ -514,28 +569,44 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "") -> str:
 
     photo_path = os.path.abspath(photo_path)
 
-    # Gemini API client for outpainting
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if api_key:
-        gemini_client = genai.Client(api_key=api_key, vertexai=False)
-    else:
-        project_id = os.environ.get("GOOGLE_CLOUD_PROJECT", "gdg-agents-496611")
-        gemini_client = genai.Client(
-            vertexai=True,
-            project=project_id,
-            location="us-central1",
+    # Check if AI video generation (Veo/Omni) is disabled to prevent unwanted costs
+    if not video_generation_enabled():
+        raise RuntimeError(
+            "Image-to-video generation is disabled. Upload a source video or set ENABLE_VIDEO_GENERATION=true."
         )
 
-    # Outpaint to 9:16
+    # Gemini client for outpainting
+    gemini_client = get_gemini_client()
+    # Outpaint to 9:16 vertical canvas
     photo_path = outpaint_to_9_16(photo_path, gemini_client)
     photo_path = resolve_path(photo_path)
 
-    # DRY RUN Check
-    if not ENABLE_VIDEO_GENERATION:
-        print(
-            f"⏭️  [DRY RUN] Video generation is DISABLED (ENABLE_VIDEO_GENERATION=false). Returning static outpainted image: '{photo_path}'"
+    # Check if AI video generation (Veo/Omni) is enabled in session state or env
+    state = {}
+    if tool_context:
+        if hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
+            state = tool_context.state
+        elif hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
+            state = tool_context.session.state or {}
+
+    enable_vid = video_generation_enabled()
+    if "enable_video_generation" in state or "enableVideoGeneration" in state:
+        val = (
+            state.get("enable_video_generation")
+            if "enable_video_generation" in state
+            else state.get("enableVideoGeneration")
         )
-        return photo_path
+        if val is not None:
+            enable_vid = bool(val)
+
+    if not enable_vid:
+        msg = (
+            "⚠️ Generative AI video models (Google Veo 3.1 & Gemini Omni) are currently disabled in the configuration to conserve cloud credits. "
+            "Only direct rendering of user-uploaded videos (.mp4, .mov, .webm) is supported.\n\n"
+            "💡 You can enable AI video generation in Settings or attach an existing speaker video file."
+        )
+        print(f"🚫 [Cost Protection] {msg}")
+        return f"Error: {msg}"
 
     engine = get_video_engine()
     validate_video_generation_backend(engine)

@@ -6,6 +6,7 @@ import random
 import re
 import shutil
 import subprocess
+from typing import Any, Optional
 
 from PIL import Image, ImageDraw
 
@@ -16,9 +17,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Toggles to enable/disable specific rendering outputs.
 RENDER_CONFIG = {
-    "ordinary": os.environ.get("RENDER_ORDINARY", "false").lower() in ("true", "1", "yes"),
+    "ordinary": os.environ.get("RENDER_ORDINARY", "true").lower() in ("true", "1", "yes"),
     "gif": os.environ.get("RENDER_GIF", "false").lower() in ("true", "1", "yes"),
-    "4k": os.environ.get("RENDER_4K", "true").lower() in ("true", "1", "yes"),
+    "4k": os.environ.get("RENDER_4K", "false").lower() in ("true", "1", "yes"),
 }
 
 
@@ -143,7 +144,7 @@ def update_composer(
     new_config = build_card_config(title, name, position_company, current_year)
 
     if re.search(config_pattern, content, flags=re.DOTALL):
-        content = re.sub(config_pattern, new_config, content, flags=re.DOTALL)
+        content = re.sub(config_pattern, lambda _: new_config, content, flags=re.DOTALL)
     else:
         raise ValueError("Could not locate 'const CARD_CONFIG' block in index.html.")
 
@@ -182,8 +183,8 @@ def update_composer(
         content = re.sub(image_full_pattern, r"\g<1>display:none;\g<3>", content)
         content = re.sub(image_pattern, 'id="card-image" src=""', content)
 
-    # 3. Randomize colors for breaks, circle, pill, and hexagon using Google brand palette
-    GDG_COLORS = [
+    # 3. Randomize colors for breaks, circle, pill, and hexagon using brand palette
+    BRAND_COLORS = [
         "#4285F4",
         "#34A853",
         "#F9AB00",
@@ -199,12 +200,12 @@ def update_composer(
     ]
 
     if theme_colors:
-        break_color = theme_colors["break_color"]
-        circle_color = theme_colors["circle_color"]
-        pill_color = theme_colors["pill_color"]
-        hexagon_color = theme_colors["hexagon_color"]
+        break_color = theme_colors.get("break_color") or BRAND_COLORS[0]
+        circle_color = theme_colors.get("circle_color") or BRAND_COLORS[1]
+        pill_color = theme_colors.get("pill_color") or BRAND_COLORS[2]
+        hexagon_color = theme_colors.get("hexagon_color") or BRAND_COLORS[3]
     else:
-        selected_colors = random.sample(GDG_COLORS, 4)
+        selected_colors = random.sample(BRAND_COLORS, 4)
         break_color = selected_colors[0]
         circle_color = selected_colors[1]
         pill_color = selected_colors[2]
@@ -248,7 +249,7 @@ def update_composer(
     return f"Successfully updated index.html with duration ({target_duration}s), colors (breaks: {break_color}, circle: {circle_color}, pill: {pill_color}, hexagon: {hexagon_color}, year: {current_year}) and video asset."
 
 
-def render_composer() -> str:
+def render_composer(tool_context: Optional[Any] = None) -> str:
     """Executes the HyperFrames compiler to render the updated composition into configured high-quality formats sequentially."""
     print("\n🚀 [Tool: render_composer] Starting sequential HyperFrames rendering pipeline...")
 
@@ -267,6 +268,29 @@ def render_composer() -> str:
         if os.getenv("RENDER_4K") is not None
         else RENDER_CONFIG["4k"]
     )
+
+    # Check session state overrides from user frontend settings
+    state = {}
+    if tool_context:
+        if hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
+            state = tool_context.state
+        elif hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
+            state = tool_context.session.state or {}
+
+    if "render_4k" in state or "render4k" in state:
+        val = state.get("render_4k") if "render_4k" in state else state.get("render4k")
+        if val is not None:
+            render_4k = bool(val)
+    if "render_gif" in state or "renderGif" in state:
+        val = state.get("render_gif") if "render_gif" in state else state.get("renderGif")
+        if val is not None:
+            render_gif = bool(val)
+    if "render_ordinary" in state or "renderOrdinary" in state:
+        val = state.get("render_ordinary") if "render_ordinary" in state else state.get("renderOrdinary")
+        if val is not None:
+            render_ordinary = bool(val)
+
+    print(f"⚙️  [Render Config] 4K: {render_4k}, GIF: {render_gif}, 1080p: {render_ordinary}")
 
     # 1. Block rendering if everything is turned off
     if not render_ordinary and not render_gif and not render_4k:
@@ -305,180 +329,170 @@ def render_composer() -> str:
     gif_file = ""
 
     # ============================================================================
-    # PIPELINE 1: ORDINARY RENDERING (1080p + GIF)
+    # PIPELINE 1: BASE COMPOSITION RENDERING (1080p)
     # ============================================================================
-    if render_ordinary or render_gif:
-        print("\n🎬 [Render Step 1/2] Rendering in ordinary quality (1080p) sequentially...")
-        result = subprocess.run(["npm", "run", "render"], capture_output=True, text=True, cwd=BASE_DIR)
+    # We always render the base 1080p composition first via HyperFrames (fast & reliable).
+    print("\n🎬 [Render Step 1/2] Rendering vector composition...")
+    render_env = {
+        **os.environ,
+        "PRODUCER_LOW_MEMORY_MODE": "true",
+        "PUPPETEER_ARGS": "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu",
+        "CHROMIUM_FLAGS": "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu",
+    }
+    result = subprocess.run(
+        ["npm", "run", "render"],
+        capture_output=True,
+        text=True,
+        cwd=BASE_DIR,
+        env=render_env,
+        timeout=180,
+    )
 
-        if result.returncode == 0:
-            print("🎉 [Ordinary Render successful!]")
-            # Parse output file path
-            output_lines = result.stdout.split("\n")
-            local_ordinary_file = ""
-            for line in output_lines:
-                if ".mp4" in line:
-                    match = re.search(r"(/[^\s]+?\.mp4)", line)
-                    if match:
-                        local_ordinary_file = match.group(1)
-                        break
+    if result.returncode == 0:
+        print("🎉 [Base Render successful!]")
+        output_lines = result.stdout.split("\n")
+        local_ordinary_file = ""
+        for line in output_lines:
+            if ".mp4" in line:
+                match = re.search(r"(/[^\s]+?\.mp4)", line)
+                if match:
+                    local_ordinary_file = match.group(1)
+                    break
 
-            if not local_ordinary_file:
-                renders_folder = resolve_path("renders")
-                mp4_files = glob.glob(os.path.join(renders_folder, "*.mp4"))
-                if mp4_files:
-                    local_ordinary_file = max(mp4_files, key=os.path.getmtime)
-                    local_ordinary_file = os.path.abspath(local_ordinary_file)
+        if not local_ordinary_file:
+            renders_folder = resolve_path("renders")
+            mp4_files = glob.glob(os.path.join(renders_folder, "*.mp4"))
+            if mp4_files:
+                local_ordinary_file = max(mp4_files, key=os.path.getmtime)
+                local_ordinary_file = os.path.abspath(local_ordinary_file)
 
-            if local_ordinary_file and os.path.exists(local_ordinary_file):
-                # Strip audio
-                if ffmpeg_installed:
-                    temp_no_audio = local_ordinary_file.rsplit(".", 1)[0] + "_no_audio.mp4"
-                    print(f"🔇 [Audio] Stripping audio from ordinary render '{local_ordinary_file}'...")
-                    try:
-                        strip_cmd = ["ffmpeg", "-y", "-i", local_ordinary_file, "-an", "-c:v", "copy", temp_no_audio]
-                        strip_result = subprocess.run(strip_cmd, capture_output=True, text=True, cwd=BASE_DIR)
-                        if strip_result.returncode == 0 and os.path.exists(temp_no_audio):
-                            os.replace(temp_no_audio, local_ordinary_file)
-                            print(f"✅ [Audio] Audio stripped from '{local_ordinary_file}'!")
-                        else:
-                            print(f"⚠️ [Audio] ffmpeg failed to strip audio: {strip_result.stderr}")
-                    except Exception as e:
-                        print(f"⚠️ [Audio] Failed to strip audio: {e}")
-                else:
-                    print("⏭️  [Audio] Skipping audio stripping (ffmpeg not found)")
-
-                # Rename
-                renders_folder = resolve_path("renders")
-                os.makedirs(renders_folder, exist_ok=True)
-                target_ordinary_name = os.path.join(renders_folder, f"{speaker_name_clean}_{timestamp}.mp4")
-                target_ordinary_path = os.path.abspath(target_ordinary_name)
-                print(f"🏷️ [Rename] Renaming ordinary render to '{target_ordinary_name}'...")
+        if local_ordinary_file and os.path.exists(local_ordinary_file):
+            # Strip audio
+            if ffmpeg_installed:
+                temp_no_audio = local_ordinary_file.rsplit(".", 1)[0] + "_no_audio.mp4"
+                print(f"🔇 [Audio] Stripping audio from render '{local_ordinary_file}'...")
                 try:
-                    os.rename(local_ordinary_file, target_ordinary_path)
-                    local_ordinary_file = target_ordinary_path
-                    ordinary_file = target_ordinary_path
-                except Exception as e:
-                    print(f"⚠️ [Rename] Failed to rename ordinary render: {e}")
-
-                # Convert to GIF
-                if render_gif:
-                    if ffmpeg_installed:
-                        local_gif_file = local_ordinary_file.rsplit(".", 1)[0] + ".gif"
-                        print(f"🎬 [GIF] Converting ordinary render to GIF: '{local_gif_file}'...")
-                        try:
-                            ffmpeg_cmd = [
-                                "ffmpeg",
-                                "-y",
-                                "-i",
-                                local_ordinary_file,
-                                "-vf",
-                                "fps=15,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
-                                local_gif_file,
-                            ]
-                            gif_result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, cwd=BASE_DIR)
-                            if gif_result.returncode == 0:
-                                print(f"✅ [GIF] GIF successfully created: '{local_gif_file}'")
-                                gif_file = local_gif_file
-                                cloud_url = upload_file_to_storage(
-                                    local_gif_file, f"renders/{os.path.basename(local_gif_file)}"
-                                )
-                                file_link = cloud_url if cloud_url else local_gif_file
-                                rendered_files.append(f"• GIF Animation: {file_link}")
-                            else:
-                                print(f"⚠️ [GIF] ffmpeg failed: {gif_result.stderr}")
-                        except Exception as e:
-                            print(f"⚠️ [GIF] GIF conversion exception: {e}")
+                    strip_cmd = ["ffmpeg", "-y", "-i", local_ordinary_file, "-an", "-c:v", "copy", temp_no_audio]
+                    strip_result = subprocess.run(strip_cmd, capture_output=True, text=True, cwd=BASE_DIR)
+                    if strip_result.returncode == 0 and os.path.exists(temp_no_audio):
+                        os.replace(temp_no_audio, local_ordinary_file)
+                        print(f"✅ [Audio] Audio stripped from '{local_ordinary_file}'!")
                     else:
-                        print("⏭️  [GIF] Skipping GIF conversion (ffmpeg not found)")
-                        rendered_files.append("• (Skipped) GIF Animation: ffmpeg not found on host machine.")
+                        print(f"⚠️ [Audio] ffmpeg failed to strip audio: {strip_result.stderr}")
+                except Exception as e:
+                    print(f"⚠️ [Audio] Failed to strip audio: {e}")
+            else:
+                print("⏭️  [Audio] Skipping audio stripping (ffmpeg not found)")
 
-                if render_ordinary:
-                    cloud_url = upload_file_to_storage(
-                        local_ordinary_file, f"renders/{os.path.basename(local_ordinary_file)}"
-                    )
-                    file_link = cloud_url if cloud_url else local_ordinary_file
-                    rendered_files.append(f"• Video in ordinary quality (1080p): {file_link}")
-                elif not render_ordinary and render_gif and local_ordinary_file and os.path.exists(local_ordinary_file):
-                    print(f"🗑️ [Cleanup] Deleting temporary ordinary render '{local_ordinary_file}'...")
-                    try:
-                        os.remove(local_ordinary_file)
-                    except Exception as e:
-                        print(f"⚠️ [Cleanup] Failed to delete temp file: {e}")
-        else:
-            print("❌ [Ordinary Render failed]")
-            print(result.stderr)
-            raise RuntimeError(f"Ordinary render returned a non-zero exit code: {result.stderr}")
+            # Rename base file
+            renders_folder = resolve_path("renders")
+            os.makedirs(renders_folder, exist_ok=True)
+            target_ordinary_name = os.path.join(renders_folder, f"{speaker_name_clean}_{timestamp}.mp4")
+            target_ordinary_path = os.path.abspath(target_ordinary_name)
+            print(f"🏷️ [Rename] Renaming render to '{target_ordinary_name}'...")
+            try:
+                os.rename(local_ordinary_file, target_ordinary_path)
+                local_ordinary_file = target_ordinary_path
+                ordinary_file = target_ordinary_path
+            except Exception as e:
+                print(f"⚠️ [Rename] Failed to rename render: {e}")
 
-    # ============================================================================
-    # PIPELINE 2: 4K UHD RENDERING
-    # ============================================================================
-    if render_4k:
-        print("\n🎬 [Render Step 2/2] Rendering in ultra-high definition (4K) sequentially...")
-        result_4k = subprocess.run(
-            ["npx", "--yes", "hyperframes@0.8.4", "render", "--resolution=4k"],
-            capture_output=True,
-            text=True,
-            cwd=BASE_DIR,
-        )
-
-        if result_4k.returncode == 0:
-            print("🎉 [4K Render successful!]")
-            output_lines = result_4k.stdout.split("\n")
-            file_4k = ""
-            for line in output_lines:
-                if ".mp4" in line:
-                    match = re.search(r"(/[^\s]+?\.mp4)", line)
-                    if match:
-                        file_4k = match.group(1)
-                        break
-
-            if not file_4k:
-                renders_folder = resolve_path("renders")
-                mp4_files = glob.glob(os.path.join(renders_folder, "*.mp4"))
-                if mp4_files:
-                    if ordinary_file:
-                        mp4_files = [f for f in mp4_files if os.path.abspath(f) != os.path.abspath(ordinary_file)]
-                    if mp4_files:
-                        file_4k = max(mp4_files, key=os.path.getmtime)
-                        file_4k = os.path.abspath(file_4k)
-
-            if file_4k and os.path.exists(file_4k):
-                # Strip audio
+            # Optional GIF conversion
+            if render_gif:
                 if ffmpeg_installed:
-                    temp_no_audio_4k = file_4k.rsplit(".", 1)[0] + "_no_audio.mp4"
-                    print(f"🔇 [Audio] Stripping audio from 4K render '{file_4k}'...")
+                    local_gif_file = local_ordinary_file.rsplit(".", 1)[0] + ".gif"
+                    print(f"🎬 [GIF] Converting render to GIF: '{local_gif_file}'...")
                     try:
-                        strip_cmd = ["ffmpeg", "-y", "-i", file_4k, "-an", "-c:v", "copy", temp_no_audio_4k]
-                        strip_result = subprocess.run(strip_cmd, capture_output=True, text=True, cwd=BASE_DIR)
-                        if strip_result.returncode == 0 and os.path.exists(temp_no_audio_4k):
-                            os.replace(temp_no_audio_4k, file_4k)
-                            print(f"✅ [Audio] Audio stripped from 4K render '{file_4k}'!")
+                        ffmpeg_cmd = [
+                            "ffmpeg",
+                            "-y",
+                            "-i",
+                            local_ordinary_file,
+                            "-vf",
+                            "fps=15,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
+                            local_gif_file,
+                        ]
+                        gif_result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, cwd=BASE_DIR)
+                        if gif_result.returncode == 0:
+                            print(f"✅ [GIF] GIF successfully created: '{local_gif_file}'")
+                            gif_file = local_gif_file
+                            cloud_url = upload_file_to_storage(
+                                local_gif_file, f"renders/{os.path.basename(local_gif_file)}"
+                            )
+                            file_link = cloud_url if cloud_url else local_gif_file
+                            rendered_files.append(f"• GIF Animation: {file_link}")
                         else:
-                            print(f"⚠️ [Audio] ffmpeg failed to strip audio from 4K: {strip_result.stderr}")
+                            print(f"⚠️ [GIF] ffmpeg failed: {gif_result.stderr}")
                     except Exception as e:
-                        print(f"⚠️ [Audio] Failed to strip audio from 4K: {e}")
+                        print(f"⚠️ [GIF] GIF conversion exception: {e}")
                 else:
-                    print("⏭️  [Audio] Skipping 4K audio stripping (ffmpeg not found)")
+                    print("⏭️  [GIF] Skipping GIF conversion (ffmpeg not found)")
+                    rendered_files.append("• (Skipped) GIF Animation: ffmpeg not found on host machine.")
 
-                # Rename
-                renders_folder = resolve_path("renders")
-                os.makedirs(renders_folder, exist_ok=True)
+            # ============================================================================
+            # PIPELINE 2: 4K UHD RENDERING VIA HIGH-QUALITY LANCZOS PIPELINE
+            # ============================================================================
+            if render_4k:
+                print("\n🎬 [Render Step 2/2] Generating Ultra-HD 4K (2160p) video via Lanczos...")
                 target_4k_name = os.path.join(renders_folder, f"{speaker_name_clean}_{timestamp}_4k.mp4")
                 target_4k_path = os.path.abspath(target_4k_name)
-                print(f"🏷️ [Rename] Renaming 4K render to '{target_4k_name}'...")
+
+                if ffmpeg_installed:
+                    try:
+                        cmd_4k = [
+                            "ffmpeg",
+                            "-y",
+                            "-i",
+                            local_ordinary_file,
+                            "-vf",
+                            "scale=3840:2160:flags=lanczos",
+                            "-c:v",
+                            "libx264",
+                            "-crf",
+                            "18",
+                            "-preset",
+                            "medium",
+                            "-pix_fmt",
+                            "yuv420p",
+                            target_4k_path,
+                        ]
+                        result_4k = subprocess.run(cmd_4k, capture_output=True, text=True, cwd=BASE_DIR)
+                        if result_4k.returncode == 0 and os.path.exists(target_4k_path):
+                            print(f"🎉 [4K Render successful!] Generated '{target_4k_path}'")
+                            cloud_url = upload_file_to_storage(
+                                target_4k_path, f"renders/{os.path.basename(target_4k_path)}"
+                            )
+                            file_link = cloud_url if cloud_url else target_4k_path
+                            rendered_files.append(f"• Video in 4K quality (2160p): {file_link}")
+                        else:
+                            print(f"⚠️ [4K Render] ffmpeg 4K scale failed: {result_4k.stderr}")
+                    except Exception as e:
+                        print(f"⚠️ [4K Render] 4K generation exception: {e}")
+                else:
+                    print("⏭️  [4K Render] Skipping 4K (ffmpeg not found)")
+
+            # Manage 1080p ordinary file upload or cleanup
+            if render_ordinary:
+                cloud_url = upload_file_to_storage(
+                    local_ordinary_file, f"renders/{os.path.basename(local_ordinary_file)}"
+                )
+                file_link = cloud_url if cloud_url else local_ordinary_file
+                rendered_files.append(f"• Video in ordinary quality (1080p): {file_link}")
+            elif (
+                not render_ordinary
+                and (render_4k or render_gif)
+                and local_ordinary_file
+                and os.path.exists(local_ordinary_file)
+            ):
+                print(f"🗑️ [Cleanup] Removing intermediate 1080p file '{local_ordinary_file}' (only 4K requested)...")
                 try:
-                    os.rename(file_4k, target_4k_path)
-                    file_4k = target_4k_path
-                    cloud_url = upload_file_to_storage(file_4k, f"renders/{os.path.basename(file_4k)}")
-                    file_link = cloud_url if cloud_url else file_4k
-                    rendered_files.append(f"• Video in 4K quality (2160p): {file_link}")
+                    os.remove(local_ordinary_file)
                 except Exception as e:
-                    print(f"⚠️ [Rename] Failed to rename 4K render: {e}")
-        else:
-            print("❌ [4K Render failed]")
-            print(result_4k.stderr)
-            raise RuntimeError(f"4K render returned a non-zero exit code: {result_4k.stderr}")
+                    print(f"⚠️ [Cleanup] Failed to delete temp 1080p file: {e}")
+    else:
+        print("❌ [Base Render failed]")
+        print(result.stderr)
+        raise RuntimeError(f"Base composition render returned a non-zero exit code: {result.stderr}")
 
     # ============================================================================
     # PIPELINE 3: HIGH-RESOLUTION POSTER/SCREENSHOT GENERATION (PNG)
@@ -556,6 +570,8 @@ def render_composer() -> str:
                     capture_output=True,
                     text=True,
                     cwd=BASE_DIR,
+                    env=render_env,
+                    timeout=60,
                 )
             finally:
                 # Unconditionally restore index.html backup immediately

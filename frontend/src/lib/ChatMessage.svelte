@@ -12,11 +12,22 @@
     renderMarkdown, 
     isAgendaOutput, 
     parseResponseVariants, 
-    shouldShowDelegationHandoff 
+    extractMediaAssets,
+    cleanTextForMediaDisplay,
+    extractDocumentAssets,
+    cleanTextForDocumentDisplay,
+    extractEmailDraft,
+    extractEventDates,
+    shouldShowDelegationHandoff,
+    getEventAgent
   } from './constants.js';
   import AgendaTimeline from './AgendaTimeline.svelte';
   import VariantCard from './VariantCard.svelte';
   import ToolCallCard from './ToolCallCard.svelte';
+  import VideoPreviewCard from './VideoPreviewCard.svelte';
+  import ReportDownloadCard from './ReportDownloadCard.svelte';
+  import EmailDraftCard from './EmailDraftCard.svelte';
+  import EventDateCard from './EventDateCard.svelte';
 
   let { 
     event, 
@@ -26,8 +37,38 @@
   } = $props();
 
   const errInfo = $derived(getEventError(event));
-  const theme = $derived(getAgentTheme(event?.author));
+  const eventAgent = $derived(getEventAgent(event));
+  const theme = $derived(getAgentTheme(eventAgent || event?.author));
   const showHandoff = $derived(shouldShowDelegationHandoff(event, index, allEvents));
+  const messageParts = $derived.by(() => {
+    if (event?.content?.parts && event.content.parts.length > 0) {
+      return event.content.parts;
+    }
+    if (event?.output?.summary) {
+      return [{ text: event.output.summary }];
+    }
+    return [];
+  });
+
+  const hasVariants = $derived(
+    messageParts.some(p => p.text && parseResponseVariants(p.text, event.author).length > 1)
+  );
+  const hasAgenda = $derived(
+    messageParts.some(p => p.text && isAgendaOutput(p.text, event.author))
+  );
+  const hasEventDate = $derived(
+    messageParts.some(p => p.text && extractEventDates(p.text, event.author))
+  );
+  const hasMedia = $derived(
+    messageParts.some(p => p.text && extractMediaAssets(p.text))
+  );
+  const hasDoc = $derived(
+    messageParts.some(p => p.text && extractDocumentAssets(p.text))
+  );
+  const hasEmail = $derived(
+    messageParts.some(p => p.text && extractEmailDraft(p.text, event.author))
+  );
+  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasEventDate || hasMedia || hasDoc || hasEmail));
 </script>
 
 {#if errInfo}
@@ -54,19 +95,20 @@
     <div class="message-card user-card">
       <div class="card-author">
         <User size={14} />
-        <span>You</span>
+        <span>User</span>
       </div>
+      
       {#if event.content && event.content.parts}
         {#each event.content.parts as part}
           {#if part.text}
             <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
           {/if}
+          
           {#if part.inline_data || part.inlineData}
-            {@const inline = part.inline_data || part.inlineData}
-            {@const mime = inline.mime_type || inline.mimeType || ''}
+            {@const data = part.inline_data || part.inlineData}
             <div class="user-attached-file-badge">
               <Paperclip size={13} class="badge-paperclip" />
-              <span class="badge-filename">Attached Media ({mime.replace('image/', 'img:').replace('video/', 'video:').replace('application/', '') || 'file'})</span>
+              <span class="badge-filename">Attached Media ({(data.mime_type || data.mimeType || 'file').replace('image/', 'img:').replace('video/', 'video:')})</span>
               <span class="badge-status-dot"></span>
               <span class="badge-status-label">Transferred</span>
             </div>
@@ -76,7 +118,7 @@
     </div>
   </div>
 {:else}
-  <!-- Explicit Sub-Agent Delegation Handoff Divider -->
+  <!-- Agent Delegation Divider (When transferring between agents) -->
   {#if showHandoff}
     <div class="agent-delegation-divider">
       <div class="delegation-line"></div>
@@ -91,7 +133,7 @@
 
   <!-- Model Response Card -->
   <div class="message-row model-row" style="--agent-color: {theme.color}; --agent-bg: {theme.bg}">
-    <div class="message-card model-card">
+    <div class="message-card model-card" class:wide-card={isWide}>
       <div class="model-author-header">
         <div class="agent-badge-pill" style="background: {theme.bg}; color: {theme.color}; border: 1px solid {theme.color}40;">
           <span class="badge-dot" style="background: {theme.color}"></span>
@@ -99,15 +141,36 @@
         </div>
       </div>
 
-      {#if event.content && event.content.parts}
-        {#each event.content.parts as part}
+      {#if messageParts.length > 0}
+        {#each messageParts as part}
           {#if part.text}
-            {#if isAgendaOutput(part.text, event.author)}
+            {@const emailDraft = extractEmailDraft(part.text, event.author)}
+            {@const eventData = extractEventDates(part.text, event.author)}
+            {@const media = extractMediaAssets(part.text)}
+            {@const doc = extractDocumentAssets(part.text)}
+            {#if emailDraft}
+              <EmailDraftCard {emailDraft} onRefine={onRefine} />
+            {:else if isAgendaOutput(part.text, event.author)}
               <AgendaTimeline 
                 rawText={part.text} 
                 author={event.author} 
                 onRefine={(refinedText) => onRefine(refinedText)} 
               />
+            {:else if eventData}
+              <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
+              <EventDateCard {eventData} onRefine={onRefine} />
+            {:else if media}
+              {@const cleanedText = cleanTextForMediaDisplay(part.text)}
+              {#if cleanedText}
+                <div class="markdown-body">{@html renderMarkdown(cleanedText)}</div>
+              {/if}
+              <VideoPreviewCard {media} />
+            {:else if doc}
+              {@const cleanedText = cleanTextForDocumentDisplay(part.text)}
+              {#if cleanedText}
+                <div class="markdown-body">{@html renderMarkdown(cleanedText)}</div>
+              {/if}
+              <ReportDownloadCard {doc} />
             {:else}
               {@const variants = parseResponseVariants(part.text, event.author)}
               {#if variants.length === 1}
@@ -158,6 +221,8 @@
     border: 1px solid var(--border-subtle);
     border-bottom-right-radius: 4px;
     color: var(--text-primary);
+    width: fit-content;
+    max-width: 88%;
   }
 
   .model-card {
@@ -165,6 +230,15 @@
     border: 1px solid var(--border-subtle);
     border-top-left-radius: 4px;
     color: var(--text-primary);
+    width: fit-content;
+    max-width: 88%;
+    min-width: min(100%, 260px);
+    transition: width 0.2s ease, max-width 0.2s ease;
+  }
+
+  .model-card.wide-card,
+  :global(.model-card:has(table)),
+  :global(.model-card:has(pre)) {
     width: 100%;
     max-width: 100%;
   }
@@ -219,7 +293,7 @@
   }
 
   :global(.badge-paperclip) {
-    color: var(--primary-accent);
+    color: var(--text-tertiary);
   }
 
   .badge-status-dot {
@@ -258,7 +332,7 @@
     padding: 4px 12px;
     border-radius: var(--radius-full);
     font-size: 12px;
-    background: var(--pill-bg, rgba(138, 180, 248, 0.1));
+    background: var(--pill-bg, var(--primary-accent-container));
     color: var(--pill-color, var(--primary-accent));
     border: 1px solid var(--border-subtle);
   }

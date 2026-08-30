@@ -1,4 +1,12 @@
 {
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "GDG Community Studio",
+        "supportEmail": "alexander.plachykov@gmail.com"
+      }
+    }
+  },
   "hosting": {
     "public": "frontend/dist",
     "ignore": [
@@ -6,32 +14,52 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "headers": [
+      {
+        "source": "/index.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
+    ],
     "rewrites": [
       {
         "source": "/list-apps",
         "run": {
-          "serviceId": "gdg-root-agent",
+          "serviceId": "community-root-agent",
           "region": "europe-central2"
         }
       },
       {
         "source": "/run",
         "run": {
-          "serviceId": "gdg-root-agent",
+          "serviceId": "community-root-agent",
           "region": "europe-central2"
         }
       },
       {
         "source": "/run_sse",
         "run": {
-          "serviceId": "gdg-root-agent",
+          "serviceId": "community-root-agent",
           "region": "europe-central2"
         }
       },
       {
         "source": "/apps/**",
         "run": {
-          "serviceId": "gdg-root-agent",
+          "serviceId": "community-root-agent",
           "region": "europe-central2"
         }
       },

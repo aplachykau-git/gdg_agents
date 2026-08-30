@@ -87,7 +87,7 @@ def run(model: str, score_tolerance: int) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default=os.getenv("LINKEDIN_JUDGE_MODEL", "gemini-3.6-flash"))
+    parser.add_argument("--model", default=os.getenv("LINKEDIN_JUDGE_MODEL", "gemini-3.7-flash"))
     parser.add_argument("--score-tolerance", type=int, default=20)
     arguments = parser.parse_args()
     return run(arguments.model, arguments.score_tolerance)

@@ -39,6 +39,11 @@ except (ModuleNotFoundError, ImportError):
     from agents.receipt_scanner.agent import receipt_agent
     from agents.registration_manager.agent import root_agent as registration_agent
 
+try:
+    from common.a2a_auth import create_authenticated_a2a_config
+except (ImportError, ValueError):
+    from agents.common.a2a_auth import create_authenticated_a2a_config
+
 from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
 
 video_a2a_url = os.getenv(
@@ -50,26 +55,28 @@ video_agent = RemoteA2aAgent(
     name="video_editor",
     description="Standalone conversational workflow for speaker-card video generation.",
     agent_card=f"{video_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}",
+    config=create_authenticated_a2a_config(video_a2a_url),
+    timeout=600.0,
 )
 
 receipt_a2a_url = os.getenv("RECEIPT_AGENT_A2A_URL")
 if receipt_a2a_url:
     try:
-        from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, RemoteA2aAgent
-
         card_url = f"{receipt_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}"
         print(f"🔗 [A2A Connected] receipt_scanner agent linked via A2A at: {card_url}")
         receipt_agent = RemoteA2aAgent(
             name="receipt_scanner",
-            description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-3.6-flash, converts to PLN and USD using the Pekao rate, exports reports to Google Docs.",
+            description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-3.7-flash, converts to PLN and USD using live banking exchange rates, exports reports to Google Docs.",
             agent_card=card_url,
+            config=create_authenticated_a2a_config(receipt_a2a_url),
+            timeout=600.0,
         )
     except Exception as e:
         print(f"⚠️ Failed to connect receipt_scanner over A2A ({e}). Falling back to local sub-agent.")
 
-community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+community_name = os.getenv("COMMUNITY_NAME", "Community")
 
-INSTRUCTION = f"""You are the main Root Agent for GDG {community_name}.
+INSTRUCTION = f"""You are the main Root Agent for Community AI Studio ({community_name}).
 Your task is to orchestrate developer tools and coordinate sub-agents to handle user requests flawlessly.
 
 ## 🤖 Direct Sub-Agent Orchestration & Routing Rules:
@@ -77,7 +84,8 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 1. **Receipts & Expense Reports**:
    - If the user asks to process receipts, invoices, extract expense data, or create a Google Docs
      Expense Report, you MUST delegate to the `receipt_scanner` sub-agent.
-   - Pass any files, links, or text-inputs directly to it and return its response cleanly.
+   - You MUST explicitly include the target Google Drive folder ID/URL from your session state (`google_drive_folder_id`), template ID (`google_docs_template_id`), and OAuth token (`google_drive_access_token`) in your delegation message (e.g. `[Target Drive Folder: {{session.state.get("google_drive_folder_id")}}] [Target Template: {{session.state.get("google_docs_template_id")}}] [Google Drive Token: {{session.state.get("google_drive_access_token")}}]`).
+   - Pass all attached files, images, links, or text-inputs directly to it and return its response cleanly.
 
 2. **Speaker Cards & Avatars (Video / Image)**:
    - If the user asks to create a speaker card, a marketing video intro, a speaker avatar, or provides
@@ -137,7 +145,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 root_agent = Agent(
     model="gemini-3.5-flash-lite",
     name="root_agent",
-    description=f"Root coordinator agent of GDG {community_name}",
+    description=f"Root coordinator agent for Community AI Studio ({community_name})",
     instruction=INSTRUCTION,
     sub_agents=[
         receipt_agent,

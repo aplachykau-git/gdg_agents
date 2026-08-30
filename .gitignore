@@ -74,11 +74,27 @@ session.db
 
 # Generated Media and Video Editor Outputs (Renders & Outpainted Images)
 **/renders/
+**/workspaces/
 **/*.mp4
 **/*.gif
 **/*.webm
 agents/receipt_scanner/evaluation/fixtures/downloaded/
 
-# GDG Organisers lists (to keep sensitive attendee/staff data local)
+# Organisers lists (to keep sensitive attendee/staff data local)
 **/organisers.txt
 configs/organisers.txt
+
+# Terraform local cache, state, and secrets
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc

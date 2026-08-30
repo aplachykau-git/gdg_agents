@@ -48,9 +48,12 @@
     // Extract intro paragraph before "AGENDA"
     const agendaKeywordIdx = cleanText.search(/AGENDA/i);
     if (agendaKeywordIdx !== -1) {
-      const beforeAgenda = cleanText.substring(0, agendaKeywordIdx).trim();
+      let beforeAgenda = cleanText.substring(0, agendaKeywordIdx).trim();
+      // Remove conversational LLM preambles (e.g. "Here is a professionally structured...", "Here is your agenda:", etc.)
+      beforeAgenda = beforeAgenda.replace(/^(?:(?:Here\s+(?:is|are)|Here's|Sure|Certainly|Below\s+is|I\s+have\s+(?:calculated|drafted|prepared)|Please\s+find)[^\n]*[:\.\n]+)+/gi, '').trim();
       // Remove ### Agenda headers
-      introText = beforeAgenda.replace(/###\s*Agenda/gi, '').trim();
+      beforeAgenda = beforeAgenda.replace(/###\s*Agenda/gi, '').trim();
+      introText = beforeAgenda;
       cleanText = cleanText.substring(agendaKeywordIdx);
     } else {
       introText = '';
@@ -178,9 +181,13 @@
     });
   }
 
-  // Initial load
+  let lastRawText = $state('');
+  let userHasEdited = $state(false);
+
+  // Reactive load & streaming updates
   $effect(() => {
-    if (rawText && items.length === 0) {
+    if (rawText && rawText !== lastRawText && !userHasEdited) {
+      lastRawText = rawText;
       parseAgendaText(rawText);
     }
   });
@@ -188,6 +195,7 @@
   // Stepper functions for 5-minute increments
   function adjustDuration(index, deltaMinutes) {
     if (!items[index]) return;
+    userHasEdited = true;
     const current = items[index].duration || 5;
     const nextVal = Math.max(5, current + deltaMinutes);
     items[index].duration = nextVal;
@@ -197,6 +205,7 @@
   function moveItem(index, direction) {
     const targetIdx = index + direction;
     if (targetIdx < 0 || targetIdx >= items.length) return;
+    userHasEdited = true;
     const newItems = [...items];
     const temp = newItems[index];
     newItems[index] = newItems[targetIdx];
@@ -206,11 +215,13 @@
   }
 
   function removeItem(index) {
+    userHasEdited = true;
     items = items.filter((_, i) => i !== index);
     recalculateSchedule();
   }
 
   function addItem(type = 'talk') {
+    userHasEdited = true;
     const templates = {
       talk: { emoji: '🎤', title: 'New Speaker Session', speaker: 'Speaker Name', duration: 40, type: 'talk' },
       break: { emoji: '🍕', title: 'Break & Networking', speaker: '', duration: 20, type: 'break' },
@@ -389,12 +400,12 @@
           <span class="baseline-label">Event Doors Open:</span>
           <select 
             bind:value={baseStartTime} 
-            onchange={recalculateSchedule} 
+            onchange={() => { userHasEdited = true; recalculateSchedule(); }} 
             class="time-select"
           >
             <option value="17:00">17:00</option>
             <option value="17:15">17:15</option>
-            <option value="17:30">17:30 (Default GDG)</option>
+            <option value="17:30">17:30 (Default)</option>
             <option value="17:45">17:45</option>
             <option value="18:00">18:00</option>
             <option value="18:30">18:30</option>
@@ -457,7 +468,7 @@
                       class="slot-speaker-input" 
                       bind:value={item.speaker} 
                       placeholder="Speaker Name"
-                      oninput={recalculateSchedule} 
+                      oninput={() => { userHasEdited = true; recalculateSchedule(); }} 
                     />
                     <span class="speaker-sep">&bull;</span>
                   {/if}
@@ -466,7 +477,7 @@
                     class="slot-title-input" 
                     bind:value={item.title} 
                     placeholder="Session Title"
-                    oninput={recalculateSchedule} 
+                    oninput={() => { userHasEdited = true; recalculateSchedule(); }} 
                   />
                 </div>
               </div>

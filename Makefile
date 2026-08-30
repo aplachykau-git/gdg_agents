@@ -8,11 +8,12 @@ LINKEDIN_EVAL_DIR := agents/linkedin_post_generator/evaluation
 LINKEDIN_EVAL_SET := $(LINKEDIN_EVAL_DIR)/post_generator_eval_set.json
 LINKEDIN_EVAL_CONFIG := $(LINKEDIN_EVAL_DIR)/post_generator_eval_config.json
 RECEIPT_EVAL_DIR := agents/receipt_scanner/evaluation
-RECEIPT_EVAL_MODEL ?= gemini-3.6-flash
+RECEIPT_EVAL_MODEL ?= gemini-3.7-flash
 
 .PHONY: help tools linkedin-evals linkedin-judge-evals linkedin-evals-all \
 	receipt-eval-discover receipt-eval-fixtures receipt-extraction-evals \
-	receipt-conversion-evals receipt-evals-all run-all
+	receipt-conversion-evals receipt-evals-all video-editor-evals video-editor-evals-all \
+	run-all deploy deploy-frontend
 
 help: ## Show available commands.
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -58,6 +59,16 @@ receipt-evals-all: ## Prepare fixtures, then run conversion and extraction evalu
 	@$(MAKE) receipt-conversion-evals
 	@$(MAKE) receipt-extraction-evals
 
+video-editor-evals: ## Run live ADK video-editor chat evaluations.
+	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
+	"$(UV_BIN)" run --locked --no-sync python -m agents.video_editor.evaluation.run_chat_eval \
+		--adk "$(UV_BIN) run --locked --no-sync adk"
+
+video-editor-evals-all: ## Run video-editor unit tests, then live chat evaluations.
+	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
+	"$(UV_BIN)" run --locked --no-sync python -m unittest tests.test_video_editor_workflow -v
+	@$(MAKE) video-editor-evals
+
 run-all: ## Start Video A2A, Receipt A2A, ADK web, and the frontend; Ctrl+C stops all.
 	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
 	@test -n "$(NPM_BIN)" || { echo "npm was not found. Install Node.js and npm."; exit 1; }
@@ -85,6 +96,24 @@ run-all: ## Start Video A2A, Receipt A2A, ADK web, and the frontend; Ctrl+C stop
 				"$$UV_BIN" run --locked --no-sync adk web --port 8080 agents & pids="$$pids $$!"; \
 			echo "Starting frontend on http://localhost:5173..."; \
 			"$$NPM_BIN" run dev --prefix frontend & pids="$$pids $$!"; \
-			echo "All services are running. Press Ctrl+C to stop."; \
-			wait \
+				echo "All services are running. Press Ctrl+C to stop."; \
+				wait \
 		'
+
+deploy: ## Deploy all Cloud Run services and Firebase Hosting.
+	./deploy/deploy_a2a_cloudrun.sh
+
+deploy-frontend: ## Build and deploy frontend to Firebase Hosting.
+	npm run build --prefix frontend && npx -y firebase-tools deploy --only hosting
+
+tf-init: ## Initialize Terraform module in terraform/.
+	cd terraform && terraform init
+
+tf-plan: ## Run Terraform dry-run execution plan.
+	cd terraform && terraform plan
+
+tf-apply: ## Apply Terraform infrastructure changes.
+	cd terraform && terraform apply
+
+tf-deploy: ## Full automated container build and Terraform deployment to target GCP project.
+	./deploy/deploy_terraform.sh

@@ -13,9 +13,9 @@ from google.genai import types
 
 initialise_agent_environment()
 
-community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+community_name = os.getenv("COMMUNITY_NAME", "Krakow")
 
-INSTRUCTION = f"""You are the LinkedIn Post Generator Agent for GDG {community_name}.
+INSTRUCTION = f"""You are the LinkedIn Post Generator Agent for {community_name}.
 Your goal is to write natural, engaging, and well-developed LinkedIn announcement posts for speakers and event recap summaries.
 
 ## Required inputs and clarification:
@@ -61,17 +61,17 @@ Your goal is to write natural, engaging, and well-developed LinkedIn announcemen
    - Do not send a draft that fails any item in that checklist. Silently revise it until every variant passes.
 
 ## 🔄 Task Delegation & Root Orchestrator Handoff:
-- If the user asks for a task that does NOT belong to LinkedIn post generation (e.g. video speaker cards/avatars, receipts/expenses, agenda formatting, event scheduling, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
+- If the user asks for a task that does NOT belong to LinkedIn post generation (e.g. video speaker cards/avatars, receipts/expenses, agenda formatting, event scheduling, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main Root Orchestrator can route it to the appropriate specialist.
 
 ## 🚀 Multiple Speakers & Event Recaps:
 - **Multiple Speakers**: For an announcement request, generate exactly 3 variants for EACH speaker separately. Output the three variants for the first speaker, then the three variants for the next speaker. Restart numbering at Variant 1 for each speaker and ensure every variant mentions its own speaker's name, position, and company.
-- **Event Recaps**: Only when the user explicitly requests an event recap and provides 2 or more speakers, generate exactly 3 event recap variants summarizing the evening, thanking each `@Speaker Name`, and including `#GDG{community_name}`. Mention every speaker's position and company. Use 2–3 prose paragraphs, exactly 3–4 hashtags, and one approved emoji in every recap variant. Close with a clear invitation to follow GDG or stay tuned for the next meetup, such as “Follow GDG Krakow for the next meetup.” Do not replace required `@Speaker Name` tags with plain names.
+- **Event Recaps**: Only when the user explicitly requests an event recap and provides 2 or more speakers, generate exactly 3 event recap variants summarizing the evening, thanking each `@Speaker Name`, and including `#GDG{community_name}`. Mention every speaker's position and company. Use 2–3 prose paragraphs, exactly 3–4 hashtags, and one approved emoji in every recap variant. Close with a clear invitation to follow the community or stay tuned for the next meetup, such as “Follow {community_name} for the next meetup.” Do not replace required `@Speaker Name` tags with plain names.
 """
 
 linkedin_agent = Agent(
     model="gemini-3.5-flash-lite",
     name="linkedin_post_generator",
-    description=f"Agent that drafts highly engaging LinkedIn announcement posts for speakers and event recap summaries for GDG {community_name}.",
+    description=f"Agent that drafts highly engaging LinkedIn announcement posts for speakers and event recap summaries for {community_name}.",
     instruction=INSTRUCTION,
     tools=[],
     generate_content_config=types.GenerateContentConfig(

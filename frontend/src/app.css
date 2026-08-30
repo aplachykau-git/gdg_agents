@@ -2,10 +2,10 @@
   /* =========================================================================
    * Clean Google Brand Accents
    * ========================================================================= */
-  --gemini-primary: #1a73e8;
-  --gemini-primary-hover: #1557b0;
-  --gemini-active-glow: rgba(26, 115, 232, 0.12);
-  --gemini-subtle-border: rgba(26, 115, 232, 0.25);
+  --gemini-primary: #2563eb;
+  --gemini-primary-hover: #1d4ed8;
+  --gemini-active-glow: rgba(37, 99, 235, 0.18);
+  --gemini-subtle-border: rgba(37, 99, 235, 0.3);
 
   /* =========================================================================
    * Typography Tokens
@@ -81,22 +81,24 @@
 
   --border-subtle: #2d2f31;
   --border-medium: #444746;
-  --border-focus: #8ab4f8;
+  --border-focus: #3b82f6;
 
-  --primary-accent: #8ab4f8;
-  --primary-accent-hover: #aecbfa;
-  --primary-accent-container: #004a77;
-  --primary-accent-text: #c2e7ff;
+  --primary-accent: #3b82f6;
+  --primary-accent-hover: #60a5fa;
+  --primary-accent-container: rgba(59, 130, 246, 0.16);
+  --primary-accent-text: #bfdbfe;
+  --primary-gradient: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%);
+  --primary-gradient-hover: linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%);
 
   --status-success: #81c995;
   --status-warning: #fdd663;
   --status-error: #f28b82;
-  --status-info: #8ab4f8;
+  --status-info: #3b82f6;
 
   --shadow-elevation-1: 0 1px 3px 1px rgba(0, 0, 0, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.30);
   --shadow-elevation-2: 0 2px 6px 2px rgba(0, 0, 0, 0.25), 0 1px 2px 0 rgba(0, 0, 0, 0.30);
   --shadow-elevation-3: 0 4px 8px 3px rgba(0, 0, 0, 0.25), 0 1px 3px 0 rgba(0, 0, 0, 0.30);
-  --shadow-glow: 0 0 24px rgba(66, 133, 244, 0.18);
+  --shadow-glow: 0 0 24px rgba(37, 99, 235, 0.28);
 }
 
 /* =========================================================================
@@ -117,22 +119,24 @@
 
   --border-subtle: #e0e2e0;
   --border-medium: #c4c7c5;
-  --border-focus: #1a73e8;
+  --border-focus: #2563eb;
 
-  --primary-accent: #1a73e8;
-  --primary-accent-hover: #1557b0;
-  --primary-accent-container: #d3e3fd;
-  --primary-accent-text: #041e49;
+  --primary-accent: #2563eb;
+  --primary-accent-hover: #1d4ed8;
+  --primary-accent-container: #eff6ff;
+  --primary-accent-text: #1e40af;
+  --primary-gradient: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);
+  --primary-gradient-hover: linear-gradient(135deg, #1d4ed8 0%, #0369a1 100%);
 
   --status-success: #1e8e3e;
   --status-warning: #f9ab00;
   --status-error: #d93025;
-  --status-info: #1a73e8;
+  --status-info: #2563eb;
 
   --shadow-elevation-1: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
   --shadow-elevation-2: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 2px 6px 2px rgba(60, 64, 67, 0.15);
   --shadow-elevation-3: 0 4px 8px 3px rgba(60, 64, 67, 0.15), 0 1px 3px 0 rgba(60, 64, 67, 0.30);
-  --shadow-glow: 0 0 20px rgba(26, 115, 232, 0.15);
+  --shadow-glow: 0 0 20px rgba(37, 99, 235, 0.2);
 }
 
 /* =========================================================================
@@ -286,6 +290,17 @@ code, pre {
   color: var(--primary-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
+  font-weight: 600;
+}
+
+.markdown-body a:hover {
+  color: var(--text-primary);
+}
+
+.markdown-body a:focus-visible {
+  border-radius: 2px;
+  outline: 2px solid var(--primary-accent);
+  outline-offset: 2px;
 }
 
 .markdown-body table {
@@ -304,4 +319,56 @@ code, pre {
 .markdown-body th {
   background: var(--bg-surface-elevated);
   font-weight: 600;
+}
+
+/* =========================================================================
+ * Instant Micro-Tooltips
+ * ========================================================================= */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-3px) scale(0.96);
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s ease;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* Align tooltips near the right edge */
+.header-right [data-tooltip]::after {
+  left: auto;
+  right: 0;
+  transform: translateY(-3px) scale(0.96);
+}
+
+.header-right [data-tooltip]:hover::after {
+  transform: translateY(0) scale(1);
+}
+
+/* Hide tooltip if button is active or disabled */
+[data-tooltip].active::after,
+[data-tooltip]:disabled::after {
+  display: none;
 }

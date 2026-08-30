@@ -45,7 +45,11 @@ class TestGeminiBackendConfiguration(unittest.TestCase):
     def test_api_mode_creates_non_vertex_client_with_gemini_key(self):
         with patch.dict(
             os.environ,
-            {"GOOGLE_GENAI_USE_VERTEXAI": "0", "GEMINI_API_KEY": "test-gemini-key"},
+            {
+                "GOOGLE_GENAI_USE_VERTEXAI": "0",
+                "GOOGLE_API_KEY": "",
+                "GEMINI_API_KEY": "test-gemini-key",
+            },
             clear=False,
         ):
             with patch.object(gemini_config.genai, "Client") as client:

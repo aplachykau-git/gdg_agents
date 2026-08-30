@@ -1,0 +1,35 @@
+# ==============================================================================
+# Community AI Studio — Terraform Variables Example
+# ==============================================================================
+# Copy this file to terraform.tfvars:
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# Then fill in your target GCP project parameters.
+# ==============================================================================
+
+# Target Google Cloud Project ID (Required)
+project_id = "your-gcp-project-id"
+
+# Target Google Cloud Region (e.g. europe-central2, us-central1, europe-west1)
+region = "europe-central2"
+
+# Community / Organizer Branding Name
+community_name = "GDG Krakow"
+
+# Custom Google Cloud Storage bucket name (optional: defaults to <project_id>-storage)
+gcs_bucket_name = ""
+
+# Google AI Studio API Key (or set use_vertex_ai = "1" to use Vertex AI with ADC)
+gemini_api_key = ""
+use_vertex_ai  = "0"
+google_cloud_location = "global"
+
+# Optional: Google Drive folder ID for automated expense reports
+google_drive_folder_id = ""
+
+# Optional: Custom Google Docs template ID
+google_docs_template_id = ""
+
+# Generative AI video rendering options (set to true to enable Veo/Omni video generation)
+enable_video_generation = "true"
+video_engine            = "omni"

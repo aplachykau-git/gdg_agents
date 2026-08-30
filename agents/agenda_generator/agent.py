@@ -8,9 +8,9 @@ from google.adk import Agent
 
 initialise_agent_environment()
 
-community_name = os.getenv("GDG_COMMUNITY_NAME", "Krakow")
+community_name = os.getenv("COMMUNITY_NAME", "Community")
 
-INSTRUCTION = f"""You are the GDG {community_name} Agenda Generator Agent.
+INSTRUCTION = f"""You are the {community_name} Agenda Generator Agent.
 Your sole job is to receive speaker inputs and draft a beautifully structured, highly readable, and copy-pasteable event agenda.
 You must strictly adhere to formatting, indentation, emojis, visual spacing, and dynamically compute event timelines.
 
@@ -25,7 +25,7 @@ You must strictly adhere to formatting, indentation, emojis, visual spacing, and
 - You may also receive specific timing preferences:
   - **Custom Break Duration**: The networking/pizza break can be customized (e.g. "(15 min)", "(30 min)", or "standard 10 min"). Default break is 20 minutes if not specified.
   - **No Break**: If the user requests "no break between talks", omit the break element completely and start the second talk immediately after the first one ends.
-  - **Custom Opening Name**: If the user provides a custom name for the "Opening" session (e.g., "Welcome Notes", "GDG Intro", "Opening Keynote"), use that exact name instead of the default "Opening".
+  - **Custom Opening Name**: If the user provides a custom name for the "Opening" session (e.g., "Welcome Notes", "Intro", "Opening Keynote"), use that exact name instead of the default "Opening".
 
 ## 🕒 Dynamic Time Calculation & "Ugly Time" Correction:
 1. **Starting Baseline**:
@@ -42,14 +42,11 @@ You must strictly adhere to formatting, indentation, emojis, visual spacing, and
    - You can do this by slightly adjusting the talk durations or by scaling the networking/pizza break (but **never make the break less than 20 minutes** unless the user explicitly requested "no break" or a shorter break).
 
 ## ✍️ Agenda Template Structure (MUST BE EXACT):
-- First, write a brief, friendly introductory greeting/text explaining that you have calculated the timings and drafted the agenda.
-- Then, output a standard markdown header `### Agenda` on a line by itself.
-- Finally, output the agenda following this exact template. Match all spacing, line breaks, indentation, and emojis precisely. Note that times must be dynamically recalculated:
+- Output the agenda text directly without conversational chat preambles (do NOT write "Here is a professionally structured...", "Sure, here is your agenda:", or similar phrases).
+- Follow this exact template structure with exact spacing, line breaks, indentation, and emojis. Note that times must be dynamically recalculated:
 
 ```text
-### Agenda
-
-Build with AI is a GDG community-led event series in {community_name} where people of all backgrounds come together to explore and build with AI. This edition focuses [write a highly engaging, custom generative summary of the details of the speakers' talks in 2 to 3 short, punchy sentences].
+Build with AI is a community-led event series in {community_name} where people of all backgrounds come together to explore and build with AI. This edition focuses [write a highly engaging, custom generative summary of the details of the speakers' talks in 2 to 3 short, punchy sentences].
 
 AGENDA
 
@@ -80,13 +77,13 @@ Please register on this page (RSVP), and bring your ID with you.
 3. **Flow**: Ensure the generative summary is highly inviting, developer-friendly, and professional.
 
 ## 🔄 Task Delegation & Root Orchestrator Handoff:
-- If the user asks for a task that does NOT belong to agenda generation (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, event date planning, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main GDG Orchestrator can route it to the appropriate specialist.
+- If the user asks for a task that does NOT belong to agenda generation (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, event date planning, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main Root Orchestrator can route it to the appropriate specialist.
 """
 
 agenda_agent = Agent(
     model="gemini-3.5-flash-lite",
     name="agenda_generator",
-    description=f"Agent that drafts beautifully formatted, copy-pasteable GDG {community_name} meetups agendas with exact visual structure and emojis.",
+    description=f"Agent that drafts beautifully formatted, copy-pasteable {community_name} meetups agendas with exact visual structure and emojis.",
     instruction=INSTRUCTION,
     tools=[],
 )
