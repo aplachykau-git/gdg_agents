@@ -55,7 +55,8 @@ export const DEFAULT_CONFIG = {
   render4k: true,
   renderGif: true,
   generateAvatar: true,
-  enableVideoGeneration: false
+  enableVideoGeneration: true,
+  videoEngine: 'omni'
 };
 
 export const AGENT_CAPABILITIES_CATALOG = [
@@ -997,31 +998,43 @@ export function parseResponseVariants(text, author) {
 export function extractMediaAssets(text) {
   if (!text) return null;
 
-  const urlRegex = /((?:https?|file):\/\/[^\s\)\"\'<>]+?\.(?:mp4|webm|mov|gif|png|jpg|jpeg|webp)(?:\?[^\s\)\"\'<>]*)?)/gi;
+  const urlRegex = /((?:https?|file):\/\/[^\s\)\"\'<>]+?\.(?:mp4|webm|mov|gif|png|jpg|jpeg|webp)(?:\?[^\s\)\"\'<>]*)?|(?:\/(?:renders|results)\/[^\s\)\"\'<>]+?\.(?:mp4|webm|mov|gif|png|jpg|jpeg|webp)))/gi;
   const matches = [...text.matchAll(urlRegex)].map(m => m[1]);
 
   if (!matches || matches.length === 0) return null;
 
-  let videoUrl = matches.find(u => u.toLowerCase().includes('.mp4') || u.toLowerCase().includes('.webm') || u.toLowerCase().includes('.mov'));
-  let gifUrl = matches.find(u => u.toLowerCase().includes('.gif'));
-  let posterUrl = matches.find(u => u.toLowerCase().includes('_poster.') || u.toLowerCase().includes('poster') || (u.toLowerCase().includes('.png') && !u.toLowerCase().includes('_avatar')));
-  let avatarUrl = matches.find(u => u.toLowerCase().includes('_avatar.') || u.toLowerCase().includes('avatar'));
+  const mapToPlayableUrl = (rawUrl) => {
+    if (!rawUrl) return '';
+    if (rawUrl.startsWith('file://')) {
+      const filename = rawUrl.split('/').pop()?.split('?')[0];
+      return filename ? `/renders/${filename}` : rawUrl;
+    }
+    return rawUrl;
+  };
 
-  if (!posterUrl) {
-    posterUrl = matches.find(u => u !== videoUrl && u !== gifUrl && u !== avatarUrl);
+  let rawVideoUrl = matches.find(u => u.toLowerCase().includes('.mp4') || u.toLowerCase().includes('.webm') || u.toLowerCase().includes('.mov'));
+  let rawGifUrl = matches.find(u => u.toLowerCase().includes('.gif'));
+  let rawPosterUrl = matches.find(u => u.toLowerCase().includes('_poster.') || u.toLowerCase().includes('poster') || (u.toLowerCase().includes('.png') && !u.toLowerCase().includes('_avatar')));
+  let rawAvatarUrl = matches.find(u => u.toLowerCase().includes('_avatar.') || u.toLowerCase().includes('avatar'));
+
+  if (!rawPosterUrl) {
+    rawPosterUrl = matches.find(u => u !== rawVideoUrl && u !== rawGifUrl && u !== rawAvatarUrl);
   }
 
-  if (!videoUrl && !gifUrl && !posterUrl) return null;
+  if (!rawVideoUrl && !rawGifUrl && !rawPosterUrl) return null;
 
   const nameMatch = text.match(/\*\*Speaker Name:\*\*\s*([^\n]+)/i) || text.match(/name:\s*"?([^"\n]+)"?/i) || text.match(/speaker:\s*"?([^"\n]+)"?/i);
   const titleMatch = text.match(/\*\*Talk Title:\*\*\s*([^\n]+)/i) || text.match(/title:\s*"?([^"\n]+)"?/i) || text.match(/talk:\s*"?([^"\n]+)"?/i);
   const positionCompanyMatch = text.match(/\*\*Position & Company:\*\*\s*([^\n]+)/i) || text.match(/position_company:\s*"?([^"\n]+)"?/i);
 
   return {
-    videoUrl,
-    gifUrl,
-    posterUrl,
-    avatarUrl,
+    videoUrl: mapToPlayableUrl(rawVideoUrl),
+    rawVideoUrl,
+    gifUrl: mapToPlayableUrl(rawGifUrl),
+    rawGifUrl,
+    posterUrl: mapToPlayableUrl(rawPosterUrl),
+    rawPosterUrl,
+    avatarUrl: mapToPlayableUrl(rawAvatarUrl),
     allUrls: matches,
     speakerName: nameMatch ? nameMatch[1].replace(/[`*]/g, '').trim() : '',
     talkTitle: titleMatch ? titleMatch[1].replace(/[`*]/g, '').trim() : '',

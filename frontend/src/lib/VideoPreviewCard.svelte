@@ -3,13 +3,29 @@
     Film, 
     Image as ImageIcon, 
     Download, 
-    Loader2
+    Loader2,
+    Folder,
+    Copy,
+    Check
   } from '@lucide/svelte';
   import { downloadDirectFile } from './constants.js';
 
   let { media = {} } = $props();
 
   let downloadingMap = $state({});
+  let copiedPath = $state(false);
+
+  const localFilePath = $derived.by(() => {
+    if (media.rawVideoUrl && media.rawVideoUrl.startsWith('file://')) {
+      return media.rawVideoUrl.replace('file://', '');
+    }
+    const cand = (media.allUrls || []).find(u => u.startsWith('file://'));
+    if (cand) return cand.replace('file://', '');
+    if (media.videoUrl && media.videoUrl.startsWith('/renders/')) {
+      return `agents/video_editor/renders/${media.videoUrl.split('/').pop()}`;
+    }
+    return '';
+  });
 
   async function handleDownload(url, filename, key) {
     if (!url) return;
@@ -21,6 +37,15 @@
         downloadingMap = { ...downloadingMap, [key]: false };
       }, 1000);
     }
+  }
+
+  function copyFilePath(pathText) {
+    if (!pathText) return;
+    navigator.clipboard.writeText(pathText);
+    copiedPath = true;
+    setTimeout(() => {
+      copiedPath = false;
+    }, 2000);
   }
 </script>
 
@@ -102,6 +127,25 @@
         </button>
       {/if}
     </div>
+
+    {#if localFilePath}
+      <div class="local-path-badge">
+        <Folder size={13} class="path-icon" />
+        <span class="path-text" title={localFilePath}>{localFilePath}</span>
+        <button 
+          class="copy-path-btn" 
+          onclick={() => copyFilePath(localFilePath)}
+          title="Copy local path"
+          aria-label="Copy local path"
+        >
+          {#if copiedPath}
+            <Check size={12} color="#34a853" />
+          {:else}
+            <Copy size={12} />
+          {/if}
+        </button>
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -195,17 +239,47 @@
     border-color: var(--primary-accent, #8ab4f8);
   }
 
-  :global(.spin-icon) {
-    animation: spin 1s linear infinite;
+  .local-path-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-secondary, #9aa0a6);
+    max-width: 100%;
+    font-family: var(--font-mono, monospace);
   }
 
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+  :global(.path-icon) {
+    flex-shrink: 0;
+    color: var(--agent-video, #ea4335);
   }
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
+  .path-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .copy-path-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    color: var(--text-secondary, #9aa0a6);
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .copy-path-btn:hover {
+    color: var(--text-primary, #ffffff);
+    background: rgba(255, 255, 255, 0.08);
   }
 </style>
