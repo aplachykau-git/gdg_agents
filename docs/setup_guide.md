@@ -6,29 +6,13 @@ Welcome to the comprehensive setup and operations guide for **Community AI Studi
 
 ## 🏗️ System Architecture
 
-The project consists of three main layers:
+For the full architecture diagram, component inventory, security model, and data flows see [SOLUTION_ARCHITECTURE.md](SOLUTION_ARCHITECTURE.md).
 
-```mermaid
-graph TD
-    A[Custom Svelte Frontend <br> port 5173] -->|API Proxy| B[Root Orchestrator Agent <br> port 8080]
-    
-    subgraph "A2A Distributed Network"
-        B -->|A2A RemoteA2aAgent <br> port 8081| E[Live Video Editor <br> agents/video_editor]
-        B -->|A2A RemoteA2aAgent <br> port 8082| D[Receipt Scanner <br> agents/receipt_scanner]
-    end
-    
-    subgraph "Local In-Process Sub-Agents"
-        B --> F[LinkedIn Planner <br> agents/linkedin_post_generator]
-        B --> G[Registrations Manager <br> agents/registration_manager]
-        B --> H[Event Scheduler <br> agents/event_planner]
-        B --> I[Agenda Formatter <br> agents/agenda_generator]
-        B --> J[Office Secretary <br> agents/office_secretary]
-    end
-```
+In brief, the system has three layers:
 
-1. **Custom Svelte Frontend (`frontend/`)**: A dark-themed, premium workspace that provides a chat interface, real-time status ticker for the agents, and capability highlights.
-2. **Root Orchestrator Agent (`agents/root_agent/`)**: The main coordinating Python agent that receives user requests, determines the correct domain, and delegates tasks to the appropriate specialized sub-agents.
-3. **Sub-Agents Core (`agents/`)**: Seven specialized sub-agents covering receipts/expense reporting, speaker video generation, social media management, guest lists, meetup scheduling, agenda formatting, and office access letters.
+1. **Custom Svelte Frontend (`frontend/`)**: Chat interface with real-time SSE streaming, proxied through Firebase Hosting.
+2. **Root Orchestrator Agent (`agents/root_agent/`)**: Parses intent and delegates to the appropriate sub-agent.
+3. **Sub-Agents (`agents/`)**: Seven specialized agents — five run in-process, two (`video_editor`, `receipt_scanner`) run as private Cloud Run A2A microservices authenticated via OIDC.
 
 ---
 
@@ -105,39 +89,32 @@ Open `.env` and configure the following parameters:
 > [!TIP]
 > **Unified Configuration**: Avoid placing separate `.env` files inside individual subdirectories (`agents/root_agent/`, `agents/receipt_scanner/`, etc.). The workspace root `.env` serves as the single source of truth for all microservices.
 
-### 5. Google Drive & Google Docs Service Account Setup (Cloud & Native Google Docs)
+### 5. Google Drive & Google Docs Setup (Receipt Scanner)
 
-The **Receipt Scanner** sub-agent can generate native **Google Docs** directly in Google Drive without interactive user popups by using a free **GCP Service Account**.
+The Receipt Scanner exports expense reports directly to Google Drive using the platform service account (`community-studio-runtime`) via ADC workload identity. No separate service account or JSON key is needed.
 
 #### Step 1: Enable Google Docs and Google Drive APIs
 ```bash
 gcloud services enable docs.googleapis.com drive.googleapis.com --project=YOUR_PROJECT_ID
 ```
 
-#### Step 2: Create a Dedicated Service Account
-```bash
-gcloud iam service-accounts create receipt-docs-bot \
-  --description="Service Account for Google Docs & Drive Expense Reports" \
-  --display-name="Receipt Docs Bot" \
-  --project=YOUR_PROJECT_ID
-```
+#### Step 2: Find the service account email
 
-#### Step 3: Generate and Download the Key
-Download the JSON key directly into `configs/service_account.json` (this file is automatically excluded by `.gitignore`):
+The SA email is displayed in the frontend Settings modal. You can also retrieve it from Terraform output:
 ```bash
-mkdir -p configs
-gcloud iam service-accounts keys create configs/service_account.json \
-  --iam-account=receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com \
-  --project=YOUR_PROJECT_ID
+terraform -chdir=terraform output service_account_email
 ```
+It follows the pattern `community-studio-runtime@YOUR_PROJECT_ID.iam.gserviceaccount.com`.
 
-#### Step 4: Share Your Google Doc Template or Folder
-1. Open your Google Doc template (e.g., [Google Docs Template](https://docs.google.com/document/d/1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw/edit)) or your target Google Drive folder.
-2. Click **Share** (Поделиться) in the top-right corner.
-3. Add your service account email (e.g. `receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com`) with **Viewer** (Читатель) or **Editor** (Редактор) permissions.
+#### Step 3: Share your Drive folder and Docs template
+
+1. Open your target Google Drive folder and your Docs expense report template.
+2. Click **Share** in the top-right corner of each.
+3. Add the service account email with **Editor** permissions.
+4. Set `GOOGLE_DRIVE_FOLDER_ID` and `GOOGLE_DOCS_TEMPLATE_ID` in your `.env`.
 
 > [!TIP]
-> **Hybrid Generation & Fallback**: When `configs/service_account.json` is present and access is granted, the agent directly creates real Google Docs with live editable URLs (`https://docs.google.com/document/d/.../edit`). If offline or without cloud credentials, it automatically falls back to generating standard `.docx` files.
+> **Fallback**: If Drive is unconfigured or unreachable, the agent automatically falls back to generating a local `.docx` file.
 
 ### 6. Customizing the Expense Report Template
 

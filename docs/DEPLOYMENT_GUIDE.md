@@ -17,24 +17,7 @@ This guide explains step-by-step how to deploy **Community AI Studio** to a bran
 
 ## 1. Architecture Overview & Network Topology
 
-```mermaid
-graph TD
-    User([Web User / Browser]) -->|HTTPS / App Check| Frontend[Svelte 5 Frontend <br> Firebase Hosting :443]
-    Frontend -->|Proxied REST / SSE /run_sse, /list-apps| RootAgent[community-root-agent <br> Google Cloud Run :443 <br> Headless ADK API Server]
-    
-    subgraph "Private A2A Distributed Network (GCP IAM OIDC Auth)"
-        RootAgent -->|Bearer ID Token / OIDC| VideoAgent[video-editor-a2a <br> Cloud Run :443 <br> Private 403 External]
-        RootAgent -->|Bearer ID Token / OIDC| ReceiptAgent[receipt-scanner-a2a <br> Cloud Run :443 <br> Private 403 External]
-    end
-    
-    subgraph "In-Process Specialized Agents"
-        RootAgent --> LinkedIn[LinkedIn Planner]
-        RootAgent --> RegManager[Registrations Manager]
-        RootAgent --> Planner[Event Scheduler]
-        RootAgent --> Agenda[Agenda Formatter]
-        RootAgent --> Secretary[Office Secretary]
-    end
-```
+For the full architecture diagram and security model see [SOLUTION_ARCHITECTURE.md](SOLUTION_ARCHITECTURE.md).
 
 All microservices communicate via dynamic URLs configured via environment variables and IAM:
 - **`VIDEO_AGENT_A2A_URL`**: Full HTTPS URL to the Video Editor A2A service. Authenticated via Google OIDC ID tokens.
@@ -56,7 +39,7 @@ To deploy from a new machine or CI/CD runner:
 
 ## 3. Environment Configuration (.env)
 
-Create your `.env` in the repository root (see [`.env.example`](file:///Users/aplachykau/Experiments/gdg_krakow_tool/.env.example)):
+Create your `.env` in the repository root (see [`.env.example`](../.env.example)):
 
 ```bash
 cp .env.example .env
@@ -80,7 +63,7 @@ cp .env.example .env
 
 ### Option A: Terraform Infrastructure as Code (Recommended for Multi-Environment)
 
-You can provision and deploy all services declaratively using the modular [Terraform module](file:///Users/aplachykau/Experiments/gdg_krakow_tool/terraform):
+You can provision and deploy all services declaratively using the modular [Terraform module](../terraform):
 
 ```bash
 # 1. Authenticate with your target GCP project:
@@ -93,11 +76,11 @@ make tf-deploy
 bash deploy/deploy_terraform.sh
 ```
 
-See [terraform/README.md](file:///Users/aplachykau/Experiments/gdg_krakow_tool/terraform/README.md) for custom variables (`terraform.tfvars`) and fine-grained resource tuning.
+See [terraform/README.md](../terraform/README.md) for custom variables (`terraform.tfvars`) and fine-grained resource tuning.
 
 ### Option B: Automated Cloud Run Script
 
-The automated script [`deploy/deploy_a2a_cloudrun.sh`](file:///Users/aplachykau/Experiments/gdg_krakow_tool/deploy/deploy_a2a_cloudrun.sh) handles container builds via Cloud Build and deploys all 3 services in order:
+The automated script [`deploy/deploy_a2a_cloudrun.sh`](../deploy/deploy_a2a_cloudrun.sh) handles container builds via Cloud Build and deploys all 3 services in order:
 
 ```bash
 # Make sure you are authenticated with GCP:

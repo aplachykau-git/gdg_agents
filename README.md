@@ -1,8 +1,6 @@
 # Community AI Studio
 
-This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/), written in Python. It leverages the capabilities of Vertex AI (Gemini and Veo) models to automate events operations, document templates compilation, receipt scanning, scheduling conflicts analysis, and social media posting.
-
----
+This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/), written in Python. It leverages the capabilities of Vertex AI (Gemini and Veo) models to automate event operations, document template compilation, receipt scanning, scheduling conflict analysis, and LinkedIn content generation.
 
 ---
 
@@ -129,6 +127,7 @@ community_studio/
 ├── frontend/                     # Custom Svelte 5 + Vite single-page dashboard
 │   ├── src/
 │   ├── public/
+│   ├── design.md                 # Frontend design system spec (M3 tokens, components)
 │   └── package.json
 │
 ├── configs/                      # Configuration files (organizers list, API templates)
@@ -137,7 +136,14 @@ community_studio/
 │
 ├── docs/                         # Architecture, guides, and design specifications
 │   ├── setup_guide.md
-│   └── design.md
+│   ├── SOLUTION_ARCHITECTURE.md
+│   ├── FUTURE_DEVELOPMENT.md
+│   ├── DEPLOYMENT_GUIDE.md
+│   ├── AGENT_CATALOG.md
+│   ├── ENV_VARS.md
+│   ├── linkedin_post_generator_evals.md
+│   ├── receipt_scanner_evals.md
+│   └── video_editor_evals.md
 │
 ├── tests/                        # Evaluation datasets & test runners
 │   ├── eval/
@@ -253,9 +259,9 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
    - **Autoscaling Typography**: Font size dynamically scales to ensure multi-line talk titles fit within design boundaries.
 
 4. **Multi-Format Concurrent Rendering**:
-   - **4K Ultra HD MP4** (Upscaled high-bitrate video, `RENDER_4K=true`)
    - **1080p Full HD MP4** (Standard web video, `RENDER_ORDINARY=true`)
    - **Animated GIF** (Optimized for Slack / Discord / email embeds, `RENDER_GIF=true`)
+   - **4K Ultra HD MP4** (Upscaled high-bitrate video, `RENDER_4K=true`)
    - **Avatar PNG Snapshots** (Extracted high-res frame for promotional badges)
 
 ### ⚙️ Video Generation & Render Configuration (`.env`)
@@ -267,9 +273,9 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
 | `GEMINI_API_KEY` | API key | Backwards-compatible fallback when `GOOGLE_API_KEY` is not set. |
 | `VIDEO_ENGINE` | `veo` (default) \| `omni` | Selects the video generation model (`veo-3.1-fast-generate-001` or `gemini-omni-1.1-flash`). `veo` is available only in Vertex AI mode. |
 | `ENABLE_VIDEO_GENERATION` | `true` \| `false` | Set to `false` for instant layout/text dry-runs using local placeholder assets without consuming video tokens. |
-| `RENDER_4K` | `true` (default) \| `false` | Toggles rendering of the 4K Ultra HD MP4 video file. |
-| `RENDER_ORDINARY` | `true` \| `false` (default) | Toggles rendering of the 1080p Full HD MP4 video file. |
-| `RENDER_GIF` | `true` \| `false` (default) | Toggles automatic GIF conversion via FFmpeg. |
+| `RENDER_ORDINARY` | `true` (default) \| `false` | Toggles rendering of the 1080p Full HD MP4 video file. |
+| `RENDER_GIF` | `true` (default) \| `false` | Toggles automatic GIF conversion via FFmpeg. |
+| `RENDER_4K` | `true` \| `false` (default) | Toggles rendering of the 4K Ultra HD MP4 video file. |
 
 ### Developer Commands (From Project Root or inside `agents/video_editor/`)
 
