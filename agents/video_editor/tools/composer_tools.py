@@ -333,7 +333,20 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
     # ============================================================================
     # We always render the base 1080p composition first via HyperFrames (fast & reliable).
     print("\n🎬 [Render Step 1/2] Rendering vector composition...")
-    result = subprocess.run(["npm", "run", "render"], capture_output=True, text=True, cwd=BASE_DIR)
+    render_env = {
+        **os.environ,
+        "PRODUCER_LOW_MEMORY_MODE": "true",
+        "PUPPETEER_ARGS": "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu",
+        "CHROMIUM_FLAGS": "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu",
+    }
+    result = subprocess.run(
+        ["npm", "run", "render"],
+        capture_output=True,
+        text=True,
+        cwd=BASE_DIR,
+        env=render_env,
+        timeout=180,
+    )
 
     if result.returncode == 0:
         print("🎉 [Base Render successful!]")
@@ -557,6 +570,8 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                     capture_output=True,
                     text=True,
                     cwd=BASE_DIR,
+                    env=render_env,
+                    timeout=60,
                 )
             finally:
                 # Unconditionally restore index.html backup immediately
