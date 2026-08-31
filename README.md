@@ -171,6 +171,26 @@ The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 pri
 
 ## 🚀 Quick Start: Launch the Entire Workspace
 
+### 1. Prerequisites & Installation
+
+Make sure you have [uv](https://docs.astral.sh/uv/) (Python 3.12+) and Node.js (20+) installed:
+
+```bash
+# 1. Clone & enter repository
+git clone https://github.com/aplachykau-git/community-ai-studio.git
+cd community-ai-studio
+
+# 2. Configure environment variables
+cp .env.example .env
+# Edit .env and set your GEMINI_API_KEY / GOOGLE_CLOUD_PROJECT credentials
+
+# 3. Install Python dependencies (locked) & Node packages
+uv sync --locked
+npm install
+```
+
+### 2. Launch All Services (Local Development)
+
 To spin up the complete distributed multi-agent system (Video Editor A2A on port 8081, Receipt Scanner A2A on port 8082, Root Orchestrator on port 8080, and the Svelte 5 frontend on port 5173), run **a single command**:
 
 ```bash
