@@ -56,8 +56,22 @@ export const DEFAULT_CONFIG = {
   renderGif: true,
   generateAvatar: true,
   enableVideoGeneration: true,
-  videoEngine: 'omni'
+  videoEngine: 'omni',
+  videoTemplate: 'build_with_ai'
 };
+
+export const VIDEO_TEMPLATES = [
+  {
+    id: 'build_with_ai',
+    name: 'Build With AI',
+    description: 'Classic Google AI community speaker intro layout'
+  },
+  {
+    id: 'devfest',
+    name: 'DevFest',
+    description: 'DevFest conference dynamic speaker showcase'
+  }
+];
 
 export const AGENT_CAPABILITIES_CATALOG = [
   {

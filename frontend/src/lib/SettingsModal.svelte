@@ -13,12 +13,14 @@
     ChevronRight,
     Info,
     Video,
-    AlertTriangle
+    AlertTriangle,
+    Layout
   } from '@lucide/svelte';
   import { 
     DEFAULT_CONFIG, 
     DEFAULT_TEMPLATE_URL,
     DEFAULT_TEMPLATE_ID,
+    VIDEO_TEMPLATES,
     extractDriveFolderId, 
     validateDriveFolderInput,
     extractGoogleDocId,
@@ -77,6 +79,11 @@
     const newVal = !currentVal;
     draft[key] = newVal;
     triggerAutoSave({ [key]: newVal });
+  }
+
+  function handleSelectTemplate(templateId) {
+    draft.videoTemplate = templateId;
+    triggerAutoSave({ videoTemplate: templateId });
   }
 
   function handleDone() {
@@ -198,6 +205,36 @@
           <div class="group-header">
             <Video size={14} />
             <h3>Video Generation Settings</h3>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-meta">
+              <label for="setting-video-template" class="setting-title">Card Composition Template</label>
+              <p class="setting-desc">Choose which HTML layout template to use for speaker video cards.</p>
+            </div>
+            <div class="setting-control setting-control-column">
+              <div class="template-selector" id="setting-video-template" role="radiogroup" aria-label="Video Composition Template">
+                {#each VIDEO_TEMPLATES as tpl}
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={(draft.videoTemplate || 'build_with_ai') === tpl.id}
+                    class="template-option-btn"
+                    class:template-selected={(draft.videoTemplate || 'build_with_ai') === tpl.id}
+                    onclick={() => handleSelectTemplate(tpl.id)}
+                  >
+                    <div class="template-option-header">
+                      <Layout size={13} />
+                      <span class="template-option-title">{tpl.name}</span>
+                      {#if (draft.videoTemplate || 'build_with_ai') === tpl.id}
+                        <span class="template-badge-active">Active</span>
+                      {/if}
+                    </div>
+                    <span class="template-option-desc">{tpl.description}</span>
+                  </button>
+                {/each}
+              </div>
+            </div>
           </div>
 
           <div class="setting-row">
@@ -814,6 +851,70 @@
     border-color: var(--primary-accent);
   }
 
+  /* Video Template Selector */
+  .template-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .template-option-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 10px 12px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: var(--transition-fast);
+  }
+
+  .template-option-btn:hover {
+    border-color: var(--border-medium);
+    background: var(--bg-surface-variant);
+  }
+
+  .template-option-btn.template-selected {
+    border-color: var(--primary-accent);
+    background: var(--primary-accent-container);
+    box-shadow: 0 0 0 1px var(--primary-accent);
+  }
+
+  .template-option-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .template-option-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .template-badge-active {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--primary-accent);
+    color: #ffffff;
+    letter-spacing: 0.5px;
+  }
+
+  .template-option-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.35;
+  }
 
   /* Footer */
   .dialog-footer {

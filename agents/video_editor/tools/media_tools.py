@@ -569,18 +569,6 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
 
     photo_path = os.path.abspath(photo_path)
 
-    # Check if AI video generation (Veo/Omni) is disabled to prevent unwanted costs
-    if not video_generation_enabled():
-        raise RuntimeError(
-            "Image-to-video generation is disabled. Upload a source video or set ENABLE_VIDEO_GENERATION=true."
-        )
-
-    # Gemini client for outpainting
-    gemini_client = get_gemini_client()
-    # Outpaint to 9:16 vertical canvas
-    photo_path = outpaint_to_9_16(photo_path, gemini_client)
-    photo_path = resolve_path(photo_path)
-
     # Check if AI video generation (Veo/Omni) is enabled in session state or env
     state = {}
     if tool_context:
@@ -607,6 +595,12 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
         )
         print(f"🚫 [Cost Protection] {msg}")
         return f"Error: {msg}"
+
+    # Gemini client for outpainting
+    gemini_client = get_gemini_client()
+    # Outpaint to 9:16 vertical canvas
+    photo_path = outpaint_to_9_16(photo_path, gemini_client)
+    photo_path = resolve_path(photo_path)
 
     engine = get_video_engine()
     validate_video_generation_backend(engine)

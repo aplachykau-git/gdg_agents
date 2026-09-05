@@ -334,6 +334,8 @@
       renderGif: studioConfig?.renderGif ?? localSaved.renderGif ?? true,
       generateAvatar: studioConfig?.generateAvatar ?? localSaved.generateAvatar ?? true,
       enableVideoGeneration: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? false,
+      video_template: studioConfig?.videoTemplate || localSaved.videoTemplate || "build_with_ai",
+      videoTemplate: studioConfig?.videoTemplate || localSaved.videoTemplate || "build_with_ai",
     };
   }
 

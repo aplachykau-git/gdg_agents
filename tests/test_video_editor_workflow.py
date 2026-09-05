@@ -255,6 +255,24 @@ class TestVideoEditorWorkflow(unittest.TestCase):
 
         self.assertTrue(True)
 
+    def test_workspace_template_copies_build_with_ai(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            workspace = Path(temporary_directory) / "workspace"
+            workspace.mkdir()
+
+            _copy_workspace_template(workspace, template_name="build_with_ai")
+            index_content = (workspace / "index.html").read_text(encoding="utf-8")
+            self.assertIn("BUILD WITH AI", index_content)
+
+    def test_workspace_template_copies_devfest(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            workspace = Path(temporary_directory) / "workspace"
+            workspace.mkdir()
+
+            _copy_workspace_template(workspace, template_name="devfest")
+            index_content = (workspace / "index.html").read_text(encoding="utf-8")
+            self.assertIn("DEVFEST", index_content)
+
     def test_tool_returns_missing_input_without_rendering(self):
         context = FakeToolContext({}, [])
 

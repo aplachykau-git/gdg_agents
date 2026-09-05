@@ -147,22 +147,36 @@ def merge_draft(
     return updated
 
 
-def _copy_workspace_template(workspace: Path) -> None:
+def _copy_workspace_template(workspace: Path, template_name: str = "build_with_ai") -> None:
     if not workspace.is_dir():
         raise FileNotFoundError(f"Render workspace does not exist: {workspace}")
-    for name in ("index.html", "package.json", "hyperframes.json", "meta.json"):
-        shutil.copy2(BASE_DIR / name, workspace / name)
+
+    sanitized_name = "".join(c for c in (template_name or "").lower().replace("-", "_") if c.isalnum() or c == "_")
+    template_candidates = [
+        BASE_DIR / "templates" / f"{sanitized_name}.html",
+        BASE_DIR / "templates" / "build_with_ai.html",
+        BASE_DIR / "index.html",
+    ]
+    template_file = next((candidate for candidate in template_candidates if candidate.is_file()), None)
+    if not template_file:
+        raise FileNotFoundError(f"No valid template found for '{template_name}' in {BASE_DIR / 'templates'}")
+
+    shutil.copy2(template_file, workspace / "index.html")
+    for name in ("package.json", "hyperframes.json", "meta.json"):
+        source_path = BASE_DIR / name
+        if source_path.is_file():
+            shutil.copy2(source_path, workspace / name)
     shutil.copytree(BASE_DIR / "assets", workspace / "assets", dirs_exist_ok=True)
 
 
 @contextmanager
-def isolated_workspace(session_id: str) -> Iterator[Path]:
+def isolated_workspace(session_id: str, template_name: str = "build_with_ai") -> Iterator[Path]:
     safe_session_id = "".join(
         character if character.isalnum() or character in "-_" else "_" for character in session_id
     )
     WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
     workspace = Path(tempfile.mkdtemp(prefix=f"{safe_session_id[:48]}-", dir=WORKSPACE_ROOT))
-    _copy_workspace_template(workspace)
+    _copy_workspace_template(workspace, template_name=template_name)
     yield workspace
 
 
@@ -246,9 +260,19 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
     environment_failure = workflow.validate_render_environment()
     if environment_failure:
         return environment_failure
-    assert draft.media
+    session_state = {}
+    if hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
+        session_state = tool_context.session.state or {}
+    elif hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
+        session_state = tool_context.state
 
-    with isolated_workspace(tool_context.session.id) as workspace:
+    video_template = (
+        session_state.get("video_template")
+        or session_state.get("videoTemplate")
+        or os.getenv("VIDEO_TEMPLATE", "build_with_ai")
+    )
+
+    with isolated_workspace(tool_context.session.id, template_name=video_template) as workspace:
         with _workspace_tool_paths(workspace):
             staged_path = await media_tools.stage_uploaded_media(
                 event_id=draft.media.event_id,

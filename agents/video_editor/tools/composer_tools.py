@@ -54,9 +54,11 @@ def resolve_path(rel_path: str) -> str:
     return stripped_path
 
 
-def restore_default_placeholder():
+def restore_default_placeholder(force: bool = False):
     """Generates a generic, safe gray placeholder image at assets/portrait_outpainted.png to prevent 404/file-not-found errors."""
     placeholder_path = resolve_path("assets/portrait_outpainted.png")
+    if os.path.exists(placeholder_path) and not force:
+        return
     try:
         # Create a beautiful 500x500 dark grey placeholder image
         img = Image.new("RGB", (500, 500), color="#1E1E1E")
