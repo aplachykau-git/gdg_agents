@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- DEVFEST TEMPLATE -->
 <html lang="en">
 
 <head>
@@ -28,11 +29,11 @@
     }
 
     :root {
-      --bg-color: #EEEEEE;
+      --bg-color: #EFEFEF;
       --text-primary: #1E1E1E;
       --text-secondary: #70757A;
       --devfest-green: #34A853;
-      --accent-yellow: #F9AB00;
+      --accent-yellow: #FBBC04;
       --border-dark: #1E1E1E;
     }
 
@@ -54,7 +55,7 @@
       user-select: none;
     }
 
-    /* Ambient Subtle Tech Mesh Background */
+    /* Subtle background grid */
     .bg-canvas {
       position: absolute;
       top: 0;
@@ -63,33 +64,6 @@
       height: 1080px;
       background-image: radial-gradient(rgba(0, 0, 0, 0.035) 1.5px, transparent 1.5px);
       background-size: 36px 36px;
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* Ambient Warm Glows */
-    .glow-left {
-      position: absolute;
-      width: 800px;
-      height: 800px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(52, 168, 83, 0.05) 0%, transparent 70%);
-      top: -200px;
-      left: 100px;
-      filter: blur(80px);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    .glow-right {
-      position: absolute;
-      width: 700px;
-      height: 700px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(249, 171, 0, 0.05) 0%, transparent 70%);
-      bottom: -150px;
-      right: 150px;
-      filter: blur(80px);
       pointer-events: none;
       z-index: 0;
     }
@@ -105,180 +79,140 @@
       z-index: 10;
     }
 
-    /* Video / Image Card Placeholder & Border */
+    /* ========================================================================
+       LEFT CARD: EXACT FIGMA DIMENSIONS (160px left, 165px top, 570x750px)
+       ======================================================================== */
     .card-slot {
       position: absolute;
-      left: 127px;
-      top: 130px;
-      width: 585px;
-      height: 821px;
-      border-radius: 43px;
-      background: #FFFFFF;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.05);
+      left: 160px;
+      top: 165px;
+      width: 570px;
+      height: 750px;
+      border-radius: 40px;
+      background: #1E1E1E;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.06);
       z-index: 4;
     }
 
     #card-video,
     #card-image {
       position: absolute;
-      left: 127px;
-      top: 130px;
-      width: 585px;
-      height: 821px;
+      left: 160px;
+      top: 165px;
+      width: 570px;
+      height: 750px;
       object-fit: cover;
       object-position: center center;
-      border-radius: 43px;
+      border-radius: 40px;
       z-index: 5;
     }
 
     .video-border-frame {
       position: absolute;
-      left: 127px;
-      top: 130px;
-      width: 585px;
-      height: 821px;
-      border-radius: 43px;
+      left: 160px;
+      top: 165px;
+      width: 570px;
+      height: 750px;
+      border-radius: 40px;
       border: 3.5px solid var(--border-dark);
       pointer-events: none;
       z-index: 6;
       box-sizing: border-box;
     }
 
-    /* Right Side Main Stage: Perfectly aligned with video card vertically (130px -> 951px = 821px) */
+    /* ========================================================================
+       RIGHT CONTENT COLUMN: EXACT FIGMA POSITIONING (left: 860px, top: 165px)
+       ======================================================================== */
     .stage-container {
       position: absolute;
-      left: 846px;
-      top: 130px;
-      width: 955px;
-      height: 821px;
+      left: 860px;
+      top: 165px;
+      width: 900px;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      align-items: flex-start;
       z-index: 20;
     }
 
-    /* ========================================================================
-       TOP HEADER: DEVFEST LOGO, BADGE, SYMBOLS, WAVES & DOTS (PURE HTML + CSS)
-       ======================================================================== */
+    /* 1. HEADER ROW: DevFest Logo + # { } */
     .header-block {
       display: flex;
       flex-direction: column;
-      gap: 22px;
-      flex-shrink: 0;
+      gap: 34px;
+      width: 100%;
     }
 
     .header-row-top {
       display: flex;
       align-items: center;
-      gap: 36px;
+      gap: 38px;
     }
 
-    /* DevFest Brand Cluster: { DevFest } */
     .devfest-brand-cluster {
       display: flex;
       align-items: center;
       gap: 16px;
     }
 
-    /* Pure CSS DevFest Green Brackets (Exact Google Brand Style, Zero SVG) */
-    .devfest-bracket {
-      position: relative;
-      width: 32px;
-      height: 136px;
+    /* Crisp DevFest Brackets */
+    .bracket-svg {
+      width: 36px;
+      height: 130px;
       flex-shrink: 0;
     }
 
-    .devfest-bracket.left {
-      background: var(--devfest-green);
-      clip-path: polygon(
-        100% 0%,
-        24% 0%,
-        24% 42%,
-        0% 50%,
-        24% 58%,
-        24% 100%,
-        100% 100%,
-        100% 84%,
-        52% 84%,
-        52% 58%,
-        26% 50%,
-        52% 42%,
-        52% 16%,
-        100% 16%
-      );
-      filter: drop-shadow(2.5px 0 0 var(--border-dark)) drop-shadow(-2.5px 0 0 var(--border-dark)) drop-shadow(0 2.5px 0 var(--border-dark)) drop-shadow(0 -2.5px 0 var(--border-dark));
-    }
-
-    .devfest-bracket.right {
-      background: var(--devfest-green);
-      clip-path: polygon(
-        100% 0%,
-        24% 0%,
-        24% 42%,
-        0% 50%,
-        24% 58%,
-        24% 100%,
-        100% 100%,
-        100% 84%,
-        52% 84%,
-        52% 58%,
-        26% 50%,
-        52% 42%,
-        52% 16%,
-        100% 16%
-      );
+    .bracket-svg.right {
       transform: scaleX(-1);
-      filter: drop-shadow(2.5px 0 0 var(--border-dark)) drop-shadow(-2.5px 0 0 var(--border-dark)) drop-shadow(0 2.5px 0 var(--border-dark)) drop-shadow(0 -2.5px 0 var(--border-dark));
     }
 
     .devfest-center-col {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .devfest-text {
       font-family: 'Google Sans', sans-serif;
-      font-size: 82px;
+      font-size: 78px;
       font-weight: 700;
       color: var(--text-primary);
-      line-height: 0.95;
-      letter-spacing: -0.025em;
+      line-height: 1;
+      letter-spacing: -0.02em;
     }
 
     .city-pill-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      height: 38px;
-      padding: 0 46px;
+      width: 320px;
+      height: 34px;
       background: #FFFFFF;
       border: 2.5px solid var(--border-dark);
       border-radius: 999px;
       font-family: 'Google Sans', sans-serif;
-      font-size: 21px;
+      font-size: 20px;
       font-weight: 500;
       color: var(--text-primary);
-      letter-spacing: 0.015em;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+      letter-spacing: 0.01em;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
     }
 
-    /* Code Symbols: # and { } */
+    /* Modern Code Symbols: # and { } */
     .code-symbols {
       display: flex;
       align-items: center;
-      gap: 22px;
+      gap: 24px;
       color: var(--text-primary);
     }
 
     .sym-hash {
       font-family: 'Google Sans', -apple-system, sans-serif;
-      font-size: 88px;
+      font-size: 86px;
       font-weight: 300;
       line-height: 1;
       transform: rotate(3deg);
-      opacity: 0.92;
+      opacity: 0.95;
     }
 
     .sym-braces {
@@ -287,77 +221,68 @@
       font-weight: 300;
       line-height: 1;
       letter-spacing: 6px;
-      opacity: 0.92;
+      opacity: 0.95;
     }
 
-    /* Decorative Row: Wave Arcs + 3 Yellow Dots (Pure HTML/CSS, Zero SVG) */
+    /* 2. DECORATIVE ROW: Waves + 3 Yellow Dots */
     .decor-row {
       display: flex;
       align-items: center;
-      gap: 24px;
-      margin-left: 2px;
+      gap: 22px;
+      width: 100%;
+      height: 42px;
     }
 
-    .scallop-wave {
-      display: flex;
-      align-items: flex-end;
-    }
-
-    .scallop {
-      display: inline-block;
-      width: 44px;
-      height: 22px;
-      border-top: 3px solid var(--border-dark);
-      border-left: 3px solid var(--border-dark);
-      border-right: 3px solid var(--border-dark);
-      border-top-left-radius: 24px;
-      border-top-right-radius: 24px;
-      margin-right: -3px;
-      box-sizing: border-box;
-      background: transparent;
+    .wave-svg {
+      width: 212px;
+      height: 40px;
+      flex-shrink: 0;
     }
 
     .yellow-dots {
       display: flex;
       align-items: center;
       gap: 14px;
+      flex-shrink: 0;
     }
 
     .dot {
-      display: inline-block;
-      width: 34px;
-      height: 34px;
+      display: block;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       background: var(--accent-yellow);
-      border: 3px solid var(--border-dark);
+      border: 3.5px solid var(--border-dark);
       box-sizing: border-box;
     }
 
-    /* ========================================================================
-       MAIN TEXT GROUP: TITLE & SPEAKER INFO (MATCHES BUILD WITH AI STANDARD)
-       ======================================================================== */
+    /* 3. TITLE BOX: EXACT FIGMA TYPOGRAPHY (Google Sans Bold 64px, line-height 1.18) */
     .title-box {
+      margin-top: 50px;
       font-family: 'Google Sans', sans-serif;
+      font-size: 64px;
       font-weight: 700;
       color: var(--text-primary);
       letter-spacing: -0.025em;
-      line-height: 1.2;
+      line-height: 1.18;
       white-space: pre-wrap;
       word-break: break-word;
-      margin: 32px 0;
       text-align: left;
+      width: 880px;
     }
 
+    /* 4. SPEAKER INFO: EXACT FIGMA SPACING & TYPOGRAPHY */
     .speaker-info {
+      margin-top: 42px;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      margin-top: auto;
       text-align: left;
     }
 
     .speaker-name {
-      font-size: 48px;
+      font-family: 'Google Sans', sans-serif;
+      font-size: 36px;
       font-weight: 500;
       color: var(--text-primary);
       line-height: 1.25;
@@ -367,7 +292,8 @@
     }
 
     .speaker-company {
-      font-size: 44px;
+      font-family: 'Google Sans', sans-serif;
+      font-size: 34px;
       font-weight: 400;
       color: var(--text-secondary);
       line-height: 1.25;
@@ -388,12 +314,9 @@
 
 <body>
   <div id="root" data-composition-id="main" data-width="1920" data-height="1080" data-start="0" data-duration="10">
-    <!-- Ambient Canvas & Background Glows -->
     <div class="bg-canvas"></div>
-    <div class="glow-left"></div>
-    <div class="glow-right"></div>
 
-    <!-- Video / Image Card: Direct children of #root as required by HyperFrames -->
+    <!-- Video / Image Card on Left (160px, 165px, 570x750px) -->
     <div class="card-slot"></div>
     <video id="card-video" src="assets/Video_example.mp4" data-start="0" data-duration="10" data-track-index="0" muted
       playsinline class="clip"></video>
@@ -404,54 +327,58 @@
     <!-- MAIN TIMED COMPOSITION SCENE -->
     <div id="main-scene" class="clip" data-start="0" data-duration="10" data-track-index="1">
       <div class="stage-container">
-        <!-- Pure Semantic HTML Header (DevFest, Kraków Pill, Code Symbols, Decorative Waves & Dots) -->
+        <!-- Header Block -->
         <div class="header-block">
           <div class="header-row-top">
-            <!-- DevFest Brand Cluster with pure CSS Brackets -->
+            <!-- DevFest Brand Cluster -->
             <div class="devfest-brand-cluster" id="devfest-cluster">
-              <div class="devfest-bracket left" id="bracket-left"></div>
+              <svg class="bracket-svg left" id="bracket-left" viewBox="0 0 38 136">
+                <path d="M 36,8 H 20 C 13,8 9,12 9,20 V 52 C 9,58 6,61 1,64 C 0,65 0,71 1,72 C 6,75 9,78 9,84 V 116 C 9,124 13,128 20,128 H 36 V 112 H 24 C 21,112 19,110 19,106 V 82 C 19,74 15,69 11,68 C 15,67 19,62 19,54 V 30 C 19,26 21,24 24,24 H 36 Z"
+                  fill="#34A853" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
               <div class="devfest-center-col" id="devfest-center">
                 <div class="devfest-text" id="devfest-text">DevFest</div>
                 <div class="city-pill-badge" id="city-badge">
                   <span id="pill-text">Kraków</span>
                 </div>
               </div>
-              <div class="devfest-bracket right" id="bracket-right"></div>
+              <svg class="bracket-svg right" id="bracket-right" viewBox="0 0 38 136">
+                <path d="M 36,8 H 20 C 13,8 9,12 9,20 V 52 C 9,58 6,61 1,64 C 0,65 0,71 1,72 C 6,75 9,78 9,84 V 116 C 9,124 13,128 20,128 H 36 V 112 H 24 C 21,112 19,110 19,106 V 82 C 19,74 15,69 11,68 C 15,67 19,62 19,54 V 30 C 19,26 21,24 24,24 H 36 Z"
+                  fill="#34A853" stroke="#1E1E1E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
             </div>
 
-            <!-- Modern Typographic Code Symbols -->
+            <!-- Code Symbols -->
             <div class="code-symbols" id="code-symbols">
               <span class="sym-hash" id="sym-hash">#</span>
               <span class="sym-braces" id="sym-braces">{ }</span>
             </div>
           </div>
 
-          <!-- Decorative Wave & Yellow Dots Row (100% Pure HTML/CSS) -->
+          <!-- Decorative Waves & Dots -->
           <div class="decor-row" id="decor-row">
-            <div class="scallop-wave wave-left">
-              <span class="scallop"></span>
-              <span class="scallop"></span>
-              <span class="scallop"></span>
-              <span class="scallop"></span>
-            </div>
+            <svg class="wave-svg wave-left" viewBox="0 0 212 40">
+              <path d="M 1,38 Q 27.25,2 53.5,38 Q 79.75,2 106,38 Q 132.25,2 158.5,38 Q 184.75,2 211,38"
+                fill="none" stroke="#1E1E1E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
             <div class="yellow-dots">
               <span class="dot dot-1"></span>
               <span class="dot dot-2"></span>
               <span class="dot dot-3"></span>
             </div>
-            <div class="scallop-wave wave-right">
-              <span class="scallop"></span>
-              <span class="scallop"></span>
-              <span class="scallop"></span>
-              <span class="scallop"></span>
-            </div>
+            <svg class="wave-svg wave-right" viewBox="0 0 212 40">
+              <path d="M 1,38 Q 27.25,2 53.5,38 Q 79.75,2 106,38 Q 132.25,2 158.5,38 Q 184.75,2 211,38"
+                fill="none" stroke="#1E1E1E" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
           </div>
         </div>
 
-        <!-- Adaptive Title Box (Strictly no leading indentation whitespace) -->
-        <div id="title-box" class="title-box" data-layout-allow-overflow="true"><span id="title-text">Keeping it Cool: Avoiding Crisis-based Leadership (and work)</span><span id="cursor" class="cursor-span">|</span></div>
+        <!-- Title Box (Google Sans Bold 64px) -->
+        <div id="title-box" class="title-box" data-layout-allow-overflow="true"><span id="title-text">Keeping it Cool:
+Avoiding Crisis-based
+Leadership (and work)</span><span id="cursor" class="cursor-span">|</span></div>
 
-        <!-- Speaker Info (Pinned to bottom, aligning with video frame bottom at 951px) -->
+        <!-- Speaker Info (36px name, 34px company) -->
         <div class="speaker-info" data-layout-allow-overflow="true">
           <div id="name" class="speaker-name" data-layout-allow-overflow="true">Adi Mazor Kario, Developer Cloud</div>
           <div id="position_company" class="speaker-company" data-layout-allow-overflow="true">Company Google Foundation</div>
@@ -468,13 +395,13 @@
 
     // 1. Header elements entrance animations
     tl.fromTo(["#bracket-left"],
-      { x: -28, opacity: 0, scale: 0.9 },
+      { x: -25, opacity: 0, scale: 0.9 },
       { x: 0, opacity: 1, scale: 1, duration: 1.2, ease: "back.out(1.8)" },
       0.2
     );
 
     tl.fromTo(["#bracket-right"],
-      { x: 28, opacity: 0, scale: 0.9 },
+      { x: 25, opacity: 0, scale: 0.9 },
       { x: 0, opacity: 1, scale: 1, duration: 1.2, ease: "back.out(1.8)" },
       0.2
     );
@@ -486,7 +413,7 @@
     );
 
     tl.fromTo("#city-badge",
-      { y: 15, opacity: 0, scale: 0.92 },
+      { y: 15, opacity: 0, scale: 0.94 },
       { y: 0, opacity: 1, scale: 1, duration: 1.0, ease: "back.out(1.5)" },
       0.4
     );
@@ -497,10 +424,10 @@
       0.5
     );
 
-    // 2. Wave scallops and dots animation
-    tl.fromTo(".scallop",
-      { scaleY: 0, transformOrigin: "bottom center", opacity: 0 },
-      { scaleY: 1, opacity: 1, duration: 0.6, stagger: 0.06, ease: "power2.out" },
+    // 2. Wave and dots animation
+    tl.fromTo(".wave-svg path",
+      { strokeDasharray: 300, strokeDashoffset: 300 },
+      { strokeDashoffset: 0, duration: 1.2, ease: "power2.inOut" },
       0.7
     );
 
@@ -512,7 +439,7 @@
 
     // Subtle rhythmic breathing on the 3 yellow dots throughout the video
     tl.to(".dot", {
-      scale: 1.14,
+      scale: 1.12,
       duration: 0.9,
       yoyo: true,
       repeat: 6,
@@ -536,13 +463,13 @@
 
     // 5. Speaker Name and Company slide up staggered
     tl.fromTo("#name",
-      { y: 50, opacity: 0 },
+      { y: 40, opacity: 0 },
       { y: 0, opacity: 1, duration: 1.8, ease: "power3.out" },
       1.8
     );
 
     tl.fromTo("#position_company",
-      { y: 50, opacity: 0 },
+      { y: 40, opacity: 0 },
       { y: 0, opacity: 1, duration: 1.8, ease: "power3.out" },
       2.2
     );
@@ -560,13 +487,12 @@
     // Adaptive text sizing function — calculates optimal font size for any title length
     function applyAdaptiveTextSize(title) {
       const titleBox = document.getElementById("title-box");
-      const maxWidth = 955;   // container width in px
-      const maxHeight = 320;  // max vertical space for title
+      const maxWidth = 880;
+      const maxHeight = 260;
 
       titleBox.querySelector("#title-text").textContent = title;
 
-      // Multi-line search starting at 72px (optimal for 2-3 lines)
-      let fontSize = 72;
+      let fontSize = 64;
       const minFontSize = 36;
       while (fontSize > minFontSize) {
         titleBox.style.fontSize = fontSize + "px";
@@ -577,41 +503,6 @@
       }
 
       titleBox.style.fontSize = fontSize + "px";
-
-      // Typographic orphan resolution for text without manual newlines
-      if (!title.includes("\n") && title.trim().split(/\s+/).length > 2) {
-        const minOrphanFontSize = Math.max(fontSize - 12, 36);
-        while (fontSize > minOrphanFontSize) {
-          titleBox.style.fontSize = fontSize + "px";
-          const textSpan = titleBox.querySelector("#title-text");
-          const originalText = textSpan.textContent;
-          const range = document.createRange();
-          const textNode = textSpan.firstChild;
-
-          let lastLineWords = 0;
-          if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-            let prevTop = null;
-            let lastLineStart = 0;
-            for (let i = 0; i < originalText.length; i++) {
-              range.setStart(textNode, i);
-              range.setEnd(textNode, i + 1);
-              const rect = range.getBoundingClientRect();
-              const charTop = Math.round(rect.top);
-              if (prevTop !== null && charTop > prevTop + 2) {
-                lastLineStart = i;
-              }
-              prevTop = charTop;
-            }
-            const lastLineText = originalText.substring(lastLineStart).trim();
-            lastLineWords = lastLineText.split(/\s+/).filter(w => w.length > 0).length;
-          }
-
-          if (lastLineWords >= 2) break;
-          fontSize -= 2;
-        }
-        titleBox.style.fontSize = fontSize + "px";
-      }
-
       titleBox.querySelector("#title-text").textContent = "";
     }
 
@@ -619,7 +510,7 @@
     function applyAdaptiveSpeakerInfoSize(name, positionCompany) {
       const nameEl = document.getElementById("name");
       const companyEl = document.getElementById("position_company");
-      const maxWidth = 955;
+      const maxWidth = 880;
 
       nameEl.textContent = name;
       companyEl.textContent = positionCompany;
@@ -627,12 +518,12 @@
       nameEl.style.whiteSpace = "nowrap";
       companyEl.style.whiteSpace = "nowrap";
 
-      let fontSize = 48;
-      const minFontSize = 24;
+      let fontSize = 36;
+      const minFontSize = 20;
 
       while (fontSize > minFontSize) {
         nameEl.style.fontSize = fontSize + "px";
-        companyEl.style.fontSize = (fontSize - 4) + "px";
+        companyEl.style.fontSize = (fontSize - 2) + "px";
 
         if (nameEl.scrollWidth <= maxWidth && companyEl.scrollWidth <= maxWidth) {
           break;
@@ -641,7 +532,7 @@
       }
 
       nameEl.style.fontSize = fontSize + "px";
-      companyEl.style.fontSize = (fontSize - 4) + "px";
+      companyEl.style.fontSize = (fontSize - 2) + "px";
     }
 
     // Resolve video / image fallback
