@@ -44,7 +44,7 @@ echo "🔧 [1/6] Enabling required Cloud APIs (Cloud Run, Cloud Build, Artifact 
     cloudbuild.googleapis.com \
     artifactregistry.googleapis.com \
     storage.googleapis.com \
-    --project "$PROJECT_ID"
+    --project "$PROJECT_ID" || true
 
 # Configure Dedicated Service Account with Least Privilege
 SA_NAME="community-studio-runtime"
