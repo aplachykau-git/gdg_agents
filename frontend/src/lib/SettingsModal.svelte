@@ -207,33 +207,33 @@
             <h3>Video Generation Settings</h3>
           </div>
 
-          <div class="setting-row">
+          <div class="setting-row setting-row-stacked">
             <div class="setting-meta">
               <label for="setting-video-template" class="setting-title">Card Composition Template</label>
               <p class="setting-desc">Choose which HTML layout template to use for speaker video cards.</p>
             </div>
-            <div class="setting-control setting-control-column">
-              <div class="template-selector" id="setting-video-template" role="radiogroup" aria-label="Video Composition Template">
-                {#each VIDEO_TEMPLATES as tpl}
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={(draft.videoTemplate || 'build_with_ai') === tpl.id}
-                    class="template-option-btn"
-                    class:template-selected={(draft.videoTemplate || 'build_with_ai') === tpl.id}
-                    onclick={() => handleSelectTemplate(tpl.id)}
-                  >
-                    <div class="template-option-header">
-                      <Layout size={13} />
+            <div class="template-selector" id="setting-video-template" role="radiogroup" aria-label="Video Composition Template">
+              {#each VIDEO_TEMPLATES as tpl}
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={(draft.videoTemplate || 'build_with_ai') === tpl.id}
+                  class="template-option-btn"
+                  class:template-selected={(draft.videoTemplate || 'build_with_ai') === tpl.id}
+                  onclick={() => handleSelectTemplate(tpl.id)}
+                >
+                  <div class="template-option-header">
+                    <div class="template-header-left">
+                      <Layout size={14} class="template-icon" />
                       <span class="template-option-title">{tpl.name}</span>
-                      {#if (draft.videoTemplate || 'build_with_ai') === tpl.id}
-                        <span class="template-badge-active">Active</span>
-                      {/if}
                     </div>
-                    <span class="template-option-desc">{tpl.description}</span>
-                  </button>
-                {/each}
-              </div>
+                    {#if (draft.videoTemplate || 'build_with_ai') === tpl.id}
+                      <span class="template-badge-active">Active</span>
+                    {/if}
+                  </div>
+                  <span class="template-option-desc">{tpl.description}</span>
+                </button>
+              {/each}
             </div>
           </div>
 
@@ -457,7 +457,7 @@
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     width: 100%;
-    max-width: 520px;
+    max-width: 680px;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
@@ -570,6 +570,16 @@
 
   .setting-row:hover {
     background: var(--bg-surface-elevated);
+  }
+
+  .setting-row.setting-row-stacked {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .setting-row.setting-row-stacked .setting-meta {
+    width: 100%;
   }
 
   .setting-meta {
@@ -691,7 +701,8 @@
   }
 
   .ide-input-wide {
-    width: 240px;
+    width: 320px;
+    max-width: 100%;
   }
 
   .ide-input:focus {
@@ -713,7 +724,7 @@
     gap: 4px;
     font-size: 11px;
     color: #ef4444;
-    max-width: 240px;
+    max-width: 320px;
     text-align: right;
     line-height: 1.3;
   }
@@ -724,7 +735,7 @@
     gap: 4px;
     font-size: 11px;
     color: #34a853;
-    max-width: 240px;
+    max-width: 320px;
     text-align: right;
   }
 
@@ -854,17 +865,23 @@
   /* Video Template Selector */
   .template-selector {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
     width: 100%;
+  }
+
+  @media (max-width: 580px) {
+    .template-selector {
+      grid-template-columns: 1fr;
+    }
   }
 
   .template-option-btn {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
-    padding: 10px 12px;
+    gap: 6px;
+    padding: 12px 14px;
     background: var(--bg-surface-elevated);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
@@ -872,6 +889,7 @@
     cursor: pointer;
     text-align: left;
     transition: var(--transition-fast);
+    min-width: 0;
   }
 
   .template-option-btn:hover {
@@ -881,39 +899,55 @@
 
   .template-option-btn.template-selected {
     border-color: var(--primary-accent);
-    background: var(--primary-accent-container);
+    background: rgba(66, 133, 244, 0.08);
     box-shadow: 0 0 0 1px var(--primary-accent);
   }
 
   .template-option-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: space-between;
+    gap: 8px;
     width: 100%;
   }
 
+  .template-header-left {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .template-header-left :global(.template-icon) {
+    color: var(--primary-accent);
+    flex-shrink: 0;
+  }
+
   .template-option-title {
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .template-badge-active {
-    margin-left: auto;
+    flex-shrink: 0;
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
-    padding: 1px 6px;
-    border-radius: 4px;
+    padding: 2px 7px;
+    border-radius: var(--radius-pill, 10px);
     background: var(--primary-accent);
     color: #ffffff;
     letter-spacing: 0.5px;
   }
 
   .template-option-desc {
-    font-size: 11px;
+    font-size: 11.5px;
     color: var(--text-secondary);
-    line-height: 1.35;
+    line-height: 1.4;
   }
 
   /* Footer */
