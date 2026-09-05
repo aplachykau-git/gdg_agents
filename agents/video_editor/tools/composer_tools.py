@@ -590,7 +590,14 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                 if os.path.exists(snapshot_file):
                     renders_folder = resolve_path("renders")
                     os.makedirs(renders_folder, exist_ok=True)
-                    target_poster_name = os.path.join(renders_folder, f"{speaker_name_clean}_{timestamp}.png")
+                    video_stem = ""
+                    if ordinary_file and os.path.exists(ordinary_file):
+                        video_stem = os.path.splitext(os.path.basename(ordinary_file))[0]
+                    elif render_4k and target_4k_name and os.path.exists(target_4k_name):
+                        video_stem = os.path.splitext(os.path.basename(target_4k_name))[0]
+                    if not video_stem:
+                        video_stem = f"{speaker_name_clean}_{timestamp}"
+                    target_poster_name = os.path.join(renders_folder, f"{video_stem}.png")
                     target_poster_path = os.path.abspath(target_poster_name)
                     print(f"🏷️ [Poster] Saving high-resolution card poster to '{target_poster_path}'...")
                     try:
