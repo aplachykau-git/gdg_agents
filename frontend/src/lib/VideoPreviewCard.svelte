@@ -43,7 +43,7 @@
       {:else if media.gifUrl || media.posterUrl}
         <img 
           src={media.gifUrl || media.posterUrl} 
-          alt="Generated speaker card preview" 
+          alt="Generated speaker video preview" 
           class="embedded-image" 
         />
       {/if}
@@ -90,7 +90,7 @@
           class="download-pill-btn secondary"
           disabled={downloadingMap['poster']}
           onclick={() => handleDownload(media.posterUrl, 'speaker_poster.png', 'poster')}
-          title="Direct download Card Poster PNG"
+          title="Direct download Video Poster PNG"
         >
           {#if downloadingMap['poster']}
             <Loader2 size={14} class="spin-icon" />

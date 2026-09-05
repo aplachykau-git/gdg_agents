@@ -209,8 +209,8 @@
 
           <div class="setting-row setting-row-stacked">
             <div class="setting-meta">
-              <label for="setting-video-template" class="setting-title">Card Composition Template</label>
-              <p class="setting-desc">Choose which HTML layout template to use for speaker video cards.</p>
+              <label for="setting-video-template" class="setting-title">Video Composition Template</label>
+              <p class="setting-desc">Choose which HTML layout template to use for speaker videos.</p>
             </div>
             <div class="template-selector" id="setting-video-template" role="radiogroup" aria-label="Video Composition Template">
               {#each VIDEO_TEMPLATES as tpl}
@@ -261,7 +261,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <label for="setting-render-gif" class="setting-title">Animated GIF Generation</label>
-              <p class="setting-desc">Creates animated GIF previews for speaker cards and email newsletters.</p>
+              <p class="setting-desc">Creates animated GIF previews for speaker videos and email newsletters.</p>
             </div>
             <div class="setting-control">
               <button
