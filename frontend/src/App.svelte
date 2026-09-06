@@ -219,6 +219,7 @@
   let isDarkMode = $state(true);
   let studioConfig = $state(getAppConfig());
   let currentUser = $state(null);
+  let avatarLoadError = $state(false);
   let isAuthLoading = $state(true);
   let isLoggingIn = $state(false);
   let authError = $state("");
@@ -723,6 +724,7 @@
     try {
       const res = await loginWithGoogle();
       currentUser = res.user;
+      avatarLoadError = false;
       selectedSessionId = "";
       events = [];
       queryText = "";
@@ -744,6 +746,7 @@
   async function handleGoogleLogout() {
     await logoutUser();
     currentUser = null;
+    avatarLoadError = false;
     showUserMenu = false;
   }
 
@@ -754,6 +757,7 @@
 
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       currentUser = user;
+      avatarLoadError = false;
       isAuthLoading = false;
       if (user && user.uid) {
         userId = `user_${user.uid.slice(0, 10)}`;
@@ -914,11 +918,17 @@
             aria-label="Account and options"
           >
             <div class="user-avatar-wrap">
-              {#if currentUser.photoURL}
-                <img src={currentUser.photoURL} alt="User avatar" class="header-avatar-img" />
+              {#if currentUser.photoURL && !avatarLoadError}
+                <img
+                  src={currentUser.photoURL}
+                  alt="User avatar"
+                  class="header-avatar-img"
+                  referrerpolicy="no-referrer"
+                  onerror={() => (avatarLoadError = true)}
+                />
               {:else}
                 <span class="header-avatar-fallback">
-                  {(currentUser.displayName || 'U').charAt(0).toUpperCase()}
+                  {(currentUser.displayName || currentUser.email || 'U').charAt(0).toUpperCase()}
                 </span>
               {/if}
             </div>
@@ -930,11 +940,17 @@
               <!-- Account info header -->
               <div class="user-dropdown-header">
                 <div class="user-dropdown-top">
-                  {#if currentUser.photoURL}
-                    <img src={currentUser.photoURL} alt="Avatar" class="dropdown-avatar-img" />
+                  {#if currentUser.photoURL && !avatarLoadError}
+                    <img
+                      src={currentUser.photoURL}
+                      alt="Avatar"
+                      class="dropdown-avatar-img"
+                      referrerpolicy="no-referrer"
+                      onerror={() => (avatarLoadError = true)}
+                    />
                   {:else}
                     <span class="dropdown-avatar-fallback">
-                      {(currentUser.displayName || 'U').charAt(0).toUpperCase()}
+                      {(currentUser.displayName || currentUser.email || 'U').charAt(0).toUpperCase()}
                     </span>
                   {/if}
                   <div class="user-dropdown-info">
@@ -2195,6 +2211,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
   }
 
   .header-avatar-img {
@@ -2202,6 +2220,8 @@
     height: 26px;
     border-radius: 50%;
     object-fit: cover;
+    display: block;
+    flex-shrink: 0;
   }
 
   .header-avatar-fallback {

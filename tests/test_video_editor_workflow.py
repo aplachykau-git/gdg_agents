@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from agents.video_editor.tools import media_tools
-from agents.video_editor.tools.composer_tools import build_card_config, render_composer
+from agents.video_editor.tools.composer_tools import build_card_config, render_composer, update_composer
 from agents.video_editor.tools.media_tools import animate_photo
 from agents.video_editor.tools.video_card_tool import confirmation_required, create_video_card
 from agents.video_editor.video_card_service import (
@@ -81,6 +81,27 @@ class TestVideoEditorWorkflow(unittest.TestCase):
 
         self.assertEqual(result.title, "Practical AI for community organisers")
         self.assertEqual(result.name, "Jane Doe")
+
+    def test_validate_request_metadata_fields_accepts_title_up_to_110_chars(self):
+        title_93 = "Say No. Convince. Apologize. Three Conversations They Never Taught You in Engineering School"
+        result = validate_request_metadata_fields(
+            VideoEditorRequest(title=title_93, name="Mateusz Kulka", position_company="Product Owner, Aquiva")
+        )
+        self.assertEqual(result.title, title_93)
+
+        title_110 = "T" * 110
+        result_110 = validate_request_metadata_fields(
+            VideoEditorRequest(title=title_110, name="Jane Doe", position_company="Role")
+        )
+        self.assertEqual(result_110.title, title_110)
+
+    def test_validate_request_metadata_fields_rejects_long_title(self):
+        result = validate_request_metadata_fields(
+            VideoEditorRequest(title="T" * 111, name="Jane", position_company="Role")
+        )
+        self.assertEqual(result.code, "field_too_long")
+        self.assertEqual(result.field, "title")
+        self.assertIn("110", result.message)
 
     def test_validate_request_metadata_fields_rejects_long_name(self):
         result = validate_request_metadata_fields(
@@ -466,6 +487,82 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx_err:
             render_composer(tool_context=mock_context)
         self.assertIn("All rendering options are disabled", str(ctx_err.exception))
+
+    def test_update_composer_devfest_template_randomizes_brackets_and_dots_colors(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            devfest_template_path = (
+                Path(__file__).resolve().parent.parent / "agents" / "video_editor" / "templates" / "devfest.html"
+            )
+            target_index = Path(tmp_dir) / "index.html"
+            target_index.write_text(devfest_template_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+            with patch("agents.video_editor.tools.composer_tools.resolve_path", return_value=str(target_index)):
+                result = update_composer(
+                    video_path="assets/Video_example.mp4",
+                    title="Testing DevFest Template",
+                    name="Jane Doe",
+                    position_company="Tech Lead, ACME",
+                    duration_seconds=8,
+                )
+
+            self.assertIn("Successfully updated index.html", result)
+            self.assertIn("breaks:", result)
+            self.assertIn("dots:", result)
+            content = target_index.read_text(encoding="utf-8")
+            self.assertIn("Jane Doe", content)
+            self.assertIn("Testing DevFest Template", content)
+            # Krakow pill badge must stay white
+            self.assertIn(
+                'id="krakow_pill" x="926.7" y="241" width="428" height="57" rx="28.5" fill="#FFFFFF"', content
+            )
+
+            # Brackets and dots must have been updated
+            import re
+
+            m_b1 = re.search(r'<path\s+id="break_1"[^>]*?fill="(#[0-9a-fA-F]{6})"', content)
+            m_b2 = re.search(r'<path\s+id="break_2"[^>]*?fill="(#[0-9a-fA-F]{6})"', content)
+            m_d1 = re.search(r'<circle\s+id="dot_1"[^>]*?fill="(#[0-9a-fA-F]{6})"', content)
+            m_d2 = re.search(r'<circle\s+id="dot_2"[^>]*?fill="(#[0-9a-fA-F]{6})"', content)
+            m_d3 = re.search(r'<circle\s+id="dot_3"[^>]*?fill="(#[0-9a-fA-F]{6})"', content)
+            self.assertIsNotNone(m_b1)
+            self.assertIsNotNone(m_b2)
+            self.assertIsNotNone(m_d1)
+            self.assertIsNotNone(m_d2)
+            self.assertIsNotNone(m_d3)
+            self.assertEqual(m_b1.group(1), m_b2.group(1))
+            self.assertEqual(m_d1.group(1), m_d2.group(1))
+            self.assertEqual(m_d2.group(1), m_d3.group(1))
+
+    def test_update_composer_devfest_template_respects_theme_colors(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            devfest_template_path = (
+                Path(__file__).resolve().parent.parent / "agents" / "video_editor" / "templates" / "devfest.html"
+            )
+            target_index = Path(tmp_dir) / "index.html"
+            target_index.write_text(devfest_template_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+            with patch("agents.video_editor.tools.composer_tools.resolve_path", return_value=str(target_index)):
+                result = update_composer(
+                    video_path="assets/Video_example.mp4",
+                    title="Testing DevFest Template",
+                    name="Jane Doe",
+                    position_company="Tech Lead, ACME",
+                    duration_seconds=8,
+                    theme_colors={"break_color": "#EA4335", "dots_color": "#4285F4"},
+                )
+
+            self.assertIn("breaks: #EA4335, dots: #4285F4", result)
+            content = target_index.read_text(encoding="utf-8")
+            import re
+
+            m_b1 = re.search(r'<path\s+id="break_1"[^>]*?fill="(#[0-9a-fA-F]{6})"', content)
+            m_d1 = re.search(r'<circle\s+id="dot_1"[^>]*?fill="(#[0-9a-fA-F]{6})"', content)
+            self.assertEqual(m_b1.group(1), "#EA4335")
+            self.assertEqual(m_d1.group(1), "#4285F4")
+            # Krakow pill badge remains white
+            self.assertIn(
+                'id="krakow_pill" x="926.7" y="241" width="428" height="57" rx="28.5" fill="#FFFFFF"', content
+            )
 
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ flowchart TD
     Tool["⚙️ <b>create_video_card tool</b><br/><i>Session staging & schema validation</i>"]
     Draft[("💾 <b>Session Draft State</b><br/><i>Speaker details & uploaded media</i>")]
     Confirm{"❓ <b>Confirmation Required?</b><br/><i>CONFIRM_BEFORE_RENDER</i>"}
-    Render["🎥 <b>Deterministic Render Pipeline</b><br/>• Outpainting 9:16 (Flash Lite Image)<br/>• Gemini Omni / Veo 3.1 Video Gen<br/>• HyperFrames 1080p / 4K Composition"]
+    Render["🎥 <b>Deterministic Render Pipeline</b><br/>• Outpainting 9:16 (Flash Lite Image)<br/>• Gemini Omni Flash Video Gen<br/>• HyperFrames 1080p / 4K Composition"]
     Result["📦 <b>Rendered Assets / Typed Error</b><br/>• MP4 Video • PNG Poster • Avatar"]
 
     User --> Agent

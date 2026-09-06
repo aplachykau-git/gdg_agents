@@ -11,6 +11,34 @@
 
   let downloadingMap = $state({});
 
+  function getCleanStem(url) {
+    if (!url) return '';
+    try {
+      const pathname = url.startsWith('http') ? new URL(url).pathname : url;
+      const filename = pathname.split('/').pop()?.split('?')[0] || '';
+      return filename.replace(/\.[^.]+$/, '');
+    } catch {
+      return '';
+    }
+  }
+
+  const baseStem = $derived.by(() => {
+    const fromVideo = getCleanStem(media.videoUrl);
+    if (fromVideo && fromVideo !== 'Video_example') return fromVideo;
+    const fromPoster = getCleanStem(media.posterUrl);
+    if (fromPoster) return fromPoster;
+    const fromGif = getCleanStem(media.gifUrl);
+    if (fromGif) return fromGif;
+    if (media.speakerName) {
+      return media.speakerName.trim().toLowerCase().replace(/[^\w\u0400-\u04FF]+/g, '_') + '_video';
+    }
+    return 'speaker_video';
+  });
+
+  const videoDownloadName = $derived(`${baseStem}.mp4`);
+  const posterDownloadName = $derived(`${baseStem}.png`);
+  const gifDownloadName = $derived(`${baseStem}.gif`);
+
   async function handleDownload(url, filename, key) {
     if (!url) return;
     downloadingMap = { ...downloadingMap, [key]: true };
@@ -55,7 +83,7 @@
         <button 
           class="download-pill-btn primary"
           disabled={downloadingMap['video']}
-          onclick={() => handleDownload(media.videoUrl, 'speaker_video_1080p.mp4', 'video')}
+          onclick={() => handleDownload(media.videoUrl, videoDownloadName, 'video')}
           title="Direct download 1080p MP4 Video"
         >
           {#if downloadingMap['video']}
@@ -72,7 +100,7 @@
         <button 
           class="download-pill-btn secondary"
           disabled={downloadingMap['gif']}
-          onclick={() => handleDownload(media.gifUrl, 'speaker_card.gif', 'gif')}
+          onclick={() => handleDownload(media.gifUrl, gifDownloadName, 'gif')}
           title="Direct download Animated GIF"
         >
           {#if downloadingMap['gif']}
@@ -89,7 +117,7 @@
         <button 
           class="download-pill-btn secondary"
           disabled={downloadingMap['poster']}
-          onclick={() => handleDownload(media.posterUrl, 'speaker_poster.png', 'poster')}
+          onclick={() => handleDownload(media.posterUrl, posterDownloadName, 'poster')}
           title="Direct download Card Poster PNG"
         >
           {#if downloadingMap['poster']}

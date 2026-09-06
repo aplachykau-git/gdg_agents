@@ -53,13 +53,13 @@ variable "google_docs_template_id" {
 }
 
 variable "enable_video_generation" {
-  description = "Enable generative AI video rendering (Veo 3.1 / Omni). Set to false to conserve credits."
+  description = "Enable generative AI video rendering (Gemini Omni Flash). Set to false to conserve credits."
   type        = string
   default     = "false"
 }
 
 variable "video_engine" {
-  description = "Video generation engine (omni or veo)"
+  description = "Video generation engine (omni)"
   type        = string
   default     = "omni"
 }

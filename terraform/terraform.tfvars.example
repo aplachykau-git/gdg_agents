@@ -30,6 +30,6 @@ google_drive_folder_id = ""
 # Optional: Custom Google Docs template ID
 google_docs_template_id = ""
 
-# Generative AI video rendering options (set to true to enable Veo/Omni video generation)
+# Generative AI video rendering options (set to true to enable Gemini Omni Flash video generation)
 enable_video_generation = "true"
 video_engine            = "omni"
