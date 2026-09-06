@@ -130,15 +130,11 @@ class TestGeminiBackendConfiguration(unittest.TestCase):
             location="europe-central2",
         )
 
-    def test_gemini_api_mode_rejects_veo(self):
-        with patch.dict(
-            os.environ,
-            {"GOOGLE_GENAI_USE_VERTEXAI": "0", "GEMINI_API_KEY": "test-gemini-key"},
-            clear=False,
-        ):
-            with self.assertRaisesRegex(GeminiConfigurationError, "VIDEO_ENGINE=veo requires Vertex AI"):
-                media_tools.validate_video_generation_backend("veo")
-            media_tools.validate_video_generation_backend("omni")
+    def test_video_engine_only_supports_omni(self):
+        self.assertEqual(media_tools.get_video_engine(), "omni")
+        media_tools.validate_video_generation_backend("omni")
+        with self.assertRaisesRegex(GeminiConfigurationError, "Only VIDEO_ENGINE=omni"):
+            media_tools.validate_video_generation_backend("veo")
 
 
 class TestToolsUseSharedGeminiClient(unittest.TestCase):

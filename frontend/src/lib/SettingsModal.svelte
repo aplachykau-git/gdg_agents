@@ -282,10 +282,10 @@
           <div class="setting-row setting-row-highlight">
             <div class="setting-meta">
               <div class="setting-title-with-badge">
-                <label for="setting-enable-video" class="setting-title">Omni / Veo Video AI Loops</label>
+                <label for="setting-enable-video" class="setting-title">Omni Video AI Loops</label>
                 <span class="cost-badge">Paid API Tokens</span>
               </div>
-              <p class="setting-desc">Generates dynamic generative AI background animations via Omni / Veo models.</p>
+              <p class="setting-desc">Generates dynamic generative AI background animations via Gemini Omni Flash.</p>
               {#if draft.enableVideoGeneration}
                 <div class="cost-warning-alert">
                   <AlertTriangle size={13} />
@@ -298,7 +298,7 @@
                 id="setting-enable-video"
                 type="button"
                 role="switch"
-                aria-label="Toggle Omni and Veo Video AI Loops"
+                aria-label="Toggle Omni Video AI Loops"
                 aria-checked={draft.enableVideoGeneration ?? false}
                 class="toggle-switch"
                 class:toggle-active={draft.enableVideoGeneration ?? false}

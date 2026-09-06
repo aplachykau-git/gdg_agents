@@ -91,7 +91,7 @@ template {
 }
 ```
 
-**Risk note:** At max=4 instances × concurrency=2, maximum simultaneous Veo API calls = 8. Verify Veo API quota supports this before deploying.
+**Risk note:** At max=4 instances × concurrency=2, maximum simultaneous Omni API calls = 8. Verify Gemini Omni API quota supports this before deploying.
 
 ---
 

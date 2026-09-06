@@ -1,6 +1,6 @@
 # Live Speaker Avatars: AI Video Editor Agent & Render Sandbox
 
-This project features the **Video Editor Agent**, an intelligent AI agent built on the **Google Antigravity (ADK 2.0)** SDK. The agent automates the creation of premium, cinematic video intros for speakers by outpainting static portrait photos to 9:16 using Gemini, animating them via Google Veo 3.1, custom-styling a responsive GSAP vector layout, and compiling the output concurrently into high-quality formats (1080p, 4K, and animated GIFs).
+This project features the **Video Editor Agent**, an intelligent AI agent built on the **Google Antigravity (ADK 2.0)** SDK. The agent automates the creation of premium, cinematic video intros for speakers by outpainting static portrait photos to 9:16 using Gemini, animating them via Gemini Omni Flash, custom-styling a responsive GSAP vector layout, and compiling the output concurrently into high-quality formats (1080p, 4K, and animated GIFs).
 
 ---
 
@@ -67,9 +67,8 @@ npm run video:render
 You can toggle video generation engines and rendering outputs in your `.env` file:
 
 ```ini
-# Select video generation engine: "veo" (Vertex AI Veo 3.1) or "omni" (Gemini Omni Flash preview).
-# With GOOGLE_GENAI_USE_VERTEXAI=0, use "omni".
-VIDEO_ENGINE=veo
+# Video generation engine: "omni" (Gemini Omni Flash).
+VIDEO_ENGINE=omni
 
 # Set to "false" to bypass AI video API calls during testing (uses static placeholder assets instead)
 ENABLE_VIDEO_GENERATION=false

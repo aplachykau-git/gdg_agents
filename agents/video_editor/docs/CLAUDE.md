@@ -83,4 +83,4 @@ Fix all errors before presenting the result. Inspect warnings should be reviewed
 4. Videos use `muted` with a separate `<audio>` element for the audio track
 5. Sub-compositions use `data-composition-src="compositions/file.html"` to reference other HTML files
 6. Only deterministic logic — no `Date.now()`, no `Math.random()`, no network fetches
-7. Card texts must strictly fit character limits: Title (max 80), Name (max 50), Position & Company (max 80). Exceeding limits halts the pipeline.
+7. Card texts must strictly fit character limits: Title (max 110), Name (max 50), Position & Company (max 80). Exceeding limits halts the pipeline.

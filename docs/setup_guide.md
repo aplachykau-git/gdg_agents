@@ -96,7 +96,7 @@ Open `.env` and configure the following parameters:
 * `GEMINI_API_KEY`: Backwards-compatible fallback when `GOOGLE_API_KEY` is not configured.
 * `GOOGLE_GENAI_USE_VERTEXAI`: Set to `1` to run Gemini calls through Vertex AI endpoints, or `0` to run Gemini calls through the Gemini Developer API. In API mode, `GOOGLE_API_KEY` or `GEMINI_API_KEY` must be set.
 * `GOOGLE_CLOUD_PROJECT`: Your GCP Project ID from [Google Cloud Console](https://console.cloud.google.com/).
-* `VIDEO_ENGINE`: Video generation engine — set to `veo` (Vertex AI Google Veo 3.1) or `omni` (Google AI Gemini Omni Flash preview via Interactions API). API mode requires `omni`; `veo` is rejected because it requires Vertex AI.
+* `VIDEO_ENGINE`: Video generation engine — powered by `omni` (Google AI Gemini Omni Flash via Interactions API).
 * `ENABLE_VIDEO_GENERATION`: Set to `true` to run live AI video animation, or `false` for layout-only dry-runs using local placeholder media.
 * `RENDER_4K`: Set to `true` to render high-resolution 4K Ultra-HD MP4 compositions.
 * `RENDER_ORDINARY`: Set to `true` (default) to render 1080p Full-HD MP4 compositions.

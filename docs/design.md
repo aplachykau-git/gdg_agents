@@ -161,7 +161,7 @@ Each specialized agent has an assigned visual signature composed of its Lucide i
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `root_agent` | **Main** | `Layers` | `--agent-root` (`#4285F4`) | `--bg-root` | Central Orchestrator & Router |
 | `receipt_scanner` | **Receipt Scanner** | `Receipt` | `--agent-receipt` (`#34A853`) | `--bg-receipt` | OCR, Multi-currency FX, Google Docs |
-| `video_editor` | **Live Video Editor** | `Video` | `--agent-video` (`#FBBC04`) | `--bg-video` | Face Landmarks, 9:16 Outpaint, Veo |
+| `video_editor` | **Live Video Editor** | `Video` | `--agent-video` (`#FBBC04`) | `--bg-video` | Face Landmarks, 9:16 Outpaint, Omni |
 | `linkedin_post_generator` | **LinkedIn Planner** | `Share2` | `--agent-linkedin` (`#0A66C2`) | `--bg-linkedin` | Social Copy, Recaps, Hashtags |
 | `registration_manager` | **Registrations Manager** | `Users` | `--agent-registration` (`#A142F4`) | `--bg-registration` | Roster Clean, Deduplication, DOCX |
 | `event_planner` | **Event Scheduler** | `Calendar` | `--agent-planner` (`#EA4335`) | `--bg-planner` | Polish Holidays, Meetup Calendars |

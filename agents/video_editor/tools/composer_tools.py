@@ -22,6 +22,21 @@ RENDER_CONFIG = {
     "4k": os.environ.get("RENDER_4K", "false").lower() in ("true", "1", "yes"),
 }
 
+BRAND_COLORS = [
+    "#4285F4",
+    "#34A853",
+    "#F9AB00",
+    "#EA4335",  # Core Colors
+    "#57CAFF",
+    "#5CDB6D",
+    "#FFD427",
+    "#FF7DAF",  # Halftones
+    "#C3ECF6",
+    "#CCF6C5",
+    "#FFE7A5",
+    "#F8D8D8",  # Pastels
+]
+
 
 def resolve_path(rel_path: str) -> str:
     """Resolves a path relative to the agent's folder, falling back to CWD and workspace root."""
@@ -90,12 +105,12 @@ def update_composer(
     duration_seconds: int | None = None,
     theme_colors: dict[str, str] | None = None,
 ) -> str:
-    """Updates index.html with the new video path, title, speaker name, position/company texts, and sets timeline duration (8s for Veo, 10s for user uploads)."""
+    """Updates index.html with the new video path, title, speaker name, position/company texts, and sets timeline duration (8s for Omni, 10s for user uploads)."""
     # Ensure video_path is a relative path inside index.html for correct HTTP serving in headless Chrome
     if os.path.isabs(video_path):
         video_path = os.path.relpath(video_path, BASE_DIR)
 
-    # 1. Determine timeline duration: 8.0s for Veo generated video, 10.0s for uploaded custom video
+    # 1. Determine timeline duration: 8.0s for Omni generated video, 10.0s for uploaded custom video
     target_duration = duration_seconds or 10
     abs_video_path = resolve_path(video_path)
 
@@ -122,14 +137,14 @@ def update_composer(
         except Exception:
             pass
     elif duration_seconds is None and "video_example" in video_path.lower():
-        # Generated from Veo
+        # Generated from Omni
         target_duration = 8
 
     print("\n✍️ [Tool: update_composer] Inserting new details into index.html")
     print(f'   ├─ Title: "{title}"')
     print(f'   ├─ Name: "{name}"')
     print(f'   ├─ Position & Company: "{position_company}"')
-    print(f"   ├─ Duration: {target_duration}s ({'Veo 8s' if target_duration == 8 else 'Custom Upload 10s'})")
+    print(f"   ├─ Duration: {target_duration}s ({'Omni 8s' if target_duration == 8 else 'Custom Upload 10s'})")
     print(f'   └─ Video: "{video_path}"')
 
     target_file = resolve_path("index.html")
@@ -185,70 +200,100 @@ def update_composer(
         content = re.sub(image_full_pattern, r"\g<1>display:none;\g<3>", content)
         content = re.sub(image_pattern, 'id="card-image" src=""', content)
 
-    # 3. Randomize colors for breaks, circle, pill, and hexagon using brand palette
-    BRAND_COLORS = [
-        "#4285F4",
-        "#34A853",
-        "#F9AB00",
-        "#EA4335",  # Core Colors
-        "#57CAFF",
-        "#5CDB6D",
-        "#FFD427",
-        "#FF7DAF",  # Halftones
-        "#C3ECF6",
-        "#CCF6C5",
-        "#FFE7A5",
-        "#F8D8D8",  # Pastels
-    ]
+    # 3. Randomize colors using brand palette
+    if "DEVFEST TEMPLATE" not in content:
+        if theme_colors:
+            break_color = theme_colors.get("break_color") or BRAND_COLORS[0]
+            circle_color = theme_colors.get("circle_color") or BRAND_COLORS[1]
+            pill_color = theme_colors.get("pill_color") or BRAND_COLORS[2]
+            hexagon_color = theme_colors.get("hexagon_color") or BRAND_COLORS[3]
+        else:
+            selected_colors = random.sample(BRAND_COLORS, 4)
+            break_color = selected_colors[0]
+            circle_color = selected_colors[1]
+            pill_color = selected_colors[2]
+            hexagon_color = selected_colors[3]
 
-    if theme_colors:
-        break_color = theme_colors.get("break_color") or BRAND_COLORS[0]
-        circle_color = theme_colors.get("circle_color") or BRAND_COLORS[1]
-        pill_color = theme_colors.get("pill_color") or BRAND_COLORS[2]
-        hexagon_color = theme_colors.get("hexagon_color") or BRAND_COLORS[3]
+        print("🎨 [Color Randomizer] Selected random Google palette colors:")
+        print(f"   ├─ breaks: {break_color}")
+        print(f"   ├─ circle: {circle_color}")
+        print(f"   ├─ pill: {pill_color}")
+        print(f"   └─ hexagon: {hexagon_color}")
+
+        # Safely replace fill/stroke attributes for breaks, circle, pill and hexagon
+        break_1_pattern = r'(<path\s+id="break_1"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
+        content, count1 = re.subn(break_1_pattern, rf"\g<1>{break_color}\g<3>", content)
+
+        break_2_pattern = r'(<path\s+id="break_2"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
+        content, count2 = re.subn(break_2_pattern, rf"\g<1>{break_color}\g<3>", content)
+
+        circle_pattern = r'(<path\s+id="circle"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
+        content, count3 = re.subn(circle_pattern, rf"\g<1>{circle_color}\g<3>", content)
+
+        pill_pattern = r'(<rect\s+id="pill"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
+        content, count4 = re.subn(pill_pattern, rf"\g<1>{pill_color}\g<3>", content)
+
+        hexagon_pattern = r'(<path\s+id="hexagon"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
+        content, count5 = re.subn(hexagon_pattern, rf"\g<1>{hexagon_color}\g<3>", content)
+
+        # 4. Dynamically insert the current system year into the pill-text SVG text element
+        current_year = datetime.datetime.now().year
+        year_pattern = r'(<text\s+id="pill-text"[^>]*?>)(\d{4})(</text>)'
+        content, count_year = re.subn(year_pattern, rf"\g<1>{current_year}\g<3>", content)
+
+        print(
+            f"   └─ Updated elements: break_1 ({count1}), break_2 ({count2}), circle ({count3}), pill badge ({count4}), hexagon ({count5}), year text ({count_year} -> {current_year}), duration: {target_duration}s"
+        )
+        color_details = f"breaks: {break_color}, circle: {circle_color}, pill: {pill_color}, hexagon: {hexagon_color}, year: {current_year}"
     else:
-        selected_colors = random.sample(BRAND_COLORS, 4)
-        break_color = selected_colors[0]
-        circle_color = selected_colors[1]
-        pill_color = selected_colors[2]
-        hexagon_color = selected_colors[3]
+        # DevFest template: randomize colors for brackets (break_1, break_2) and dots (dot_1, dot_2, dot_3)
+        if theme_colors:
+            break_color = theme_colors.get("break_color") or theme_colors.get("bracket_color") or BRAND_COLORS[0]
+            dots_color = theme_colors.get("dots_color") or theme_colors.get("circle_color") or BRAND_COLORS[1]
+            dot_1_color = theme_colors.get("dot_1_color") or dots_color
+            dot_2_color = theme_colors.get("dot_2_color") or dots_color
+            dot_3_color = theme_colors.get("dot_3_color") or dots_color
+        else:
+            selected_colors = random.sample(BRAND_COLORS, 2)
+            break_color = selected_colors[0]
+            dots_color = selected_colors[1]
+            dot_1_color = dots_color
+            dot_2_color = dots_color
+            dot_3_color = dots_color
 
-    print("🎨 [Color Randomizer] Selected random Google palette colors:")
-    print(f"   ├─ breaks: {break_color}")
-    print(f"   ├─ circle: {circle_color}")
-    print(f"   ├─ pill: {pill_color}")
-    print(f"   └─ hexagon: {hexagon_color}")
+        print("🎨 [Color Randomizer] DevFest template: Selected random Google palette colors:")
+        print(f"   ├─ breaks: {break_color}")
+        print(f"   ├─ dots: {dots_color}")
+        print("   └─ krakow pill: #FFFFFF (preserved canonical)")
 
-    # Safely replace fill/stroke attributes for breaks, circle, pill and hexagon
-    break_1_pattern = r'(<path\s+id="break_1"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-    content, count1 = re.subn(break_1_pattern, rf"\g<1>{break_color}\g<3>", content)
+        # Replace fill attributes for brackets (break_1, break_2) and dots (dot_1, dot_2, dot_3)
+        break_1_pattern = r'(<path\s+id="break_1"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
+        content, count1 = re.subn(break_1_pattern, rf"\g<1>{break_color}\g<3>", content)
 
-    break_2_pattern = r'(<path\s+id="break_2"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-    content, count2 = re.subn(break_2_pattern, rf"\g<1>{break_color}\g<3>", content)
+        break_2_pattern = r'(<path\s+id="break_2"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
+        content, count2 = re.subn(break_2_pattern, rf"\g<1>{break_color}\g<3>", content)
 
-    circle_pattern = r'(<path\s+id="circle"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-    content, count3 = re.subn(circle_pattern, rf"\g<1>{circle_color}\g<3>", content)
+        dot_1_pattern = r'(<circle\s+id="dot_1"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
+        content, count_d1 = re.subn(dot_1_pattern, rf"\g<1>{dot_1_color}\g<3>", content)
 
-    pill_pattern = r'(<rect\s+id="pill"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-    content, count4 = re.subn(pill_pattern, rf"\g<1>{pill_color}\g<3>", content)
+        dot_2_pattern = r'(<circle\s+id="dot_2"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
+        content, count_d2 = re.subn(dot_2_pattern, rf"\g<1>{dot_2_color}\g<3>", content)
 
-    hexagon_pattern = r'(<path\s+id="hexagon"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-    content, count5 = re.subn(hexagon_pattern, rf"\g<1>{hexagon_color}\g<3>", content)
+        dot_3_pattern = r'(<circle\s+id="dot_3"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
+        content, count_d3 = re.subn(dot_3_pattern, rf"\g<1>{dot_3_color}\g<3>", content)
 
-    # 4. Dynamically insert the current system year into the pill-text SVG text element
-    current_year = datetime.datetime.now().year
-    year_pattern = r'(<text\s+id="pill-text"[^>]*?>)(\d{4})(</text>)'
-    content, count_year = re.subn(year_pattern, rf"\g<1>{current_year}\g<3>", content)
-
-    print(
-        f"   └─ Updated elements: break_1 ({count1}), break_2 ({count2}), circle ({count3}), pill badge ({count4}), hexagon ({count5}), year text ({count_year} -> {current_year}), duration: {target_duration}s"
-    )
+        print(
+            f"   └─ Updated DevFest elements: break_1 ({count1}), break_2 ({count2}), dot_1 ({count_d1}), dot_2 ({count_d2}), dot_3 ({count_d3}), duration: {target_duration}s"
+        )
+        color_details = f"breaks: {break_color}, dots: {dots_color}"
 
     # Write the updated composition
     with open(target_file, "w", encoding="utf-8") as f:
         f.write(content)
 
-    return f"Successfully updated index.html with duration ({target_duration}s), colors (breaks: {break_color}, circle: {circle_color}, pill: {pill_color}, hexagon: {hexagon_color}, year: {current_year}) and video asset."
+    return (
+        f"Successfully updated index.html with duration ({target_duration}s), colors ({color_details}) and video asset."
+    )
 
 
 def render_composer(tool_context: Optional[Any] = None) -> str:
@@ -559,6 +604,19 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                 # Set card-image src to the static outpainted/staged photo path
                 temp_content = re.sub(
                     r'id="card-image"\s+src=".*?"', f'id="card-image" src="{temp_image_src}"', temp_content
+                )
+
+                # Ensure cursor/caret icon is completely invisible on the poster snapshot
+                if "</style>" in temp_content:
+                    temp_content = temp_content.replace(
+                        "</style>",
+                        "    #cursor, .cursor-span { display: none !important; opacity: 0 !important; visibility: hidden !important; }\n  </style>",
+                        1,
+                    )
+                temp_content = re.sub(
+                    r'<span\s+id="cursor"[^>]*?>.*?</span>',
+                    '<span id="cursor" class="cursor-span" style="display:none !important; opacity:0 !important; visibility:hidden !important;"></span>',
+                    temp_content,
                 )
 
                 with open(target_index_html, "w", encoding="utf-8") as f:

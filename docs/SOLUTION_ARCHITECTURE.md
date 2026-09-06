@@ -66,7 +66,7 @@ flowchart TD
 
     subgraph STORAGE["Storage & AI Foundation Layer"]
         GCS["Google Cloud Storage\ngs://project-storage\n(60-day auto-delete)"]
-        VertexAI["Vertex AI / Gemini API\nGemini Flash · Flash Lite\nVeo 3.1 · Omni Flash"]
+        VertexAI["Vertex AI / Gemini API\nGemini Flash · Flash Lite\nGemini Omni Flash"]
         GSuite["Google Drive & Docs APIs"]
 
         RootAgent --> VertexAI
@@ -240,7 +240,7 @@ sequenceDiagram
     participant Root as community-root-agent
     participant Video as video-editor-a2a
     participant Gemini as Gemini Flash Lite (BYOK)
-    participant Veo as Veo 3.1 / Omni Flash (BYOK)
+    participant Omni as Gemini Omni Flash (BYOK)
     participant FFmpeg as FFmpeg Engine
     participant GCS as GCS Bucket
 
@@ -250,8 +250,8 @@ sequenceDiagram
     Gemini-->>Video: Face verified
     Video->>Gemini: 9:16 outpainting
     Gemini-->>Video: Vertical speaker portrait
-    Video->>Veo: Generate 8s animated background
-    Veo-->>Video: Background video clip
+    Video->>Omni: Generate 8s animated background
+    Omni-->>Video: Background video clip
     Video->>FFmpeg: Composite name + title + branding
     FFmpeg-->>Video: 4K MP4 + 1080p MP4 + GIF
     Video->>GCS: Store rendered artifacts
@@ -422,7 +422,7 @@ Steps performed:
 | FR-01.2 | A2A bidirectional state handoffs | `agents/common/a2a_auth.py` + OIDC | Implemented |
 | FR-02.1 | Face landmark detection | `agents/video_editor/tools/media_tools.py` | Implemented |
 | FR-02.2 | 9:16 outpainting | `agents/video_editor/tools/media_tools.py` | Implemented |
-| FR-02.3 | Veo 3.1 / Omni video generation | `agents/video_editor/tools/media_tools.py` | Implemented |
+| FR-02.3 | Gemini Omni video generation | `agents/video_editor/tools/media_tools.py` | Implemented |
 | FR-02.4 | 4K MP4 + GIF composite | `agents/video_editor/tools/composer_tools.py` | Implemented |
 | FR-03.1 | Receipt OCR (Gemini 3.7) | `agents/receipt_scanner/tools.py` | Implemented |
 | FR-03.2 | NBP / Pekao FX rates | `agents/receipt_scanner/tools.py` | Implemented |

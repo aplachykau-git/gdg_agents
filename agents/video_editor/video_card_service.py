@@ -333,7 +333,7 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
                 name=metadata.name,
                 position_company=metadata.position_company,
                 duration_seconds=prepared_media.duration_seconds,
-                theme_colors=DEFAULT_THEME,
+                theme_colors=session_state.get("theme_colors"),
             )
             summary = composer_tools.render_composer()
             return RenderResult(
