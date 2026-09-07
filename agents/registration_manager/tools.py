@@ -4,7 +4,8 @@ import datetime
 import os
 import re
 import shutil
-from typing import Any, List, Optional, Tuple
+import unicodedata
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import openpyxl
@@ -206,12 +207,132 @@ def parse_date(date_str: str) -> datetime.datetime:
     return datetime.datetime.max
 
 
+CYRILLIC_TO_LATIN = {
+    "а": "a",
+    "б": "b",
+    "в": "v",
+    "г": "g",
+    "ґ": "g",
+    "д": "d",
+    "е": "e",
+    "ё": "yo",
+    "ж": "zh",
+    "з": "z",
+    "и": "i",
+    "і": "i",
+    "ї": "yi",
+    "й": "y",
+    "к": "k",
+    "л": "l",
+    "м": "m",
+    "н": "n",
+    "о": "o",
+    "п": "p",
+    "р": "r",
+    "с": "s",
+    "т": "t",
+    "у": "u",
+    "ў": "u",
+    "ф": "f",
+    "х": "kh",
+    "ц": "ts",
+    "ч": "ch",
+    "ш": "sh",
+    "щ": "shch",
+    "ъ": "",
+    "ы": "y",
+    "ь": "",
+    "э": "e",
+    "ю": "yu",
+    "я": "ya",
+    "є": "ye",
+    "ђ": "dj",
+    "љ": "lj",
+    "њ": "nj",
+    "ћ": "c",
+    "џ": "dz",
+    "ѓ": "g",
+    "ќ": "k",
+    "ѕ": "dz",
+}
+
+
+def transliterate_cyrillic_to_latin(text: str) -> str:
+    """Transliterates Cyrillic text (names, attendee lists, or text blocks) into Latin script.
+    Converts letters from Russian, Ukrainian, Belarusian, Bulgarian, Serbian, etc. into Latin characters.
+    Preserves existing Latin characters, numbers, punctuation, spaces, and casing.
+
+    Args:
+        text: Text string containing names or words in Cyrillic script.
+
+    Returns:
+        str: Clean Latin transliterated string without Cyrillic characters.
+    """
+    if not text:
+        return ""
+
+    res = []
+    i = 0
+    n = len(text)
+    while i < n:
+        char = text[i]
+        lower_char = char.lower()
+        if lower_char in CYRILLIC_TO_LATIN:
+            trans = CYRILLIC_TO_LATIN[lower_char]
+            if char.isupper():
+                is_next_upper = i + 1 < n and text[i + 1].isupper()
+                is_prev_upper = i > 0 and text[i - 1].isupper()
+                if is_next_upper or is_prev_upper:
+                    trans = trans.upper()
+                else:
+                    trans = trans.capitalize()
+            res.append(trans)
+        elif char in ("’", "'", "`") and i > 0 and text[i - 1].lower() in CYRILLIC_TO_LATIN:
+            # Soft apostrophe in Slavic names like Мар'яна -> Maryana, В'ячеслав -> Vyacheslav
+            pass
+        else:
+            res.append(char)
+        i += 1
+    return "".join(res)
+
+
+def normalize_name_token(s: str) -> str:
+    """Normalizes a name token for duplicate matching:
+    transliterates Cyrillic, replaces Slavic/European special chars, strips diacritics and non-alphanumeric chars.
+    """
+    if not s:
+        return ""
+    # Transliterate any Cyrillic first
+    s = transliterate_cyrillic_to_latin(s)
+    # Polish/European special character mapping
+    s = s.replace("ł", "l").replace("Ł", "L").replace("ø", "o").replace("Ø", "O").replace("đ", "d").replace("Đ", "D")
+    # Decompose and strip diacritics
+    s = "".join(c for c in unicodedata.normalize("NFKD", s) if not unicodedata.combining(c))
+    return "".join(c for c in s.lower() if c.isalnum())
+
+
+def get_name_dedup_keys(first_name: str, last_name: str) -> Tuple[str, str, Optional[frozenset]]:
+    """Generates direct, inverted, and token-set keys for robust duplicate detection across:
+    - Direct exact matches ('Ivan Ivanov' == 'Ivan Ivanov')
+    - Inverted names ('Ivanov Ivan' == 'Ivan Ivanov')
+    - Transliterated Cyrillic matches ('Иван Иванов' == 'Ivan Ivanov')
+    - Accent / diacritic variations ('Michał Kowalski' == 'Michal Kowalski')
+    """
+    fn_norm = normalize_name_token(first_name)
+    ln_norm = normalize_name_token(last_name)
+    direct_key = f"{fn_norm}|{ln_norm}"
+    inverted_key = f"{ln_norm}|{fn_norm}" if ln_norm else direct_key
+    token_set = frozenset([fn_norm, ln_norm]) if (fn_norm and ln_norm) else None
+    return direct_key, inverted_key, token_set
+
+
 def clean_and_validate_name(first_name: str, last_name: str) -> Tuple[str, str, str]:
-    """Cleans names and validates if they are complete and clear.
+    """Cleans names, transliterates Cyrillic into Latin script, and validates completeness.
     Returns: (cleaned_first_name, cleaned_last_name, reason_if_invalid)
     """
-    fn = first_name.strip()
-    ln = last_name.strip()
+    # 1. Transliterate Cyrillic to Latin immediately so all attendee records are in Latin
+    fn = transliterate_cyrillic_to_latin(first_name.strip())
+    ln = transliterate_cyrillic_to_latin(last_name.strip())
 
     if not fn and not ln:
         return "", "", "Empty name and surname"
@@ -220,30 +341,30 @@ def clean_and_validate_name(first_name: str, last_name: str) -> Tuple[str, str, 
     if not ln:
         return fn.capitalize(), "", "Missing last name"
 
-    # Basic formatting
+    # Basic formatting: Capitalize each part of the name
     fn_clean = " ".join(part.capitalize() for part in fn.split())
     ln_clean = " ".join(part.capitalize() for part in ln.split())
 
     # Check for invalid characters (symbols or digits)
-    # We allow any alphabetic/letter characters (Unicode friendly) plus spaces, hyphens, dots, and apostrophes
     def is_valid_name_str(s: str) -> bool:
         return all(char.isalpha() or char.isspace() or char in "-.'" for char in s)
 
     if not is_valid_name_str(fn_clean) or not is_valid_name_str(ln_clean):
         return fn_clean, ln_clean, "Contains invalid characters, numbers, or symbols"
 
-    # Check for short or incomplete names (e.g. single letters or abbreviations)
-    # Allows valid short names like "Li" or "An" but flags single characters without dots like "J"
+    # Check for short or incomplete names (e.g. single letters without dots)
     if (len(fn_clean.replace(".", "")) <= 1 and not fn_clean.endswith(".")) or (
         len(ln_clean.replace(".", "")) <= 1 and not ln_clean.endswith(".")
     ):
         return fn_clean, ln_clean, "Incomplete name or initials without proper format"
 
-    # Check for test keywords
-    test_keywords = {"test", "demo", "asd", "qwerty", "guest", "anonymous"}
+    # Check for header labels or test keywords
     fn_lower = fn_clean.lower()
     ln_lower = ln_clean.lower()
-    if any(kw in fn_lower or kw in ln_lower for kw in test_keywords):
+    combined_lower = f"{fn_lower} {ln_lower}".strip()
+    if combined_lower in {"full name", "first name", "last name", "name surname", "first last"}:
+        return fn_clean, ln_clean, "Header label row"
+    if any(kw in fn_lower or kw in ln_lower for kw in ["test", "demo", "asd", "qwerty", "guest", "anonymous"]):
         return fn_clean, ln_clean, "Test or anonymous registration name"
 
     return fn_clean, ln_clean, ""
@@ -251,37 +372,29 @@ def clean_and_validate_name(first_name: str, last_name: str) -> Tuple[str, str, 
 
 def get_script_priority(first_name: str, last_name: str) -> Tuple[int, str]:
     """Returns a script priority and group name:
-    (1, "Latin") -> English, Polish, French, German, etc.
-    (2, "Cyrillic") -> Ukrainian, Belarusian, Russian, Bulgarian, etc.
-    (3, "Other") -> Other languages (Greek, Hebrew, Arabic, Asian scripts, etc.)
+    (1, "Latin") -> Latin script (English, Polish, French, and transliterated Slavic names)
+    (2, "Other") -> Other non-Latin languages (Greek, Hebrew, Arabic, Asian scripts, etc.)
     """
     text = (first_name + last_name).replace(" ", "")
     if not text:
-        return 3, "Other"
+        return 2, "Other"
 
-    # Cyrillic check: Unicode block U+0400 to U+04FF
-    if any("\u0400" <= char <= "\u04ff" for char in text):
-        return 2, "Cyrillic"
-
-    # Check non-Latin unicode ranges
-    # Greek: U+0370 to U+03FF
-    # Hebrew: U+0590 to U+05FF
-    # Arabic: U+0600 to U+06FF
-    # CJK (Asian): U+4E00 to U+9FFF
+    # Check non-Latin unicode ranges (Greek, Hebrew, Arabic, CJK, etc.)
     non_latin = False
     for char in text:
         val = ord(char)
         if (
-            (0x0370 <= val <= 0x03FF)
-            or (0x0590 <= val <= 0x05FF)
-            or (0x0600 <= val <= 0x06FF)
-            or (0x4E00 <= val <= 0x9FFF)
+            (0x0400 <= val <= 0x04FF)  # Cyrillic fallback
+            or (0x0370 <= val <= 0x03FF)  # Greek
+            or (0x0590 <= val <= 0x05FF)  # Hebrew
+            or (0x0600 <= val <= 0x06FF)  # Arabic
+            or (0x4E00 <= val <= 0x9FFF)  # CJK
         ):
             non_latin = True
             break
 
     if non_latin:
-        return 3, "Other"
+        return 2, "Other"
 
     return 1, "Latin"
 
@@ -521,13 +634,25 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
     # Load Organisers configuration
     organisers_list = load_organisers()
     organisers_lower = {name.lower().strip() for name in organisers_list}
+    organisers_normalized = set()
+    for o in organisers_list:
+        parts = o.split(None, 1)
+        o_fn = parts[0] if parts else ""
+        o_ln = parts[1] if len(parts) > 1 else ""
+        o_dir, o_inv, o_tok = get_name_dedup_keys(o_fn, o_ln)
+        organisers_normalized.add(o_dir)
+        organisers_normalized.add(o_inv)
+        if o_tok is not None:
+            organisers_normalized.add(o_tok)
 
     # 4. Remove duplicate entries based on clean names
     # Sort standard entries by date first to keep the earliest registration
     processed_records.sort(key=lambda x: x["parsed_date"])
 
     standard_entries_cleaned = []
-    seen_names = set()
+    seen_direct_keys = set()
+    seen_inverted_keys = set()
+    seen_token_sets = set()
     duplicate_count = 0
 
     for rec in processed_records:
@@ -538,16 +663,30 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
         if not fn_clean and not ln_clean:
             continue
 
-        name_key = f"{fn_clean.lower()}|{ln_clean.lower()}"
-        if name_key in seen_names:
+        d_key, inv_key, tok_set = get_name_dedup_keys(fn_clean, ln_clean)
+        is_duplicate = (
+            d_key in seen_direct_keys
+            or inv_key in seen_inverted_keys
+            or (tok_set is not None and tok_set in seen_token_sets)
+        )
+
+        if is_duplicate:
             duplicate_count += 1
             continue
 
-        seen_names.add(name_key)
+        seen_direct_keys.add(d_key)
+        seen_inverted_keys.add(inv_key)
+        if tok_set is not None:
+            seen_token_sets.add(tok_set)
 
         # Check if they are in organisers list
         full_name_clean = f"{fn_clean} {ln_clean}".strip().lower()
-        is_org = full_name_clean in organisers_lower
+        is_org = (
+            full_name_clean in organisers_lower
+            or d_key in organisers_normalized
+            or inv_key in organisers_normalized
+            or (tok_set is not None and tok_set in organisers_normalized)
+        )
 
         standard_entries_cleaned.append(
             {
@@ -567,6 +706,10 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
 
     # 5. Parse manual confirmed override additions
     manual_entries_cleaned = []
+    seen_manual_direct = set()
+    seen_manual_inverted = set()
+    seen_manual_tokens = set()
+
     if manual_confirmed:
         # Split by comma or newline
         for part in re.split(r"[,\n]", manual_confirmed):
@@ -574,17 +717,43 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
             if part:
                 m_fn, m_ln, status_override = parse_manual_name_line(part)
                 if m_fn or m_ln:
-                    name_key = f"{m_fn.lower()}|{m_ln.lower()}"
+                    m_d_key, m_inv_key, m_tok_set = get_name_dedup_keys(m_fn, m_ln)
                     full_name_clean = f"{m_fn} {m_ln}".strip().lower()
 
-                    # Forceorganiser classification if matches organisers config list
-                    if full_name_clean in organisers_lower or status_override == "organiser":
+                    # Prevent duplicates within manual additions themselves
+                    if (
+                        m_d_key in seen_manual_direct
+                        or m_inv_key in seen_manual_inverted
+                        or (m_tok_set is not None and m_tok_set in seen_manual_tokens)
+                    ):
+                        duplicate_count += 1
+                        continue
+
+                    seen_manual_direct.add(m_d_key)
+                    seen_manual_inverted.add(m_inv_key)
+                    if m_tok_set is not None:
+                        seen_manual_tokens.add(m_tok_set)
+
+                    # Force organiser classification if matches organisers config list
+                    is_m_org = (
+                        full_name_clean in organisers_lower
+                        or m_d_key in organisers_normalized
+                        or m_inv_key in organisers_normalized
+                        or (m_tok_set is not None and m_tok_set in organisers_normalized)
+                        or status_override == "organiser"
+                    )
+                    if is_m_org:
                         status_override = "organiser"
 
                     # Check if this manual addition already exists in standard entries
                     found_in_standard = False
                     for s in standard_entries_cleaned:
-                        if f"{s['first_name'].lower()}|{s['last_name'].lower()}" == name_key:
+                        s_d_key, s_inv_key, s_tok_set = get_name_dedup_keys(s["first_name"], s["last_name"])
+                        if (
+                            s_d_key == m_d_key
+                            or s_inv_key == m_d_key
+                            or (s_tok_set is not None and s_tok_set == m_tok_set)
+                        ):
                             s["is_manual"] = True
                             if status_override:
                                 s["status_override"] = status_override
@@ -620,9 +789,15 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
 
     for entry in all_unique_entries:
         full_name_clean = f"{entry['first_name']} {entry['last_name']}".strip().lower()
+        e_dir, e_inv, e_tok = get_name_dedup_keys(entry["first_name"], entry["last_name"])
 
         is_org = (
-            entry["is_organiser"] or (full_name_clean in organisers_lower) or (entry["status_override"] == "organiser")
+            entry["is_organiser"]
+            or (full_name_clean in organisers_lower)
+            or (e_dir in organisers_normalized)
+            or (e_inv in organisers_normalized)
+            or (e_tok is not None and e_tok in organisers_normalized)
+            or (entry["status_override"] == "organiser")
         )
         is_spk = entry["status_override"] == "speaker"
 
@@ -633,7 +808,7 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
             entry["status_override"] = "speaker"
             speakers_tier.append(entry)
         elif entry["is_manual"]:
-            entry["status_override"] = "registered"
+            entry["status_override"] = "manual"
             manual_confirmed_tier.append(entry)
         else:
             # Standard valid or invalid
@@ -672,7 +847,7 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
                 rec["status_override"] = "registered"
                 confirmed_standard.append(rec)
 
-    # 7. Sort Confirmed List and Waitlist groups separately by script priority (Latin -> Cyrillic -> Other) and alphabetically!
+    # 7. Sort Confirmed List and Waitlist groups separately by script priority (Latin -> Other) and alphabetically!
     def sort_group(group_list):
         group_list.sort(
             key=lambda x: (
@@ -689,22 +864,66 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
     sort_group(waitlist_standard)
     sort_group(waitlist_invalid_entries)
 
-    # Combine into two distinct lists with correct statuses
+    # Secondary Verification Pass: Audit across all tiers to guarantee zero duplicates in final roster
+    final_seen_direct = set()
+    final_seen_inverted = set()
+    final_seen_tokens = set()
+    secondary_dupes_removed = 0
+
+    verified_registered_tier = []
+    for att in organisers_tier + speakers_tier + manual_confirmed_tier + confirmed_standard:
+        d_key, inv_key, tok_set = get_name_dedup_keys(att["first_name"], att["last_name"])
+        if (
+            d_key in final_seen_direct
+            or inv_key in final_seen_inverted
+            or (tok_set is not None and tok_set in final_seen_tokens)
+        ):
+            secondary_dupes_removed += 1
+            print(f"⚠️ [Secondary Deduplication] Dropped duplicate attendee: {att['first_name']} {att['last_name']}")
+            continue
+        final_seen_direct.add(d_key)
+        final_seen_inverted.add(inv_key)
+        if tok_set is not None:
+            final_seen_tokens.add(tok_set)
+        verified_registered_tier.append(att)
+
+    verified_waitlist_tier = []
+    for att in waitlist_standard + waitlist_invalid_entries:
+        d_key, inv_key, tok_set = get_name_dedup_keys(att["first_name"], att["last_name"])
+        if (
+            d_key in final_seen_direct
+            or inv_key in final_seen_inverted
+            or (tok_set is not None and tok_set in final_seen_tokens)
+        ):
+            secondary_dupes_removed += 1
+            print(
+                f"⚠️ [Secondary Deduplication] Dropped duplicate waitlisted attendee: {att['first_name']} {att['last_name']}"
+            )
+            continue
+        final_seen_direct.add(d_key)
+        final_seen_inverted.add(inv_key)
+        if tok_set is not None:
+            final_seen_tokens.add(tok_set)
+        verified_waitlist_tier.append(att)
+
+    if secondary_dupes_removed > 0:
+        duplicate_count += secondary_dupes_removed
+        print(
+            f"🧹 [Secondary Verification Pass] Eliminated {secondary_dupes_removed} additional duplicates across tiers."
+        )
+
+    # Combine into two distinct lists with correct statuses and ensure strictly Latin characters
     registered_list = []
-    for att in organisers_tier:
-        registered_list.append({"first_name": att["first_name"], "last_name": att["last_name"], "status": "organiser"})
-    for att in speakers_tier:
-        registered_list.append({"first_name": att["first_name"], "last_name": att["last_name"], "status": "speaker"})
-    for att in manual_confirmed_tier:
-        registered_list.append({"first_name": att["first_name"], "last_name": att["last_name"], "status": "registered"})
-    for att in confirmed_standard:
-        registered_list.append({"first_name": att["first_name"], "last_name": att["last_name"], "status": "registered"})
+    for att in verified_registered_tier:
+        f_clean = transliterate_cyrillic_to_latin(att["first_name"])
+        l_clean = transliterate_cyrillic_to_latin(att["last_name"])
+        registered_list.append({"first_name": f_clean, "last_name": l_clean, "status": att["status_override"]})
 
     waitlist_list = []
-    for att in waitlist_standard:
-        waitlist_list.append({"first_name": att["first_name"], "last_name": att["last_name"], "status": "waitlist"})
-    for att in waitlist_invalid_entries:
-        waitlist_list.append({"first_name": att["first_name"], "last_name": att["last_name"], "status": "waitlist"})
+    for att in verified_waitlist_tier:
+        f_clean = transliterate_cyrillic_to_latin(att["first_name"])
+        l_clean = transliterate_cyrillic_to_latin(att["last_name"])
+        waitlist_list.append({"first_name": f_clean, "last_name": l_clean, "status": att["status_override"]})
 
     # Assign sequential indexing continuously inside each of the two lists
     for idx, att in enumerate(registered_list):
@@ -778,24 +997,34 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
             table = doc.add_table(rows=0, cols=3)
             table.autofit = False
 
-            # Setup columns widths (Sum equals exactly 2.3 inches, fitting 3-column layout width perfectly!)
-            # No. (0.2 in), Full Name (1.55 in), Status (0.55 in)
-            col_widths = [0.2, 1.55, 0.55]
+            # Setup columns widths (Sum equals exactly 2.30 inches, fitting 3-column layout width perfectly!)
+            # No. (0.35 in), Full Name (1.45 in), Status (0.50 in)
+            col_widths = [0.35, 1.45, 0.50]
 
             # Formulate Data Rows (Alternate shading white / light gray)
             for r_idx, att in enumerate(attendees):
-                row_cells = table.add_row().cells
+                row = table.add_row()
+                trPr = row._tr.get_or_add_trPr()
+                trPr.append(parse_xml(f"<w:cantSplit {nsdecls('w')}/>"))
+                row_cells = row.cells
                 fill_color = "F8F9FA" if r_idx % 2 == 1 else "FFFFFF"
 
-                # 1. Write and style No. cell (centered)
+                # 1. Write and style No. cell (right-aligned with dot to vertically align digits without drifting)
                 cell0 = row_cells[0]
                 set_cell_background(cell0, fill_color)
+                tcPr0 = cell0._tc.get_or_add_tcPr()
+                tcPr0.append(parse_xml(f"<w:noWrap {nsdecls('w')}/>"))
+                tcMar0 = parse_xml(
+                    f'<w:tcMar {nsdecls("w")}><w:left w:w="20" w:type="dxa"/><w:right w:w="20" w:type="dxa"/></w:tcMar>'
+                )
+                tcPr0.append(tcMar0)
+
                 p0 = cell0.paragraphs[0]
                 p0.text = ""
-                r0 = p0.add_run(str(att["no"]))
+                r0 = p0.add_run(f"{att['no']}.")
                 r0.font.name = "Arial"
                 r0.font.size = Pt(8.0)
-                p0.paragraph_format.alignment = 1  # Center
+                p0.paragraph_format.alignment = 2  # Right aligned
                 p0.paragraph_format.space_before = Pt(1.5)
                 p0.paragraph_format.space_after = Pt(1.5)
 
@@ -806,7 +1035,8 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
                 p1.text = ""
 
                 raw_name = f"{att['first_name']} {att['last_name']}".strip()
-                clean_name = re.sub(r"\d+", "", raw_name)
+                clean_name = transliterate_cyrillic_to_latin(raw_name)
+                clean_name = re.sub(r"\d+", "", clean_name)
                 clean_name = re.sub(r"\s+", " ", clean_name).strip()
 
                 r1 = p1.add_run(clean_name)
@@ -816,24 +1046,35 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
                 p1.paragraph_format.space_before = Pt(1.5)
                 p1.paragraph_format.space_after = Pt(1.5)
 
-                # 3. Write and style Status cell (centered, custom colors)
+                # 3. Write and style Status cell (centered, custom colors and badges)
                 cell2 = row_cells[2]
                 set_cell_background(cell2, fill_color)
                 p2 = cell2.paragraphs[0]
                 p2.text = ""
 
-                status_text = att["status"]
-                if status_text in ["registered", "waitlist"]:
+                status_val = att.get("status", "")
+                if status_val in ["registered", "waitlist"]:
                     status_text = ""
+                elif status_val == "manual":
+                    status_text = "Manual"
+                elif status_val == "organiser":
+                    status_text = "Organiser"
+                elif status_val == "speaker":
+                    status_text = "Speaker"
+                else:
+                    status_text = status_val.capitalize()
 
                 r2 = p2.add_run(status_text)
                 r2.font.name = "Arial"
                 r2.font.size = Pt(7.5)
                 r2.font.bold = False
-                if att["status"] == "organiser":
+                if status_val == "organiser":
                     r2.font.color.rgb = RGBColor(0x1A, 0x73, 0xE8)  # Google Blue
-                elif att["status"] == "speaker":
+                elif status_val == "speaker":
                     r2.font.color.rgb = RGBColor(0x0F, 0x9D, 0x58)  # Google Green
+                elif status_val == "manual":
+                    r2.font.color.rgb = RGBColor(0x93, 0x33, 0xEA)  # Purple Manual Badge
+                    r2.font.bold = True
 
                 p2.paragraph_format.alignment = 1  # Center
                 p2.paragraph_format.space_before = Pt(1.5)
@@ -865,20 +1106,34 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
         try:
             txt_path = os.path.join(results_dir, "registrations_list.txt")
             names_lines = [f"🟢 Confirmed Attendees ({len(registered_list)}):"]
+            pad_reg = len(str(len(registered_list)))
             for att in registered_list:
                 raw_name = f"{att['first_name']} {att['last_name']}".strip()
-                clean_name = re.sub(r"\d+", "", raw_name)
+                clean_name = transliterate_cyrillic_to_latin(raw_name)
+                clean_name = re.sub(r"\d+", "", clean_name)
                 clean_name = re.sub(r"\s+", " ", clean_name).strip()
-                status_tag = f" ({att['status']})" if att.get("status") in ["organiser", "speaker"] else ""
-                names_lines.append(f"{att['no']}. {clean_name}{status_tag}")
+                status_val = att.get("status")
+                if status_val == "organiser":
+                    status_tag = " (Organiser)"
+                elif status_val == "speaker":
+                    status_tag = " (Speaker)"
+                elif status_val == "manual":
+                    status_tag = " (Manual)"
+                else:
+                    status_tag = ""
+                num_str = f"{att['no']}.".rjust(pad_reg + 1)
+                names_lines.append(f"{num_str} {clean_name}{status_tag}")
 
             if waitlist_list:
                 names_lines.append(f"\n🔴 Waitlist ({len(waitlist_list)}):")
+                pad_wait = len(str(len(waitlist_list)))
                 for att in waitlist_list:
                     raw_name = f"{att['first_name']} {att['last_name']}".strip()
-                    clean_name = re.sub(r"\d+", "", raw_name)
+                    clean_name = transliterate_cyrillic_to_latin(raw_name)
+                    clean_name = re.sub(r"\d+", "", clean_name)
                     clean_name = re.sub(r"\s+", " ", clean_name).strip()
-                    names_lines.append(f"{att['no']}. {clean_name}")
+                    num_str = f"{att['no']}.".rjust(pad_wait + 1)
+                    names_lines.append(f"{num_str} {clean_name}")
 
             roster_text = "\n".join(names_lines)
             with open(txt_path, "w", encoding="utf-8") as tf:
@@ -917,11 +1172,13 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
     summary_str = f"""### 📊 Event Registration Processing Summary
 Successfully processed the registrations list:
 - **Total Raw Entries**: {len(raw_rows)}
-- **Duplicates Removed**: {duplicate_count}
+- **Duplicates Removed**: {duplicate_count} (verified across direct, inverted, and cross-script matches)
+- **Script Normalization**: All Cyrillic names transliterated into Latin script
 - **Confirmed Registrants (registered)**: **{len(registered_list)}** (including {len(manual_entries_cleaned)} manual additions)
   * *Organisers*: {len(organisers_tier)}
   * *Speakers*: {len(speakers_tier)}
-  * *Registered Attendees*: {len(manual_confirmed_tier) + len(confirmed_standard)}
+  * *Manual Priority Additions*: {len(manual_confirmed_tier)}
+  * *Standard Registered Attendees*: {len(confirmed_standard)}
 - **Waitlisted Registrants (waitlist)**: **{len(waitlist_list)}**
 """
     if doc_ok:
@@ -932,6 +1189,234 @@ Successfully processed the registrations list:
     else:
         summary_str += "\n⚠️ Failed to generate Word document due to an error.\n"
     return summary_str
+
+
+def verify_and_deduplicate_registrations(
+    file_path: str = "", text_content: str = "", manual_confirmed: str = ""
+) -> str:
+    """Audits and deduplicates a participant registration list (from a file path or raw text block),
+    with support for manual priority inclusions marked with (Manual) badges.
+    Performs a thorough multi-factor inspection pass identifying:
+    - Direct exact name duplicates
+    - Inverted first/last names (e.g. 'Ivanov Ivan' vs 'Ivan Ivanov')
+    - Cross-script duplicates (Cyrillic vs Latin transliterated matches, e.g. 'Иван Иванов' vs 'Ivan Ivanov')
+    - Diacritic / accented variations (e.g. 'Michał' vs 'Michal')
+
+    Args:
+        file_path: Optional local or relative file path to a CSV or Excel file to verify.
+        text_content: Optional raw participant names list (one per line, CSV-style, or comma-separated).
+        manual_confirmed: Optional comma or newline separated list of manual priority attendees to include and prioritize.
+
+    Returns:
+        str: Comprehensive markdown verification report with statistics on duplicates detected and removed.
+    """
+    print("\n🔍 [Tool: verify_and_deduplicate_registrations] Starting list audit and deduplication pass...")
+    raw_names = []
+
+    # 1. Check if text_content was provided
+    if text_content and text_content.strip():
+        lines = [line.strip() for line in text_content.strip().split("\n") if line.strip()]
+        for line in lines:
+            for part in re.split(r"[,;\t]", line):
+                part = part.strip()
+                if part and not any(kw in part.lower() for kw in ["full name", "first name", "surname", "email"]):
+                    raw_names.append(part)
+
+    # 2. Check file_path
+    if not raw_names and file_path:
+        resolved = resolve_path(file_path)
+        if os.path.exists(resolved) and os.path.isfile(resolved):
+            ext = os.path.splitext(resolved.lower())[1]
+            if ext == ".csv":
+                try:
+                    with open(resolved, "r", encoding="utf-8-sig") as f:
+                        reader = csv.reader(f)
+                        headers = [h.strip().lower() for h in next(reader, [])]
+                        for row in reader:
+                            if row:
+                                raw_names.append(" ".join(col.strip() for col in row if col.strip()))
+                except Exception as e:
+                    return f"Error: Failed to read CSV file for verification: {e}"
+            elif ext in [".xlsx", ".xls"] and openpyxl:
+                try:
+                    wb = openpyxl.load_workbook(resolved, data_only=True)
+                    sheet = wb.active or wb.worksheets[0]
+                    rows_iter = sheet.iter_rows(values_only=True)
+                    next(rows_iter, None)  # Skip header
+                    for r in rows_iter:
+                        vals = [str(c).strip() for c in r if c is not None and str(c).strip()]
+                        if vals:
+                            raw_names.append(" ".join(vals))
+                except Exception as e:
+                    return f"Error: Failed to read Excel file for verification: {e}"
+
+    # 3. Fallback: check staged files in results/
+    if not raw_names:
+        results_dir = os.path.join(BASE_DIR, "results")
+        for staged_name in [
+            "staged_manual_registrations.csv",
+            "staged_registrations.csv",
+            "staged_registrations.xlsx",
+        ]:
+            staged_p = os.path.join(results_dir, staged_name)
+            if os.path.exists(staged_p):
+                print(f"ℹ️ Found staged registrations file: {staged_p}")
+                try:
+                    with open(staged_p, "r", encoding="utf-8-sig") as f:
+                        reader = csv.reader(f)
+                        next(reader, None)  # Skip header
+                        for row in reader:
+                            if row:
+                                raw_names.append(" ".join(col.strip() for col in row if col.strip()))
+                    if raw_names:
+                        break
+                except Exception:
+                    pass
+
+    if not raw_names and not manual_confirmed:
+        return (
+            "Error: No participant registration file or text content was provided to verify. "
+            "Please provide a file_path, pass names in text_content, or upload your registrations file first."
+        )
+
+    # 4. Multi-factor deduplication inspection
+    seen_direct: Dict[str, str] = {}
+    seen_inverted: Dict[str, str] = {}
+    seen_tokens: Dict[frozenset, str] = {}
+
+    exact_duplicates = []
+    inverted_duplicates = []
+    cross_script_duplicates = []
+    diacritic_duplicates = []
+    manual_duplicates = []
+    valid_unique_attendees = []
+
+    # Process manual priority inclusions first
+    manual_entries_list = []
+    if manual_confirmed and manual_confirmed.strip():
+        for part in re.split(r"[,\n]", manual_confirmed):
+            part = part.strip()
+            if part:
+                m_fn, m_ln, _ = parse_manual_name_line(part)
+                if m_fn or m_ln:
+                    manual_entries_list.append((m_fn, m_ln))
+
+    manual_priority_count = 0
+    for m_fn, m_ln in manual_entries_list:
+        m_fn_clean, m_ln_clean, _ = clean_and_validate_name(m_fn, m_ln)
+        m_full = f"{m_fn_clean} {m_ln_clean}".strip()
+        if not m_full:
+            continue
+        m_d_key, m_inv_key, m_tok_set = get_name_dedup_keys(m_fn_clean, m_ln_clean)
+        if m_d_key in seen_direct or m_inv_key in seen_inverted or (m_tok_set is not None and m_tok_set in seen_tokens):
+            continue
+        primary_label = f"{m_full} (Manual Priority)"
+        seen_direct[m_d_key] = primary_label
+        seen_inverted[m_inv_key] = primary_label
+        if m_tok_set is not None:
+            seen_tokens[m_tok_set] = primary_label
+        valid_unique_attendees.append(f"{m_full} (Manual)")
+        manual_priority_count += 1
+
+    for item in raw_names:
+        parts = item.split(None, 1)
+        fn_raw = parts[0] if parts else ""
+        ln_raw = parts[1] if len(parts) > 1 else ""
+
+        had_cyrillic = any("\u0400" <= c <= "\u04ff" for c in f"{fn_raw} {ln_raw}")
+        fn_clean, ln_clean, invalid_reason = clean_and_validate_name(fn_raw, ln_raw)
+        full_clean = f"{fn_clean} {ln_clean}".strip()
+
+        if not full_clean or invalid_reason:
+            continue
+
+        d_key, inv_key, tok_set = get_name_dedup_keys(fn_clean, ln_clean)
+
+        if d_key in seen_direct:
+            primary_name = seen_direct[d_key]
+            raw_full = f"{fn_raw} {ln_raw}".strip()
+            if "Manual Priority" in primary_name:
+                manual_duplicates.append((item, primary_name, "Matched manual priority attendee"))
+            elif had_cyrillic:
+                cross_script_duplicates.append((item, primary_name, "Cyrillic to Latin transliteration match"))
+            elif raw_full.lower() != primary_name.lower():
+                diacritic_duplicates.append((item, primary_name, "Diacritic / accent variation match"))
+            else:
+                exact_duplicates.append((item, primary_name, "Exact name match"))
+            continue
+
+        if inv_key in seen_inverted or (tok_set is not None and tok_set in seen_tokens):
+            primary_name = seen_inverted.get(inv_key) or (seen_tokens.get(tok_set) if tok_set else "")
+            if "Manual Priority" in primary_name:
+                manual_duplicates.append((item, primary_name, "Inverted name matched manual priority attendee"))
+            else:
+                inverted_duplicates.append((item, primary_name, "Inverted First/Last name"))
+            continue
+
+        # Check diacritic / accent match
+        fn_tok = normalize_name_token(fn_clean)
+        ln_tok = normalize_name_token(ln_clean)
+        matched_primary = None
+        for prev_name in valid_unique_attendees:
+            p_parts = prev_name.split(None, 1)
+            p_fn = p_parts[0] if p_parts else ""
+            p_ln = p_parts[1] if len(p_parts) > 1 else ""
+            if normalize_name_token(p_fn) == fn_tok and normalize_name_token(p_ln) == ln_tok:
+                matched_primary = prev_name
+                break
+        if matched_primary and matched_primary != full_clean:
+            diacritic_duplicates.append((item, matched_primary, "Diacritic / accent variation match"))
+            continue
+
+        # Register unique record
+        seen_direct[d_key] = full_clean
+        seen_inverted[inv_key] = full_clean
+        if tok_set is not None:
+            seen_tokens[tok_set] = full_clean
+        valid_unique_attendees.append(full_clean)
+
+    total_dupes = (
+        len(exact_duplicates)
+        + len(inverted_duplicates)
+        + len(cross_script_duplicates)
+        + len(diacritic_duplicates)
+        + len(manual_duplicates)
+    )
+
+    report_lines = [
+        "### 🔍 Attendee List Verification & Deduplication Audit",
+        f"- **Total Records Scanned**: {len(raw_names)}",
+        f"- **Unique Valid Attendees**: **{len(valid_unique_attendees)}**",
+        f"- **Manual Priority Inclusions**: **{manual_priority_count}** (marked with `(Manual)` tag)",
+        f"- **Total Duplicates Identified & Filtered**: **{total_dupes}**",
+    ]
+
+    if manual_duplicates:
+        report_lines.append(f"  * *Manual Priority Matches*: {len(manual_duplicates)}")
+    if exact_duplicates:
+        report_lines.append(f"  * *Exact Duplicates*: {len(exact_duplicates)}")
+    if inverted_duplicates:
+        report_lines.append(f"  * *Inverted Names (First/Last swapped)*: {len(inverted_duplicates)}")
+    if cross_script_duplicates:
+        report_lines.append(f"  * *Cross-Script Matches (Cyrillic -> Latin)*: {len(cross_script_duplicates)}")
+    if diacritic_duplicates:
+        report_lines.append(f"  * *Diacritic / Accent Variations*: {len(diacritic_duplicates)}")
+
+    report_lines.append("- **Script Normalization**: All Cyrillic names transliterated into Latin script.")
+
+    all_dupes = (
+        manual_duplicates + exact_duplicates + inverted_duplicates + cross_script_duplicates + diacritic_duplicates
+    )
+    if all_dupes:
+        report_lines.append("\n#### ⚠️ Duplicates Filtered During Audit:")
+        for raw_entry, prim_entry, reason in all_dupes[:15]:
+            report_lines.append(f'- **"{raw_entry}"** → merged into **"{prim_entry}"** *({reason})*')
+        if len(all_dupes) > 15:
+            report_lines.append(f"- *...and {len(all_dupes) - 15} more duplicates.*")
+    else:
+        report_lines.append("\n✅ **No duplicates found!** All attendee records are completely unique.")
+
+    return "\n".join(report_lines)
 
 
 # ---------------------------------------------------------------------------
