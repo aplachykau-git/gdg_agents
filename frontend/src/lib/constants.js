@@ -518,7 +518,8 @@ export function getAgentFromToolName(name) {
     lower.includes('registration') ||
     lower.includes('filter_and_clean') ||
     lower.includes('process_registrations') ||
-    lower.includes('stage_manual_text')
+    lower.includes('stage_manual_text') ||
+    lower.includes('transliterate')
   ) {
     return 'registration_manager';
   }
@@ -741,6 +742,8 @@ export function getFriendlyToolCall(name, args) {
 
     filter_and_clean_registrations: () => "👥 Cleaning, deduplicating, and partitioning registrations...",
     process_registrations: () => "👥 Parsing attendee CSV and generating DOCX roster...",
+    verify_and_deduplicate_registrations: () => "🔍 Auditing attendee list and removing duplicates...",
+    transliterate_cyrillic_to_latin: () => "🔤 Transliterating Cyrillic attendee names to Latin...",
     stage_manual_text_registrations: () => "📝 Staging attendee registration records...",
     get_public_holidays: () => "📅 Checking statutory public holidays from Nager.Date...",
     find_optimal_meetup_date: () => "📅 Scanning calendars, holidays, and meetup conflicts...",
@@ -817,6 +820,8 @@ export function getFriendlyToolResponse(name, response, args) {
 
     filter_and_clean_registrations: () => "Registration roster cleaned.",
     process_registrations: () => "Registration records organized into roster.",
+    verify_and_deduplicate_registrations: () => "Attendee list audit complete and duplicates filtered.",
+    transliterate_cyrillic_to_latin: () => "Cyrillic names transliterated into Latin script.",
     stage_manual_text_registrations: () => "Manual registrations staged.",
     get_public_holidays: () => "Public holidays checked.",
     find_optimal_meetup_date: () => "Meetup dates evaluated.",

@@ -20,7 +20,7 @@ def get_default_bucket_name() -> str:
         or os.getenv("GCP_PROJECT_ID")
         or "gdg-agents-6b59a"
     )
-    return f"{project_id}.firebasestorage.app"
+    return f"{project_id}-storage"
 
 
 def upload_bytes_to_storage(

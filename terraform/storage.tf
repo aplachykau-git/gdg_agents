@@ -16,6 +16,15 @@ resource "google_storage_bucket" "assets_bucket" {
     max_age_seconds = 3600
   }
 
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      age = 30
+    }
+  }
+
   depends_on = [google_project_service.enabled_apis]
 }
 

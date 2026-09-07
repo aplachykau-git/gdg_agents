@@ -68,6 +68,30 @@ for role in roles/logging.logWriter roles/cloudtrace.agent roles/aiplatform.user
         --quiet >/dev/null 2>&1 || true
 done
 
+# Ensure GCS bucket exists and configure 30-day auto-deletion lifecycle rule
+echo "🗄️ [1.6/6] Ensuring GCS bucket gs://${BUCKET_NAME} and 30-day lifecycle policy..."
+if ! "$GCLOUD_BIN" storage buckets describe "gs://${BUCKET_NAME}" >/dev/null 2>&1; then
+    "$GCLOUD_BIN" storage buckets create "gs://${BUCKET_NAME}" \
+        --project="$PROJECT_ID" \
+        --location="$REGION" \
+        --uniform-bucket-level-access || true
+fi
+
+# Configure 30-day object deletion lifecycle rule
+LIFECYCLE_TMP=$(mktemp)
+cat <<EOF > "$LIFECYCLE_TMP"
+{
+  "rule": [
+    {
+      "action": {"type": "Delete"},
+      "condition": {"age": 30}
+    }
+  ]
+}
+EOF
+"$GCLOUD_BIN" storage buckets update "gs://${BUCKET_NAME}" --lifecycle-file="$LIFECYCLE_TMP" >/dev/null 2>&1 || true
+rm -f "$LIFECYCLE_TMP"
+
 # Grant storage permissions to deliverables bucket
 "$GCLOUD_BIN" storage buckets add-iam-policy-binding "gs://${BUCKET_NAME}" \
     --member="serviceAccount:$SA_EMAIL" \

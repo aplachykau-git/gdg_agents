@@ -114,7 +114,7 @@
       port: 8080,
       protocol: 'In-Process Sub-Agent',
       desc: 'Cleans attendee registration lists, filters duplicates, and partitions confirmed attendees and waitlists.',
-      tools: ['process_registrations', 'stage_uploaded_registration', 'stage_manual_text_registrations', 'get_organisers_list', 'add_organiser', 'remove_organiser'],
+      tools: ['process_registrations', 'verify_and_deduplicate_registrations', 'transliterate_cyrillic_to_latin', 'stage_uploaded_registration', 'stage_manual_text_registrations', 'get_organisers_list', 'add_organiser', 'remove_organiser'],
       x: 86,
       y: 56
     },
