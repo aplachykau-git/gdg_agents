@@ -248,6 +248,9 @@ def generate_creative_scenarios(
         "- Invent dramatic genres (e.g. Cyberpunk, Space Exploration, Surreal Solarpunk, Retro Synthwave, Espionage Heist, Post-Apocalyptic Discovery).\n"
         "- Translate the talk topic into symbolic visual metaphors.\n"
         "- Exactly 5 shots of 2 seconds each (total 10 seconds).\n"
+        "- EVERY single scenario without exception MUST have all 5 detailed shots in its 'shots' array "
+        "(shot_number 1 to 5 with time_range '00:00 - 00:02', '00:02 - 00:04', '00:04 - 00:06', '00:06 - 00:08', '00:08 - 00:10', "
+        "vivid action, camera dynamic, and lighting_atmosphere). Never omit or leave shots empty for any scenario.\n"
         "- Deliver a JSON object with 'scenarios' containing id, title, genre, concept, shots, and omni_prompt."
     )
 

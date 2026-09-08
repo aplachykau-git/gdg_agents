@@ -503,15 +503,31 @@
     }, 2200);
   }
 
-  function scrollToBottom() {
-    setTimeout(() => {
-      if (chatBodyElement) {
+  let scrollRafId = null;
+  let userHasScrolledUp = false;
+
+  function handleChatScroll() {
+    if (!chatBodyElement) return;
+    const distanceToBottom =
+      chatBodyElement.scrollHeight -
+      chatBodyElement.scrollTop -
+      chatBodyElement.clientHeight;
+    userHasScrolledUp = distanceToBottom > 80;
+  }
+
+  function scrollToBottom(smooth = false) {
+    if (scrollRafId) cancelAnimationFrame(scrollRafId);
+    scrollRafId = requestAnimationFrame(() => {
+      if (!chatBodyElement) return;
+      if (smooth) {
         chatBodyElement.scrollTo({
           top: chatBodyElement.scrollHeight,
           behavior: "smooth",
         });
+      } else {
+        chatBodyElement.scrollTop = chatBodyElement.scrollHeight;
       }
-    }, 50);
+    });
   }
 
   function refineVariant(bodyText) {
@@ -612,7 +628,8 @@
           timestamp: Date.now() / 1000,
         },
       ];
-      scrollToBottom();
+      userHasScrolledUp = false;
+      scrollToBottom(true);
 
       const statePayload = getSessionStatePayload();
       let metadataHeader = "";
@@ -694,7 +711,9 @@
             // New event ID or first chunk
             events = [...events, eventObj];
           }
-          scrollToBottom();
+          if (!userHasScrolledUp) {
+            scrollToBottom(false);
+          }
         },
       });
     } catch (e) {
@@ -709,7 +728,9 @@
       isSubmitting = false;
       currentAbortController = null;
       clearInterval(statusInterval);
-      scrollToBottom();
+      if (!userHasScrolledUp) {
+        scrollToBottom(false);
+      }
     }
   }
 
@@ -1135,7 +1156,7 @@
         </div>
       {:else}
         <!-- Active Chat Message Stream -->
-        <div class="chat-viewport" bind:this={chatBodyElement}>
+        <div class="chat-viewport" bind:this={chatBodyElement} onscroll={handleChatScroll}>
           <div class="chat-stream-container">
             {#if filteredEvents.length === 0}
               {@const CurrentAgentIcon = getAgentIcon(activeAgent)}
@@ -1216,6 +1237,9 @@
                   </div>
                   <span class="generating-status">{statusText}</span>
                   <span class="streaming-cursor"></span>
+                </div>
+                <div class="generating-progress-track">
+                  <div class="generating-progress-glow"></div>
                 </div>
                 <div class="skeleton-shimmer-group">
                   <div class="skeleton-line" style="width: 85%;"></div>
@@ -1877,6 +1901,8 @@
   .chat-viewport {
     flex: 1;
     overflow-y: auto;
+    overflow-anchor: auto;
+    scroll-behavior: auto;
     padding: 24px 32px;
     display: flex;
     flex-direction: column;
@@ -2068,6 +2094,36 @@
     height: 14px;
     background: var(--primary-accent);
     animation: blink 0.8s infinite;
+  }
+
+  .generating-progress-track {
+    width: 100%;
+    height: 3px;
+    background: var(--bg-surface-elevated);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 12px;
+  }
+
+  .generating-progress-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 45%;
+    background: linear-gradient(90deg, transparent, var(--exec-color, var(--primary-accent)), transparent);
+    border-radius: var(--radius-full);
+    animation: progressGlide 1.8s infinite ease-in-out;
+  }
+
+  @keyframes progressGlide {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(250%);
+    }
   }
 
   .skeleton-shimmer-group {

@@ -24,9 +24,16 @@
   let customPrompts = $state({});
   let isEditing = $state(false);
 
+  let allExpanded = $state(true);
+
   function isItemExpanded(id, idx) {
     if (expandedMap[id] !== undefined) return expandedMap[id];
-    return idx === 0;
+    return allExpanded;
+  }
+
+  function toggleExpandAll() {
+    allExpanded = !allExpanded;
+    expandedMap = {};
   }
 
   function toggleExpand(id, idx) {
@@ -54,18 +61,28 @@
       <Video size={18} class="accent-icon" />
       <span class="deck-title">Creative Video Concepts (5 Shots &times; 2s)</span>
     </div>
-    <button 
-      class="regenerate-btn" 
-      onclick={handleRegenerateClick}
-      title="Request new imaginative scenario concepts"
-    >
-      <RefreshCw size={13} />
-      <span>New Scenarios</span>
-    </button>
+    <div class="deck-header-actions">
+      <button 
+        class="expand-all-btn" 
+        onclick={toggleExpandAll}
+        title={allExpanded ? "Collapse 5-shot breakdowns" : "Show all 5 shots for all options"}
+      >
+        <Film size={13} />
+        <span>{allExpanded ? "Collapse Shots" : "Show All 5 Shots"}</span>
+      </button>
+      <button 
+        class="regenerate-btn" 
+        onclick={handleRegenerateClick}
+        title="Request new imaginative scenario concepts"
+      >
+        <RefreshCw size={13} />
+        <span>New Scenarios</span>
+      </button>
+    </div>
   </div>
 
   <p class="deck-intro">
-    Choose one cinematic scenario to proceed. The character from your photo will star as the protagonist in this visual story.
+    Choose one cinematic scenario to proceed. All alternative concepts detail 5 progressive shots (2 seconds each).
   </p>
 
   <div class="scenario-cards-list">
@@ -218,6 +235,13 @@
     color: var(--text-primary);
   }
 
+  .deck-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .expand-all-btn,
   .regenerate-btn {
     display: inline-flex;
     align-items: center;
@@ -233,6 +257,7 @@
     transition: var(--transition-normal);
   }
 
+  .expand-all-btn:hover,
   .regenerate-btn:hover {
     color: var(--text-primary);
     border-color: var(--border-focus);
