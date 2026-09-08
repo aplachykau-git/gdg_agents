@@ -330,11 +330,11 @@
       render_4k: studioConfig?.render4k ?? localSaved.render4k ?? true,
       render_gif: studioConfig?.renderGif ?? localSaved.renderGif ?? true,
       generate_avatar: studioConfig?.generateAvatar ?? localSaved.generateAvatar ?? true,
-      enable_video_generation: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? false,
+      enable_video_generation: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? DEFAULT_CONFIG.enableVideoGeneration ?? true,
       render4k: studioConfig?.render4k ?? localSaved.render4k ?? true,
       renderGif: studioConfig?.renderGif ?? localSaved.renderGif ?? true,
       generateAvatar: studioConfig?.generateAvatar ?? localSaved.generateAvatar ?? true,
-      enableVideoGeneration: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? false,
+      enableVideoGeneration: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? DEFAULT_CONFIG.enableVideoGeneration ?? true,
       video_template: studioConfig?.videoTemplate || localSaved.videoTemplate || "build_with_ai",
       videoTemplate: studioConfig?.videoTemplate || localSaved.videoTemplate || "build_with_ai",
     };

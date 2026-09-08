@@ -6,6 +6,9 @@ from typing import Annotated, Literal, Sequence
 from google.adk.tools import ToolContext
 from pydantic import Field
 
+from agents.gemini_config import get_gemini_client
+
+from ..prompt_director import format_scenarios_markdown, generate_creative_scenarios
 from ..video_card_service import (
     _latest_user_upload,
     draft_fingerprint,
@@ -14,6 +17,7 @@ from ..video_card_service import (
     render_video_card,
 )
 from ..workflow_models import RenderedAsset, ValidationFailure, VideoCardToolResult, VideoEditorDraft
+from . import media_tools
 
 DRAFT_STATE_KEY = "video_editor_draft"
 COMPLETED_MEDIA_STATE_KEY = "video_editor_completed_media"
@@ -106,6 +110,30 @@ def format_render_success_message(assets: Sequence[RenderedAsset]) -> str:
     return "\n".join(lines)
 
 
+def should_propose_scenarios(
+    tool_context: ToolContext,
+    media_type: str,
+    creative_direction: str | None,
+    selected_scenario_id: str | None,
+    regenerate_scenarios: bool,
+    has_suggested_scenarios: bool = False,
+) -> bool:
+    if media_type != "image":
+        return False
+    if regenerate_scenarios:
+        return True
+    if selected_scenario_id:
+        return False
+    # If scenarios have already been proposed, and user provides custom prompt without an ID:
+    if has_suggested_scenarios and creative_direction:
+        return False
+    # If user explicitly provided their own rich multi-shot storyboard (e.g. SHOT 1, SHOT 2):
+    if creative_direction and ("shot 1" in creative_direction.lower() or "shot 2" in creative_direction.lower()):
+        return False
+
+    return True
+
+
 async def create_video_card(
     talk_title: Annotated[str, Field(description="Required talk title displayed on the speaker card.")],
     name: Annotated[str, Field(description="Required speaker name displayed on the speaker card.")],
@@ -120,13 +148,16 @@ async def create_video_card(
         ),
     ],
     creative_direction: str | None = None,
+    selected_scenario_id: str | None = None,
+    speaker_bio: str | None = None,
+    regenerate_scenarios: bool = False,
     confirm_render: bool = False,
     tool_context: ToolContext | None = None,
 ) -> dict:
     """Create a speaker-card video from required title, name, position/company, and uploaded image or video media.
 
     `talk_title`, `name`, `position_company`, and `media_type` are required on every call.
-    The declared `media_type` must match the latest uploaded attachment or the media already held in the current draft.
+    When video generation is enabled, offers creative 5-shot x 2-second cinematic scenarios before rendering.
     """
     if tool_context is None:
         raise ValueError("tool_context is required.")
@@ -147,12 +178,25 @@ async def create_video_card(
     )
     if input_failure:
         return input_failure.model_dump()
+
+    # Handle scenario selection from existing scenarios if provided
+    resolved_direction = creative_direction
+    matched_scenario_id = selected_scenario_id
+    if selected_scenario_id and draft.suggested_scenarios:
+        for sc in draft.suggested_scenarios:
+            if sc.id.lower() == selected_scenario_id.lower() or selected_scenario_id.lower() in sc.title.lower():
+                matched_scenario_id = sc.id
+                if not resolved_direction:
+                    resolved_direction = sc.omni_prompt
+                break
+
     draft = merge_draft(
         draft,
         title=talk_title,
         name=name,
         position_company=position_company,
-        creative_direction=creative_direction,
+        creative_direction=resolved_direction,
+        selected_scenario_id=matched_scenario_id,
         media=current_upload,
     )
 
@@ -165,6 +209,62 @@ async def create_video_card(
             message=f"Please provide: {', '.join(missing_fields)}.",
             requested_action="provide_details",
             missing_fields=missing_fields,
+            draft=draft,
+        ).model_dump()
+
+    # If video generation is enabled and no scenario chosen yet, propose 5x2s cinematic scenarios
+    has_existing = bool(draft.suggested_scenarios)
+    if should_propose_scenarios(
+        tool_context,
+        media_type,
+        draft.creative_direction,
+        draft.selected_scenario_id,
+        regenerate_scenarios,
+        has_suggested_scenarios=has_existing,
+    ):
+        scenarios = generate_creative_scenarios(
+            talk_title=draft.title or talk_title,
+            speaker_name=draft.name or name,
+            position_company=draft.position_company or position_company,
+            speaker_bio=speaker_bio,
+        )
+
+        draft = merge_draft(
+            draft,
+            title=talk_title,
+            name=name,
+            position_company=position_company,
+            creative_direction=None,
+            selected_scenario_id=None,
+            media=current_upload,
+            suggested_scenarios=scenarios,
+        )
+        _save_draft(tool_context, draft)
+        msg = (
+            f"{format_scenarios_markdown(scenarios)}\n\n"
+            "🎬 **Choose a Video Concept or Refine the Prompt:**\n"
+            "Please select which scenario you would like to render (e.g. **Option 1**, **Option 2**, or **Option 3**), "
+            "or modify the prompt shots before we render."
+        )
+        return VideoCardToolResult(
+            status="awaiting_confirmation",
+            message=msg,
+            requested_action="select_scenario",
+            scenarios=scenarios,
+            draft=draft,
+        ).model_dump()
+
+    # Block rendering if scenarios were suggested but none chosen and no creative direction set
+    if draft.suggested_scenarios and not draft.selected_scenario_id and not draft.creative_direction:
+        _save_draft(tool_context, draft)
+        return VideoCardToolResult(
+            status="awaiting_confirmation",
+            message=(
+                "Please select one of the suggested creative scenarios (e.g. Option 1, Option 2, Option 3) "
+                "or customize the prompt before rendering."
+            ),
+            requested_action="select_scenario",
+            scenarios=draft.suggested_scenarios,
             draft=draft,
         ).model_dump()
 

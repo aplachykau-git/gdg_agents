@@ -1392,3 +1392,69 @@ export function extractEventDates(text, author) {
     totalOptions: dates.length
   };
 }
+
+export function hasVideoScenarios(text) {
+  if (!text) return false;
+  return (
+    text.includes('Creative Video Scenarios') ||
+    (/Option\s*\d+:\s*.+?\(`.+?`\)/i.test(text) && text.includes('Shot 1') && text.includes('Shot 5'))
+  );
+}
+
+export function extractVideoScenarios(text) {
+  if (!text) return [];
+  const scenarioRegex = /####?\s*Option\s*(\d+):\s*([^\n\(`]+?)(?:\s*\(`([^`\)]+?)`\))?\s*\n\*\*Concept:\*\*\s*([^\n]+)([\s\S]*?)(?=>\s*\*\*Omni Prompt|####?\s*Option|\n\n\n|$)(?:>\s*\*\*Omni Prompt(?:\s*\(([^\)]+)\))?:\*\*\s*\n>\s*([^\n]+(?:\n>[^\n]+)*))?/gi;
+  
+  const scenarios = [];
+  let match;
+  while ((match = scenarioRegex.exec(text)) !== null) {
+    const num = match[1];
+    const title = (match[2] || '').trim();
+    const genre = (match[3] || 'Cinematic').trim();
+    const concept = (match[4] || '').trim();
+    const tableBlock = match[5] || '';
+    const scenarioId = (match[6] || `scenario_${num}`).trim();
+    const rawOmni = match[7] ? match[7].replace(/^>\s*/gm, '').trim() : '';
+
+    const shots = [];
+    const shotRowRegex = /\|\s*\*\*Shot\s*(\d+)\*\*\s*\|\s*`([^`]+)`\s*\|\s*([^\|]+)\s*\|\s*([^\|]+)\s*\|/gi;
+    let sMatch;
+    while ((sMatch = shotRowRegex.exec(tableBlock)) !== null) {
+      shots.push({
+        shotNumber: parseInt(sMatch[1], 10),
+        timeRange: sMatch[2].trim(),
+        action: sMatch[3].trim(),
+        camera: sMatch[4].trim()
+      });
+    }
+
+    scenarios.push({
+      id: scenarioId,
+      number: num,
+      title,
+      genre,
+      concept,
+      shots,
+      omniPrompt: rawOmni || concept
+    });
+  }
+
+  if (scenarios.length === 0 && text.includes('Creative Video Scenarios')) {
+    const rawBlocks = text.split(/####?\s*Option\s*\d+:/i);
+    for (let i = 1; i < rawBlocks.length; i++) {
+      const blk = rawBlocks[i];
+      const titleLine = blk.split('\n')[0] || '';
+      scenarios.push({
+        id: `scenario_${i}`,
+        number: i,
+        title: titleLine.replace(/\(`.*?`\)/, '').trim(),
+        genre: 'Cinematic',
+        concept: blk.substring(0, 200).trim(),
+        shots: [],
+        omniPrompt: blk.substring(0, 300).trim()
+      });
+    }
+  }
+
+  return scenarios;
+}

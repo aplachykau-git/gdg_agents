@@ -19,7 +19,9 @@
     extractEmailDraft,
     extractEventDates,
     shouldShowDelegationHandoff,
-    getEventAgent
+    getEventAgent,
+    hasVideoScenarios,
+    extractVideoScenarios
   } from './constants.js';
   import AgendaTimeline from './AgendaTimeline.svelte';
   import VariantCard from './VariantCard.svelte';
@@ -28,6 +30,7 @@
   import ReportDownloadCard from './ReportDownloadCard.svelte';
   import EmailDraftCard from './EmailDraftCard.svelte';
   import EventDateCard from './EventDateCard.svelte';
+  import VideoScenarioDeck from './VideoScenarioDeck.svelte';
 
   let { 
     event, 
@@ -171,6 +174,13 @@
                 <div class="markdown-body">{@html renderMarkdown(cleanedText)}</div>
               {/if}
               <ReportDownloadCard {doc} />
+            {:else if hasVideoScenarios(part.text)}
+              {@const scenarios = extractVideoScenarios(part.text)}
+              <VideoScenarioDeck 
+                {scenarios} 
+                onSelect={(msg) => onRefine(msg)} 
+                onRegenerate={(msg) => onRefine(msg)} 
+              />
             {:else}
               {@const variants = parseResponseVariants(part.text, event.author)}
               {#if variants.length === 1}

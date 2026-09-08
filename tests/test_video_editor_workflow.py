@@ -423,8 +423,10 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             vid_path = vid.name
         self.addCleanup(Path(vid_path).unlink, missing_ok=True)
 
-        result = animate_photo(vid_path, "prompt", tool_context=mock_context)
-        self.assertEqual(result, "assets/Video_example.mp4")
+        with patch("agents.video_editor.tools.media_tools.shutil.copy2") as mock_copy:
+            result = animate_photo(vid_path, "prompt", tool_context=mock_context)
+            self.assertEqual(result, "assets/Video_example.mp4")
+            mock_copy.assert_called_once()
 
     def test_outpaint_image_node_invokes_outpainting_for_image(self):
         from agents.video_editor.workflow import outpaint_image_node

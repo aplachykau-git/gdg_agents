@@ -62,9 +62,28 @@ class UploadedMedia(BaseModel):
     mime_type: str
 
 
+class VideoShot(BaseModel):
+    shot_number: int
+    time_range: str
+    action: str
+    camera: str
+    lighting_atmosphere: str
+
+
+class CreativeScenario(BaseModel):
+    id: str
+    title: str
+    genre: str
+    concept: str
+    shots: list[VideoShot] = Field(default_factory=list)
+    omni_prompt: str
+
+
 class VideoEditorDraft(VideoEditorRequest):
     media: UploadedMedia | None = None
     confirmed_fingerprint: str | None = None
+    suggested_scenarios: list[CreativeScenario] = Field(default_factory=list)
+    selected_scenario_id: str | None = None
 
 
 class PreparedMedia(BaseModel):
@@ -83,7 +102,7 @@ class RenderedAsset(BaseModel):
 
 
 class VideoCardToolResult(BaseModel):
-    status: Literal["success", "error", "awaiting_confirmation"]
+    status: Literal["success", "error", "awaiting_confirmation", "awaiting_scenario_selection"]
     code: str | None = None
     message: str
     retryable: bool = True
@@ -93,11 +112,13 @@ class VideoCardToolResult(BaseModel):
             "replace_media",
             "correct_text",
             "confirm_render",
+            "select_scenario",
             "retry",
         ]
         | None
     ) = None
     missing_fields: list[str] = Field(default_factory=list)
+    scenarios: list[CreativeScenario] = Field(default_factory=list)
     assets: list[RenderedAsset] = Field(default_factory=list)
     draft: VideoEditorDraft | None = None
 

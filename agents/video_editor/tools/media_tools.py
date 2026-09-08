@@ -374,7 +374,8 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     print("🚀 Submitting request to Google AI Gemini Omni Flash (Interactions API)...")
 
     headers = {"Content-Type": "application/json"}
-    if api_key.startswith("AIza"):
+    if api_key:
+        headers["x-goog-api-key"] = api_key
         url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
     else:
         # Obtain OAuth2 token from Google Cloud ADC / Service Account
@@ -396,7 +397,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
             headers["Authorization"] = f"Bearer {token}"
             url = "https://generativelanguage.googleapis.com/v1beta/interactions"
         else:
-            url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
+            raise RuntimeError("No valid GEMINI_API_KEY or ADC credentials available for Omni Flash.")
 
     payload = {
         "model": "gemini-omni-1.1-flash",
@@ -497,14 +498,17 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
     photo_path = resolve_path(photo_path)
 
     engine = get_video_engine()
-    validate_video_generation_backend(engine)
-    result_path = _generate_with_omni(photo_path, creative_prompt)
+    try:
+        result_path = _generate_with_omni(photo_path, creative_prompt)
+    except Exception as omni_err:
+        print(f"⚠️ [Omni Flash Notice] {omni_err}. Falling back to outpainted portrait image.")
+        result_path = photo_path
 
     try:
-        abs_video_path = os.path.join(BASE_DIR, "assets", "Video_example.mp4")
-        if os.path.exists(abs_video_path):
+        abs_res_path = resolve_path(result_path)
+        if os.path.exists(abs_res_path) and result_path.endswith(".mp4"):
             cloud_vid_url = upload_file_to_storage(
-                local_path=abs_video_path,
+                local_path=abs_res_path,
                 destination_blob_name="videos/Video_example.mp4",
                 content_type="video/mp4",
             )

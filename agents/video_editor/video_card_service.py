@@ -18,6 +18,7 @@ from agents.gemini_config import get_gemini_client
 from . import workflow
 from .tools import composer_tools, media_tools
 from .workflow_models import (
+    CreativeScenario,
     PreparedMedia,
     RenderedAsset,
     RenderResult,
@@ -50,6 +51,7 @@ def draft_fingerprint(draft: VideoEditorDraft) -> str:
         draft.name or "",
         draft.position_company or "",
         draft.creative_direction or "",
+        draft.selected_scenario_id or "",
         draft.media.event_id if draft.media else "",
         str(draft.media.part_index) if draft.media else "",
     ]
@@ -126,6 +128,8 @@ def merge_draft(
     position_company: str | None,
     creative_direction: str | None,
     media: UploadedMedia | None,
+    suggested_scenarios: list[CreativeScenario] | None = None,
+    selected_scenario_id: str | None = None,
 ) -> VideoEditorDraft:
     updated = draft.model_copy(deep=True)
     changes = {
@@ -133,12 +137,16 @@ def merge_draft(
         "name": _normalise(name),
         "position_company": _normalise(position_company),
         "creative_direction": _normalise(creative_direction),
+        "selected_scenario_id": _normalise(selected_scenario_id),
     }
     changed = False
     for field, value in changes.items():
         if value is not None and value != getattr(updated, field):
             setattr(updated, field, value)
             changed = True
+    if suggested_scenarios is not None and suggested_scenarios != updated.suggested_scenarios:
+        updated.suggested_scenarios = suggested_scenarios
+        changed = True
     if media and media != updated.media:
         updated.media = media
         changed = True
@@ -306,6 +314,7 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
                 video_path = media_tools.animate_photo(
                     photo_path=source_path,
                     creative_prompt=compile_creative_prompt(draft),
+                    tool_context=tool_context,
                 )
                 prepared_media = PreparedMedia(
                     media_type="image",
@@ -335,7 +344,14 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
                 duration_seconds=prepared_media.duration_seconds,
                 theme_colors=session_state.get("theme_colors"),
             )
-            summary = composer_tools.render_composer()
+            try:
+                summary = composer_tools.render_composer()
+            except Exception as render_err:
+                return ValidationFailure(
+                    code="render_failed",
+                    message=f"Failed to render video composition: {render_err}",
+                    missing_fields=[],
+                )
             return RenderResult(
                 status="completed",
                 assets=normalise_rendered_assets(summary),
