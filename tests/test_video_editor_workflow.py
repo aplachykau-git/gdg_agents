@@ -28,6 +28,7 @@ from agents.video_editor.workflow_models import (
     RenderResult,
     ResolvedMedia,
     UploadedMedia,
+    ValidationFailure,
     VideoEditorDraft,
     VideoEditorRequest,
 )
@@ -321,6 +322,7 @@ class TestVideoEditorWorkflow(unittest.TestCase):
                     name="Jane Doe",
                     position_company="Developer Advocate, Example",
                     media_type="image",
+                    selected_scenario_id="scenario_1",
                     tool_context=context,
                 )
             )
@@ -347,12 +349,14 @@ class TestVideoEditorWorkflow(unittest.TestCase):
                         tool_context=context,
                     )
                 )
+                selected_id = first["scenarios"][0]["id"]
                 result = asyncio.run(
                     create_video_card(
                         talk_title="Talk",
                         name="Jane Doe",
                         position_company="Developer Advocate, Example",
                         media_type="image",
+                        selected_scenario_id=selected_id,
                         confirm_render=True,
                         tool_context=context,
                     )
@@ -565,6 +569,111 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             self.assertIn(
                 'id="krakow_pill" x="926.7" y="241" width="428" height="57" rx="28.5" fill="#FFFFFF"', content
             )
+
+    def test_update_composer_handles_unicode_escapes_and_special_chars(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            devfest_template_path = (
+                Path(__file__).resolve().parent.parent / "agents" / "video_editor" / "templates" / "devfest.html"
+            )
+            target_index = Path(tmp_dir) / "index.html"
+            target_index.write_text(devfest_template_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+            with patch("agents.video_editor.tools.composer_tools.resolve_path", return_value=str(target_index)):
+                # Test with unicode escape sequences in path and Polish/Cyrillic characters in name
+                result = update_composer(
+                    video_path="assets/dominika_zaj\\u0105c.png",
+                    title="Architektura Wielu Agentów",
+                    name="Dominika Zając",
+                    position_company="Tech Lead, Google Developer Groups",
+                    duration_seconds=10,
+                )
+
+            self.assertIn("Successfully updated index.html", result)
+            content = target_index.read_text(encoding="utf-8")
+            self.assertIn("Dominika", content)
+            self.assertIn("Architektura", content)
+            self.assertIn("dominika_zaj", content)
+
+    def test_validation_failure_supports_render_failed_and_ignores_extra_fields(self):
+        failure = ValidationFailure(
+            code="render_failed",
+            message="Failed to render video composition: timeout",
+            missing_fields=[],
+        )
+        self.assertEqual(failure.code, "render_failed")
+        self.assertEqual(failure.requested_action, "retry")
+        self.assertTrue(failure.retryable)
+
+    def test_render_video_card_returns_validation_failure_on_render_composer_error(self):
+        draft = VideoEditorDraft(
+            title="Architektura Wielu Agentów",
+            name="Dominika Zając",
+            position_company="Tech Lead, Google Developer Groups",
+            confirmed=True,
+            media=UploadedMedia(event_id="evt_123", part_index=0, mime_type="video/mp4"),
+        )
+        mock_context = MagicMock()
+        mock_context.session.id = "session_123"
+        mock_context.session.state = {"video_template": "devfest"}
+        with (
+            patch("agents.video_editor.video_card_service._review_metadata", return_value=None),
+            patch("agents.video_editor.video_card_service.workflow.validate_render_environment", return_value=None),
+            patch("agents.video_editor.video_card_service.isolated_workspace"),
+            patch("agents.video_editor.video_card_service._workspace_tool_paths"),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.stage_uploaded_media",
+                return_value="assets/Video_example.mp4",
+            ),
+            patch("agents.video_editor.video_card_service.workflow.validate_resolved_media", return_value=None),
+            patch("agents.video_editor.video_card_service.workflow._read_video_duration", return_value=10),
+            patch("agents.video_editor.video_card_service.shutil.copy2"),
+            patch("agents.video_editor.video_card_service.composer_tools.update_composer"),
+            patch(
+                "agents.video_editor.video_card_service.composer_tools.render_composer",
+                side_effect=RuntimeError("HyperFrames render crashed"),
+            ),
+        ):
+            from agents.video_editor.video_card_service import render_video_card
+
+            result = asyncio.run(render_video_card(draft, mock_context))
+
+        self.assertIsInstance(result, ValidationFailure)
+        self.assertEqual(result.code, "render_failed")
+        self.assertIn("HyperFrames render crashed", result.message)
+        self.assertEqual(result.requested_action, "retry")
+
+    def test_render_video_card_rejects_image_when_video_generation_disabled_in_state(self):
+        draft = VideoEditorDraft(
+            title="Architektura Wielu Agentów",
+            name="Dominika Zając",
+            position_company="Tech Lead, Google Developer Groups",
+            confirmed=True,
+            media=UploadedMedia(event_id="evt_123", part_index=0, mime_type="image/png"),
+        )
+        mock_context = MagicMock()
+        mock_context.session.id = "session_123"
+        mock_context.session.state = {
+            "enable_video_generation": False,
+        }
+        with (
+            patch("agents.video_editor.video_card_service._review_metadata", return_value=None),
+            patch("agents.video_editor.video_card_service.workflow.validate_render_environment", return_value=None),
+            patch("agents.video_editor.video_card_service.isolated_workspace"),
+            patch("agents.video_editor.video_card_service._workspace_tool_paths"),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.stage_uploaded_media",
+                return_value="portrait.png",
+            ),
+            patch("agents.video_editor.video_card_service.workflow.validate_resolved_media", return_value=None),
+        ):
+            from agents.video_editor.video_card_service import render_video_card
+
+            result = asyncio.run(render_video_card(draft, mock_context))
+
+        self.assertIsInstance(result, ValidationFailure)
+        self.assertEqual(result.code, "model_unavailable")
+        self.assertIn("Image-to-video generation is disabled", result.message)
+        self.assertEqual(result.requested_action, "replace_media")
 
 
 if __name__ == "__main__":

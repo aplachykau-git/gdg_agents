@@ -89,7 +89,20 @@ def _draft_summary(draft: VideoEditorDraft) -> str:
 
 
 def _failure_result(failure: ValidationFailure, draft: VideoEditorDraft) -> VideoCardToolResult:
-    action = "replace_media" if failure.requested_action == "replace_media" else "correct_text"
+    if failure.requested_action in ("replace_media", "retry", "correct_text"):
+        action = failure.requested_action
+    elif failure.requested_action == "retry_render":
+        action = "retry"
+    elif failure.code in (
+        "media_not_found",
+        "unsupported_media",
+        "invalid_image",
+        "invalid_video",
+        "face_not_detected",
+    ):
+        action = "replace_media"
+    else:
+        action = "correct_text"
     return VideoCardToolResult(
         status="error",
         code=failure.code,
@@ -117,8 +130,11 @@ def should_propose_scenarios(
     selected_scenario_id: str | None,
     regenerate_scenarios: bool,
     has_suggested_scenarios: bool = False,
+    confirm_render: bool = False,
 ) -> bool:
     if media_type != "image":
+        return False
+    if confirm_render:
         return False
     if regenerate_scenarios:
         return True
@@ -221,6 +237,7 @@ async def create_video_card(
         draft.selected_scenario_id,
         regenerate_scenarios,
         has_suggested_scenarios=has_existing,
+        confirm_render=confirm_render,
     ):
         scenarios = generate_creative_scenarios(
             talk_title=draft.title or talk_title,

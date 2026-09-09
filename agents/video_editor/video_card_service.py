@@ -297,12 +297,12 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
                 return media_failure
 
             if resolved_media.media_type == "image":
-                if not media_tools.video_generation_enabled():
+                if not media_tools.video_generation_enabled(tool_context or session_state):
                     return ValidationFailure(
                         code="model_unavailable",
                         message=(
-                            "Image-to-video generation is disabled. Upload a source video or set "
-                            "ENABLE_VIDEO_GENERATION=true."
+                            "Image-to-video generation is disabled. Upload a source video, or enable "
+                            "AI video generation in Settings / set ENABLE_VIDEO_GENERATION=true."
                         ),
                         requested_action="replace_media",
                         retryable=False,
@@ -310,12 +310,27 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
                 face_failure = await _review_face(resolved_media)
                 if face_failure:
                     return face_failure
-                source_path = media_tools.outpaint_to_9_16(resolved_media.source_path, get_gemini_client())
-                video_path = media_tools.animate_photo(
-                    photo_path=source_path,
-                    creative_prompt=compile_creative_prompt(draft),
-                    tool_context=tool_context,
-                )
+                try:
+                    source_path = media_tools.outpaint_to_9_16(resolved_media.source_path, get_gemini_client())
+                    video_path = media_tools.animate_photo(
+                        photo_path=source_path,
+                        creative_prompt=compile_creative_prompt(draft),
+                        tool_context=tool_context,
+                    )
+                    if isinstance(video_path, str) and video_path.startswith("Error:"):
+                        return ValidationFailure(
+                            code="model_unavailable",
+                            message=video_path.removeprefix("Error:").strip(),
+                            requested_action="replace_media",
+                            retryable=False,
+                        )
+                except Exception as anim_err:
+                    return ValidationFailure(
+                        code="model_unavailable",
+                        message=f"Failed to generate speaker animation: {anim_err}",
+                        requested_action="replace_media",
+                        retryable=True,
+                    )
                 prepared_media = PreparedMedia(
                     media_type="image",
                     source_path=resolved_media.source_path,
@@ -345,12 +360,12 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
                 theme_colors=session_state.get("theme_colors"),
             )
             try:
-                summary = composer_tools.render_composer()
+                summary = composer_tools.render_composer(tool_context=tool_context)
             except Exception as render_err:
                 return ValidationFailure(
                     code="render_failed",
                     message=f"Failed to render video composition: {render_err}",
-                    missing_fields=[],
+                    requested_action="retry",
                 )
             return RenderResult(
                 status="completed",

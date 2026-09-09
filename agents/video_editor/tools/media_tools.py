@@ -36,7 +36,18 @@ DEFAULT_CINEMATIC_DIRECTIONS = (
 )
 
 
-def video_generation_enabled() -> bool:
+def video_generation_enabled(tool_context: Optional[Any] = None) -> bool:
+    if tool_context:
+        state = {}
+        if isinstance(tool_context, dict):
+            state = tool_context
+        elif hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
+            state = tool_context.state
+        elif hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
+            state = tool_context.session.state or {}
+        for key in ("enable_video_generation", "enableVideoGeneration"):
+            if key in state and state[key] is not None:
+                return bool(state[key])
     return os.environ.get("ENABLE_VIDEO_GENERATION", "false").lower() in ("true", "1", "yes")
 
 
@@ -464,23 +475,7 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
 
     photo_path = os.path.abspath(photo_path)
 
-    # Check if AI video generation (Omni) is enabled in session state or env
-    state = {}
-    if tool_context:
-        if hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
-            state = tool_context.state
-        elif hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
-            state = tool_context.session.state or {}
-
-    enable_vid = video_generation_enabled()
-    if "enable_video_generation" in state or "enableVideoGeneration" in state:
-        val = (
-            state.get("enable_video_generation")
-            if "enable_video_generation" in state
-            else state.get("enableVideoGeneration")
-        )
-        if val is not None:
-            enable_vid = bool(val)
+    enable_vid = video_generation_enabled(tool_context)
 
     if not enable_vid:
         msg = (

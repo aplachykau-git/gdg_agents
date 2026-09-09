@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class VideoEditorRequest(BaseModel):
@@ -27,6 +27,8 @@ class ReviewDecision(BaseModel):
 
 
 class ValidationFailure(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     code: Literal[
         "missing_field",
         "field_too_long",
@@ -37,11 +39,12 @@ class ValidationFailure(BaseModel):
         "face_not_detected",
         "render_environment_unavailable",
         "model_unavailable",
+        "render_failed",
     ]
     field: str | None = None
     message: str
     retryable: bool = True
-    requested_action: Literal["correct_text", "replace_media"]
+    requested_action: Literal["correct_text", "replace_media", "retry", "retry_render"] = "retry"
 
 
 class ValidatedMetadata(BaseModel):

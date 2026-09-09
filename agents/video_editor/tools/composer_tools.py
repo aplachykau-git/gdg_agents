@@ -184,21 +184,21 @@ def update_composer(
     if is_image:
         # It's an image card!
         video_full_pattern = r'(<video\s+id="card-video"[^>]*?style="[^"]*?)(display:none;)?(")'
-        content = re.sub(video_full_pattern, r"\g<1>display:none;\g<3>", content)
-        content = re.sub(video_pattern, 'id="card-video" src="assets/Video_example.mp4"', content)
+        content = re.sub(video_full_pattern, lambda m: f"{m.group(1)}display:none;{m.group(3)}", content)
+        content = re.sub(video_pattern, lambda _: 'id="card-video" src="assets/Video_example.mp4"', content)
 
         image_full_pattern = r'(<img\s+id="card-image"[^>]*?style="[^"]*?)(display:none;)\s*(;?)(")'
-        content = re.sub(image_full_pattern, r"\g<1>\g<4>", content)
-        content = re.sub(image_pattern, f'id="card-image" src={json.dumps(video_path)}', content)
+        content = re.sub(image_full_pattern, lambda m: f"{m.group(1)}{m.group(4)}", content)
+        content = re.sub(image_pattern, lambda _: f'id="card-image" src={json.dumps(video_path)}', content)
     else:
         # It's a video card!
         video_full_pattern = r'(<video\s+id="card-video"[^>]*?style="[^"]*?)(display:none;)\s*(;?)(")'
-        content = re.sub(video_full_pattern, r"\g<1>\g<4>", content)
-        content = re.sub(video_pattern, f'id="card-video" src={json.dumps(video_path)}', content)
+        content = re.sub(video_full_pattern, lambda m: f"{m.group(1)}{m.group(4)}", content)
+        content = re.sub(video_pattern, lambda _: f'id="card-video" src={json.dumps(video_path)}', content)
 
         image_full_pattern = r'(<img\s+id="card-image"[^>]*?style="[^"]*?)(display:none;)?(")'
-        content = re.sub(image_full_pattern, r"\g<1>display:none;\g<3>", content)
-        content = re.sub(image_pattern, 'id="card-image" src=""', content)
+        content = re.sub(image_full_pattern, lambda m: f"{m.group(1)}display:none;{m.group(3)}", content)
+        content = re.sub(image_pattern, lambda _: 'id="card-image" src=""', content)
 
     # 3. Randomize colors using brand palette
     if "DEVFEST TEMPLATE" not in content:
@@ -222,24 +222,24 @@ def update_composer(
 
         # Safely replace fill/stroke attributes for breaks, circle, pill and hexagon
         break_1_pattern = r'(<path\s+id="break_1"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-        content, count1 = re.subn(break_1_pattern, rf"\g<1>{break_color}\g<3>", content)
+        content, count1 = re.subn(break_1_pattern, lambda m: f"{m.group(1)}{break_color}{m.group(3)}", content)
 
         break_2_pattern = r'(<path\s+id="break_2"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-        content, count2 = re.subn(break_2_pattern, rf"\g<1>{break_color}\g<3>", content)
+        content, count2 = re.subn(break_2_pattern, lambda m: f"{m.group(1)}{break_color}{m.group(3)}", content)
 
         circle_pattern = r'(<path\s+id="circle"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-        content, count3 = re.subn(circle_pattern, rf"\g<1>{circle_color}\g<3>", content)
+        content, count3 = re.subn(circle_pattern, lambda m: f"{m.group(1)}{circle_color}{m.group(3)}", content)
 
         pill_pattern = r'(<rect\s+id="pill"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-        content, count4 = re.subn(pill_pattern, rf"\g<1>{pill_color}\g<3>", content)
+        content, count4 = re.subn(pill_pattern, lambda m: f"{m.group(1)}{pill_color}{m.group(3)}", content)
 
         hexagon_pattern = r'(<path\s+id="hexagon"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-        content, count5 = re.subn(hexagon_pattern, rf"\g<1>{hexagon_color}\g<3>", content)
+        content, count5 = re.subn(hexagon_pattern, lambda m: f"{m.group(1)}{hexagon_color}{m.group(3)}", content)
 
         # 4. Dynamically insert the current system year into the pill-text SVG text element
         current_year = datetime.datetime.now().year
         year_pattern = r'(<text\s+id="pill-text"[^>]*?>)(\d{4})(</text>)'
-        content, count_year = re.subn(year_pattern, rf"\g<1>{current_year}\g<3>", content)
+        content, count_year = re.subn(year_pattern, lambda m: f"{m.group(1)}{current_year}{m.group(3)}", content)
 
         print(
             f"   └─ Updated elements: break_1 ({count1}), break_2 ({count2}), circle ({count3}), pill badge ({count4}), hexagon ({count5}), year text ({count_year} -> {current_year}), duration: {target_duration}s"
@@ -268,19 +268,19 @@ def update_composer(
 
         # Replace fill attributes for brackets (break_1, break_2) and dots (dot_1, dot_2, dot_3)
         break_1_pattern = r'(<path\s+id="break_1"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-        content, count1 = re.subn(break_1_pattern, rf"\g<1>{break_color}\g<3>", content)
+        content, count1 = re.subn(break_1_pattern, lambda m: f"{m.group(1)}{break_color}{m.group(3)}", content)
 
         break_2_pattern = r'(<path\s+id="break_2"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-        content, count2 = re.subn(break_2_pattern, rf"\g<1>{break_color}\g<3>", content)
+        content, count2 = re.subn(break_2_pattern, lambda m: f"{m.group(1)}{break_color}{m.group(3)}", content)
 
         dot_1_pattern = r'(<circle\s+id="dot_1"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-        content, count_d1 = re.subn(dot_1_pattern, rf"\g<1>{dot_1_color}\g<3>", content)
+        content, count_d1 = re.subn(dot_1_pattern, lambda m: f"{m.group(1)}{dot_1_color}{m.group(3)}", content)
 
         dot_2_pattern = r'(<circle\s+id="dot_2"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-        content, count_d2 = re.subn(dot_2_pattern, rf"\g<1>{dot_2_color}\g<3>", content)
+        content, count_d2 = re.subn(dot_2_pattern, lambda m: f"{m.group(1)}{dot_2_color}{m.group(3)}", content)
 
         dot_3_pattern = r'(<circle\s+id="dot_3"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
-        content, count_d3 = re.subn(dot_3_pattern, rf"\g<1>{dot_3_color}\g<3>", content)
+        content, count_d3 = re.subn(dot_3_pattern, lambda m: f"{m.group(1)}{dot_3_color}{m.group(3)}", content)
 
         print(
             f"   └─ Updated DevFest elements: break_1 ({count1}), break_2 ({count2}), dot_1 ({count_d1}), dot_2 ({count_d2}), dot_3 ({count_d3}), duration: {target_duration}s"
@@ -599,11 +599,13 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                 )
                 # Set card-video src to placeholder Video_example.mp4 (valid fallback for static guard and chrome video tag)
                 temp_content = re.sub(
-                    r'id="card-video"\s+src=".*?"', 'id="card-video" src="assets/Video_example.mp4"', html_backup
+                    r'id="card-video"\s+src=".*?"',
+                    lambda _: 'id="card-video" src="assets/Video_example.mp4"',
+                    html_backup,
                 )
                 # Set card-image src to the static outpainted/staged photo path
                 temp_content = re.sub(
-                    r'id="card-image"\s+src=".*?"', f'id="card-image" src="{temp_image_src}"', temp_content
+                    r'id="card-image"\s+src=".*?"', lambda _: f'id="card-image" src="{temp_image_src}"', temp_content
                 )
 
                 # Ensure cursor/caret icon is completely invisible on the poster snapshot
@@ -615,7 +617,9 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                     )
                 temp_content = re.sub(
                     r'<span\s+id="cursor"[^>]*?>.*?</span>',
-                    '<span id="cursor" class="cursor-span" style="display:none !important; opacity:0 !important; visibility:hidden !important;"></span>',
+                    lambda _: (
+                        '<span id="cursor" class="cursor-span" style="display:none !important; opacity:0 !important; visibility:hidden !important;"></span>'
+                    ),
                     temp_content,
                 )
 
