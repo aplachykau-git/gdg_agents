@@ -464,29 +464,18 @@ def parse_manual_name_line(line: str) -> Tuple[str, str, str]:
     return fn_clean, ln_clean, status_override
 
 
-def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: str = "") -> str:
-    """Loads a CSV or Excel registration file, cleans, sorts (Latin vs Cyrillic vs Other scripts),
-    handles capacity limits, manual overrides, and pre-existing waitlist marks.
+def _load_registration_rows(abs_path: str, ext: str, file_path: str):
+    """Parses a CSV or Excel registration file into raw dict rows.
 
     Args:
-        file_path: Relative or absolute local file path of the CSV/XLSX file.
-        capacity: Optional maximum attendee capacity. If 0 or None, defaults to pre-existing waitlist marks.
-        manual_confirmed: Optional comma-separated or newline-separated list of names to force-add to Confirmed List.
+        abs_path: Resolved absolute path of the CSV/XLSX file to read.
+        ext: Lowercased file extension of abs_path (e.g. ".csv", ".xlsx").
+        file_path: Original (possibly relative) path, used only in error messages.
+
+    Returns:
+        A tuple of (raw_rows, headers) on success, or an error message string
+        if the file could not be parsed.
     """
-    print("\n📂 [Tool: process_registrations] Starting processing of registration list...")
-    print(f"   ├─ File: {file_path}")
-    print(f"   ├─ Target Capacity: {capacity or '(Not specified, relying on status marks)'}")
-    print(f"   └─ Manual Confirmed Overrides: {manual_confirmed or '(None)'}")
-
-    abs_path = resolve_path(file_path)
-    if not os.path.exists(abs_path):
-        return (
-            f"Error: Registration file not found at '{file_path}'. "
-            "Please upload your CSV or Excel file or paste the attendee names directly into the chat."
-        )
-
-    ext = os.path.splitext(abs_path.lower())[1]
-
     raw_rows = []
 
     # 1. Parse based on file type
@@ -537,8 +526,20 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
         return f"Error: Unsupported file format '{ext}'! Please upload a .csv or .xlsx file."
 
     print(f"📊 Loaded {len(raw_rows)} total raw rows from file headers: {headers}")
+    return raw_rows, headers
 
-    # 2. Dynamically identify columns
+
+def _detect_registration_columns(headers):
+    """Heuristically maps registration list column headers to known fields.
+
+    Args:
+        headers: List of column header strings from the parsed file.
+
+    Returns:
+        Tuple of (first_name_col, last_name_col, full_name_col, timestamp_col,
+        status_col) — each is the matching original header string, or "" if
+        no column matched.
+    """
     first_name_col = ""
     last_name_col = ""
     full_name_col = ""
@@ -589,7 +590,28 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
     print(f"   ├─ Full Name Col: {full_name_col or '(not found)'}")
     print(f"   ├─ Status/Waitlist Col: {status_col or '(not found)'}")
     print(f"   └─ Registration Date Col: {timestamp_col or '(not found)'}")
+    return first_name_col, last_name_col, full_name_col, timestamp_col, status_col
 
+
+def _build_attendee_rosters(
+    raw_rows,
+    first_name_col,
+    last_name_col,
+    full_name_col,
+    timestamp_col,
+    status_col,
+    capacity,
+    manual_confirmed,
+):
+    """Cleans, deduplicates, tiers (organisers/speakers/manual/standard), and
+    capacity-partitions raw registration rows into confirmed and waitlisted
+    attendee lists.
+
+    Returns:
+        dict with keys: 'registered_list', 'waitlist_list', 'duplicate_count',
+        'manual_additions_count', 'organisers_count', 'speakers_count',
+        'manual_priority_count', 'standard_confirmed_count'.
+    """
     processed_records = []
 
     # 3. Clean and map entries
@@ -935,7 +957,28 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
     print("📊 Partitioning Complete:")
     print(f"   ├─ Organisers Confirmed: {len(organisers_tier)}")
     print(f"   ├─ Speakers Confirmed: {len(speakers_tier)}")
-    # 8. Save results in a beautiful Microsoft Word (.docx) document using 3 columns section layout
+    return {
+        "registered_list": registered_list,
+        "waitlist_list": waitlist_list,
+        "duplicate_count": duplicate_count,
+        "manual_additions_count": len(manual_entries_cleaned),
+        "organisers_count": len(organisers_tier),
+        "speakers_count": len(speakers_tier),
+        "manual_priority_count": len(manual_confirmed_tier),
+        "standard_confirmed_count": len(confirmed_standard),
+    }
+
+
+def _write_registration_outputs(registered_list, waitlist_list):
+    """Renders the confirmed/waitlist rosters into a DOCX document and a plain
+    text roster file under results/, and best-effort uploads both to cloud
+    storage.
+
+    Returns:
+        dict with keys: 'doc_ok' (bool), 'doc_path', 'cloud_doc_url',
+        'roster_text'.
+    """
+    roster_text = ""
     results_dir = os.path.join(BASE_DIR, "results")
     os.makedirs(results_dir, exist_ok=True)
 
@@ -1167,6 +1210,63 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
             print(f"⚠️ [Cloud Storage Notice] {upload_err}")
     except Exception as docx_err:
         print(f"⚠️ Failed to generate DOCX document: {docx_err}")
+    return {
+        "doc_ok": doc_ok,
+        "doc_path": doc_path,
+        "cloud_doc_url": cloud_doc_url,
+        "roster_text": roster_text,
+    }
+
+
+def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: str = "") -> str:
+    """Loads a CSV or Excel registration file, cleans, sorts (Latin vs Cyrillic vs Other scripts),
+    handles capacity limits, manual overrides, and pre-existing waitlist marks.
+
+    Args:
+        file_path: Relative or absolute local file path of the CSV/XLSX file.
+        capacity: Optional maximum attendee capacity. If 0 or None, defaults to pre-existing waitlist marks.
+        manual_confirmed: Optional comma-separated or newline-separated list of names to force-add to Confirmed List.
+    """
+    print("\n📂 [Tool: process_registrations] Starting processing of registration list...")
+    print(f"   ├─ File: {file_path}")
+    print(f"   ├─ Target Capacity: {capacity or '(Not specified, relying on status marks)'}")
+    print(f"   └─ Manual Confirmed Overrides: {manual_confirmed or '(None)'}")
+
+    abs_path = resolve_path(file_path)
+    if not os.path.exists(abs_path):
+        return (
+            f"Error: Registration file not found at '{file_path}'. "
+            "Please upload your CSV or Excel file or paste the attendee names directly into the chat."
+        )
+
+    ext = os.path.splitext(abs_path.lower())[1]
+
+    parsed = _load_registration_rows(abs_path, ext, file_path)
+    if isinstance(parsed, str):
+        return parsed
+    raw_rows, headers = parsed
+
+    first_name_col, last_name_col, full_name_col, timestamp_col, status_col = _detect_registration_columns(headers)
+
+    rosters = _build_attendee_rosters(
+        raw_rows,
+        first_name_col,
+        last_name_col,
+        full_name_col,
+        timestamp_col,
+        status_col,
+        capacity,
+        manual_confirmed,
+    )
+    registered_list = rosters["registered_list"]
+    waitlist_list = rosters["waitlist_list"]
+    duplicate_count = rosters["duplicate_count"]
+
+    outputs = _write_registration_outputs(registered_list, waitlist_list)
+    doc_ok = outputs["doc_ok"]
+    doc_path = outputs["doc_path"]
+    cloud_doc_url = outputs["cloud_doc_url"]
+    roster_text = outputs["roster_text"]
 
     # 9. Simple, professional chat summary containing only the statistics and file links (no large inline tables)
     summary_str = f"""### 📊 Event Registration Processing Summary
@@ -1174,11 +1274,11 @@ Successfully processed the registrations list:
 - **Total Raw Entries**: {len(raw_rows)}
 - **Duplicates Removed**: {duplicate_count} (verified across direct, inverted, and cross-script matches)
 - **Script Normalization**: All Cyrillic names transliterated into Latin script
-- **Confirmed Registrants (registered)**: **{len(registered_list)}** (including {len(manual_entries_cleaned)} manual additions)
-  * *Organisers*: {len(organisers_tier)}
-  * *Speakers*: {len(speakers_tier)}
-  * *Manual Priority Additions*: {len(manual_confirmed_tier)}
-  * *Standard Registered Attendees*: {len(confirmed_standard)}
+- **Confirmed Registrants (registered)**: **{len(registered_list)}** (including {rosters["manual_additions_count"]} manual additions)
+  * *Organisers*: {rosters["organisers_count"]}
+  * *Speakers*: {rosters["speakers_count"]}
+  * *Manual Priority Additions*: {rosters["manual_priority_count"]}
+  * *Standard Registered Attendees*: {rosters["standard_confirmed_count"]}
 - **Waitlisted Registrants (waitlist)**: **{len(waitlist_list)}**
 """
     if doc_ok:

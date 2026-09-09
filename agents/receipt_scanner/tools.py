@@ -122,23 +122,28 @@ REQUIRED_TEMPLATE_TAGS = [
 
 
 # ---------------------------------------------------------------------------
-# Tool: get_usd_pln_rate
+# Helper: _fetch_pekao_pln_rate (shared by get_usd_pln_rate / get_eur_pln_rate)
 # ---------------------------------------------------------------------------
 
 
-def get_usd_pln_rate() -> dict:
+def _fetch_pekao_pln_rate(currency: str) -> dict:
     """
-    Fetches the current USD/PLN 'Bank kupuje' (bank buy) exchange rate
+    Fetches the current <currency>/PLN 'Bank kupuje' (bank buy) exchange rate
     from Pekao bank website (https://www.pekao.com.pl/kursy-walut.html).
-    If Pekao website is down or layout changed, automatically falls back to
-    the official NBP (National Bank of Poland) Exchange API.
+    If the Pekao website is down or its layout changed, automatically falls
+    back to the official NBP (National Bank of Poland) Exchange API (Table C).
+
+    Args:
+        currency: Three-letter ISO currency code, e.g. "USD" or "EUR".
 
     Returns:
-        dict with keys: 'success', 'rate' (float), 'source', 'error'
+        dict with keys: 'success', 'rate' (float), 'source', 'url', and
+        'error' when the fetch failed.
     """
+    currency = currency.upper().strip()
     pekao_url = "https://www.pekao.com.pl/kursy-walut.html"
     try:
-        print("[DEBUG] Attempting to fetch USD/PLN rate from Pekao bank...")
+        print(f"[DEBUG] Attempting to fetch {currency}/PLN rate from Pekao bank...")
         resp = requests.get(
             pekao_url,
             headers={"User-Agent": "Mozilla/5.0"},
@@ -147,15 +152,15 @@ def get_usd_pln_rate() -> dict:
         resp.raise_for_status()
         html = resp.text
 
-        # Find USD section, then extract the first cr-buy value
-        usd_idx = html.find('alt="USD"')
-        if usd_idx == -1:
-            usd_idx = html.find(">USD / PLN")
-        if usd_idx == -1:
-            raise ValueError("USD block not found on Pekao page")
+        # Find the currency section, then extract the first cr-buy value
+        idx = html.find(f'alt="{currency}"')
+        if idx == -1:
+            idx = html.find(f">{currency} / PLN")
+        if idx == -1:
+            raise ValueError(f"{currency} block not found on Pekao page")
 
-        # Search for cr-buy rate after the USD section
-        snippet = html[usd_idx : usd_idx + 1200]
+        # Search for cr-buy rate after the currency section
+        snippet = html[idx : idx + 1200]
         match = re.search(r"cr-buy[^>]*>.*?<span[^>]*>\s*([\d,\.]+)\s*</span>", snippet, re.S)
         if not match:
             raise ValueError("Could not parse rate from Pekao page snippet")
@@ -166,20 +171,21 @@ def get_usd_pln_rate() -> dict:
         return {
             "success": True,
             "rate": rate,
-            "source": "Pekao Bank kupuje USD/PLN",
+            "source": f"Pekao Bank kupuje {currency}/PLN",
             "url": pekao_url,
         }
 
     except Exception as pekao_err:
-        print(f"[WARNING] Pekao rate fetch failed: {pekao_err}. Falling back to NBP API...")
+        print(f"[WARNING] Pekao {currency} rate fetch failed: {pekao_err}. Falling back to NBP API...")
 
         # Fallback: Official NBP API (Table C contains buy/sell rates)
-        nbp_url = "http://api.nbp.pl/api/exchangerates/rates/c/usd/today/?format=json"
+        currency_lower = currency.lower()
+        nbp_url = f"http://api.nbp.pl/api/exchangerates/rates/c/{currency_lower}/today/?format=json"
         try:
             resp = requests.get(nbp_url, timeout=5)
             # If today's rates aren't published yet (e.g. weekend), get the last 5 rates
             if resp.status_code == 404:
-                nbp_url = "http://api.nbp.pl/api/exchangerates/rates/c/usd/last/5/?format=json"
+                nbp_url = f"http://api.nbp.pl/api/exchangerates/rates/c/{currency_lower}/last/5/?format=json"
                 resp = requests.get(nbp_url, timeout=5)
 
             resp.raise_for_status()
@@ -202,6 +208,24 @@ def get_usd_pln_rate() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Tool: get_usd_pln_rate
+# ---------------------------------------------------------------------------
+
+
+def get_usd_pln_rate() -> dict:
+    """
+    Fetches the current USD/PLN 'Bank kupuje' (bank buy) exchange rate
+    from Pekao bank website (https://www.pekao.com.pl/kursy-walut.html).
+    If Pekao website is down or layout changed, automatically falls back to
+    the official NBP (National Bank of Poland) Exchange API.
+
+    Returns:
+        dict with keys: 'success', 'rate' (float), 'source', 'error'
+    """
+    return _fetch_pekao_pln_rate("USD")
+
+
+# ---------------------------------------------------------------------------
 # Helper: get_eur_pln_rate
 # ---------------------------------------------------------------------------
 
@@ -212,65 +236,7 @@ def get_eur_pln_rate() -> dict:
     from Pekao bank website (https://www.pekao.com.pl/kursy-walut.html).
     Falls back to NBP Exchange API (Table C).
     """
-    pekao_url = "https://www.pekao.com.pl/kursy-walut.html"
-    try:
-        print("[DEBUG] Attempting to fetch EUR/PLN rate from Pekao bank...")
-        resp = requests.get(
-            pekao_url,
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        html = resp.text
-
-        # Find EUR section, then extract the first cr-buy value
-        eur_idx = html.find('alt="EUR"')
-        if eur_idx == -1:
-            eur_idx = html.find(">EUR / PLN")
-        if eur_idx == -1:
-            raise ValueError("EUR block not found on Pekao page")
-
-        snippet = html[eur_idx : eur_idx + 1200]
-        match = re.search(r"cr-buy[^>]*>.*?<span[^>]*>\s*([\d,\.]+)\s*</span>", snippet, re.S)
-        if not match:
-            raise ValueError("Could not parse rate from Pekao page snippet")
-
-        rate_str = match.group(1).replace(",", ".")
-        rate = float(rate_str)
-
-        return {
-            "success": True,
-            "rate": rate,
-            "source": "Pekao Bank kupuje EUR/PLN",
-            "url": pekao_url,
-        }
-
-    except Exception as pekao_err:
-        print(f"[WARNING] Pekao EUR rate fetch failed: {pekao_err}. Falling back to NBP API...")
-
-        nbp_url = "http://api.nbp.pl/api/exchangerates/rates/c/eur/today/?format=json"
-        try:
-            resp = requests.get(nbp_url, timeout=5)
-            if resp.status_code == 404:
-                nbp_url = "http://api.nbp.pl/api/exchangerates/rates/c/eur/last/5/?format=json"
-                resp = requests.get(nbp_url, timeout=5)
-
-            resp.raise_for_status()
-            data = resp.json()
-            latest_rate = data["rates"][-1]
-            rate = float(latest_rate["bid"])
-
-            return {
-                "success": True,
-                "rate": rate,
-                "source": f"NBP Bid rate ({latest_rate['effectiveDate']})",
-                "url": nbp_url,
-            }
-        except Exception as nbp_err:
-            return {
-                "success": False,
-                "error": f"Both Pekao and NBP EUR rate fetches failed. Pekao: {pekao_err}. NBP: {nbp_err}",
-            }
+    return _fetch_pekao_pln_rate("EUR")
 
 
 # ---------------------------------------------------------------------------
