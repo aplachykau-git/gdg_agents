@@ -130,3 +130,4 @@ class RenderResult(BaseModel):
     status: str
     assets: list[RenderedAsset] = Field(default_factory=list)
     summary: str
+    notice: str | None = None

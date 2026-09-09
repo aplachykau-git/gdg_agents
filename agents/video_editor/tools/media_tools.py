@@ -51,6 +51,17 @@ def video_generation_enabled(tool_context: Optional[Any] = None) -> bool:
     return os.environ.get("ENABLE_VIDEO_GENERATION", "false").lower() in ("true", "1", "yes")
 
 
+def _safe_b64decode(data: str) -> bytes:
+    """Decodes base64 data strings safely, handling data URLs, urlsafe alphabet, and padding."""
+    if data.startswith("data:") and "," in data:
+        data = data.split(",", 1)[1]
+    normalized = data.strip().replace("-", "+").replace("_", "/")
+    pad = len(normalized) % 4
+    if pad:
+        normalized += "=" * (4 - pad)
+    return base64.b64decode(normalized)
+
+
 def sanitize_i2v_prompt(prompt: str) -> str:
     """Strips references to specific names, likenesses, character references, or safety-triggering phrases for AI video generation."""
     cleaned = prompt
@@ -165,7 +176,7 @@ async def stage_uploaded_media(
                         data = part.inline_data.data
                         if isinstance(data, str):
                             try:
-                                raw_bytes = base64.b64decode(data)
+                                raw_bytes = _safe_b64decode(data)
                             except Exception:
                                 raw_bytes = data.encode("utf-8")
                         else:
@@ -258,7 +269,7 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
                 if p.inline_data and p.inline_data.data:
                     outpainted_path = os.path.join(os.path.dirname(photo_path), "portrait_outpainted.png")
                     img_data = (
-                        base64.b64decode(p.inline_data.data)
+                        _safe_b64decode(p.inline_data.data)
                         if isinstance(p.inline_data.data, str)
                         else p.inline_data.data
                     )
@@ -436,7 +447,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     for step in data.get("steps", []):
         for c in step.get("content", []):
             if c.get("type") == "video" and "data" in c:
-                video_bytes = base64.b64decode(c["data"])
+                video_bytes = _safe_b64decode(c["data"])
                 break
         if video_bytes:
             break

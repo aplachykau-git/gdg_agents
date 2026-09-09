@@ -113,8 +113,12 @@ def _failure_result(failure: ValidationFailure, draft: VideoEditorDraft) -> Vide
     )
 
 
-def format_render_success_message(assets: Sequence[RenderedAsset]) -> str:
-    lines = ["Generation complete."]
+def format_render_success_message(assets: Sequence[RenderedAsset], notice: str = "") -> str:
+    lines = []
+    if notice and isinstance(notice, str):
+        lines.append(notice)
+        lines.append("")
+    lines.append("Generation complete.")
     for asset in assets:
         if asset.availability == "available" and asset.url:
             lines.append(f"- [{asset.label}]({asset.url})")
@@ -304,8 +308,10 @@ async def create_video_card(
 
     tool_context.state[COMPLETED_MEDIA_STATE_KEY] = draft.media.model_dump() if draft.media else {}
     tool_context.state[DRAFT_STATE_KEY] = {}
+    raw_notice = getattr(rendered, "notice", None)
+    notice = raw_notice if isinstance(raw_notice, str) else ""
     return VideoCardToolResult(
         status="success",
-        message=format_render_success_message(rendered.assets),
+        message=format_render_success_message(rendered.assets, notice=notice),
         assets=rendered.assets,
     ).model_dump()

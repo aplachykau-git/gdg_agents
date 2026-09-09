@@ -367,8 +367,17 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
                     message=f"Failed to render video composition: {render_err}",
                     requested_action="retry",
                 )
+            notice = None
+            if any(str(prepared_media.video_path).lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]):
+                notice = (
+                    "⚠️ **Notice:** AI video animation via Gemini Omni Flash is currently unavailable due to API quota limits "
+                    "(free tier requests limit: 0). Rendered a high-resolution static speaker card poster and outpainted avatar instead. "
+                    "To generate a dynamic animated video card, upload a speaker video file (.mp4) directly."
+                )
+
             return RenderResult(
                 status="completed",
                 assets=normalise_rendered_assets(summary),
                 summary=summary,
+                notice=notice,
             )

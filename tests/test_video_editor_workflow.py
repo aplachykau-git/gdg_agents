@@ -6,8 +6,12 @@ from unittest.mock import MagicMock, patch
 
 from agents.video_editor.tools import media_tools
 from agents.video_editor.tools.composer_tools import build_card_config, render_composer, update_composer
-from agents.video_editor.tools.media_tools import animate_photo
-from agents.video_editor.tools.video_card_tool import confirmation_required, create_video_card
+from agents.video_editor.tools.media_tools import _safe_b64decode, animate_photo
+from agents.video_editor.tools.video_card_tool import (
+    confirmation_required,
+    create_video_card,
+    format_render_success_message,
+)
 from agents.video_editor.video_card_service import (
     _copy_workspace_template,
     compile_creative_prompt,
@@ -674,6 +678,33 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         self.assertEqual(result.code, "model_unavailable")
         self.assertIn("Image-to-video generation is disabled", result.message)
         self.assertEqual(result.requested_action, "replace_media")
+
+    def test_safe_b64decode_handles_standard_urlsafe_and_data_urls(self):
+        # Standard base64
+        self.assertEqual(_safe_b64decode("aGVsbG8="), b"hello")
+        # Unpadded base64
+        self.assertEqual(_safe_b64decode("aGVsbG8"), b"hello")
+        # Urlsafe base64 (- and _)
+        import base64
+
+        raw = b"\xfb\xff\xfe\x00\x01test"
+        urlsafe_encoded = base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+        self.assertEqual(_safe_b64decode(urlsafe_encoded), raw)
+        # Data URL prefix
+        data_url = f"data:image/png;base64,{urlsafe_encoded}"
+        self.assertEqual(_safe_b64decode(data_url), raw)
+
+    def test_format_render_success_message_with_notice(self):
+        assets = [
+            RenderedAsset(label="Static Card Poster", path="card.png", url="/media/card.png", mime_type="image/png"),
+        ]
+        msg = format_render_success_message(assets, notice="⚠️ API Quota Notice")
+        self.assertTrue(msg.startswith("⚠️ API Quota Notice\n\nGeneration complete."))
+        self.assertIn("[Static Card Poster](/media/card.png)", msg)
+
+        # Without notice
+        msg_no_notice = format_render_success_message(assets)
+        self.assertTrue(msg_no_notice.startswith("Generation complete."))
 
 
 if __name__ == "__main__":

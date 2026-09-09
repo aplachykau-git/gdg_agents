@@ -808,8 +808,11 @@ def export_summary_to_google_doc(
                                         body={"type": "anyone", "role": "reader"},
                                         supportsAllDrives=True,
                                     ).execute()
-                                except Exception:
-                                    pass
+                                except Exception as perm_err:
+                                    print(
+                                        f"⚠️ [Google Drive Proof Upload Notice] Could not make proof image "
+                                        f"'{proof_id}' publicly viewable: {perm_err}"
+                                    )
                                 uploaded_proof_ids.append(proof_id)
                     except Exception as upload_err:
                         print(f"⚠️ [Google Drive Proof Upload Notice] {upload_err}")

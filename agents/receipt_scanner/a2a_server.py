@@ -57,7 +57,8 @@ class DynamicAgentCardOriginMiddleware(BaseHTTPMiddleware):
                     headers=headers,
                     media_type="application/json",
                 )
-            except Exception:
+            except Exception as rewrite_err:
+                print(f"⚠️ [Agent Card Origin Rewrite] Falling back to unmodified body: {rewrite_err}")
                 return Response(
                     content=full_body,
                     status_code=response.status_code,

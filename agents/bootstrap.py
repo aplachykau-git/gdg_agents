@@ -34,5 +34,9 @@ def initialise_agent_environment() -> None:
 
         EventActions.model_rebuild()
         Event.model_rebuild()
-    except Exception:
-        pass
+    except Exception as warmup_err:
+        # Non-fatal: this is a best-effort warm-up to avoid a known 'MockValSer'
+        # SchemaSerializer error. Agents still work if it fails, just slower on
+        # first use — but log it so a real breakage (e.g. a pydantic/ADK API
+        # change) is visible instead of silently hidden.
+        print(f"⚠️ [Startup Warm-up] Skipped ADK/GenAI model pre-build: {warmup_err}")

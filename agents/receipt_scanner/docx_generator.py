@@ -205,6 +205,15 @@ def generate_expense_report_docx(
     # 3. Collect Proof Images
     images_to_embed: List[bytes] = []
 
+    def _safe_b64decode(data: str) -> bytes:
+        if data.startswith("data:") and "," in data:
+            data = data.split(",", 1)[1]
+        normalized = data.strip().replace("-", "+").replace("_", "/")
+        pad = len(normalized) % 4
+        if pad:
+            normalized += "=" * (4 - pad)
+        return base64.b64decode(normalized)
+
     def _normalize_image_bytes(raw: Any) -> Optional[bytes]:
         if not raw:
             return None
@@ -218,19 +227,13 @@ def generate_expense_report_docx(
                         return f.read()
                 except Exception as err:
                     print(f"⚠️ [Image Read Error] Could not read {raw}: {err}")
-            # Check if base64 data URL
-            if raw.startswith("data:") and "," in raw:
-                try:
-                    return base64.b64decode(raw.split(",", 1)[1])
-                except Exception:
-                    pass
-            # Try raw base64 decode
+            # Try safe base64 decode (handles data URLs, standard base64, and urlsafe base64)
             try:
-                decoded = base64.b64decode(raw)
+                decoded = _safe_b64decode(raw)
                 if len(decoded) > 10:
                     return decoded
-            except Exception:
-                pass
+            except Exception as err:
+                print(f"⚠️ [Image Decode Error] Could not decode base64 data: {err}")
         return None
 
     if session_images:

@@ -1370,8 +1370,8 @@ def verify_and_deduplicate_registrations(
                                 raw_names.append(" ".join(col.strip() for col in row if col.strip()))
                     if raw_names:
                         break
-                except Exception:
-                    pass
+                except Exception as read_err:
+                    print(f"⚠️ Failed to read staged registrations file '{staged_p}': {read_err}")
 
     if not raw_names and not manual_confirmed:
         return (
