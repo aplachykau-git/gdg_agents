@@ -530,7 +530,12 @@ async def review_face_node(ctx: Context) -> None:
     try:
         review = await _structured_response(
             ReviewDecision,
-            "Approve only if this portrait contains a clear, recognisable human face suitable for a speaker card.",
+            (
+                "Verify whether this image contains a visible human face or person. "
+                "Approve (approved=True) if a human face is recognizable. "
+                "DO NOT critique or reject for clothing, attire, text/logos/typos on clothing, casual outfits, background, or lighting. "
+                "Reject ONLY if there is NO human face or person visible in the image."
+            ),
             [
                 types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
                 types.Part.from_text(text="Return the structured review."),

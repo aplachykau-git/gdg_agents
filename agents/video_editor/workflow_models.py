@@ -10,6 +10,8 @@ class VideoEditorRequest(BaseModel):
     name: str | None = None
     position_company: str | None = None
     creative_direction: str | None = None
+    speaker_bio: str | None = None
+    creative_guidance: str | None = None
 
 
 class IntakeDecision(BaseModel):
@@ -73,6 +75,14 @@ class VideoShot(BaseModel):
     lighting_atmosphere: str
 
 
+class ScenarioStyle(BaseModel):
+    id: str
+    name: str
+    genre: str
+    shots: list[VideoShot] = Field(default_factory=list)
+    omni_prompt: str
+
+
 class CreativeScenario(BaseModel):
     id: str
     title: str
@@ -80,6 +90,7 @@ class CreativeScenario(BaseModel):
     concept: str
     shots: list[VideoShot] = Field(default_factory=list)
     omni_prompt: str
+    styles: list[ScenarioStyle] = Field(default_factory=list)
 
 
 class VideoEditorDraft(VideoEditorRequest):

@@ -1393,16 +1393,84 @@ export function extractEventDates(text, author) {
   };
 }
 
-export function hasVideoScenarios(text) {
-  if (!text) return false;
-  return (
-    text.includes('Creative Video Scenarios') ||
-    (/Option\s*\d+:\s*.+?\(`.+?`\)/i.test(text) && text.includes('Shot 1') && text.includes('Shot 5'))
-  );
+export function hasVideoScenarios(input) {
+  if (!input) return false;
+  if (Array.isArray(input) && input.length > 0) return true;
+  if (typeof input === 'object') {
+    if (Array.isArray(input.scenarios) && input.scenarios.length > 0) return true;
+    if (typeof input.message === 'string' && hasVideoScenarios(input.message)) return true;
+    return false;
+  }
+  if (typeof input === 'string') {
+    return (
+      input.includes('Creative Video Scenarios') ||
+      (/Option\s*\d+:\s*.+?\(`.+?`\)/i.test(input) && input.includes('Shot 1') && input.includes('Shot 5'))
+    );
+  }
+  return false;
 }
 
-export function extractVideoScenarios(text) {
-  if (!text) return [];
+export function normalizeScenarios(rawScenarios) {
+  if (!Array.isArray(rawScenarios)) return [];
+  return rawScenarios.map((sc, idx) => {
+    const num = sc.number || (idx + 1);
+    const shots = (sc.shots || []).map((sh, sIdx) => ({
+      shotNumber: sh.shot_number ?? sh.shotNumber ?? (sIdx + 1),
+      timeRange: sh.time_range ?? sh.timeRange ?? `00:0${sIdx * 2} - 00:0${(sIdx + 1) * 2}`,
+      action: (sh.action || '').trim(),
+      camera: (sh.camera || '').trim()
+    }));
+
+    const styles = (sc.styles || []).map((st, stIdx) => ({
+      id: st.id || `${sc.id || `scenario_${num}`}_style_${stIdx + 1}`,
+      name: st.name || st.genre || `Style ${stIdx + 1}`,
+      genre: st.genre || '',
+      description: st.description || '',
+      shots: (st.shots || []).map((sh, sIdx) => ({
+        shotNumber: sh.shot_number ?? sh.shotNumber ?? (sIdx + 1),
+        timeRange: sh.time_range ?? sh.timeRange ?? `00:0${sIdx * 2} - 00:0${(sIdx + 1) * 2}`,
+        action: (sh.action || '').trim(),
+        camera: (sh.camera || '').trim(),
+        lightingAtmosphere: (sh.lighting_atmosphere ?? sh.lightingAtmosphere ?? '').trim()
+      })),
+      omniPrompt: st.omni_prompt ?? st.omniPrompt ?? ''
+    }));
+
+    return {
+      id: sc.id || `scenario_${num}`,
+      number: num,
+      title: sc.title || `Option ${num}`,
+      genre: sc.genre || 'Cinematic',
+      concept: (sc.concept || '').trim(),
+      shots,
+      omniPrompt: sc.omni_prompt || sc.omniPrompt || sc.concept || '',
+      styles
+    };
+  });
+}
+
+export function extractVideoScenarios(input) {
+  if (!input) return [];
+
+  // If already an array of scenario objects, normalize directly
+  if (Array.isArray(input)) {
+    return normalizeScenarios(input);
+  }
+
+  // If an object with scenarios array or message string
+  if (typeof input === 'object') {
+    if (Array.isArray(input.scenarios) && input.scenarios.length > 0) {
+      return normalizeScenarios(input.scenarios);
+    }
+    if (typeof input.message === 'string') {
+      return extractVideoScenarios(input.message);
+    }
+    return [];
+  }
+
+  if (typeof input !== 'string') return [];
+  const text = input;
+
   const scenarioRegex = /####?\s*Option\s*(\d+):\s*([^\n\(`]+?)(?:\s*\(`([^`\)]+?)`\))?\s*\n\*\*Concept:\*\*\s*([^\n]+)([\s\S]*?)(?=>\s*\*\*Omni Prompt|####?\s*Option|\n\n\n|$)(?:>\s*\*\*Omni Prompt(?:\s*\(([^\)]+)\))?:\*\*\s*\n>\s*([^\n]+(?:\n>[^\n]+)*))?/gi;
   
   const scenarios = [];
@@ -1428,6 +1496,33 @@ export function extractVideoScenarios(text) {
       });
     }
 
+    // Extract optional styles payload
+    let styles = [];
+    const fullBlock = match[0] || (tableBlock + (match[7] || ''));
+    const stylesMatch = fullBlock.match(/<!--\s*SCENARIO_STYLES_JSON:\s*([\s\S]*?)\s*-->/);
+    if (stylesMatch) {
+      try {
+        const parsedStyles = JSON.parse(stylesMatch[1]);
+        if (Array.isArray(parsedStyles) && parsedStyles.length > 0) {
+          styles = parsedStyles.map(st => ({
+            id: st.id || '',
+            name: st.name || st.genre || 'Style',
+            genre: st.genre || '',
+            shots: (st.shots || []).map(sh => ({
+              shotNumber: sh.shot_number ?? sh.shotNumber ?? 1,
+              timeRange: sh.time_range ?? sh.timeRange ?? '00:00 - 00:02',
+              action: sh.action ?? '',
+              camera: sh.camera ?? '',
+              lightingAtmosphere: sh.lighting_atmosphere ?? sh.lightingAtmosphere ?? ''
+            })),
+            omniPrompt: st.omni_prompt ?? st.omniPrompt ?? ''
+          }));
+        }
+      } catch (e) {
+        console.warn('Failed to parse SCENARIO_STYLES_JSON:', e);
+      }
+    }
+
     scenarios.push({
       id: scenarioId,
       number: num,
@@ -1435,7 +1530,8 @@ export function extractVideoScenarios(text) {
       genre,
       concept,
       shots,
-      omniPrompt: rawOmni || concept
+      omniPrompt: rawOmni || concept,
+      styles
     });
   }
 

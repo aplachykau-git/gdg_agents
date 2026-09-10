@@ -8,7 +8,7 @@ from pydantic import Field
 
 from agents.gemini_config import get_gemini_client
 
-from ..prompt_director import format_scenarios_markdown, generate_creative_scenarios
+from ..prompt_director import format_scenarios_markdown, format_timed_omni_prompt, generate_creative_scenarios
 from ..video_card_service import (
     _latest_user_upload,
     draft_fingerprint,
@@ -170,6 +170,7 @@ async def create_video_card(
     creative_direction: str | None = None,
     selected_scenario_id: str | None = None,
     speaker_bio: str | None = None,
+    creative_guidance: str | None = None,
     regenerate_scenarios: bool = False,
     confirm_render: bool = False,
     tool_context: ToolContext | None = None,
@@ -189,12 +190,22 @@ async def create_video_card(
         current_upload = None
     if current_upload == draft.media:
         current_upload = None
+
+    # Reconcile media_type with active upload if present
+    active_media = current_upload or draft.media
+    if active_media and getattr(active_media, "mime_type", None):
+        mime = active_media.mime_type
+        if mime.startswith("image/"):
+            media_type = "image"
+        elif mime.startswith("video/"):
+            media_type = "video"
+
     input_failure = _validate_required_inputs(
         talk_title,
         name,
         position_company,
         media_type,
-        current_upload or draft.media,
+        active_media,
     )
     if input_failure:
         return input_failure.model_dump()
@@ -202,13 +213,31 @@ async def create_video_card(
     # Handle scenario selection from existing scenarios if provided
     resolved_direction = creative_direction
     matched_scenario_id = selected_scenario_id
-    if selected_scenario_id and draft.suggested_scenarios:
-        for sc in draft.suggested_scenarios:
-            if sc.id.lower() == selected_scenario_id.lower() or selected_scenario_id.lower() in sc.title.lower():
-                matched_scenario_id = sc.id
-                if not resolved_direction:
-                    resolved_direction = sc.omni_prompt
-                break
+    if draft.suggested_scenarios:
+        matched_sc = None
+        if selected_scenario_id:
+            for sc in draft.suggested_scenarios:
+                if sc.id.lower() == selected_scenario_id.lower() or selected_scenario_id.lower() in sc.title.lower():
+                    matched_sc = sc
+                    matched_scenario_id = sc.id
+                    break
+        elif creative_direction:
+            for sc in draft.suggested_scenarios:
+                if sc.title.lower() in creative_direction.lower() or sc.id.lower() in creative_direction.lower():
+                    matched_sc = sc
+                    matched_scenario_id = sc.id
+                    break
+
+        if matched_sc:
+            has_timings = bool(
+                resolved_direction
+                and any(m in resolved_direction.lower() for m in ("00:00", "0-2s", "shot 1", "shot 2"))
+            )
+            if not has_timings:
+                sc_prompt = matched_sc.omni_prompt
+                if matched_sc.shots and not any(m in sc_prompt.lower() for m in ("00:00", "0-2s", "shot 1")):
+                    sc_prompt = format_timed_omni_prompt(matched_sc.shots, matched_sc.genre, sc_prompt)
+                resolved_direction = sc_prompt
 
     draft = merge_draft(
         draft,
@@ -216,6 +245,8 @@ async def create_video_card(
         name=name,
         position_company=position_company,
         creative_direction=resolved_direction,
+        speaker_bio=speaker_bio or draft.speaker_bio,
+        creative_guidance=creative_guidance or draft.creative_guidance,
         selected_scenario_id=matched_scenario_id,
         media=current_upload,
     )
@@ -232,9 +263,9 @@ async def create_video_card(
             draft=draft,
         ).model_dump()
 
-    # If video generation is enabled and no scenario chosen yet, propose 5x2s cinematic scenarios
+    # If video generation is enabled and no scenario chosen yet, propose 5x2s creative scenarios
     has_existing = bool(draft.suggested_scenarios)
-    if should_propose_scenarios(
+    should_propose = should_propose_scenarios(
         tool_context,
         media_type,
         draft.creative_direction,
@@ -242,12 +273,27 @@ async def create_video_card(
         regenerate_scenarios,
         has_suggested_scenarios=has_existing,
         confirm_render=confirm_render,
-    ):
+    ) or bool(creative_guidance and not confirm_render and not selected_scenario_id)
+
+    if should_propose:
+        effective_bio = speaker_bio or draft.speaker_bio
+        effective_guidance = (
+            creative_guidance
+            or draft.creative_guidance
+            or (
+                creative_direction
+                if not selected_scenario_id
+                and not confirm_render
+                and "shot 1" not in (creative_direction or "").lower()
+                else None
+            )
+        )
         scenarios = generate_creative_scenarios(
             talk_title=draft.title or talk_title,
             speaker_name=draft.name or name,
             position_company=draft.position_company or position_company,
-            speaker_bio=speaker_bio,
+            speaker_bio=effective_bio,
+            creative_guidance=effective_guidance,
         )
 
         draft = merge_draft(
@@ -256,6 +302,8 @@ async def create_video_card(
             name=name,
             position_company=position_company,
             creative_direction=None,
+            speaker_bio=effective_bio,
+            creative_guidance=effective_guidance,
             selected_scenario_id=None,
             media=current_upload,
             suggested_scenarios=scenarios,

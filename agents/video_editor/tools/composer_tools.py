@@ -560,13 +560,33 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
             original_video_src.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]
         )
 
+        # The user explicitly requires the poster to be created from the speaker's real portrait photo,
+        # never from an AI video frame.
+        speaker_photo_candidates = [
+            "assets/portrait_outpainted.png",
+            "assets/staged_media.png",
+            "assets/staged_media.jpg",
+            "assets/staged_media.jpeg",
+            "assets/staged_media.webp",
+        ]
         temp_image_src = ""
-        # If it's a video and ffmpeg is installed, extract the first frame
-        if is_video_src and ffmpeg_installed:
+        for cand in speaker_photo_candidates:
+            cand_abs = resolve_path(cand)
+            if os.path.exists(cand_abs) and os.path.isfile(cand_abs):
+                temp_image_src = cand
+                print(f"📸 [Poster] Using authentic speaker portrait '{cand}' for high-resolution card poster.")
+                break
+
+        # If original_video_src was already a static image, use it
+        if not temp_image_src and not is_video_src and original_video_src:
+            temp_image_src = original_video_src
+
+        # Fallback to extracting video frame only if absolutely no speaker photo exists anywhere
+        if not temp_image_src and is_video_src and ffmpeg_installed:
             video_abs = resolve_path(original_video_src)
             if os.path.exists(video_abs):
                 frame_out_path = os.path.join(BASE_DIR, "assets", "temp_video_frame.png")
-                print(f"🎥 [Poster] Extracting first frame of video '{original_video_src}' for snapshot...")
+                print(f"🎥 [Poster] Fallback: Extracting first frame of video '{original_video_src}' for snapshot...")
                 try:
                     extract_cmd = ["ffmpeg", "-y", "-i", video_abs, "-ss", "00:00:00", "-vframes", "1", frame_out_path]
                     extract_res = subprocess.run(extract_cmd, capture_output=True, text=True, cwd=BASE_DIR)
@@ -577,8 +597,6 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                         print(f"⚠️ [Poster] Failed to extract first frame from video: {extract_res.stderr}")
                 except Exception as frame_err:
                     print(f"⚠️ [Poster] Error extracting first frame: {frame_err}")
-        elif not is_video_src and original_video_src:
-            temp_image_src = original_video_src
 
         # Fallback to portrait_outpainted if temp_image_src is not resolved or not found
         if not temp_image_src or not os.path.exists(resolve_path(temp_image_src)):
@@ -608,13 +626,16 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                     r'id="card-image"\s+src=".*?"', lambda _: f'id="card-image" src="{temp_image_src}"', temp_content
                 )
 
-                # Ensure cursor/caret icon is completely invisible on the poster snapshot
+                # Ensure cursor/caret icon is completely invisible on the poster snapshot,
+                # and card-image is forced visible while card-video is hidden
+                poster_styles = (
+                    "    #cursor, .cursor-span { display: none !important; opacity: 0 !important; visibility: hidden !important; }\n"
+                    "    #card-image { display: block !important; opacity: 1 !important; visibility: visible !important; }\n"
+                    "    #card-video { display: none !important; opacity: 0 !important; visibility: hidden !important; }\n"
+                    "  </style>"
+                )
                 if "</style>" in temp_content:
-                    temp_content = temp_content.replace(
-                        "</style>",
-                        "    #cursor, .cursor-span { display: none !important; opacity: 0 !important; visibility: hidden !important; }\n  </style>",
-                        1,
-                    )
+                    temp_content = temp_content.replace("</style>", poster_styles, 1)
                 temp_content = re.sub(
                     r'<span\s+id="cursor"[^>]*?>.*?</span>',
                     lambda _: (

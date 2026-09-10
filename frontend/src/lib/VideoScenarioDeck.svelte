@@ -9,7 +9,8 @@
     Play, 
     Sliders,
     ChevronDown,
-    ChevronUp
+    ChevronUp,
+    Palette
   } from '@lucide/svelte';
 
   let { 
@@ -23,6 +24,7 @@
   let expandedMap = $state({});
   let customPrompts = $state({});
   let isEditing = $state(false);
+  let selectedStylesMap = $state({});
 
   let allExpanded = $state(true);
 
@@ -45,9 +47,100 @@
     userSelectedId = sc.id;
   }
 
+  function ensureScenarioStyles(sc) {
+    if (sc.styles && sc.styles.length >= 3) {
+      return sc.styles;
+    }
+    const baseGenre = sc.genre || 'Cinematic Film';
+    const shots = sc.shots || [];
+
+    const style1Name = (sc.styles && sc.styles[0]?.name) || (baseGenre.includes('/') ? baseGenre.split('/')[0].trim() : baseGenre);
+    const style1 = (sc.styles && sc.styles[0]) ? sc.styles[0] : {
+      id: `${sc.id}_style_1`,
+      name: style1Name || 'Signature Look',
+      genre: baseGenre,
+      description: `Original ${baseGenre} visual treatment.`,
+      shots: shots,
+      omniPrompt: sc.omniPrompt
+    };
+
+    const isPop = /pop|wes anderson|quirky|pastel|whimsical|fashion|comedy/i.test(baseGenre);
+    const isRetro = /retro|vintage|analog|70s|80s|noir/i.test(baseGenre);
+    const isCyber = /cyber|neon|matrix/i.test(baseGenre);
+
+    let style2Name = 'Pastel Pop-Art';
+    let style2Genre = 'Stylized Pop-Art / Symmetrical Commercial';
+    let style2Desc = 'Playful symmetrical framing, vibrant pastel color blocking, and punchy witty energy.';
+    let s2Cam = 'Snappy 90-degree whip-pan, dead-center symmetrical framing, rapid playful snap-in';
+    let s2Light = 'Shadowless pastel mint and coral lighting with vivid retro saturation';
+
+    if (isCyber) {
+      style2Name = 'Solarpunk Daylight';
+      style2Genre = 'Solarpunk / Architectural Daylight';
+      style2Desc = 'Clean architectural daylight, lush greenery, and soft airy reflections.';
+      s2Cam = 'Airy Steadicam tracking shot with soft natural flare';
+      s2Light = 'Clean radiant daylight with soft atmospheric haze';
+    } else if (isPop) {
+      style2Name = 'High-Gloss Studio Ad';
+      style2Genre = 'High-Gloss Studio Commercial / Editorial';
+      style2Desc = 'Pristine white studio rim-lighting with soft diffused color fills and seamless rotational tracking.';
+      s2Cam = 'Silky crane movement, seamless rotational studio tracking';
+      s2Light = 'Pristine white studio rim-lighting with soft diffused color fills';
+    }
+
+    const style2 = (sc.styles && sc.styles[1]) ? sc.styles[1] : {
+      id: `${sc.id}_style_2`,
+      name: style2Name,
+      genre: style2Genre,
+      description: style2Desc,
+      shots: shots.map(sh => ({
+        ...sh,
+        camera: s2Cam,
+        lightingAtmosphere: s2Light
+      })),
+      omniPrompt: `Cinematic 9:16 ${style2Genre}. ` + shots.map(sh => `Shot ${sh.shotNumber} (${sh.timeRange}): ${sh.action}`).join(' ')
+    };
+
+    const style3Name = isRetro ? 'Monochrome Noir' : 'Warm 35mm Film';
+    const style3Genre = isRetro ? 'Monochrome Film Noir / Arthouse' : 'Warm 35mm Analog / Kodak Cinema';
+    const style3 = (sc.styles && sc.styles[2]) ? sc.styles[2] : {
+      id: `${sc.id}_style_3`,
+      name: style3Name,
+      genre: style3Genre,
+      description: isRetro 
+        ? 'Dramatic black-and-white contrast, expressive chiaroscuro shadows, and bold silver-screen texture.'
+        : 'Warm tungsten amber glow, tactile 35mm film grain, and soft golden-hour halation.',
+      shots: shots.map(sh => ({
+        ...sh,
+        camera: `${sh.camera || 'Medium shot'}, vintage optical prime lens`,
+        lightingAtmosphere: isRetro ? 'Chiaroscuro high-contrast black & white lighting' : 'Warm tungsten glow with subtle 35mm grain'
+      })),
+      omniPrompt: `Cinematic 9:16 ${style3Genre}. ` + shots.map(sh => `Shot ${sh.shotNumber} (${sh.timeRange}): ${sh.action}`).join(' ')
+    };
+
+    return [style1, style2, style3];
+  }
+
+  function getActiveStyle(sc) {
+    const styles = ensureScenarioStyles(sc);
+    const chosenId = selectedStylesMap[sc.id];
+    return styles.find(s => s.id === chosenId) || styles[0];
+  }
+
+  function handleSelectStyle(scId, styleId) {
+    selectedStylesMap = { ...selectedStylesMap, [scId]: styleId };
+  }
+
+  function getPromptValue(sc, activeStyle) {
+    const key = `${sc.id}_${activeStyle.id}`;
+    if (customPrompts[key] !== undefined) return customPrompts[key];
+    return activeStyle.omniPrompt || sc.omniPrompt || '';
+  }
+
   function handleConfirmRender(sc) {
-    const finalPrompt = (customPrompts[sc.id] ?? sc.omniPrompt).trim();
-    onSelect(`Please render video with scenario: ${sc.title}. Creative direction: "${finalPrompt}"`);
+    const activeStyle = getActiveStyle(sc);
+    const finalPrompt = (getPromptValue(sc, activeStyle) || activeStyle.omniPrompt || sc.omniPrompt || '').trim();
+    onSelect(`Please render video with scenario: ${sc.title} (${activeStyle.name} style). Creative direction: "${finalPrompt}"`);
   }
 
   function handleRegenerateClick() {
@@ -73,23 +166,27 @@
       <button 
         class="regenerate-btn" 
         onclick={handleRegenerateClick}
-        title="Request new imaginative scenario concepts"
+        title="Request 3 new imaginative scenario concepts"
       >
         <RefreshCw size={13} />
-        <span>New Scenarios</span>
+        <span>Regenerate (3 New Concepts)</span>
       </button>
     </div>
   </div>
 
   <p class="deck-intro">
-    Choose one cinematic scenario to proceed. All alternative concepts detail 5 progressive shots (2 seconds each).
+    Choose one cinematic storyline and visual style (3 styles per scenario). All alternative concepts detail 5 progressive shots (2 seconds each).
   </p>
 
   <div class="scenario-cards-list">
     {#each scenarios as sc, idx (sc.id || idx)}
       {@const isSelected = selectedId === sc.id}
       {@const isExpanded = isItemExpanded(sc.id, idx)}
-      {@const promptValue = customPrompts[sc.id] ?? sc.omniPrompt}
+      {@const styles = ensureScenarioStyles(sc)}
+      {@const activeStyle = getActiveStyle(sc)}
+      {@const activeShots = (activeStyle.shots && activeStyle.shots.length > 0) ? activeStyle.shots : (sc.shots || [])}
+      {@const promptKey = `${sc.id}_${activeStyle.id}`}
+      {@const promptValue = getPromptValue(sc, activeStyle)}
 
       <div class="scenario-card" class:selected={isSelected}>
         <div 
@@ -107,7 +204,7 @@
             </div>
             <span class="scenario-number">Option {sc.number || idx + 1}</span>
             <span class="scenario-title">{sc.title}</span>
-            <span class="scenario-genre-badge">{sc.genre}</span>
+            <span class="scenario-genre-badge">{activeStyle.name || activeStyle.genre || sc.genre}</span>
           </div>
 
           <button 
@@ -126,14 +223,38 @@
 
         <p class="scenario-concept">{sc.concept}</p>
 
-        {#if isExpanded && sc.shots && sc.shots.length > 0}
+        <div class="style-tabs-container">
+          <div class="style-tabs-label">
+            <Palette size={12} />
+            <span>Style Variations:</span>
+          </div>
+          <div class="style-tabs-list">
+            {#each styles as st}
+              {@const isStyleActive = activeStyle.id === st.id}
+              <button
+                type="button"
+                class="style-tab-btn"
+                class:active={isStyleActive}
+                onclick={(e) => { e.stopPropagation(); handleSelectStyle(sc.id, st.id); }}
+                title={st.description || st.name}
+              >
+                <span>{st.name}</span>
+              </button>
+            {/each}
+          </div>
+        </div>
+        {#if activeStyle.description && activeStyle.description !== sc.concept}
+          <p class="style-description">{activeStyle.description}</p>
+        {/if}
+
+        {#if isExpanded && activeShots && activeShots.length > 0}
           <div class="shots-timeline">
             <div class="shots-timeline-label">
               <Film size={13} />
-              <span>Timeline Breakdown (10s total):</span>
+              <span>Timeline Breakdown (5 Shots &times; 2s = 10s):</span>
             </div>
             <div class="shots-grid">
-              {#each sc.shots as shot}
+              {#each activeShots as shot}
                 <div class="shot-chip">
                   <div class="shot-chip-header">
                     <span class="shot-badge">Shot {shot.shotNumber}</span>
@@ -152,7 +273,7 @@
         {#if isSelected}
           <div class="scenario-action-panel">
             <div class="prompt-preview-header">
-              <span class="prompt-header-title">Omni Video Prompt:</span>
+              <span class="prompt-header-title">Omni Video Prompt ({activeStyle.name}):</span>
               <button 
                 class="edit-toggle-btn" 
                 onclick={() => isEditing = !isEditing}
@@ -166,7 +287,7 @@
               <textarea 
                 class="prompt-textarea"
                 rows="3"
-                bind:value={customPrompts[sc.id]}
+                bind:value={customPrompts[promptKey]}
                 placeholder="Modify shot descriptions or camera movements..."
               >{promptValue}</textarea>
             {:else}
@@ -375,6 +496,71 @@
     line-height: 1.4;
   }
 
+  .style-tabs-container {
+    margin: 10px 0 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .style-tabs-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .style-tabs-list {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-surface);
+    padding: 3px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .style-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    white-space: nowrap;
+  }
+
+  .style-tab-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .style-tab-btn.active {
+    background: var(--agent-video, #FBBC04);
+    color: #111827;
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .style-description {
+    font-size: 11px;
+    font-style: italic;
+    color: var(--text-tertiary);
+    margin: 4px 0 0 24px;
+    line-height: 1.35;
+  }
+
   .shots-timeline {
     margin: 12px 0 6px 24px;
     display: flex;
@@ -395,8 +581,19 @@
 
   .shots-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
     gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+
+  .shots-grid::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .shots-grid::-webkit-scrollbar-thumb {
+    background: var(--border-subtle);
+    border-radius: var(--radius-full);
   }
 
   .shot-chip {

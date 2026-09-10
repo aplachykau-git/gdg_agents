@@ -117,7 +117,52 @@ class TestPromptDirector(unittest.TestCase):
         call_kwargs = mock_client.models.generate_content.call_args.kwargs
         self.assertEqual(call_kwargs.get("model"), "gemini-3.5-flash")
         config = call_kwargs.get("config")
-        self.assertEqual(config.temperature, 1.0)
+        self.assertEqual(config.temperature, 1.35)
+
+    @patch("agents.video_editor.prompt_director.get_gemini_client")
+    def test_omni_prompt_synthesizes_shot_timings_when_missing(self, mock_get_client):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.text = None
+
+        from agents.video_editor.prompt_director import _RawGeneratedScenarios
+
+        raw_sc = CreativeScenario(
+            id="scenario_test",
+            title="The Signal Tuner",
+            genre="Analog Retro-Futurism",
+            concept="Tuning chaotic frequencies into a single beam.",
+            shots=[
+                VideoShot(
+                    shot_number=1,
+                    time_range="00:00 - 00:02",
+                    action="Dominika approaches the CRT monitor.",
+                    camera="Slow push-in.",
+                    lighting_atmosphere="Green phosphorescent glow.",
+                ),
+                VideoShot(
+                    shot_number=2,
+                    time_range="00:02 - 00:04",
+                    action="She turns the copper knob.",
+                    camera="Macro close-up.",
+                    lighting_atmosphere="Amber spark reflections.",
+                ),
+            ],
+            omni_prompt="A retro-futuristic sequence with Dominika turning knobs without explicit timestamps.",
+        )
+        mock_response.parsed = _RawGeneratedScenarios(scenarios=[raw_sc])
+        mock_client.models.generate_content.return_value = mock_response
+
+        scenarios = generate_creative_scenarios(
+            talk_title="Signal Processing",
+            speaker_name="Dominika Zając",
+        )
+        self.assertEqual(len(scenarios), 1)
+        self.assertIn("00:00 - 00:02", scenarios[0].omni_prompt)
+        self.assertIn("00:02 - 00:04", scenarios[0].omni_prompt)
+        self.assertIn("Shot 1", scenarios[0].omni_prompt)
+        self.assertIn("Shot 2", scenarios[0].omni_prompt)
 
 
 class TestCreateVideoCardWithScenarioSelection(unittest.IsolatedAsyncioTestCase):
@@ -178,14 +223,15 @@ class TestCreateVideoCardWithScenarioSelection(unittest.IsolatedAsyncioTestCase)
                     name="Commander Mark",
                     position_company="Space Station Alpha",
                     media_type="image",
-                    selected_scenario_id="scenario_cyberpunk",
+                    selected_scenario_id=scenarios[0].id,
                     tool_context=context,
                 )
                 self.assertEqual(result["status"], "success")
                 mock_render.assert_called_once()
                 draft_arg = mock_render.call_args[0][0]
-                self.assertEqual(draft_arg.selected_scenario_id, "scenario_cyberpunk")
-                self.assertIn("cyber-thriller", draft_arg.creative_direction)
+                self.assertEqual(draft_arg.selected_scenario_id, scenarios[0].id)
+                self.assertTrue(draft_arg.creative_direction)
+                self.assertIn("Shot 1", draft_arg.creative_direction)
 
     async def test_render_blocked_until_scenario_is_selected(self):
         fake_upload = FakePart(

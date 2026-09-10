@@ -3,6 +3,7 @@ import os
 import random
 import re
 import shutil
+import subprocess
 import time
 from typing import Any, Optional
 
@@ -228,6 +229,46 @@ async def stage_uploaded_media(
     raise FileNotFoundError("No media file was found in session events or local path. Please upload a photo or video.")
 
 
+def extract_video_frame(video_path: str, output_image_path: str | None = None, timestamp: float = 1.0) -> str:
+    """Extracts a single high-quality frame from a video file to serve as a portrait/poster image."""
+    abs_video = resolve_path(video_path)
+    if not os.path.exists(abs_video) or not os.path.isfile(abs_video):
+        return ""
+
+    if not shutil.which("ffmpeg"):
+        return ""
+
+    if not output_image_path:
+        base_name = os.path.splitext(os.path.basename(abs_video))[0]
+        output_image_path = os.path.join(BASE_DIR, "assets", f"{base_name}_frame.jpg")
+
+    abs_out = os.path.abspath(output_image_path)
+    os.makedirs(os.path.dirname(abs_out), exist_ok=True)
+
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-ss",
+        str(timestamp),
+        "-i",
+        abs_video,
+        "-frames:v",
+        "1",
+        "-update",
+        "1",
+        "-q:v",
+        "2",
+        abs_out,
+    ]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        if res.returncode == 0 and os.path.exists(abs_out) and os.path.getsize(abs_out) > 0:
+            return os.path.relpath(abs_out, BASE_DIR)
+    except Exception as e:
+        print(f"⚠️ Error extracting video frame: {e}")
+    return ""
+
+
 def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
     """Uses Gemini image generation to intelligently extend/outpaint a photo to 9:16 aspect ratio.
     Instead of adding black bars, it generates realistic content (background, environment)
@@ -253,8 +294,12 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
                 part,
                 types.Part.from_text(
                     text=(
-                        "Extend this photo to a vertical 9:16 portrait aspect ratio by seamlessly expanding the background. "
-                        "Keep the person in the photo unchanged."
+                        "High-resolution professional portrait photography. "
+                        "Extend this portrait photo seamlessly to a vertical 9:16 aspect ratio. "
+                        "Crucially, extend the person's torso, shoulders, and clothing (matching the exact pattern, color, and fabric of their shirt/outfit) "
+                        "all the way down to the bottom edge of the frame so that their body naturally and realistically fills the lower portion of the photo. "
+                        "There must be NO blank bars, empty table tops, horizontal lines, or cutoffs beneath the person. "
+                        "Seamlessly expand the background environment upwards and outwards to fill the frame, while keeping the person's face, hair, and likeness identical."
                     )
                 ),
             ],
@@ -379,6 +424,14 @@ def validate_video_generation_backend(engine: str = "omni") -> None:
         )
 
 
+PHOTO_EXCLUSION_DIRECTIVE = (
+    "MANDATORY PERSONA AND ANTI-FREEZE DIRECTIVE:\n"
+    "1. DO NOT USE THE INPUT PHOTO AS A FRAME IN THE VIDEO. DO NOT show, freeze, fade from, or hold the reference portrait or its original background as frame 0, shot 1, or any part of the footage.\n"
+    "2. USE THE PERSON FROM THE PHOTO AS AN ACTOR/IDENTITY REFERENCE ONLY: Cast this exact human person (their facial identity and likeness) as the protagonist in a 100% newly rendered cinematic scene.\n"
+    "3. IMMEDIATE DYNAMIC ACTION: From the very first millisecond (00:00), the video MUST start in active cinematic motion and camera movement within the new environment described in Shot 1. Never start on a still portrait pose."
+)
+
+
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-1.1-flash) via Interactions API."""
     api_key = get_gemini_api_key()
@@ -390,9 +443,14 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     mime_type = "image/png" if photo_path.lower().endswith(".png") else "image/jpeg"
 
     i2v_prompt = augment_creative_prompt(creative_prompt)
+    omni_payload_prompt = (
+        f"{PHOTO_EXCLUSION_DIRECTIVE}\n\n"
+        f"SCENARIO DIRECTION:\n{i2v_prompt}\n\n"
+        "FINAL INSTRUCTION: Use only the person's face/identity from the image. Do NOT use or show the source photo itself. Begin immediately at 00:00 in the dynamic cinematic action of Shot 1."
+    )
 
     print(f'🎬 [Gemini Omni Flash Prompt] Base prompt: "{creative_prompt}"')
-    print(f'   └─ Final Omni Prompt: "{i2v_prompt}"')
+    print(f'   └─ Final Omni Prompt: "{omni_payload_prompt}"')
     print("🚀 Submitting request to Google AI Gemini Omni Flash (Interactions API)...")
 
     headers = {"Content-Type": "application/json"}
@@ -424,8 +482,8 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     payload = {
         "model": "gemini-omni-1.1-flash",
         "input": [
+            {"type": "text", "text": omni_payload_prompt},
             {"type": "image", "data": b64_img, "mime_type": mime_type},
-            {"type": "text", "text": i2v_prompt},
         ],
         "generation_config": {
             "video_config": {

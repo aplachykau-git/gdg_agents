@@ -128,6 +128,8 @@ def merge_draft(
     position_company: str | None,
     creative_direction: str | None,
     media: UploadedMedia | None,
+    speaker_bio: str | None = None,
+    creative_guidance: str | None = None,
     suggested_scenarios: list[CreativeScenario] | None = None,
     selected_scenario_id: str | None = None,
 ) -> VideoEditorDraft:
@@ -137,6 +139,8 @@ def merge_draft(
         "name": _normalise(name),
         "position_company": _normalise(position_company),
         "creative_direction": _normalise(creative_direction),
+        "speaker_bio": _normalise(speaker_bio),
+        "creative_guidance": _normalise(creative_guidance),
         "selected_scenario_id": _normalise(selected_scenario_id),
     }
     changed = False
@@ -235,7 +239,12 @@ async def _review_face(resolved_media: ResolvedMedia) -> ValidationFailure | Non
     try:
         review = await workflow._structured_response(
             ReviewDecision,
-            "Approve only if this portrait contains a clear, recognisable human face suitable for a speaker card.",
+            (
+                "Verify whether this image contains a visible human face or person. "
+                "Approve (approved=True) if a human face is recognizable. "
+                "DO NOT critique or reject for clothing, attire, text/logos/typos on clothing, casual outfits, background, or lighting. "
+                "Reject ONLY if there is NO human face or person visible in the image."
+            ),
             [
                 types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
                 types.Part.from_text(text="Return the structured review."),

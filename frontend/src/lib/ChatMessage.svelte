@@ -53,6 +53,73 @@
     return [];
   });
 
+  // Helper to find scenarios from tool response in preceding events of this turn
+  function findPrecedingScenarios(currentIdx, eventsList) {
+    if (!eventsList || currentIdx <= 0) return null;
+    for (let i = currentIdx - 1; i >= 0; i--) {
+      const ev = eventsList[i];
+      if (!ev) continue;
+      if (ev.author === 'user') break; // Stop at previous user prompt
+      const parts = ev.content?.parts || [];
+      for (const p of parts) {
+        const fr = p.function_response || p.functionResponse;
+        if (fr && fr.response) {
+          if (Array.isArray(fr.response.scenarios) && fr.response.scenarios.length > 0) {
+            return fr.response.scenarios;
+          }
+          if (typeof fr.response.message === 'string' && hasVideoScenarios(fr.response.message)) {
+            return fr.response.message;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  // Check if a subsequent event in the same turn will render scenarios
+  function willSubsequentEventRenderScenarios(currentIdx, eventsList) {
+    if (!eventsList || currentIdx >= eventsList.length - 1) return false;
+    for (let i = currentIdx + 1; i < eventsList.length; i++) {
+      const ev = eventsList[i];
+      if (!ev || ev.author === 'user') break;
+      const parts = ev.content?.parts || [];
+      for (const p of parts) {
+        if (p.text && p.text.trim()) return true;
+      }
+    }
+    return false;
+  }
+
+  // Resolved scenarios for this event card
+  const activeScenarios = $derived.by(() => {
+    // 1. Direct scenarios in text
+    if (messageParts.some(p => p.text && hasVideoScenarios(p.text))) {
+      const p = messageParts.find(p => p.text && hasVideoScenarios(p.text));
+      return extractVideoScenarios(p.text);
+    }
+    // 2. If this is a model text message, see if a preceding tool response in this turn had scenarios
+    const isModelText = messageParts.some(p => p.text && p.text.trim());
+    if (isModelText) {
+      const preceding = findPrecedingScenarios(index, allEvents);
+      if (preceding && (Array.isArray(preceding) ? preceding.length > 0 : true)) {
+        return extractVideoScenarios(preceding);
+      }
+    }
+    // 3. If this is a tool response event itself, only render if no subsequent model text event exists
+    const hasToolResponseScenarios = messageParts.some(p => {
+      const fr = p.function_response || p.functionResponse;
+      return fr?.response?.scenarios?.length > 0 || (fr?.response?.message && hasVideoScenarios(fr.response.message));
+    });
+    if (hasToolResponseScenarios && !willSubsequentEventRenderScenarios(index, allEvents)) {
+      for (const p of messageParts) {
+        const fr = p.function_response || p.functionResponse;
+        if (fr?.response?.scenarios?.length > 0) return extractVideoScenarios(fr.response.scenarios);
+        if (fr?.response?.message && hasVideoScenarios(fr.response.message)) return extractVideoScenarios(fr.response.message);
+      }
+    }
+    return null;
+  });
+
   const hasVariants = $derived(
     messageParts.some(p => p.text && parseResponseVariants(p.text, event.author).length > 1)
   );
@@ -71,7 +138,8 @@
   const hasEmail = $derived(
     messageParts.some(p => p.text && extractEmailDraft(p.text, event.author))
   );
-  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasEventDate || hasMedia || hasDoc || hasEmail));
+  const hasScenarios = $derived(Boolean(activeScenarios && activeScenarios.length > 0));
+  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasEventDate || hasMedia || hasDoc || hasEmail || hasScenarios));
 </script>
 
 {#if errInfo}
@@ -175,12 +243,7 @@
               {/if}
               <ReportDownloadCard {doc} />
             {:else if hasVideoScenarios(part.text)}
-              {@const scenarios = extractVideoScenarios(part.text)}
-              <VideoScenarioDeck 
-                {scenarios} 
-                onSelect={(msg) => onRefine(msg)} 
-                onRegenerate={(msg) => onRefine(msg)} 
-              />
+              <!-- Handled by activeScenarios below -->
             {:else}
               {@const variants = parseResponseVariants(part.text, event.author)}
               {#if variants.length === 1}
@@ -194,6 +257,14 @@
           <!-- Tool Call & Response Steps -->
           <ToolCallCard {part} />
         {/each}
+
+        {#if activeScenarios && activeScenarios.length > 0}
+          <VideoScenarioDeck 
+            scenarios={activeScenarios} 
+            onSelect={(msg) => onRefine(msg)} 
+            onRegenerate={(msg) => onRefine(msg)} 
+          />
+        {/if}
       {/if}
     </div>
   </div>
