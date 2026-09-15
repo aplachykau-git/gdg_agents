@@ -329,23 +329,24 @@ CRITICAL CREATIVE LAWS:
    - ABSOLUTELY DO NOT default to scorched earth, barren deserts, salt flats, obsidian ruins, or post-apocalyptic wastelands!
    - Ground realism in living, textured environments (cozy European cafés, bustling bakeries, sunlit lofts, quirky boutique hotels, rainy bridges).
    - For sci-fi and fantasy, focus on luminous, breathtaking wonders (crystalline solarpunk cathedrals, floating solar sails, bio-conservatories, or colossal brass and steel clockwork mechanisms) rather than bleak deserts!
-2. GUARANTEE A RICH 5-PILLAR MULTI-GENRE MIX:
-   Your 5 options MUST explore five completely different cinematic, commercial, and visionary genres:
-   - Option 1: Grounded Human Realism / European Cinema / Cozy Artisanal (warm, relatable, living world — French New Wave daylight, cozy coffee & vinyl craft, or indie cinema realism)
-   - Option 2: Classic Comedy / Whimsical Slapstick / Playful Commercial (visual humor, eccentric Rube Goldberg contraptions, Jacques Tati / Buster Keaton timing, Wes Anderson pastel symmetry, or playful Super Bowl commercial charm)
-   - Option 3: Auteur Arthouse / High-Energy Dynamic / Poetic Realism (Scandinavian deadpan irony, high-velocity sports motivation, Wong Kar-wai neon poetry, or lyrical magical realism)
-   - Option 4: Visionary Solarpunk / Prismatic Future / Luminous Eco-Utopian (levitating crystalline prisms, solar monoliths, lush bio-architecture, clean optimism, floating kinetic light sculptures)
-   - Option 5: Constructivist Mechanical / Steampunk / Industrial Allegory (colossal brass and steel clockwork, counterweights, flywheels, athletic hoist, risograph halftone textures, power & momentum)
+2. ZERO-SHOT DYNAMIC WORLD INVENTION & MAXIMAL ORTHOGONALITY:
+   DO NOT copy-paste predefined categories or rely on generic tropes. Instead, dynamically INVENT 5 completely original, wildly unexpected cinematic universes tailored specifically to the metaphorical essence of the speaker's topic, company/domain, and personal bio/hobbies.
+
+   To guarantee that all 5 options feel like completely different movies rather than variations of the same aesthetic, map them across 5 orthogonal conceptual poles:
+   - Option 1: Tactile Human Microcosm / Tangible Craft / Lived-in Realism (sensory textures, authentic daylight, intimate craft, warmth, tactile physical elements).
+   - Option 2: Whimsical Physical Irony / Eccentric Ingenuity / Playful Satire (visual humor, kinetic chain reactions, bespoke contraptions, witty timing, charming surrealism).
+   - Option 3: Lyrical Movement / Atmospheric Poetry / High-Velocity Momentum (hypnotic camera rhythm, visual poetry, evocative art-cinema lighting, sports or musical drive).
+   - Option 4: Luminous Wonder / Bio-Digital Harmony / Architectural Utopianism (awe-inspiring structures, prismatic optics, living bio-architecture, soaring optimism — NO scorched ruins!).
+   - Option 5: Monumental Mechanics / Tectonic Force / Kinetic Engineering Allegory (colossal physical apparatus, transformation of matter, gears/hydraulic/pneumatic power, rhythmic synchrony).
 3. INVENT EVOCATIVE COMPOUND GENRE NAMES:
    - Do NOT use plain textbook tags like "Sci-Fi" or "Comedy".
-   - Create fresh, memorable compound genre labels, such as:
-     * "Jacques-Tati Mechanical Slapstick Comedy"
-     * "French New Wave Parisian Daylight Realism"
-     * "Prismatic Solarpunk Levitation Odyssey"
-     * "Constructivist Clockwork Industrial Allegory"
-     * "Wes-Anderson Symmetrical Pastel Parable"
-     * "High-Velocity Urban Sunrise Sports Anthem"
-     * "Scandinavian Deadpan Arthouse Irony"
+   - Create fresh, memorable compound genre labels derived from the unique world you invent, for example:
+     * "Pneumatic-Mail Victorian Cryptography"
+     * "Bioluminescent Mycelial Network Odyssey"
+     * "Bauhaus Kinetic Porcelain Ballet"
+     * "Nordic Maritime Chronometer Allegory"
+     * "Jacques-Tati Retro-Acoustic Sorting Parable"
+     * "Prismatic Hydroponic Solar Symphony"
 4. PROTAGONIST IS THE HERO: The person from the portrait is the active hero/protagonist enjoying or mastering this world. Do NOT critique their appearance or photo.
 5. STRICTLY ZERO REAL NAMES: NEVER output or reveal the speaker's real personal name in any genre names, titles, concepts, visual universes, or narrative metaphors. Always refer to the character as "the protagonist" or "the hero".
 6. STRICTLY ZERO PUBLIC SPEAKING: Absolutely NO stages, microphones, audiences, presentation podiums, slide decks, or lecture halls.
@@ -399,22 +400,18 @@ def scout_creative_genres(
         )
 
     prompt = (
-        f"Synthesize {count} completely original, wildly contrasting, UNEXPECTED genre briefs for a 10-second cinematic hero video.\n\n"
+        f"Synthesize {count} completely original, wildly contrasting, UNEXPECTED cinematic universes and compound genres tailored to this speaker and talk.\n\n"
         f"CONTEXT:\n" + "\n".join(context_lines) + "\n"
         f"{guidance_instruction}\n"
-        f"STOCHASTIC MULTI-AXIS CATALYST SPARKS (Use these orthogonal dimensions as raw creative fuel to invent brand-new compound genres):\n"
+        f"OPTIONAL INSPIRATIONAL CATALYST SPARKS (Use these merely as raw departure sparks or combine them with your own wild ideas):\n"
         f"{seeds_text}\n\n"
-        "REQUIREMENTS FOR EACH GENRE BRIEF (RICH 5-PILLAR SPECTRUM: REALISM, COMEDY, ARTHOUSE, SOLARPUNK, & CONSTRUCTIVIST STEAMPUNK):\n"
-        "- NO POST-APOCALYPTIC WASTELANDS: Ground realism in living cities, cozy rooms, cafes, libraries, bakeries, or ateliers. In sci-fi/fantasy, create luminous, awe-inspiring solarpunk or majestic clockwork mechanisms, avoiding scorched dunes, salt flats, and obsidian ruins!\n"
-        "- MULTI-GENRE DIVERSITY:\n"
-        "  * Option 1: Grounded Human Realism / European Cinema / Cozy Artisanal (warm living world, French New Wave naturalism, cafe or workshop)\n"
-        "  * Option 2: Classic Comedy / Whimsical Slapstick / Playful Commercial (visual humor, eccentric Rube Goldberg contraptions, Jacques Tati / Buster Keaton timing, Wes Anderson pastel symmetry, or playful advertising parody)\n"
-        "  * Option 3: Auteur Arthouse / High-Energy Dynamic / Poetic Realism (Scandinavian deadpan, sports momentum, or lyrical visual poetry)\n"
-        "  * Option 4: Visionary Solarpunk / Prismatic Future / Luminous Eco-Utopian (levitating crystalline prisms, solar monoliths, lush bio-architecture, clean optimism, floating kinetic light sculptures)\n"
-        "  * Option 5: Constructivist Mechanical / Steampunk / Industrial Allegory (colossal brass and steel clockwork, counterweights, flywheels, athletic hoist, risograph halftone textures, power & momentum)\n"
-        "- `id`: Unique snake_case identifier (e.g. tati_bakery_contraption, new_wave_paris_cafe, kinetic_sunrise_run, solarpunk_prism_sky, constructivist_clockwork)\n"
+        "CREATIVE MANDATE FOR THE 5 DYNAMIC UNIVERSES:\n"
+        "- INVENT FROM SCRATCH: Do not rely on cliché genre templates. Connect the speaker's topic (and bio/hobbies if available) to 5 utterly different metaphorical worlds.\n"
+        "- MAXIMAL ORTHOGONAL CONTRAST: Each of the 5 options must inhabit a radically different cinematic quadrant (Option 1: Tactile Lived-in Craft; Option 2: Whimsical / Playful Ingenuity; Option 3: Atmospheric Poetry / High Momentum; Option 4: Luminous Architectural Wonder; Option 5: Monumental Material/Kinetic Allegory).\n"
+        "- NO POST-APOCALYPTIC WASTELANDS: Ground realism in vibrant, living spaces. For speculative/fantasy worlds, create awe-inspiring, beautiful, or fascinating environments rather than barren deserts or post-apocalyptic ruins.\n"
+        "- `id`: Unique snake_case identifier reflecting the specific invented universe (e.g. pneumatic_mail_vault, mycelial_network_forest, bauhaus_porcelain_ballet)\n"
         "- `title`: Punchy, memorable, poetic or witty title for this visual concept\n"
-        "- `genre`: Brand-new invented compound genre label (e.g. 'Jacques-Tati Mechanical Slapstick Comedy', 'French New Wave Parisian Daylight Realism', 'Prismatic Solarpunk Levitation Odyssey', 'Constructivist Mechanical Allegory')\n"
+        "- `genre`: Brand-new invented compound genre label (e.g. 'Pneumatic-Mail Victorian Cryptography', 'Bioluminescent Mycelial Network Odyssey', 'Bauhaus Kinetic Porcelain Ballet', 'Nordic Maritime Chronometer Allegory')\n"
         "- `visual_universe`: 2-3 vivid sentences describing the physical world, tactile textures, lighting atmosphere, and environment\n"
         "- `aesthetic_manifesto`: Camera philosophy, lens choices, color grading palette, and rhythmic pacing\n"
         "- `narrative_metaphor`: A clear, inspiring sentence explicitly connecting the speaker's topic (and personal bio/hobbies if available) to the tactile visual quest or interaction in this world\n\n"
@@ -431,7 +428,7 @@ def scout_creative_genres(
                 config=types.GenerateContentConfig(
                     system_instruction=GENRE_SCOUT_INSTRUCTION,
                     temperature=1.6,  # Maximum creative entropy
-                    top_p=0.98,
+                    top_p=1.0,
                     response_mime_type="application/json",
                 ),
             )
