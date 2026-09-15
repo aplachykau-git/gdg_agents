@@ -893,8 +893,8 @@ def direct_single_scenario(
         "- Deliver a JSON object with a 'scenarios' list containing this single scenario or a single scenario object."
     )
 
-    retries = 2
-    delay = 1.0
+    retries = 3
+    delay = 2.0
     for attempt in range(retries):
         try:
             response = client.models.generate_content(
@@ -947,7 +947,7 @@ def direct_single_scenario(
             )
             if attempt < retries - 1 and is_transient:
                 time.sleep(delay)
-                delay *= 2
+                delay *= 2.0
                 continue
             print(f"⚠️ [Parallel Shot Director] Worker for '{genre.title}' failed: {e}")
             break
@@ -963,16 +963,17 @@ def direct_scenarios_from_genres(
     speaker_bio: str | None = None,
     temperature: float = 1.5,
 ) -> list[CreativeScenario]:
-    """Stage 2: Directs each pre-selected creative genre in PARALLEL via dedicated concurrent sub-directors (high temperature 1.5)."""
+    """Stage 2: Directs each pre-selected creative genre via concurrent sub-directors (throttled to 2 workers to prevent 429 quota bursts)."""
     if not genres:
         return []
 
-    max_workers = min(len(genres), 5)
+    max_workers = min(len(genres), 2)
     results: list[tuple[int, CreativeScenario]] = []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_idx = {
-            executor.submit(
+        future_to_idx = {}
+        for i, g in enumerate(genres, start=1):
+            future = executor.submit(
                 direct_single_scenario,
                 genre=g,
                 idx=i,
@@ -981,9 +982,12 @@ def direct_scenarios_from_genres(
                 position_company=position_company,
                 speaker_bio=speaker_bio,
                 temperature=temperature,
-            ): i
-            for i, g in enumerate(genres, start=1)
-        }
+            )
+            future_to_idx[future] = i
+            # Gentle stagger between thread dispatches to prevent 429 quota burst
+            if i < len(genres):
+                time.sleep(0.35)
+
         for future in concurrent.futures.as_completed(future_to_idx):
             idx = future_to_idx[future]
             try:

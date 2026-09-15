@@ -304,13 +304,21 @@ async def create_video_card(
                 else None
             )
         )
-        scenarios = generate_creative_scenarios(
-            talk_title=draft.title or talk_title,
-            speaker_name=draft.name or name,
-            position_company=draft.position_company or position_company,
-            speaker_bio=effective_bio,
-            creative_guidance=effective_guidance,
-        )
+        try:
+            scenarios = generate_creative_scenarios(
+                talk_title=draft.title or talk_title,
+                speaker_name=draft.name or name,
+                position_company=draft.position_company or position_company,
+                speaker_bio=effective_bio,
+                creative_guidance=effective_guidance,
+            )
+        except Exception as e:
+            print(
+                f"⚠️ [video_card_tool] Scenario generation hit transient quota/model issue ({e}), using resilient fallback matrix."
+            )
+            from agents.video_editor.prompt_director import _build_fallback_scenarios
+
+            scenarios = _build_fallback_scenarios(draft.title or talk_title, draft.name or name)
 
         draft = merge_draft(
             draft,

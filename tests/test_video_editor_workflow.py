@@ -334,7 +334,11 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         self.assertEqual(result["status"], "awaiting_confirmation")
         self.assertEqual(result["requested_action"], "confirm_render")
 
-    def test_tool_renders_after_confirmation(self):
+    @patch("agents.video_editor.tools.video_card_tool.generate_creative_scenarios")
+    def test_tool_renders_after_confirmation(self, mock_gen_scenarios):
+        from agents.video_editor.prompt_director import _build_fallback_scenarios
+
+        mock_gen_scenarios.return_value = _build_fallback_scenarios("Talk", "Jane Doe")
         event = FakeEvent("upload", [FakePart(inline_data=FakeInlineData("image/png", b"image"))])
         context = FakeToolContext({}, [event])
         fake_result = RenderResult(
@@ -371,7 +375,11 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         self.assertEqual(result["assets"][0]["url"], "https://example.com/video.mp4")
         self.assertEqual(context.state["video_editor_draft"], {})
 
-    def test_confirmation_is_invalidated_by_changed_creative_direction(self):
+    @patch("agents.video_editor.tools.video_card_tool.generate_creative_scenarios")
+    def test_confirmation_is_invalidated_by_changed_creative_direction(self, mock_gen_scenarios):
+        from agents.video_editor.prompt_director import _build_fallback_scenarios
+
+        mock_gen_scenarios.return_value = _build_fallback_scenarios("Talk", "Jane Doe")
         event = FakeEvent("upload", [FakePart(inline_data=FakeInlineData("image/png", b"image"))])
         context = FakeToolContext({}, [event])
         with patch.dict("os.environ", {"VIDEO_EDITOR_REQUIRE_CONFIRMATION": "true"}):
