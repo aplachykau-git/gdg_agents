@@ -81,7 +81,7 @@ Please register on this page (RSVP), and bring your ID with you.
 """
 
 agenda_agent = Agent(
-    model="gemini-3.5-flash-lite",
+    model="gemini-3.8-flash",
     name="agenda_generator",
     description=f"Agent that drafts beautifully formatted, copy-pasteable {community_name} meetups agendas with exact visual structure and emojis.",
     instruction=INSTRUCTION,

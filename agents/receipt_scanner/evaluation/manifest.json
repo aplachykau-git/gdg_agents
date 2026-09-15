@@ -3,12 +3,12 @@
   "extraction_eval_set": "receipt_scanner_critical_extraction_v1",
   "conversion_eval_set": "receipt_conversion_contract_v1",
   "extraction": {
-    "model": "gemini-3.7-flash",
+    "model": "gemini-3.8-flash",
     "model_environment_override": "RECEIPT_EVAL_MODEL",
     "ocr_tool_model_environment_override": "RECEIPT_SCANNER_MODEL",
     "temperature": null,
     "required_case_score": 100.0,
-    "production_prompt_sha256": "64f5d62bc81cf833c27ac1867e3ef72d1be1d40d9fd6d7bed411914a73b74d06"
+    "production_prompt_sha256": "70985dc1b912778813724eb01babc9fbb02f08ed1d110180da216ed6d8c9d6a6"
   },
   "conversion": {
     "formula": "source_amount * source_rate_to_pln / target_rate_to_pln",

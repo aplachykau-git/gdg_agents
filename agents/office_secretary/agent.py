@@ -84,7 +84,7 @@ You support two types of requests:
 """
 
 office_agent = Agent(
-    model="gemini-3.5-flash-lite",
+    model="gemini-3.8-flash",
     name="office_secretary",
     description=f"Agent that generates polite templated emails for {community_name} office administration and space reservations.",
     instruction=INSTRUCTION,

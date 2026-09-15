@@ -28,7 +28,7 @@
 
 flowchart TD
     User[/"👤 User / Root Agent Request"/]
-    Agent["🎬 <b>Conversational Video Editor Agent</b><br/><i>gemini-3.5-flash-lite</i>"]
+    Agent["🎬 <b>Conversational Video Editor Agent</b><br/><i>gemini-3.8-flash</i>"]
     Help["💡 <b>Capability & Guidance Responder</b><br/><i>Answers format/help queries</i>"]
     Tool["⚙️ <b>create_video_card tool</b><br/><i>Session staging & schema validation</i>"]
     Draft[("💾 <b>Session Draft State</b><br/><i>Speaker details & uploaded media</i>")]

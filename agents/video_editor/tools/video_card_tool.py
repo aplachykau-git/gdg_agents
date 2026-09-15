@@ -312,7 +312,7 @@ async def create_video_card(
         msg = (
             f"{format_scenarios_markdown(scenarios)}\n\n"
             "🎬 **Choose a Video Concept or Refine the Prompt:**\n"
-            "Please select which scenario you would like to render (e.g. **Option 1**, **Option 2**, or **Option 3**), "
+            "Please select which scenario you would like to render (e.g. **Option 1**, **Option 2**, **Option 3**, **Option 4**, or **Option 5**), "
             "or modify the prompt shots before we render."
         )
         return VideoCardToolResult(
@@ -329,7 +329,7 @@ async def create_video_card(
         return VideoCardToolResult(
             status="awaiting_confirmation",
             message=(
-                "Please select one of the suggested creative scenarios (e.g. Option 1, Option 2, Option 3) "
+                "Please select one of the suggested creative scenarios (e.g. Option 1, Option 2, Option 3, Option 4, or Option 5) "
                 "or customize the prompt before rendering."
             ),
             requested_action="select_scenario",

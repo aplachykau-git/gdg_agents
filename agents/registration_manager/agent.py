@@ -69,7 +69,7 @@ Your job is to cleanly organize, clean, sort, and partition event registration l
 """
 
 registration_agent = Agent(
-    model="gemini-3.5-flash-lite",
+    model="gemini-3.8-flash",
     name="registration_manager",
     description="Agent that cleans, transliterates Cyrillic to Latin, deduplicates (with secondary verification), and partitions registrations based on capacity limits, and manages the official organisers list.",
     instruction=INSTRUCTION,

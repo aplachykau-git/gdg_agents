@@ -4,11 +4,11 @@
   "judge_train_set": "linkedin_judge_few_shot_train_v1",
   "judge_eval_set": "linkedin_judge_held_out_eval_v1",
   "generator": {
-    "model": "gemini-3.5-flash-lite",
+    "model": "gemini-3.8-flash",
     "temperature": 1.0
   },
   "judge": {
-    "model": "gemini-3.7-flash",
+    "model": "gemini-3.8-flash",
     "temperature": 0
   },
   "acceptance_thresholds": {

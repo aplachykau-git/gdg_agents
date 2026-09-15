@@ -1442,6 +1442,7 @@ export function normalizeScenarios(rawScenarios) {
       title: sc.title || `Option ${num}`,
       genre: sc.genre || 'Cinematic',
       concept: (sc.concept || '').trim(),
+      narrativeMetaphor: sc.narrative_metaphor || sc.narrativeMetaphor || '',
       shots,
       omniPrompt: sc.omni_prompt || sc.omniPrompt || sc.concept || '',
       styles
@@ -1483,6 +1484,8 @@ export function extractVideoScenarios(input) {
     const tableBlock = match[5] || '';
     const scenarioId = (match[6] || `scenario_${num}`).trim();
     const rawOmni = match[7] ? match[7].replace(/^>\s*/gm, '').trim() : '';
+    const metaphorMatch = tableBlock.match(/\*\*Metaphor & Story Bridge:\*\*\s*([^\n]+)/i);
+    const narrativeMetaphor = metaphorMatch ? metaphorMatch[1].trim() : '';
 
     const shots = [];
     const shotRowRegex = /\|\s*\*\*Shot\s*(\d+)\*\*\s*\|\s*`([^`]+)`\s*\|\s*([^\|]+)\s*\|\s*([^\|]+)\s*\|/gi;
@@ -1529,6 +1532,7 @@ export function extractVideoScenarios(input) {
       title,
       genre,
       concept,
+      narrativeMetaphor,
       shots,
       omniPrompt: rawOmni || concept,
       styles

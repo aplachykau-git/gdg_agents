@@ -212,7 +212,7 @@ sequenceDiagram
     participant SPA as Svelte SPA
     participant Root as community-root-agent
     participant Receipt as receipt-scanner-a2a
-    participant Gemini as Gemini 3.7 Flash (BYOK)
+    participant Gemini as Gemini 3.8 Flash (BYOK)
     participant FX as NBP / Pekao FX APIs
     participant Drive as Google Drive & Docs APIs
     participant GCS as GCS Bucket
@@ -424,7 +424,7 @@ Steps performed:
 | FR-02.2 | 9:16 outpainting | `agents/video_editor/tools/media_tools.py` | Implemented |
 | FR-02.3 | Gemini Omni video generation | `agents/video_editor/tools/media_tools.py` | Implemented |
 | FR-02.4 | 4K MP4 + GIF composite | `agents/video_editor/tools/composer_tools.py` | Implemented |
-| FR-03.1 | Receipt OCR (Gemini 3.7) | `agents/receipt_scanner/tools.py` | Implemented |
+| FR-03.1 | Receipt OCR (Gemini 3.8) | `agents/receipt_scanner/tools.py` | Implemented |
 | FR-03.2 | NBP / Pekao FX rates | `agents/receipt_scanner/tools.py` | Implemented |
 | FR-03.3 | Drive export / DOCX download | `agents/receipt_scanner/tools.py` (SA model) | Partial — see GAP-05 |
 | FR-04.1 | Roster dedup + PII redaction | `agents/registration_manager/` | Implemented |

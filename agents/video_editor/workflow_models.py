@@ -24,7 +24,8 @@ class IntakeDecision(BaseModel):
 
 
 class ReviewDecision(BaseModel):
-    approved: bool
+    has_human_face: bool = True
+    approved: bool = True
     comment: str = ""
 
 
@@ -91,6 +92,7 @@ class CreativeScenario(BaseModel):
     shots: list[VideoShot] = Field(default_factory=list)
     omni_prompt: str
     styles: list[ScenarioStyle] = Field(default_factory=list)
+    narrative_metaphor: str | None = None
 
 
 class VideoEditorDraft(VideoEditorRequest):

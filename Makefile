@@ -8,7 +8,7 @@ LINKEDIN_EVAL_DIR := agents/linkedin_post_generator/evaluation
 LINKEDIN_EVAL_SET := $(LINKEDIN_EVAL_DIR)/post_generator_eval_set.json
 LINKEDIN_EVAL_CONFIG := $(LINKEDIN_EVAL_DIR)/post_generator_eval_config.json
 RECEIPT_EVAL_DIR := agents/receipt_scanner/evaluation
-RECEIPT_EVAL_MODEL ?= gemini-3.7-flash
+RECEIPT_EVAL_MODEL ?= gemini-3.8-flash
 
 .PHONY: help tools linkedin-evals linkedin-judge-evals linkedin-evals-all \
 	receipt-eval-discover receipt-eval-fixtures receipt-extraction-evals \

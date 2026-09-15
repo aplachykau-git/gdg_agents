@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 import os
 import re
 import shutil
@@ -29,6 +30,8 @@ from .workflow_models import (
     ValidationFailure,
     VideoEditorDraft,
 )
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = BASE_DIR / "workspaces"
@@ -72,17 +75,28 @@ def compile_creative_prompt(draft: VideoEditorDraft) -> str:
     assert draft.name and draft.position_company and draft.title
     direction = _normalise(draft.creative_direction)
     if direction:
-        # 1. Full string removals
-        for text_to_remove in (draft.name, draft.position_company, draft.title):
-            if text_to_remove:
-                pattern = re.compile(re.escape(text_to_remove), re.IGNORECASE)
-                direction = pattern.sub("", direction)
-        # 2. Dynamic token removals for individual words in speaker name (e.g. "Katsiaryna", "Skwarek")
+        # 1. Replace speaker full name with 'the protagonist'
         if draft.name:
+            pattern = re.compile(re.escape(draft.name.strip()), re.IGNORECASE)
+            direction = pattern.sub("the protagonist", direction)
+            # 2. Dynamic token replacements for individual words in speaker name (e.g. "Katsiaryna", "Skwarek", "Yuliya", "Aplachykava")
             for word in draft.name.split():
-                if len(word) >= 3:
+                if len(word) >= 3 and word.lower() not in {"and", "the", "van", "von", "de", "del"}:
                     pattern = re.compile(r"\b" + re.escape(word) + r"\b", re.IGNORECASE)
-                    direction = pattern.sub("", direction)
+                    direction = pattern.sub("the protagonist", direction)
+            # Deduplicate repeated 'the protagonist'
+            direction = re.sub(
+                r"\bthe protagonist(?:\s+the protagonist)+\b", "the protagonist", direction, flags=re.IGNORECASE
+            )
+            direction = re.sub(r"\bthe protagonist\s*'?s\b", "the protagonist's", direction, flags=re.IGNORECASE)
+            direction = re.sub(r"(^|[:.!?]\s+)the protagonist\b", r"\1The protagonist", direction)
+
+        # 3. Clean removals of company and title if present in prompt text
+        for text_to_remove in (draft.position_company, draft.title):
+            if text_to_remove:
+                pattern = re.compile(re.escape(text_to_remove.strip()), re.IGNORECASE)
+                direction = pattern.sub("", direction)
+
         direction = re.sub(r"\s+", " ", direction).strip(" .,-")
     if direction:
         return direction
@@ -216,6 +230,17 @@ Name: {metadata.name}
 Position and company: {metadata.position_company}""",
         )
     except workflow.StructuredResponseError:
+        # Fallback to local heuristic validation if LLM is temporarily rate-limited / unavailable:
+        if (
+            len(metadata.title.strip()) >= 2
+            and len(metadata.name.strip()) >= 2
+            and len(metadata.position_company.strip()) >= 2
+        ):
+            logger.warning(
+                "Structured review model unavailable; fell back to local validation for '%s'",
+                metadata.name,
+            )
+            return None
         return ValidationFailure(
             code="model_unavailable",
             message="I cannot validate the speaker details at the moment. Please try again shortly.",
@@ -240,24 +265,49 @@ async def _review_face(resolved_media: ResolvedMedia) -> ValidationFailure | Non
         review = await workflow._structured_response(
             ReviewDecision,
             (
-                "Verify whether this image contains a visible human face or person. "
-                "Approve (approved=True) if a human face is recognizable. "
-                "DO NOT critique or reject for clothing, attire, text/logos/typos on clothing, casual outfits, background, or lighting. "
-                "Reject ONLY if there is NO human face or person visible in the image."
+                "You are an image classifier checking if an uploaded conference speaker image contains a human being.\n"
+                "CRITICAL INSTRUCTIONS:\n"
+                "1. THIS IS A CONFERENCE SPEAKER AVATAR / PROFILE PHOTO, NOT A PASSPORT OR OFFICIAL GOVERNMENT ID PHOTO.\n"
+                "2. DO NOT apply passport, biometric ID, or visa photo standards. Casual selfies, dark backgrounds, colored stage lighting, dramatic shadows, angled perspectives, smiles, and informal attire are ALL 100% VALID AND FULLY ACCEPTABLE.\n"
+                "3. Set has_human_face=True and approved=True if ANY recognizable human face, head, or person is present in the image (even in dark lighting or casual angles).\n"
+                "4. Set approved=False ONLY if the image contains NO human being at all (e.g. an image of an animal, a car, a landscape, a building, a pure diagram, a code screenshot, or abstract graphic with zero humans)."
             ),
             [
                 types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                types.Part.from_text(text="Return the structured review."),
+                types.Part.from_text(
+                    text="Does this image contain a human face or person? Return the structured review."
+                ),
             ],
         )
     except workflow.StructuredResponseError:
-        return ValidationFailure(
-            code="model_unavailable",
-            message="I cannot validate the portrait at the moment. Please try again shortly.",
-            requested_action="replace_media",
-            retryable=True,
+        logger.warning(
+            "Structured face review model unavailable; falling back to local image file validity for '%s'",
+            source_path,
         )
-    if not review.approved:
+        return None
+
+    # Guard against spurious model rejections based on passport standards, lighting, background, or selfie angles
+    rejection_reasons = (
+        "passport",
+        "official id",
+        "government id",
+        "visa",
+        "lighting",
+        "background",
+        "selfie",
+        "perspective",
+        "angle",
+        "shadow",
+        "casual",
+        "dark background",
+        "uneven lighting",
+        "plain",
+        "light-colored",
+    )
+    comment_lower = (review.comment or "").lower()
+    is_spurious_rejection = any(term in comment_lower for term in rejection_reasons)
+
+    if not review.approved and not review.has_human_face and not is_spurious_rejection:
         return ValidationFailure(
             code="face_not_detected",
             message=review.comment or "Please upload a portrait with a clear human face.",

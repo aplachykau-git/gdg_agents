@@ -10,7 +10,8 @@
     Sliders,
     ChevronDown,
     ChevronUp,
-    Palette
+    Palette,
+    Lightbulb
   } from '@lucide/svelte';
 
   let { 
@@ -49,13 +50,21 @@
 
   function ensureScenarioStyles(sc) {
     if (sc.styles && sc.styles.length >= 3) {
-      return sc.styles;
+      const names = sc.styles.map(s => s.name || '');
+      const genres = sc.styles.map(s => s.genre || '');
+      const isGeneric = names.every(n => /^Style\s*\d*$/i.test(n.trim()) || n.trim() === 'Style') ||
+        (new Set(genres).size === 1 && genres[0] === sc.genre);
+      if (!isGeneric) {
+        return sc.styles;
+      }
     }
     const baseGenre = sc.genre || 'Cinematic Film';
     const shots = sc.shots || [];
 
-    const style1Name = (sc.styles && sc.styles[0]?.name) || (baseGenre.includes('/') ? baseGenre.split('/')[0].trim() : baseGenre);
-    const style1 = (sc.styles && sc.styles[0]) ? sc.styles[0] : {
+    const style1Name = (sc.styles && sc.styles[0]?.name && !/^Style\s*\d*$/i.test(sc.styles[0].name)) 
+      ? sc.styles[0].name 
+      : (baseGenre.includes('/') ? baseGenre.split('/')[0].trim() : baseGenre);
+    const style1 = (sc.styles && sc.styles[0]) ? { ...sc.styles[0], name: style1Name } : {
       id: `${sc.id}_style_1`,
       name: style1Name || 'Signature Look',
       genre: baseGenre,
@@ -64,58 +73,113 @@
       omniPrompt: sc.omniPrompt
     };
 
-    const isPop = /pop|wes anderson|quirky|pastel|whimsical|fashion|comedy/i.test(baseGenre);
-    const isRetro = /retro|vintage|analog|70s|80s|noir/i.test(baseGenre);
-    const isCyber = /cyber|neon|matrix/i.test(baseGenre);
+    const num = sc.number || parseInt((sc.id || '').replace(/\D/g, '') || '1', 10);
 
-    let style2Name = 'Pastel Pop-Art';
-    let style2Genre = 'Stylized Pop-Art / Symmetrical Commercial';
-    let style2Desc = 'Playful symmetrical framing, vibrant pastel color blocking, and punchy witty energy.';
-    let s2Cam = 'Snappy 90-degree whip-pan, dead-center symmetrical framing, rapid playful snap-in';
-    let s2Light = 'Shadowless pastel mint and coral lighting with vivid retro saturation';
+    // Category A: Clean Modern Tech / Studio Commercial ("Попроще" / Grounded Realism)
+    const groundedPresets = [
+      {
+        name: 'Clean Modern Tech',
+        genre: 'Clean Modern Tech / Studio Commercial',
+        description: 'Sleek, grounded commercial aesthetic with crisp soft lighting, natural skin tones, and professional tech presence.',
+        cam: 'Smooth horizontal Steadicam glide, crisp prime lens focus, balanced centered framing',
+        light: 'Clean soft-diffused studio key light, subtle rim reflections, authentic natural tones'
+      },
+      {
+        name: 'Architectural Daylight',
+        genre: 'Architectural Daylight / Modern Editorial',
+        description: 'Abundant natural daylight, soft airy ambient bounce, and elegant wide architectural framing.',
+        cam: 'Expansive slow push-in, wide architectural glass reflections, elegant depth of field',
+        light: 'Abundant natural daylight, soft airy ambient bounce, crisp modern aesthetic'
+      },
+      {
+        name: 'Minimalist Keynote',
+        genre: 'Minimalist Studio / Keynote Elegance',
+        description: 'High-end keynote rim lighting, clean dark gradient backdrop, and sharp eye-level focus.',
+        cam: 'Subtle cinematic slow zoom, sharp eye-level prime focus, clean editorial framing',
+        light: 'High-end keynote rim lighting, clean dark gradient backdrop, crisp professional skin tones'
+      },
+      {
+        name: 'Warm Artisanal Studio',
+        genre: 'Warm Artisanal Studio / Tactile Craft',
+        description: 'Warm amber lamplight, soft window bounce, natural wood and textured linen accents.',
+        cam: 'Smooth handheld prime lens, gentle natural breathing, intimate framing',
+        light: 'Warm amber lamplight, soft window bounce, natural wood and textured linen accents'
+      },
+      {
+        name: 'Precision Macro Lab',
+        genre: 'Precision Macro Lab / Modern Cleanroom',
+        description: 'Pristine cool-white daylight bounce, delicate rim reflections, ultra-clean modern precision.',
+        cam: 'Crisp horizontal slider glide, high-index prime focus, subtle glass reflections',
+        light: 'Pristine cool-white daylight bounce, delicate rim reflections, ultra-clean modern precision'
+      }
+    ];
 
-    if (isCyber) {
-      style2Name = 'Solarpunk Daylight';
-      style2Genre = 'Solarpunk / Architectural Daylight';
-      style2Desc = 'Clean architectural daylight, lush greenery, and soft airy reflections.';
-      s2Cam = 'Airy Steadicam tracking shot with soft natural flare';
-      s2Light = 'Clean radiant daylight with soft atmospheric haze';
-    } else if (isPop) {
-      style2Name = 'High-Gloss Studio Ad';
-      style2Genre = 'High-Gloss Studio Commercial / Editorial';
-      style2Desc = 'Pristine white studio rim-lighting with soft diffused color fills and seamless rotational tracking.';
-      s2Cam = 'Silky crane movement, seamless rotational studio tracking';
-      s2Light = 'Pristine white studio rim-lighting with soft diffused color fills';
-    }
+    // Category B: Dynamic Cinematic Realism / Contrasting Movement
+    const cinematicPresets = [
+      {
+        name: 'Cinematic 35mm Realism',
+        genre: 'Cinematic 35mm Documentary / Kodak Film',
+        description: 'Warm natural ambient lighting with gentle film halation, organic camera breathing, and authentic documentary depth.',
+        cam: 'Tactile handheld camera, organic breathing, subtle shallow depth of field',
+        light: 'Warm natural ambient lighting with gentle film halation and subtle organic grain'
+      },
+      {
+        name: 'High-Velocity Kinetic',
+        genre: 'High-Velocity Kinetic / Dynamic Energy',
+        description: 'Punchy high-contrast specular lighting, rapid kinetic tracking, and visceral motion dynamics.',
+        cam: 'Rapid kinetic tracking, visceral low-angle whip-pan, sharp motion-tracking arc',
+        light: 'Punchy high-contrast specular lighting, deep shadows, dynamic rim highlights'
+      },
+      {
+        name: 'Atmospheric Neo-Noir',
+        genre: 'Atmospheric Neo-Noir / Chiaroscuro',
+        description: 'Chiaroscuro moody shadows with sharp directional rim light and deep cinematic contrast.',
+        cam: 'Dutch angle slow tilt, anamorphic horizontal flare, reflective dark ground tracking',
+        light: 'Chiaroscuro moody shadows punctuated by electric cyan and amber rim accents'
+      },
+      {
+        name: 'Prismatic Technicolor',
+        genre: 'Prismatic Technicolor / Saturated Spectrum',
+        description: 'Iridescent rainbow caustics, saturated primary tones, and luminous optical bloom.',
+        cam: 'Floating anamorphic lens flares, dynamic slow push-in, rich depth',
+        light: 'Iridescent rainbow caustics, saturated primary tones, and luminous optical bloom'
+      },
+      {
+        name: 'Industrial Chiaroscuro',
+        genre: 'Heavy Industrial / Raw Chiaroscuro',
+        description: 'High-contrast tungsten furnace glow, deep matte shadows, and dramatic rim highlights.',
+        cam: 'Low-angle textured tilt, visceral slow-motion pan, gritty industrial framing',
+        light: 'High-contrast tungsten furnace glow, deep matte shadows, and dramatic rim highlights'
+      }
+    ];
 
-    const style2 = (sc.styles && sc.styles[1]) ? sc.styles[1] : {
+    const p2 = groundedPresets[(num - 1) % groundedPresets.length];
+    const p3 = cinematicPresets[(num - 1) % cinematicPresets.length];
+
+    const style2 = {
       id: `${sc.id}_style_2`,
-      name: style2Name,
-      genre: style2Genre,
-      description: style2Desc,
+      name: p2.name,
+      genre: p2.genre,
+      description: p2.description,
       shots: shots.map(sh => ({
         ...sh,
-        camera: s2Cam,
-        lightingAtmosphere: s2Light
+        camera: p2.cam,
+        lightingAtmosphere: p2.light
       })),
-      omniPrompt: `Cinematic 9:16 ${style2Genre}. ` + shots.map(sh => `Shot ${sh.shotNumber} (${sh.timeRange}): ${sh.action}`).join(' ')
+      omniPrompt: `Cinematic 9:16 ${p2.genre}. ` + shots.map(sh => `Shot ${sh.shotNumber} (${sh.timeRange}): ${sh.action}`).join(' ')
     };
 
-    const style3Name = isRetro ? 'Monochrome Noir' : 'Warm 35mm Film';
-    const style3Genre = isRetro ? 'Monochrome Film Noir / Arthouse' : 'Warm 35mm Analog / Kodak Cinema';
-    const style3 = (sc.styles && sc.styles[2]) ? sc.styles[2] : {
+    const style3 = {
       id: `${sc.id}_style_3`,
-      name: style3Name,
-      genre: style3Genre,
-      description: isRetro 
-        ? 'Dramatic black-and-white contrast, expressive chiaroscuro shadows, and bold silver-screen texture.'
-        : 'Warm tungsten amber glow, tactile 35mm film grain, and soft golden-hour halation.',
+      name: p3.name,
+      genre: p3.genre,
+      description: p3.description,
       shots: shots.map(sh => ({
         ...sh,
-        camera: `${sh.camera || 'Medium shot'}, vintage optical prime lens`,
-        lightingAtmosphere: isRetro ? 'Chiaroscuro high-contrast black & white lighting' : 'Warm tungsten glow with subtle 35mm grain'
+        camera: p3.cam,
+        lightingAtmosphere: p3.light
       })),
-      omniPrompt: `Cinematic 9:16 ${style3Genre}. ` + shots.map(sh => `Shot ${sh.shotNumber} (${sh.timeRange}): ${sh.action}`).join(' ')
+      omniPrompt: `Cinematic 9:16 ${p3.genre}. ` + shots.map(sh => `Shot ${sh.shotNumber} (${sh.timeRange}): ${sh.action}`).join(' ')
     };
 
     return [style1, style2, style3];
@@ -144,7 +208,7 @@
   }
 
   function handleRegenerateClick() {
-    onRegenerate("Please invent 3 new creative scenarios for this talk.");
+    onRegenerate("Please invent 5 new creative scenarios for this talk.");
   }
 </script>
 
@@ -166,10 +230,10 @@
       <button 
         class="regenerate-btn" 
         onclick={handleRegenerateClick}
-        title="Request 3 new imaginative scenario concepts"
+        title="Request 5 new imaginative scenario concepts"
       >
         <RefreshCw size={13} />
-        <span>Regenerate (3 New Concepts)</span>
+        <span>Regenerate (5 New Concepts)</span>
       </button>
     </div>
   </div>
@@ -222,6 +286,13 @@
         </div>
 
         <p class="scenario-concept">{sc.concept}</p>
+
+        {#if sc.narrativeMetaphor}
+          <div class="metaphor-bridge">
+            <Lightbulb size={12} class="metaphor-icon" />
+            <span class="metaphor-text"><strong>Talk & Bio Metaphor:</strong> {sc.narrativeMetaphor}</span>
+          </div>
+        {/if}
 
         <div class="style-tabs-container">
           <div class="style-tabs-label">
@@ -494,6 +565,31 @@
     color: var(--text-secondary);
     margin: 8px 0 0 24px;
     line-height: 1.4;
+  }
+
+  .metaphor-bridge {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 8px 0 0 24px;
+    padding: 6px 10px;
+    background: rgba(251, 188, 4, 0.08);
+    border: 1px solid rgba(251, 188, 4, 0.25);
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--text-secondary, #cbd5e1);
+  }
+
+  :global(.metaphor-icon) {
+    color: #fbbc04;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .metaphor-text strong {
+    color: #fbbc04;
+    font-weight: 600;
   }
 
   .style-tabs-container {

@@ -66,7 +66,7 @@ if receipt_a2a_url:
         print(f"🔗 [A2A Connected] receipt_scanner agent linked via A2A at: {card_url}")
         receipt_agent = RemoteA2aAgent(
             name="receipt_scanner",
-            description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-3.7-flash, converts to PLN and USD using live banking exchange rates, exports reports to Google Docs.",
+            description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-3.8-flash, converts to PLN and USD using live banking exchange rates, exports reports to Google Docs.",
             agent_card=card_url,
             config=create_authenticated_a2a_config(receipt_a2a_url),
             timeout=600.0,
@@ -143,7 +143,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 """
 
 root_agent = Agent(
-    model="gemini-3.5-flash-lite",
+    model="gemini-3.8-flash",
     name="root_agent",
     description=f"Root coordinator agent for Community AI Studio ({community_name})",
     instruction=INSTRUCTION,

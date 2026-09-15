@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from typing import Any, Sequence
 
 from google.genai import types
@@ -10,9 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from agents.gemini_config import get_gemini_client
 
+from .genre_scout import GenreBrief, scout_creative_genres
 from .workflow_models import CreativeScenario, ScenarioStyle, VideoShot
 
-PROMPT_DIRECTOR_MODEL = os.getenv("VIDEO_PROMPT_DIRECTOR_MODEL", "gemini-3.5-flash")
+PROMPT_DIRECTOR_MODEL = os.getenv("VIDEO_PROMPT_DIRECTOR_MODEL", "gemini-3.8-flash")
 
 FORBIDDEN_TERMS = [
     "public speaking",
@@ -29,22 +31,19 @@ FORBIDDEN_TERMS = [
 ]
 
 PROMPT_DIRECTOR_INSTRUCTION = """You are an elite creative director specializing in iconic high-end commercials, Super Bowl teasers, luxury brand campaigns (Apple, Nike, Porsche, Vogue, Dyson), stylized cinematic trailers, and imaginative visual spectacles.
-Your task is to transform a speaker's talk topic, title, and bio into 3 wildly imaginative narrative video scenarios with completely contrasting aesthetics and vibes.
-For EACH of the 3 scenarios, you will also provide 3 switchable stylistic aesthetics (so 3 narrative storylines x 3 styles = 9 total visual styles).
+Your task is to transform a speaker's talk topic, title, and bio into 5 wildly imaginative narrative video scenarios with completely contrasting aesthetics and vibes.
+For EACH of the 5 scenarios, you will also provide 3 switchable stylistic aesthetics (so 5 narrative storylines x 3 styles = 15 total visual styles).
 
 CRITICAL RULES:
 1. PROTAGONIST: The person from the portrait photo is the hero/protagonist of the mini-film. Do NOT critique, analyze, or evaluate their facial features, clothing, or the original background of the photo.
 2. ABSOLUTELY NO PUBLIC SPEAKING: Strictly avoid any conference stages, presentation podiums, lecture halls, audiences, microphones, slide decks, or classroom settings.
-3. VAST TONAL DIVERSITY ACROSS SCENARIOS (AVOID ALL-SCI-FI REPETITION & STATIC TROPES):
-   The 3 options MUST NEVER share the same genre or mood. You MUST deliver 3 completely contrasting creative worlds and advertising vibes.
-   Freely explore a wide spectrum of creative genres and visual tones tailored to the topic and any user direction:
-   - High-Energy Kinetic Commercial / Brand Launch (Nike / Apple Keynote / athletic adrenaline / urban whip-pans)
-   - Stylized Pop-Art / Whimsical Editorial (Wes Anderson / Vogue / symmetrical color-blocking / quirky tactile physics)
-   - Retro-Analog 70s/80s Espionage / Cinema (Kodak 35mm / golden grain / tactile mechanical dials / warm nostalgia)
-   - Solarpunk Architectural Daylight (lush bioluminescent botanicals / sun-drenched glass / clean optimism)
-   - Atmospheric Neo-Noir / Mystery Thriller (rain-slicked obsidian / cyan fiber-optics / dramatic shadow silhouettes)
-   - Minimalist Luxury / High-Fashion Fragrance (sculptural brutalism / fluid silk / avant-garde lighting)
-   - Kinetic Anime / Manga Metaphor (electric aura / dynamic speed lines / hyper-stylized motion)
+3. VAST TONAL DIVERSITY ACROSS SCENARIOS (RICH 5-PILLAR SPECTRUM):
+   The 5 options MUST NEVER share the same genre or mood. You MUST deliver 5 completely contrasting creative worlds and advertising vibes:
+   - Option 1: Grounded Human Realism / European Cinema / Cozy Artisanal (warm living world, French New Wave naturalism, cafe or workshop)
+   - Option 2: Classic Comedy / Whimsical Slapstick / Playful Commercial (visual humor, eccentric Rube Goldberg contraptions, Jacques Tati / Buster Keaton timing, Wes Anderson pastel symmetry, or playful advertising parody)
+   - Option 3: Auteur Arthouse / High-Energy Dynamic / Poetic Realism (Scandinavian deadpan irony, high-velocity sports motivation, Wong Kar-wai neon poetry, or lyrical magical realism)
+   - Option 4: Visionary Solarpunk / Prismatic Future / Luminous Eco-Utopian (levitating crystalline prisms, solar monoliths, lush bio-architecture, clean optimism, floating kinetic light sculptures)
+   - Option 5: Constructivist Mechanical / Steampunk / Industrial Allegory (colossal brass and steel clockwork, counterweights, flywheels, athletic hoist, risograph halftone textures, power & momentum)
 4. METAPHORICAL CONNECTION: Creatively translate the abstract themes of the talk (e.g., distributed data, neural networks, security, speed, resilience, debugging) into thrilling, memorable visual metaphors.
 5. 5 SHOTS x 2 SECONDS (EXACTLY 10 SECONDS TOTAL): Each scenario must consist of exactly 5 sequential shots, exactly 2 seconds each:
    - Shot 1 (00:00 - 00:02): Hook / Entrance into the world
@@ -53,14 +52,14 @@ CRITICAL RULES:
    - Shot 4 (00:06 - 00:08): Dramatic climax / revelation
    - Shot 5 (00:08 - 00:10): Hero resolve / iconic hold into the final frame
 6. NO ON-SCREEN TEXT OR SUBTITLES: Video will have graphics composited separately. The visual video stream must contain no rendered text, logos, or subtitles.
-7. STYLES PER SCENARIO (PRESERVE SHOT ACTIONS, VARY VISUAL AESTHETICS):
+7. THREE DIVERSE & BALANCED STYLES PER SCENARIO:
    For each scenario, define the core narrative plot (concept) with its 5 shots.
-   Then provide 3 switchable 'styles' variations of this exact plot.
-   CRITICAL REQUIREMENT: The 5 shots MUST retain their core narrative actions (what the protagonist does remains the same storyline across all 3 styles), BUT each style dramatically re-envisions the visual atmosphere, camera lenses, color grade, and omni_prompt.
-   Example styles for a scenario:
-     - Style 1: Signature Look (matching the scenario's primary genre)
-     - Style 2: Contrasting Aesthetic A (e.g. "Pastel Pop-Art" or "Cyber-Noir Neon" or "Solarpunk Daylight")
-     - Style 3: Contrasting Aesthetic B (e.g. "Warm 35mm Analog" or "High-Gloss Studio Ad" or "Monochrome Noir")
+   Then provide 3 switchable 'styles' variations of this exact plot:
+   - Style 1: Signature Vision (the bold, highly stylized aesthetic matching the scenario's primary creative genre)
+   - Style 2: Clean Modern Tech / Studio Commercial ("Попроще" / Grounded Realism — sleek, approachable, high-end tech commercial or modern studio look with clean lighting, natural skin tones, and professional elegance, avoiding surreal fantasy)
+   - Style 3: Dynamic Cinematic Realism / Contrasting Movement (a distinct cinematic aesthetic such as 35mm film grain, high-energy kinetic camera, or moody atmospheric chiaroscuro)
+   CRITICAL REQUIREMENT: The 5 shots MUST retain their core narrative actions across all 3 styles, but each style provides a distinct visual atmosphere, camera lenses, color grade, and omni_prompt.
+   NEVER use generic placeholder names like "Style 1" or repeat the same presets across scenarios! Give each style an evocative, descriptive name.
 """
 
 DEFAULT_TIMINGS = [
@@ -96,6 +95,9 @@ class _RawScenarioItem(BaseModel):
     title: str | None = Field(default=None, description="Catchy cinematic or commercial title")
     genre: str | None = Field(default=None, description="Distinct genre label")
     concept: str | None = Field(default=None, description="2-sentence creative storyline summary")
+    narrative_metaphor: str | None = Field(
+        default=None, description="How the speaker's bio/topic translates into visual action"
+    )
     shots: list[Any] = Field(default_factory=list, description="5 progressive shots detailing the 10-second sequence")
     omni_prompt: str | None = Field(default=None, alias="omniPrompt", description="Complete 9:16 multi-shot prompt")
     styles: list[Any] = Field(default_factory=list, description="Switchable styles for the scenario")
@@ -106,7 +108,7 @@ class _RawGeneratedScenarios(BaseModel):
     scenarios: list[Any] = Field(default_factory=list)
 
 
-def _normalize_shot(raw: Any, idx: int) -> VideoShot:
+def _normalize_shot(raw: Any, idx: int, speaker_name: str | None = None) -> VideoShot:
     """Safely convert dict/object/string into a validated VideoShot with defaults."""
     if isinstance(raw, VideoShot):
         return raw
@@ -116,7 +118,7 @@ def _normalize_shot(raw: Any, idx: int) -> VideoShot:
         return VideoShot(
             shot_number=idx,
             time_range=default_timing,
-            action=_sanitize_scenario_text(raw),
+            action=_sanitize_scenario_text(raw, speaker_name),
             camera="Dynamic cinematic tracking shot.",
             lighting_atmosphere="Vibrant commercial atmosphere.",
         )
@@ -134,7 +136,7 @@ def _normalize_shot(raw: Any, idx: int) -> VideoShot:
             or raw.get("visual")
             or raw.get("prompt")
             or raw.get("scene")
-            or f"Protagonist drives the action in shot {idx}."
+            or f"The protagonist drives the action in shot {idx}."
         )
         camera = str(
             raw.get("camera") or raw.get("camera_movement") or raw.get("movement") or "Dynamic cinematic tracking shot."
@@ -150,9 +152,9 @@ def _normalize_shot(raw: Any, idx: int) -> VideoShot:
         return VideoShot(
             shot_number=shot_num,
             time_range=time_range,
-            action=_sanitize_scenario_text(action),
-            camera=_sanitize_scenario_text(camera),
-            lighting_atmosphere=_sanitize_scenario_text(lighting),
+            action=_sanitize_scenario_text(action, speaker_name),
+            camera=_sanitize_scenario_text(camera, speaker_name),
+            lighting_atmosphere=_sanitize_scenario_text(lighting, speaker_name),
         )
 
     shot_num = getattr(raw, "shot_number", None) or getattr(raw, "shotNumber", None) or idx
@@ -164,7 +166,7 @@ def _normalize_shot(raw: Any, idx: int) -> VideoShot:
     action = str(
         getattr(raw, "action", None)
         or getattr(raw, "description", None)
-        or f"Protagonist drives the action in shot {idx}."
+        or f"The protagonist drives the action in shot {idx}."
     )
     camera = str(getattr(raw, "camera", None) or "Dynamic cinematic tracking shot.")
     lighting = str(
@@ -175,13 +177,13 @@ def _normalize_shot(raw: Any, idx: int) -> VideoShot:
     return VideoShot(
         shot_number=shot_num,
         time_range=time_range,
-        action=_sanitize_scenario_text(action),
-        camera=_sanitize_scenario_text(camera),
-        lighting_atmosphere=_sanitize_scenario_text(lighting),
+        action=_sanitize_scenario_text(action, speaker_name),
+        camera=_sanitize_scenario_text(camera, speaker_name),
+        lighting_atmosphere=_sanitize_scenario_text(lighting, speaker_name),
     )
 
 
-def _normalize_scenario_item(entry: Any, idx: int) -> CreativeScenario | None:
+def _normalize_scenario_item(entry: Any, idx: int, speaker_name: str | None = None) -> CreativeScenario | None:
     """Robustly normalize a raw scenario dictionary or model into a valid CreativeScenario."""
     if isinstance(entry, CreativeScenario):
         has_timing = any(marker in entry.omni_prompt.lower() for marker in ("00:00", "0-2s", "shot 1", "shot 2"))
@@ -200,7 +202,9 @@ def _normalize_scenario_item(entry: Any, idx: int) -> CreativeScenario | None:
     sc_id = str(entry.get("id") or f"scenario_{idx}")
     title = str(entry.get("title") or f"Creative Concept {idx}")
     genre = str(entry.get("genre") or "Cinematic Commercial")
-    concept = _sanitize_scenario_text(str(entry.get("concept") or "A high-concept visual story."))
+    concept = _sanitize_scenario_text(str(entry.get("concept") or "A high-concept visual story."), speaker_name)
+    raw_metaphor = entry.get("narrative_metaphor") or entry.get("narrativeMetaphor")
+    narrative_metaphor = _sanitize_scenario_text(str(raw_metaphor), speaker_name) if raw_metaphor else None
 
     # Extract shots: prefer entry["shots"], else fallback to entry["styles"][0]["shots"]
     raw_shots = entry.get("shots") or []
@@ -213,7 +217,7 @@ def _normalize_scenario_item(entry: Any, idx: int) -> CreativeScenario | None:
         elif hasattr(first_style, "shots"):
             raw_shots = getattr(first_style, "shots", [])
 
-    shots = [_normalize_shot(sh, s_idx) for s_idx, sh in enumerate(raw_shots, start=1)]
+    shots = [_normalize_shot(sh, s_idx, speaker_name) for s_idx, sh in enumerate(raw_shots, start=1)]
 
     # If shots are missing or fewer than 5, fill progressive shots
     while len(shots) < 5:
@@ -241,7 +245,7 @@ def _normalize_scenario_item(entry: Any, idx: int) -> CreativeScenario | None:
     if not has_timing or not omni_prompt:
         omni_prompt = format_timed_omni_prompt(shots, genre, omni_prompt)
     else:
-        omni_prompt = _sanitize_scenario_text(omni_prompt)
+        omni_prompt = _sanitize_scenario_text(omni_prompt, speaker_name)
 
     # Process styles if provided
     styles: list[ScenarioStyle] = []
@@ -249,22 +253,25 @@ def _normalize_scenario_item(entry: Any, idx: int) -> CreativeScenario | None:
         for st_idx, st_raw in enumerate(raw_styles, start=1):
             if isinstance(st_raw, dict):
                 st_id = str(st_raw.get("id") or f"{sc_id}_style_{st_idx}")
-                st_name = str(st_raw.get("name") or f"Style {st_idx}")
-                st_genre = str(st_raw.get("genre") or genre)
+                st_name = _sanitize_scenario_text(str(st_raw.get("name") or f"Style {st_idx}"), speaker_name)
+                st_genre = _sanitize_scenario_text(str(st_raw.get("genre") or genre), speaker_name)
                 st_shots_raw = st_raw.get("shots") or shots
-                st_shots = [_normalize_shot(sh, sh_idx) for sh_idx, sh in enumerate(st_shots_raw, start=1)]
+                st_shots = [
+                    _normalize_shot(sh, sh_idx, speaker_name) for sh_idx, sh in enumerate(st_shots_raw, start=1)
+                ]
                 st_prompt = str(st_raw.get("omni_prompt") or st_raw.get("omniPrompt") or "")
                 if not any(marker in st_prompt.lower() for marker in ("00:00", "0-2s", "shot 1", "shot 2")):
                     st_prompt = format_timed_omni_prompt(st_shots, st_genre, st_prompt)
+                st_prompt = _sanitize_scenario_text(st_prompt, speaker_name)
                 styles.append(
                     ScenarioStyle(id=st_id, name=st_name, genre=st_genre, shots=st_shots, omni_prompt=st_prompt)
                 )
             elif isinstance(st_raw, str):
                 st_id = f"{sc_id}_style_{st_idx}"
-                st_name = st_raw
-                st_genre = st_raw
+                st_name = _sanitize_scenario_text(st_raw, speaker_name)
+                st_genre = _sanitize_scenario_text(st_raw, speaker_name)
                 st_shots = list(shots)
-                st_prompt = format_timed_omni_prompt(st_shots, st_genre)
+                st_prompt = _sanitize_scenario_text(format_timed_omni_prompt(st_shots, st_genre), speaker_name)
                 styles.append(
                     ScenarioStyle(id=st_id, name=st_name, genre=st_genre, shots=st_shots, omni_prompt=st_prompt)
                 )
@@ -276,6 +283,7 @@ def _normalize_scenario_item(entry: Any, idx: int) -> CreativeScenario | None:
         title=title,
         genre=genre,
         concept=concept,
+        narrative_metaphor=narrative_metaphor,
         shots=shots,
         omni_prompt=omni_prompt,
         styles=styles,
@@ -283,11 +291,23 @@ def _normalize_scenario_item(entry: Any, idx: int) -> CreativeScenario | None:
     return _ensure_scenario_styles(sc)
 
 
-def _sanitize_scenario_text(text: str) -> str:
-    """Ensure no conference/stage terms seep through."""
+def _sanitize_scenario_text(text: str, speaker_name: str | None = None) -> str:
+    """Ensure no conference/stage terms or real personal names seep through."""
     cleaned = text
     for term in FORBIDDEN_TERMS:
         cleaned = re.sub(rf"\b{re.escape(term)}\b", "cinematic space", cleaned, flags=re.IGNORECASE)
+    if speaker_name and speaker_name.strip():
+        # Replace full speaker name with 'the protagonist'
+        cleaned = re.sub(rf"\b{re.escape(speaker_name.strip())}\b", "the protagonist", cleaned, flags=re.IGNORECASE)
+        # Also replace individual name tokens >= 3 chars
+        for part in speaker_name.split():
+            if len(part) >= 3 and part.lower() not in {"and", "the", "van", "von", "de", "del"}:
+                cleaned = re.sub(rf"\b{re.escape(part)}\b", "the protagonist", cleaned, flags=re.IGNORECASE)
+        # Clean up repeated 'the protagonist'
+        cleaned = re.sub(r"\bthe protagonist(?:\s+the protagonist)+\b", "the protagonist", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\bthe protagonist\s*'?s\b", "the protagonist's", cleaned, flags=re.IGNORECASE)
+        # Capitalize beginning of sentence or line
+        cleaned = re.sub(r"(^|[:.!?]\s+)the protagonist\b", r"\1The protagonist", cleaned)
     return cleaned
 
 
@@ -304,160 +324,273 @@ def format_timed_omni_prompt(shots: Sequence[VideoShot], genre: str = "", fallba
 
 
 def _build_fallback_scenarios(talk_title: str, speaker_name: str) -> list[CreativeScenario]:
-    """Deterministic fallback scenarios providing 3 completely contrasting commercial and cinematic vibes."""
+    """Deterministic fallback scenarios providing a balanced 5-pillar spectrum:
+    Option 1: Grounded Realism (French New Wave)
+    Option 2: Classic Comedy (Jacques Tati Rube Goldberg)
+    Option 3: High-Energy Sports (Sunrise Velocity Anthem)
+    Option 4: Visionary Solarpunk (Refracted Prismatic Horizon)
+    Option 5: Constructivist Mechanical (Basework of Autonomous Gears)
+    """
     base_title = talk_title or "Future Technology"
     return [
         CreativeScenario(
-            id="scenario_kinetic_commercial",
-            title="The Velocity Catalyst",
-            genre="High-Energy Kinetic Commercial / Brand Launch",
-            concept=f"A fast-paced kinetic commercial visualizing the explosive performance and instant response of '{base_title}' through urban athletic motion, sleek chrome reflections, and dynamic lighting.",
+            id="scenario_grounded_realism",
+            title="The Boulevard Espresso Realism",
+            genre="French New Wave / Grounded Artisanal Realism",
+            concept=f"A warm, grounded indie cinema sequence where '{base_title}' unfolds in a sunlit Parisian café and bookstore, told with natural 35mm daylight, tactile espresso rituals, and intimate human charm.",
+            narrative_metaphor="The protagonist connects abstract digital systems with tactile, warm daily life in an inviting European atelier.",
             shots=[
                 VideoShot(
                     shot_number=1,
                     time_range="00:00 - 00:02",
-                    action="The protagonist sprints across a sleek architectural glass bridge as glowing pulse ribbons race alongside them.",
-                    camera="Low-angle tracking sprint, rapid kinetic motion blur.",
-                    lighting_atmosphere="Electric cyan and crisp white LED reflections on glass.",
+                    action="The protagonist walks into a charming sunlit cobblestone café, taking a seat beside tall open French windows as morning light washes over the table.",
+                    camera="Handheld naturalistic 35mm tracking shot moving alongside protagonist.",
+                    lighting_atmosphere="Golden-hour morning daylight streaming through dust motes.",
                 ),
                 VideoShot(
                     shot_number=2,
                     time_range="00:02 - 00:04",
-                    action="They execute a sharp dynamic leap over a suspended threshold, catching floating luminous particles in mid-air.",
-                    camera="120fps ultra-slow-motion floating camera arc.",
-                    lighting_atmosphere="Radiant amber rim-lighting with specular flares.",
+                    action="The protagonist pulls out a worn leather notebook and pens a blueprint, while steam from a fresh porcelain espresso cup rises gracefully into the sunbeams.",
+                    camera="Intimate rack-focus from the pen tip to the protagonist's thoughtful smile.",
+                    lighting_atmosphere="Warm honey-toned ambient natural illumination.",
                 ),
                 VideoShot(
                     shot_number=3,
                     time_range="00:04 - 00:06",
-                    action="Mid-air, they snap a polished metallic core into place, triggering a massive shockwave of light.",
-                    camera="Dynamic crash-zoom into the locking mechanism.",
-                    lighting_atmosphere="High-contrast strobe pulse of magenta and electric gold.",
+                    action="A vintage brass record player on the café counter begins spinning, its needle dropping into the groove with a soft warm crackle that brings the space alive.",
+                    camera="Tactile macro close-up of the vinyl needle and revolving record.",
+                    lighting_atmosphere="Rich Kodak 35mm warmth with deep amber tones.",
                 ),
                 VideoShot(
                     shot_number=4,
                     time_range="00:06 - 00:08",
-                    action="The shockwave illuminates an expansive metropolis grid humming at peak speed below.",
-                    camera="Sweeping bird's-eye dive down into the illuminated urban canyon.",
-                    lighting_atmosphere="Vibrant multi-spectrum neon grid glow.",
+                    action="Outside the window, the lively city street flows harmoniously as neighbors, bicycles, and flower carts move in cheerful, synchronized rhythm.",
+                    camera="Gentle lateral pan following a bicycle past the sunlit window frame.",
+                    lighting_atmosphere="Natural European daylight with pastel awnings and cobblestone reflections.",
                 ),
                 VideoShot(
                     shot_number=5,
                     time_range="00:08 - 00:10",
-                    action="Protagonist lands with effortless balance, looking up with calm, commanding confidence as the city breathes in sync behind them.",
-                    camera="Centered hero push-in with confident cinematic hold.",
-                    lighting_atmosphere="Sleek high-fashion twilight with crisp edge highlights.",
+                    action="The protagonist takes a calm sip of espresso, closes the notebook with a contented glance toward the camera, ready for the day.",
+                    camera="Warm medium portrait hold, gentle natural camera breathing into the final frame.",
+                    lighting_atmosphere="Soft flattering window light with creamy natural bokeh.",
                 ),
             ],
             omni_prompt=(
-                "Cinematic 9:16 high-energy kinetic brand commercial. "
-                "Shot 1 (00:00 - 00:02): Low-angle tracking sprint across a glass bridge with racing cyan neon ribbons. "
-                "Shot 2 (00:02 - 00:04): 120fps slow-motion leap catching floating amber particles in mid-air. "
-                "Shot 3 (00:04 - 00:06): Crash-zoom into locking a polished metallic core triggering a vibrant strobe pulse. "
-                "Shot 4 (00:06 - 00:08): Bird's-eye dive down illuminating an expansive high-speed cyber-metropolis. "
-                "Shot 5 (00:08 - 00:10): Centered hero landing and confident hold against sleek twilight skyline."
+                "Cinematic 9:16 French New Wave grounded artisanal realism. "
+                "Shot 1 (00:00 - 00:02): Handheld 35mm tracking of protagonist entering a sunlit cobblestone Parisian café. "
+                "Shot 2 (00:02 - 00:04): Intimate rack-focus from pen drafting a blueprint to rising espresso steam in sunbeams. "
+                "Shot 3 (00:04 - 00:06): Tactile macro close-up of a vintage vinyl needle dropping onto spinning record. "
+                "Shot 4 (00:06 - 00:08): Gentle lateral pan of a vibrant European street with bicycles and flower carts. "
+                "Shot 5 (00:08 - 00:10): Warm medium portrait hold of protagonist taking a calm sip of espresso into camera."
             ),
         ),
         CreativeScenario(
-            id="scenario_pop_art",
-            title="Pastel Precision & The Quirky Engine",
-            genre="Stylized Pop-Art / Wes Anderson Commercial",
-            concept=f"A delightfully quirky, symmetrical pop-art commercial where complex principles of '{base_title}' are orchestrated through tactile pastel mechanical modules, brass gears, and whimsical precision.",
+            id="scenario_tati_comedy",
+            title="The Clockwork Baker's Rube Goldberg",
+            genre="Jacques-Tati Visual Slapstick / Whimsical Comedy",
+            concept=f"A delightful, eccentric physical comedy short where '{base_title}' is represented by an elaborate Rube Goldberg baking contraption that humorously synchronizes dough, bells, and flour.",
+            narrative_metaphor="Complex coordination and automation are dramatized as an eccentric, charmingly synchronized bakery mechanism with playful comedic timing.",
             shots=[
                 VideoShot(
                     shot_number=1,
                     time_range="00:00 - 00:02",
-                    action="The protagonist in a sharply tailored retro suit sits at a perfectly symmetrical pastel-mint console with brass dials.",
-                    camera="Dead-center symmetrical wide framing, crisp snap-in.",
-                    lighting_atmosphere="Soft, shadowless editorial pastel lighting in mint and coral.",
+                    action="The protagonist in a crisp baker's apron stands before an enormous, quirky wooden contraption with copper funnels and ticking dials.",
+                    camera="Planimetric dead-center symmetrical wide shot, snappy comedic timing.",
+                    lighting_atmosphere="Bright, cheerful pastel bakery daylight with flour dust motes.",
                 ),
                 VideoShot(
                     shot_number=2,
                     time_range="00:02 - 00:04",
-                    action="They flick a bright yellow toggle switch; an intricate domino line of pastel wooden blocks begins tumbling in rhythm.",
-                    camera="Rapid 90-degree whip-pan following the mechanical cascade.",
-                    lighting_atmosphere="Sun-drenched warm retro interior glow.",
+                    action="The protagonist taps a tiny brass bicycle bell; instantly, a wooden lever catapults a croissant dough ball into a spinning copper spiral track.",
+                    camera="Rapid playful whip-pan tracking the bouncing dough through the spiral.",
+                    lighting_atmosphere="Warm golden oven glow and crisp morning sunbeams.",
                 ),
                 VideoShot(
                     shot_number=3,
                     time_range="00:04 - 00:06",
-                    action="Protagonist calmly adjusts vintage glasses as a miniature brass bell dings and releases a floating origami cloud.",
-                    camera="Extreme close-up on their eyes, then witty rack-focus to the origami.",
-                    lighting_atmosphere="Soft morning daylight with crisp geometric shadows.",
+                    action="The dough ball lands on a miniature see-saw that pulls a cord, causing a mechanical rooster to crow and release a cloud of white powdered sugar.",
+                    camera="Comedic low-angle tilt up from the see-saw to the mechanical rooster.",
+                    lighting_atmosphere="High-key saturated primary colors with powdery white sugar veil.",
                 ),
                 VideoShot(
                     shot_number=4,
                     time_range="00:06 - 00:08",
-                    action="The whimsical contraption pours a perfect droplet of glowing blue liquid into a tiny porcelain teacup.",
-                    camera="Overhead top-down flat-lay tracking the falling droplet in slow-motion.",
-                    lighting_atmosphere="High-gloss studio commercial illumination.",
+                    action="A conveyor belt smoothly slides a fresh tray of golden pastries out of the oven, each perfectly aligned and steaming in flawless precision.",
+                    camera="Overhead top-down flat-lay tracking the sliding pastry tray in snappy motion.",
+                    lighting_atmosphere="Warm golden buttery highlights and mouthwatering studio rim lighting.",
                 ),
                 VideoShot(
                     shot_number=5,
                     time_range="00:08 - 00:10",
-                    action="Protagonist takes a calm sip from the teacup, giving a knowing, witty glance directly into the lens as the machine purrs harmoniously.",
-                    camera="Centered medium hero framing, subtle slow push.",
-                    lighting_atmosphere="Radiant pastel warmth with retro Kodak color saturation.",
+                    action="The protagonist catches a warm croissant with effortless comedic flair, brushing a smudge of flour off their nose with a triumphant deadpan wink.",
+                    camera="Centered hero medium shot holding on their playful, satisfied smile.",
+                    lighting_atmosphere="Radiant warm bakery glow, whimsical and charming.",
                 ),
             ],
             omni_prompt=(
-                "Cinematic 9:16 stylized pop-art Wes Anderson commercial. "
-                "Shot 1 (00:00 - 00:02): Symmetrical wide framing of protagonist at a pastel-mint console with brass dials. "
-                "Shot 2 (00:02 - 00:04): Snappy 90-degree whip-pan following a cascading domino run of pastel blocks. "
-                "Shot 3 (00:04 - 00:06): Extreme close-up with witty rack-focus to a floating origami cloud. "
-                "Shot 4 (00:06 - 00:08): Overhead top-down shot of a droplet falling into a tiny porcelain teacup. "
-                "Shot 5 (00:08 - 00:10): Centered hero sipping tea with a knowing glance into camera, radiant pastel warmth."
+                "Cinematic 9:16 Jacques Tati whimsical physical comedy. "
+                "Shot 1 (00:00 - 00:02): Symmetrical wide framing of protagonist baker before a quirky wooden Rube Goldberg contraption. "
+                "Shot 2 (00:02 - 00:04): Rapid whip-pan following a catapulted dough ball through a spinning copper spiral. "
+                "Shot 3 (00:04 - 00:06): Comedic tilt up as a mechanical rooster crows, puffing a cloud of powdered sugar. "
+                "Shot 4 (00:06 - 00:08): Overhead flat-lay tracking a sliding tray of golden steaming croissants. "
+                "Shot 5 (00:08 - 00:10): Centered hero hold catching a croissant and deadpan winking into camera."
             ),
         ),
         CreativeScenario(
-            id="scenario_epic_noir",
-            title="Midnight Obsidian Protocol",
-            genre="Atmospheric Cinematic Thriller / Neo-Noir",
-            concept=f"A moody cinematic thriller following the protagonist untangling hidden anomalies in '{base_title}' amidst rain-drenched streets, flickering neon signs, and deep atmospheric suspense.",
+            id="scenario_kinetic_anthem",
+            title="The Sunrise Velocity Anthem",
+            genre="High-Energy Urban Sports / Brand Commercial",
+            concept=f"An electrifying, athletic motivation commercial visualizing the speed and relentless drive of '{base_title}' through an early-morning city bridge run.",
+            narrative_metaphor="High performance, instant response, and endurance are embodied by an athletic sunrise sprint through an awakening metropolis.",
             shots=[
                 VideoShot(
                     shot_number=1,
                     time_range="00:00 - 00:02",
-                    action="The protagonist walks through a rain-drenched alley, reflected in oil-slick puddles under buzzing amber streetlamps.",
-                    camera="Low-angle slow glide through rising steam and raindrops.",
-                    lighting_atmosphere="Deep chiaroscuro shadows with warm sodium-vapor glow.",
+                    action="The protagonist ties running shoes on a misty suspension bridge as the first golden rays of sunrise break through towering skyscrapers.",
+                    camera="Low-angle macro push-in focusing on shoes hitting the asphalt.",
+                    lighting_atmosphere="Crisp cobalt dawn sky blending into piercing golden-hour sunrise.",
                 ),
                 VideoShot(
                     shot_number=2,
                     time_range="00:02 - 00:04",
-                    action="They pull open a heavy rusted metal hatch, revealing a cavernous data vault glowing with thousands of cold fiber-optic fibers.",
-                    camera="Dolly-in over their shoulder into the cavernous darkness.",
-                    lighting_atmosphere="Striking contrast of pitch-black shadows and electric cyan filament glow.",
+                    action="The protagonist takes off in an explosive athletic sprint, breath billowing in the cool air as camera glides alongside at full speed.",
+                    camera="Dynamic vehicle-mounted tracking shot racing alongside at hip height.",
+                    lighting_atmosphere="Blinding horizontal lens flare slicing through suspension cables.",
                 ),
                 VideoShot(
                     shot_number=3,
                     time_range="00:04 - 00:06",
-                    action="Protagonist reaches into a humming pool of dark liquid glass, extracting a crystalline prism that refracts blinding white beams.",
-                    camera="Close-up rotational tracking around the glowing crystal prism.",
-                    lighting_atmosphere="Blinding specular god-rays piercing through the mist.",
+                    action="Macro close-up of sweat droplets glistening on their brow, eyes focused ahead with unwavering determination and grit.",
+                    camera="1000fps ultra-slow-motion floating macro tracking shot.",
+                    lighting_atmosphere="Intense golden rim-lighting carving sharp silhouette against skyline.",
                 ),
                 VideoShot(
                     shot_number=4,
                     time_range="00:06 - 00:08",
-                    action="The room stabilizes as the discordant hum harmonizes into a deep, soothing acoustic resonance.",
-                    camera="Expansive crane tilt-up revealing monumental concrete brutalist architecture.",
-                    lighting_atmosphere="Volumetric shafts of cold moonlight cutting through rain haze.",
+                    action="Reaching the crest of the bridge, the expansive city wakes beneath them as morning sunlight floods across the glass towers.",
+                    camera="Sweeping drone pullback ascending rapidly over the bridge deck.",
+                    lighting_atmosphere="Breathtaking golden-hour panoramic radiance across city river.",
                 ),
                 VideoShot(
                     shot_number=5,
                     time_range="00:08 - 00:10",
-                    action="Protagonist stands atop monumental steps, holding the quiet crystal as dawn breaks over the rain-washed skyline.",
-                    camera="Dramatic centered hero hold into the final frame.",
-                    lighting_atmosphere="Golden-hour rim light catching rain droplets on their collar.",
+                    action="The protagonist catches breath with hands on hips, looking out over the city with triumphant, calm power as the final frame locks.",
+                    camera="Centered hero medium hold against the vast illuminated skyline.",
+                    lighting_atmosphere="Heroic golden sunlight wash with crisp modern contrast.",
                 ),
             ],
             omni_prompt=(
-                "Cinematic 9:16 atmospheric neo-noir thriller. "
-                "Shot 1 (00:00 - 00:02): Low-angle slow glide following protagonist through a rain-slicked alley with amber streetlamps. "
-                "Shot 2 (00:02 - 00:04): Dolly-in over shoulder into a cavernous vault glowing with cold cyan fiber-optics. "
-                "Shot 3 (00:04 - 00:06): Rotational close-up extracting a glowing crystal prism with blinding specular god-rays. "
-                "Shot 4 (00:06 - 00:08): Expansive crane tilt-up across brutalist concrete architecture in volumetric moonlight. "
-                "Shot 5 (00:08 - 00:10): Heroic hold on monumental steps holding the crystal at dawn, golden rim-lighting."
+                "Cinematic 9:16 high-energy Nike-style urban sunrise commercial. "
+                "Shot 1 (00:00 - 00:02): Low-angle push-in on protagonist tying running shoes on a misty city suspension bridge. "
+                "Shot 2 (00:02 - 00:04): Fast vehicle-mounted tracking shot alongside explosive athletic sprint at dawn. "
+                "Shot 3 (00:04 - 00:06): 1000fps ultra-slow-motion macro of focused eyes and glistening sweat droplets in golden flare. "
+                "Shot 4 (00:06 - 00:08): Sweeping drone pullback ascending over bridge crest revealing sun-drenched skyline. "
+                "Shot 5 (00:08 - 00:10): Centered hero hold of protagonist standing proud atop bridge overlooking the city."
+            ),
+        ),
+        CreativeScenario(
+            id="scenario_solarpunk_prismatic",
+            title="The Refracted Solarpunk Horizon",
+            genre="Visionary Solarpunk / Prismatic Future",
+            concept=f"A breathtaking visionary solarpunk sequence where '{base_title}' is manifested as a luminous cathedral of floating crystalline prisms and vertical bio-gardens, refracting ideas into pure rainbow energy.",
+            narrative_metaphor="The protagonist navigates and harmonizes floating crystalline prisms that refract complex ideas into brilliant, sustainable light.",
+            shots=[
+                VideoShot(
+                    shot_number=1,
+                    time_range="00:00 - 00:02",
+                    action="The protagonist steps onto a sunlit glass sky-terrace overlooking a lush solarpunk metropolis of spiral white towers and cascading vertical flora.",
+                    camera="Sweeping cinematic crane descending toward the protagonist.",
+                    lighting_atmosphere="Radiant morning sunlight filtering through translucent quartz glass and emerald leaves.",
+                ),
+                VideoShot(
+                    shot_number=2,
+                    time_range="00:02 - 00:04",
+                    action="The protagonist reaches out toward a cluster of floating geometric prisms that rotate silently in zero gravity, casting rainbow caustics across the terrace.",
+                    camera="Fluid 360-degree tracking arc gliding around the levitating crystalline prisms.",
+                    lighting_atmosphere="Brilliant iridescent light flares and soft ethereal atmospheric bloom.",
+                ),
+                VideoShot(
+                    shot_number=3,
+                    time_range="00:04 - 00:06",
+                    action="As they touch the central prism, beams of pure refracted spectrums branch out like luminous neural pathways connecting the garden canopies.",
+                    camera="Dynamic macro push-in focusing on glowing crystalline facets and sparkling light pulses.",
+                    lighting_atmosphere="Vibrant spectral rainbow refractions dancing across their focused expression.",
+                ),
+                VideoShot(
+                    shot_number=4,
+                    time_range="00:06 - 00:08",
+                    action="The entire bio-architectural canopy pulses with synchronized emerald and gold light, harmonizing technology with living nature.",
+                    camera="Majestic ascending drone shot revealing vast panoramic bio-domes.",
+                    lighting_atmosphere="Breathtaking golden-hour radiance across pristine white and glass spires.",
+                ),
+                VideoShot(
+                    shot_number=5,
+                    time_range="00:08 - 00:10",
+                    action="The protagonist turns toward the horizon with a calm visionary smile as floating light motes swirl weightlessly into the final frame.",
+                    camera="Centered hero medium hold against the radiant utopian skyline.",
+                    lighting_atmosphere="Luminous golden glow with pristine crystal clarity.",
+                ),
+            ],
+            omni_prompt=(
+                "Cinematic 9:16 visionary solarpunk prismatic future commercial. "
+                "Shot 1 (00:00 - 00:02): Sweeping crane descent on protagonist stepping onto a sunlit glass sky-terrace over a spiral bio-city. "
+                "Shot 2 (00:02 - 00:04): 360-degree tracking arc around floating zero-gravity crystalline prisms casting rainbow caustics. "
+                "Shot 3 (00:04 - 00:06): Dynamic macro push-in as touch ignites branching spectral light beams through garden canopies. "
+                "Shot 4 (00:06 - 00:08): Majestic ascending drone reveal of synchronized pulsing emerald bio-domes at golden hour. "
+                "Shot 5 (00:08 - 00:10): Centered hero hold of protagonist smiling against the radiant utopian skyline."
+            ),
+        ),
+        CreativeScenario(
+            id="scenario_constructivist_gears",
+            title="The Basework of Autonomous Gears",
+            genre="Constructivist Mechanical / Steampunk Allegory",
+            concept=f"A monumental constructivist industrial allegory where '{base_title}' is dramatized as a subterranean cathedral of interlocking bronze gears, massive counterweights, and athletic kinetic mastery.",
+            narrative_metaphor="The protagonist commands colossal mechanical gears and flywheels, transforming heavy structural complexity into effortless, unstoppable motion.",
+            shots=[
+                VideoShot(
+                    shot_number=1,
+                    time_range="00:00 - 00:02",
+                    action="The protagonist walks along an elevated cast-iron catwalk inside a colossal subterranean chamber filled with giant soot-black steel girders and ticking bronze gears.",
+                    camera="Dutch-angle low tracking shot gazing up into the monumental industrial architecture.",
+                    lighting_atmosphere="Dramatic chiaroscuro with shafts of amber tungsten cutting through curling plumes of white steam.",
+                ),
+                VideoShot(
+                    shot_number=2,
+                    time_range="00:02 - 00:04",
+                    action="The protagonist approaches a massive brass master lever connected to a towering kinetic flywheel covered in fine risograph halftone patina.",
+                    camera="Fast mechanical push-in toward their hand gripping the textured brass handle.",
+                    lighting_atmosphere="Warm furnace embers reflecting off polished bronze teeth and oil-sheened steel.",
+                ),
+                VideoShot(
+                    shot_number=3,
+                    time_range="00:04 - 00:06",
+                    action="With deliberate athletic strength, protagonist pulls the lever; giant counterweights descend in synchronized rhythm as colossal interlocking gears spin to life.",
+                    camera="Visceral low-angle whip-pan tracking spinning gears and sparking bronze teeth.",
+                    lighting_atmosphere="Brilliant flashes of industrial friction sparks and deep silhouette shadows.",
+                ),
+                VideoShot(
+                    shot_number=4,
+                    time_range="00:06 - 00:08",
+                    action="The entire subterranean machinery reaches flawless mechanical harmony, its deep kinetic pulse driving a towering dynamo that illuminates the chamber.",
+                    camera="Sweeping circular boom shot gliding past spinning brass cogs and steam valves.",
+                    lighting_atmosphere="Radiant amber furnace glow illuminating soaring steel trusses.",
+                ),
+                VideoShot(
+                    shot_number=5,
+                    time_range="00:08 - 00:10",
+                    action="The protagonist stands composed beside the humming flywheel, resting a confident hand on the gear housing with triumphant mastery into the final frame.",
+                    camera="Centered hero medium hold, framed by majestic interlocking gears.",
+                    lighting_atmosphere="Warm heroic rim lighting carving a sharp silhouette against rising steam.",
+                ),
+            ],
+            omni_prompt=(
+                "Cinematic 9:16 constructivist mechanical steampunk industrial commercial. "
+                "Shot 1 (00:00 - 00:02): Dutch-angle low tracking shot through subterranean cathedral of steel girders and giant bronze gears. "
+                "Shot 2 (00:02 - 00:04): Fast push-in on protagonist gripping massive brass lever of a towering kinetic flywheel. "
+                "Shot 3 (00:04 - 00:06): Visceral low whip-pan as counterweights descend and giant interlocking gears spin with sparks. "
+                "Shot 4 (00:06 - 00:08): Sweeping boom shot past spinning brass cogs and steam valves in glowing furnace light. "
+                "Shot 5 (00:08 - 00:10): Centered hero hold resting hand on gear housing with triumphant calm against rising steam."
             ),
         ),
     ]
@@ -466,18 +599,21 @@ def _build_fallback_scenarios(talk_title: str, speaker_name: str) -> list[Creati
 def _ensure_scenario_styles(sc: CreativeScenario) -> CreativeScenario:
     """Ensure every scenario has 3 switchable style tabs adapting the same narrative plot."""
     if sc.styles and len(sc.styles) >= 3:
-        if not sc.shots and sc.styles[0].shots:
-            sc.shots = sc.styles[0].shots
-        if not sc.omni_prompt and sc.styles[0].omni_prompt:
-            sc.omni_prompt = sc.styles[0].omni_prompt
-        if not sc.genre and sc.styles[0].genre:
-            sc.genre = sc.styles[0].genre
-        return sc
+        names = [st.name for st in sc.styles]
+        genres = [st.genre for st in sc.styles]
+        is_all_generic = all(n in ("Style 1", "Style 2", "Style 3", "Style", "") for n in names) or (
+            len(set(genres)) == 1 and genres[0] == sc.genre
+        )
+        if not is_all_generic:
+            if not sc.shots and sc.styles[0].shots:
+                sc.shots = sc.styles[0].shots
+            if not sc.omni_prompt and sc.styles[0].omni_prompt:
+                sc.omni_prompt = sc.styles[0].omni_prompt
+            if not sc.genre and sc.styles[0].genre:
+                sc.genre = sc.styles[0].genre
+            return sc
 
-    base_genre = sc.genre or "Cinematic Film"
-    base_lower = base_genre.lower()
-
-    # Style 1: Signature
+    # Style 1: Signature Vision
     style1_name = sc.genre.split("/")[0].strip() if "/" in sc.genre else sc.genre
     style1 = ScenarioStyle(
         id=f"{sc.id}_style_1",
@@ -487,68 +623,85 @@ def _ensure_scenario_styles(sc: CreativeScenario) -> CreativeScenario:
         omni_prompt=sc.omni_prompt,
     )
 
-    # Rich library of style presets for high visual variety
-    style_presets = [
+    # Derive numeric index from sc.id or title to vary presets across scenarios
+    sc_idx = 1
+    match = re.search(r"(\d+)", sc.id or "")
+    if match:
+        try:
+            sc_idx = int(match.group(1))
+        except ValueError:
+            sc_idx = 1
+
+    # Category A: Clean Modern Tech / Studio Commercial ("Попроще" / Grounded Realism)
+    grounded_styles = [
         {
-            "name": "High-Gloss Studio Ad",
-            "genre": "High-Gloss Studio Commercial / Luxury Editorial",
-            "camera": "Silky crane movement, seamless rotational studio tracking, macro product-reveal elegance.",
-            "lighting": "Pristine white studio rim-lighting with soft diffused champagne reflections.",
-            "tags": ["gloss", "commercial", "luxury", "studio", "clean"],
+            "name": "Clean Modern Tech",
+            "genre": "Clean Modern Tech / Studio Commercial",
+            "camera": "Smooth horizontal Steadicam glide, crisp prime lens focus, balanced centered framing.",
+            "lighting": "Clean soft-diffused studio key light, subtle rim reflections, authentic natural skin tones.",
         },
         {
-            "name": "Pastel Pop-Art",
-            "genre": "Stylized Pop-Art / Symmetrical Commercial",
-            "camera": "Snappy 90-degree whip-pan, dead-center symmetrical framing, rapid playful snap-in.",
-            "lighting": "Shadowless pastel mint and coral lighting with vivid retro saturation.",
-            "tags": ["pop", "wes anderson", "pastel", "quirky", "symmetrical"],
+            "name": "Architectural Daylight",
+            "genre": "Architectural Daylight / Modern Editorial",
+            "camera": "Expansive slow push-in, wide architectural glass reflections, elegant depth of field.",
+            "lighting": "Abundant natural daylight, soft airy ambient bounce, crisp modern aesthetic.",
         },
         {
-            "name": "Warm 35mm Film",
-            "genre": "Warm 35mm Analog / Kodak Cinema",
-            "camera": "Tactile handheld 35mm camera, organic camera breathing, shallow prime lens focus.",
-            "lighting": "Warm golden tungsten lamps, soft film halation, tactile organic film grain.",
-            "tags": ["film", "analog", "vintage", "warm", "35mm", "retro"],
+            "name": "Minimalist Keynote",
+            "genre": "Minimalist Studio / Keynote Elegance",
+            "camera": "Subtle cinematic slow zoom, sharp eye-level prime focus, clean editorial framing.",
+            "lighting": "High-end keynote rim lighting, clean dark gradient backdrop, crisp professional skin tones.",
         },
         {
-            "name": "Cyber-Neon Noir",
-            "genre": "Atmospheric Cyber-Neon / Sci-Fi Noir",
-            "camera": "Low-angle kinetic tracking, rapid anamorphic push-in, reflective puddle sweeps.",
-            "lighting": "Deep obsidian shadows punctuated by electric cyan and magenta neon strobes.",
-            "tags": ["cyber", "neon", "noir", "matrix", "dark", "sci-fi"],
+            "name": "Warm Artisanal Studio",
+            "genre": "Warm Artisanal Studio / Tactile Craft",
+            "camera": "Smooth handheld prime lens, gentle natural breathing, intimate framing.",
+            "lighting": "Warm amber lamplight, soft window bounce, natural wood and textured linen accents.",
         },
         {
-            "name": "Solarpunk Daylight",
-            "genre": "Solarpunk / Architectural Daylight",
-            "camera": "Silky Steadicam glide, elegant shallow depth of field, wide natural framing.",
-            "lighting": "Bright natural sunlight, shimmering dust motes, clean architectural reflections.",
-            "tags": ["solar", "daylight", "bright", "architecture", "nature", "green"],
-        },
-        {
-            "name": "Monochrome Noir",
-            "genre": "High-Contrast Monochrome Noir / Arthouse",
-            "camera": "Steep Dutch angle, vintage silver-halide prime lens, dramatic close profile.",
-            "lighting": "Chiaroscuro black-and-white lighting, deep shadow silhouettes, intense directional beams.",
-            "tags": ["monochrome", "noir", "black and white", "arthouse", "contrast"],
+            "name": "Precision Macro Lab",
+            "genre": "Precision Macro Lab / Modern Cleanroom",
+            "camera": "Crisp horizontal slider glide, high-index prime focus, subtle glass reflections.",
+            "lighting": "Pristine cool-white daylight bounce, delicate rim reflections, ultra-clean modern precision.",
         },
     ]
 
-    # Pick 2 style presets that contrast most strongly with the base genre
-    chosen_presets = []
-    for preset in style_presets:
-        if not any(tag in base_lower for tag in preset["tags"]):
-            chosen_presets.append(preset)
-            if len(chosen_presets) == 2:
-                break
+    # Category B: Dynamic Cinematic Realism / Contrasting Movement
+    cinematic_styles = [
+        {
+            "name": "Cinematic 35mm Realism",
+            "genre": "Cinematic 35mm Documentary / Kodak Film",
+            "camera": "Tactile handheld Arri Alexa, organic camera breathing, subtle shallow depth of field.",
+            "lighting": "Warm natural ambient lighting with gentle film halation and subtle organic grain.",
+        },
+        {
+            "name": "High-Velocity Kinetic",
+            "genre": "High-Velocity Kinetic / Dynamic Energy",
+            "camera": "Rapid kinetic tracking, visceral low-angle whip-pan, sharp motion-tracking arc.",
+            "lighting": "Punchy high-contrast specular lighting, deep shadows, dynamic rim highlights.",
+        },
+        {
+            "name": "Atmospheric Neo-Noir",
+            "genre": "Atmospheric Neo-Noir / Chiaroscuro",
+            "camera": "Dutch angle slow tilt, anamorphic horizontal flare, reflective dark ground tracking.",
+            "lighting": "Chiaroscuro moody shadows with sharp directional rim light and deep contrast.",
+        },
+        {
+            "name": "Prismatic Technicolor",
+            "genre": "Prismatic Technicolor / Saturated Spectrum",
+            "camera": "Floating anamorphic lens flares, dynamic slow push-in, rich depth.",
+            "lighting": "Iridescent rainbow caustics, saturated primary tones, and luminous optical bloom.",
+        },
+        {
+            "name": "Industrial Chiaroscuro",
+            "genre": "Heavy Industrial / Raw Chiaroscuro",
+            "camera": "Low-angle textured tilt, visceral slow-motion pan, gritty industrial framing.",
+            "lighting": "High-contrast tungsten furnace glow, deep matte shadows, and dramatic rim highlights.",
+        },
+    ]
 
-    if len(chosen_presets) < 2:
-        for preset in style_presets:
-            if preset not in chosen_presets:
-                chosen_presets.append(preset)
-                if len(chosen_presets) == 2:
-                    break
-
-    p2, p3 = chosen_presets[0], chosen_presets[1]
+    p2 = grounded_styles[(sc_idx - 1) % len(grounded_styles)]
+    p3 = cinematic_styles[(sc_idx - 1) % len(cinematic_styles)]
 
     style2_shots = [
         VideoShot(
@@ -590,96 +743,246 @@ def _ensure_scenario_styles(sc: CreativeScenario) -> CreativeScenario:
     return sc
 
 
+SHOT_DIRECTOR_INSTRUCTION = """You are an elite cinematic storyboard director, cinematographer, and visual sequence designer.
+Your task is to take PRE-SELECTED, RADICALLY CONTRASTING creative genre worlds and flesh each of them out into an exact, professional 5-shot x 2-second (10 seconds total) commercial/film storyboard.
+
+CRITICAL REQUIREMENTS:
+1. STRICT ADHERENCE TO GIVEN GENRES:
+   You will receive distinct genre briefs (each with an assigned Title, Genre, Visual Universe, Aesthetic Manifesto, and Narrative Metaphor).
+   You MUST faithfully translate EACH pre-selected genre into its own 5-shot sequence. Do NOT homogenize or change their assigned genres or atmospheres!
+2. PROTAGONIST IS THE HERO:
+   The person from the photo is the active hero/protagonist of each mini-film. Do NOT critique their appearance or original photo background.
+3. ABSOLUTELY NO PUBLIC SPEAKING:
+   Strictly avoid conference halls, presentation podiums, lecture rooms, audiences, microphones, and slide decks.
+4. EXACT 5 SHOTS x 2 SECONDS (TOTAL 10 SECONDS):
+   Each scenario must consist of exactly 5 sequential progressive shots:
+   - Shot 1 (00:00 - 00:02): Hook / Entrance into the world
+   - Shot 2 (00:02 - 00:04): Dynamic escalation / visual metaphor in motion
+   - Shot 3 (00:04 - 00:06): Intense action / peak interaction of the protagonist
+   - Shot 4 (00:06 - 00:08): Dramatic climax / revelation
+   - Shot 5 (00:08 - 00:10): Hero resolve / iconic hold into the final frame
+5. NO ON-SCREEN TEXT OR SUBTITLES:
+   The video stream must contain no rendered text, logos, or subtitles.
+6. THREE DISTINCT BALANCED STYLES PER SCENARIO:
+   For each scenario, provide 3 switchable 'styles' variations of the exact same 5 narrative actions:
+   - Style 1: Signature Vision (the bold, stylized aesthetic matching the scenario's primary creative genre)
+   - Style 2: Clean Modern Tech / Studio Commercial ("Попроще" / Grounded Realism — sleek, approachable, high-end commercial or modern studio look with clean lighting, natural skin tones, professional elegance, avoiding surreal fantasy)
+   - Style 3: Dynamic Cinematic Realism / Contrasting Movement (distinct cinematic color grade, lens, and pacing)
+   Give each style an evocative, descriptive name (do NOT name them "Style 1" or "Style 2").
+7. OMNI PROMPT:
+   Include a complete multi-shot prompt explicitly listing all 5 shots with timestamps (00:00 - 00:02, 00:02 - 00:04, 00:04 - 00:06, 00:06 - 00:08, 00:08 - 00:10).
+8. ANONYMOUS PROTAGONIST DIRECTIVE (CRITICAL PRIVACY RULE):
+   NEVER write, mention, or output the speaker's real personal name in any shot descriptions, actions, camera notes, lighting atmosphere, concepts, or omni prompts.
+   ALWAYS refer to the character as "the protagonist" or "the hero" (or pronouns like 'she' / 'he').
+   The actor's physical likeness is supplied visually through the uploaded reference photo, NOT by name in text prompts.
+"""
+
+
+def _build_scenarios_from_genres(
+    genres: list[GenreBrief],
+    talk_title: str,
+    speaker_name: str,
+) -> list[CreativeScenario]:
+    """Generates structural 5-shot scenarios directly from GenreBrief objects."""
+    results = []
+    for idx, g in enumerate(genres, start=1):
+        shots = [
+            VideoShot(
+                shot_number=1,
+                time_range="00:00 - 00:02",
+                action=f"The protagonist enters the world of {g.genre}, taking in the surroundings of {g.visual_universe.split('.')[0]}.",
+                camera="Atmospheric wide establishing shot pushing slowly forward.",
+                lighting_atmosphere=f"Signature {g.aesthetic_manifesto.split('.')[0]}.",
+            ),
+            VideoShot(
+                shot_number=2,
+                time_range="00:02 - 00:04",
+                action=f"The protagonist initiates a pivotal interaction, setting {g.narrative_metaphor.lower()} in motion.",
+                camera="Dynamic tracking shot following the rapid movement.",
+                lighting_atmosphere="Deep cinematic shadows with sharp directional highlights.",
+            ),
+            VideoShot(
+                shot_number=3,
+                time_range="00:04 - 00:06",
+                action="At the center of the space, the protagonist maneuvers complex physical components representing the core mechanism.",
+                camera="Intense low-angle rotational close-up.",
+                lighting_atmosphere="Vibrant specular reflections and rich atmospheric depth.",
+            ),
+            VideoShot(
+                shot_number=4,
+                time_range="00:06 - 00:08",
+                action="The environment responds to the protagonist's action, revealing a breathtaking transformation of the entire space.",
+                camera="Expansive crane tilt-up revealing the wider visual architecture.",
+                lighting_atmosphere="Volumetric shafts of light cutting across the scene.",
+            ),
+            VideoShot(
+                shot_number=5,
+                time_range="00:08 - 00:10",
+                action="The protagonist holds an iconic, confident stance amidst the transformed world as the final frame locks in.",
+                camera="Dramatic centered hero hold into the final frame.",
+                lighting_atmosphere="Stunning golden-hour rim lighting with crisp silhouette.",
+            ),
+        ]
+        sc = CreativeScenario(
+            id=g.id or f"scenario_{idx}",
+            title=g.title,
+            genre=g.genre,
+            concept=f"{g.visual_universe} {g.narrative_metaphor}",
+            narrative_metaphor=g.narrative_metaphor,
+            shots=shots,
+            omni_prompt=format_timed_omni_prompt(shots, g.genre),
+        )
+        _ensure_scenario_styles(sc)
+        results.append(sc)
+    return results
+
+
+def direct_scenarios_from_genres(
+    genres: list[GenreBrief],
+    talk_title: str,
+    speaker_name: str,
+    position_company: str | None = None,
+    speaker_bio: str | None = None,
+) -> list[CreativeScenario]:
+    """Stage 2: Takes pre-selected creative genres and directs the 5-shot sequences, omni prompt, and styles."""
+    client = get_gemini_client()
+
+    context_lines = [
+        f"Talk Title: {talk_title}",
+        "Protagonist / Hero: The protagonist (ANONYMOUS: NEVER output or use real personal names in shot actions, cameras, or prompts)",
+    ]
+    if position_company:
+        context_lines.append(f"Domain / Focus: {position_company}")
+    if speaker_bio:
+        context_lines.append(f"Speaker Background / Expertise: {speaker_bio}")
+
+    genres_text_blocks = []
+    for i, g in enumerate(genres, start=1):
+        genres_text_blocks.append(
+            f"--- ASSIGNED GENRE {i}: {g.title} ({g.genre}) ---\n"
+            f"Identifier: {g.id}\n"
+            f"Assigned Visual Universe: {g.visual_universe}\n"
+            f"Assigned Aesthetic Manifesto: {g.aesthetic_manifesto}\n"
+            f"Narrative Metaphor to Dramatize: {g.narrative_metaphor}\n"
+        )
+
+    user_prompt = (
+        f"Flesh out these {len(genres)} pre-selected creative genre worlds into full 5-shot x 2-second cinematic storyboards for this protagonist and topic.\n\n"
+        f"CONTEXT:\n" + "\n".join(context_lines) + "\n\n"
+        "PRE-SELECTED GENRE BRIEFS:\n" + "\n".join(genres_text_blocks) + "\n\n"
+        "MANDATORY REQUIREMENTS:\n"
+        "- Protagonist is the main character and hero of each mini-film.\n"
+        "- ABSOLUTELY NO REAL NAMES: NEVER write the speaker's personal name in shot descriptions, actions, camera notes, lighting atmosphere, or omni prompts. Always use 'the protagonist' or 'the hero'.\n"
+        "- Strictly NO public speaking, conference halls, stage, audience, or slides.\n"
+        "- FAITHFULLY IMPLEMENT EACH ASSIGNED GENRE: The shots, atmosphere, and camera movements must match the assigned aesthetic manifesto and visual universe.\n"
+        "- Exactly 5 progressive shots of 2 seconds each (total 10 seconds).\n"
+        "- For EACH scenario, provide 3 switchable 'styles' variations with unique names and contrasting aesthetics:\n"
+        "  * Style 1: Signature Vision (the assigned bold creative genre)\n"
+        "  * Style 2: Clean Modern Tech / Studio Commercial ('Попроще' - sleek, grounded, professional, clean studio/architectural lighting, natural skin tones, no surrealism)\n"
+        "  * Style 3: Dynamic Cinematic Realism / Contrasting Movement (distinct cinematic color grade, lens, and pacing)\n"
+        "- 'omni_prompt' MUST explicitly incorporate all 5 shots with their exact timestamps (00:00 - 00:02, 00:02 - 00:04, 00:04 - 00:06, 00:06 - 00:08, 00:08 - 00:10).\n"
+        "- Deliver a JSON object with 'scenarios' list containing id, title, concept, genre, narrative_metaphor, shots, omni_prompt, and styles."
+    )
+
+    retries = 2
+    delay = 1.0
+    for attempt in range(retries):
+        try:
+            response = client.models.generate_content(
+                model=PROMPT_DIRECTOR_MODEL,
+                contents=[types.Part.from_text(text=user_prompt)],
+                config=types.GenerateContentConfig(
+                    system_instruction=SHOT_DIRECTOR_INSTRUCTION,
+                    temperature=1.0,
+                    top_p=0.95,
+                    response_mime_type="application/json",
+                ),
+            )
+            raw_list: list[Any] = []
+            if response.parsed and getattr(response.parsed, "scenarios", None):
+                raw_list = response.parsed.scenarios
+            elif response.text:
+                cleaned_json = response.text.strip()
+                if cleaned_json.startswith("```"):
+                    cleaned_json = re.sub(r"^```(?:json)?\n?", "", cleaned_json)
+                    cleaned_json = re.sub(r"\n?```$", "", cleaned_json).strip()
+                data = json.loads(cleaned_json)
+                raw_list = (
+                    data.get("scenarios", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+                )
+
+            final_scenarios: list[CreativeScenario] = []
+            for idx, entry in enumerate(raw_list, start=1):
+                sc = _normalize_scenario_item(entry, idx, speaker_name=speaker_name)
+                if sc:
+                    # If the generated scenario dropped the assigned genre info, restore it from the brief
+                    if idx <= len(genres):
+                        g = genres[idx - 1]
+                        if not sc.genre or sc.genre == "Cinematic / Commercial":
+                            sc.genre = g.genre
+                        if not sc.title or sc.title == f"Scenario {idx}":
+                            sc.title = g.title
+                        if not sc.narrative_metaphor:
+                            sc.narrative_metaphor = g.narrative_metaphor
+                    final_scenarios.append(sc)
+
+            if final_scenarios:
+                print(
+                    f"🎬 [Shot Director] Successfully directed {len(final_scenarios)} 5-shot scenarios via Gemini ({PROMPT_DIRECTOR_MODEL})"
+                )
+                return final_scenarios
+            else:
+                print("⚠️ [Shot Director] Model response contained no valid scenarios after normalization.")
+                break
+        except Exception as e:
+            err_str = str(e).lower()
+            is_transient = any(
+                marker in err_str
+                for marker in ("429", "resource_exhausted", "too many requests", "quota", "503", "unavailable")
+            )
+            if attempt < retries - 1 and is_transient:
+                time.sleep(delay)
+                delay *= 2
+                continue
+            print(f"⚠️ [Shot Director] Model generation failed: {e}")
+            break
+
+    # Fallback to building scenarios directly from the assigned genres
+    return _build_scenarios_from_genres(genres, talk_title, speaker_name)
+
+
 def generate_creative_scenarios(
     talk_title: str,
     speaker_name: str,
     position_company: str | None = None,
     speaker_bio: str | None = None,
     creative_guidance: str | None = None,
-    count: int = 3,
+    count: int = 5,
+    genres: Sequence[GenreBrief] | None = None,
 ) -> list[CreativeScenario]:
-    """Generates 3 wildly creative 5-shot x 2-second video scenarios using gemini-3.5-flash on the fly.
-    The person from the photo is the hero. Absolutely NO public speaking or conference settings.
+    """Two-Stage Creative Pipeline:
+    Stage 1: Scout radically diverse creative genres and visual universes (high stochasticity & entropy).
+    Stage 2: Direct 5-shot x 2-second storyboards and styles for each scouted genre.
     """
-    client = get_gemini_client()
-    context_lines = [
-        f"Talk Title: {talk_title}",
-        f"Speaker / Protagonist Name: {speaker_name}",
-    ]
-    if position_company:
-        context_lines.append(f"Domain / Focus: {position_company}")
-    if speaker_bio:
-        context_lines.append(f"Speaker Background / Expertise: {speaker_bio}")
-    if creative_guidance:
-        context_lines.append(f"User Requested Creative Tone & Vibe Direction: {creative_guidance}")
-
-    guidance_instruction = ""
-    if creative_guidance:
-        guidance_instruction = (
-            f"\nSPECIAL USER CREATIVE DIRECTION: The user explicitly requested: '{creative_guidance}'. "
-            "Please heavily incorporate this mood, aesthetic, tone, or style into the scenario concepts!\n"
+    # Stage 1: Scout creative genres if not supplied
+    if not genres:
+        genres = scout_creative_genres(
+            talk_title=talk_title,
+            speaker_name=speaker_name,
+            position_company=position_company,
+            speaker_bio=speaker_bio,
+            creative_guidance=creative_guidance,
+            count=count,
         )
 
-    user_prompt = (
-        f"Please invent {count} wildly different, highly creative, UNEXPECTED video scenarios for this protagonist and topic, inspired by high-end commercials, brand teasers, luxury campaigns, music videos, and stylized cinema.\n"
-        f"CONTEXT:\n" + "\n".join(context_lines) + "\n"
-        f"{guidance_instruction}\n"
-        "MANDATORY REQUIREMENTS:\n"
-        "- Protagonist is the main character and hero of each mini-film.\n"
-        "- ABSOLUTELY NO public speaking, NO conference halls, NO stage, NO audience, NO slides.\n"
-        "- RADICAL TONAL & GENRE DIVERSITY ACROSS SCENARIOS:\n"
-        "  * Each scenario MUST explore a completely distinct visual genre, atmosphere, and pacing.\n"
-        "  * Avoid repeating the same concepts or aesthetic tropes across options.\n"
-        "  * Freely explore diverse creative worlds: e.g. sleek hyper-kinetic sportswear ad, high-fashion surrealist editorial, retro-analog 70s espionage thriller, cyberpunk neon heist, sun-drenched architectural solarpunk, whimsical stop-motion pop art, moody sci-fi expedition, or bold typographic motion-design commercial.\n"
-        "- Translate abstract themes into memorable, exciting visual metaphors.\n"
-        "- Exactly 5 progressive shots of 2 seconds each (total 10 seconds).\n"
-        "- For EACH scenario, provide 3 switchable 'styles' (Style 1: Signature look matching genre; Style 2 & 3: contrasting visual aesthetics adapting the same narrative actions with different lighting, camera, and color grade).\n"
-        "- 'omni_prompt' MUST explicitly incorporate all 5 shots with their exact time stamps (00:00 - 00:02, 00:02 - 00:04, 00:04 - 00:06, 00:06 - 00:08, 00:08 - 00:10).\n"
-        "- Deliver a JSON object with 'scenarios' list containing id, title, concept, genre, shots, omni_prompt, and styles."
+    # Stage 2: Direct shots and styles for the selected genres
+    return direct_scenarios_from_genres(
+        genres=list(genres),
+        talk_title=talk_title,
+        speaker_name=speaker_name,
+        position_company=position_company,
+        speaker_bio=speaker_bio,
     )
-
-    try:
-        response = client.models.generate_content(
-            model=PROMPT_DIRECTOR_MODEL,
-            contents=[types.Part.from_text(text=user_prompt)],
-            config=types.GenerateContentConfig(
-                system_instruction=PROMPT_DIRECTOR_INSTRUCTION,
-                temperature=1.35,
-                top_p=0.95,
-                response_mime_type="application/json",
-            ),
-        )
-        raw_list: list[Any] = []
-        if response.parsed and getattr(response.parsed, "scenarios", None):
-            raw_list = response.parsed.scenarios
-        elif response.text:
-            cleaned_json = response.text.strip()
-            if cleaned_json.startswith("```"):
-                cleaned_json = re.sub(r"^```(?:json)?\n?", "", cleaned_json)
-                cleaned_json = re.sub(r"\n?```$", "", cleaned_json).strip()
-            data = json.loads(cleaned_json)
-            raw_list = data.get("scenarios", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
-
-        final_scenarios: list[CreativeScenario] = []
-        for idx, entry in enumerate(raw_list, start=1):
-            sc = _normalize_scenario_item(entry, idx)
-            if sc:
-                final_scenarios.append(sc)
-
-        if final_scenarios:
-            print(
-                f"🎬 [Prompt Director] Successfully generated {len(final_scenarios)} dynamic creative scenarios via Gemini ({PROMPT_DIRECTOR_MODEL})"
-            )
-            return final_scenarios
-        else:
-            print("⚠️ [Prompt Director] Model response contained no valid scenarios after normalization.")
-    except Exception as e:
-        print(f"⚠️ [Prompt Director] Model generation failed: {e}")
-
-    fallbacks = _build_fallback_scenarios(talk_title=talk_title, speaker_name=speaker_name)
-    for f in fallbacks:
-        _ensure_scenario_styles(f)
-    return fallbacks
 
 
 def format_scenarios_markdown(scenarios: Sequence[CreativeScenario]) -> str:
@@ -693,6 +996,8 @@ def format_scenarios_markdown(scenarios: Sequence[CreativeScenario]) -> str:
         _ensure_scenario_styles(sc)
         lines.append(f"#### Option {idx}: {sc.title} (`{sc.genre}`)")
         lines.append(f"**Concept:** {sc.concept}\n")
+        if sc.narrative_metaphor:
+            lines.append(f"**Metaphor & Story Bridge:** {sc.narrative_metaphor}\n")
         lines.append("| Shot | Timing | Action & Atmosphere | Camera Dynamic |")
         lines.append("| :--- | :--- | :--- | :--- |")
         for sh in sc.shots:

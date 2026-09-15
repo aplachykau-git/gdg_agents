@@ -69,7 +69,7 @@ Your goal is to write natural, engaging, and well-developed LinkedIn announcemen
 """
 
 linkedin_agent = Agent(
-    model="gemini-3.5-flash-lite",
+    model="gemini-3.8-flash",
     name="linkedin_post_generator",
     description=f"Agent that drafts highly engaging LinkedIn announcement posts for speakers and event recap summaries for {community_name}.",
     instruction=INSTRUCTION,

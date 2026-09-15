@@ -85,8 +85,7 @@ def sanitize_i2v_prompt(prompt: str) -> str:
         cleaned,
     )
     cleaned = re.sub(r"(?i)Create a polished speaker introduction for [^.,]+[,.]?", "", cleaned)
-    cleaned = re.sub(r"(?i)speaking about [^.,]+[,.]?", "", cleaned)
-    cleaned = re.sub(r"(?i)\b(speaker|presenter|attendee|guest|subject)\s+named\s+[^,.\n]+", "", cleaned)
+    cleaned = re.sub(r"(?i)\b(speaker|presenter|attendee|guest|subject)\s+named\s+[^,.\n]+", "the protagonist", cleaned)
     cleaned = re.sub(
         r"(?i)\b(speaker|presenter|talk title|presentation|topic|role|company)\s*[:=]\s*[^,.\n]+", "", cleaned
     )
@@ -94,6 +93,10 @@ def sanitize_i2v_prompt(prompt: str) -> str:
     # Strip empty brackets/parentheses and stray punctuation
     cleaned = re.sub(r"\(\s*[,;.]*\s*\)", "", cleaned)
     cleaned = re.sub(r"\[\s*[,;.]*\s*\]", "", cleaned)
+    # Deduplicate repeated protagonist
+    cleaned = re.sub(r"\bthe protagonist(?:\s+the protagonist)+\b", "the protagonist", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bthe protagonist\s*'?s\b", "the protagonist's", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"(^|[.!?]\s+)the protagonist\b", r"\1The protagonist", cleaned)
     # Clean up excess whitespace and punctuation
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,\n-")
     if not cleaned or len(cleaned) < 10:
@@ -391,9 +394,9 @@ def verify_portrait_photo(photo_path: str = "") -> str:
 
         client = get_gemini_client()
 
-        print("🚀 Sending face detection verification call to Gemini-3.5-Flash-Lite...")
+        print("🚀 Sending face detection verification call to Gemini-3.8-Flash...")
         response = client.models.generate_content(
-            model="gemini-3.5-flash-lite",
+            model="gemini-3.8-flash",
             contents=[
                 part,
                 types.Part.from_text(
