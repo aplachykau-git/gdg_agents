@@ -5,11 +5,13 @@ from unittest.mock import MagicMock, patch
 from agents.video_editor.prompt_director import (
     FORBIDDEN_TERMS,
     _build_fallback_scenarios,
+    _ensure_scenario_styles,
     format_scenarios_markdown,
     generate_creative_scenarios,
+    reorder_shots_and_rebuild_prompt,
 )
 from agents.video_editor.tools.video_card_tool import create_video_card
-from agents.video_editor.workflow_models import CreativeScenario, VideoEditorDraft, VideoShot
+from agents.video_editor.workflow_models import CreativeScenario, ScenarioStyle, VideoEditorDraft, VideoShot
 
 
 class FakeInlineData:
@@ -443,9 +445,6 @@ class TestAnonymousPromptSanitization(unittest.TestCase):
             self.assertNotIn("Aplachykava", sc.narrative_metaphor or "")
 
     def test_reorder_shots_and_rebuild_prompt(self):
-        from agents.video_editor.prompt_director import reorder_shots_and_rebuild_prompt
-        from agents.video_editor.workflow_models import VideoShot
-
         original_shots = [
             VideoShot(
                 shot_number=1,
@@ -484,6 +483,59 @@ class TestAnonymousPromptSanitization(unittest.TestCase):
 
         self.assertIn("Shot 1 (00:00 - 00:02): Gears engage at high speed.", prompt)
         self.assertIn("Shot 3 (00:04 - 00:06): Entering the misty street.", prompt)
+
+    def test_ensure_scenario_styles_diversity_and_repetition_removal(self):
+        # 1. Verify that options 1..5 receive distinct grounded and dynamic presets
+        style2_names = []
+        style3_names = []
+        for i in range(1, 6):
+            sc = CreativeScenario(
+                id=f"scenario_{i}",
+                title=f"Option {i}",
+                genre=f"Genre {i}",
+                concept=f"Concept for option {i}",
+                omni_prompt=f"Omni prompt {i}",
+                shots=[],
+                number=i,
+            )
+            _ensure_scenario_styles(sc, idx=i)
+            self.assertEqual(len(sc.styles), 3)
+            style2_names.append(sc.styles[1].name)
+            style3_names.append(sc.styles[2].name)
+
+        # All 5 options must have unique style 2 and style 3 names
+        self.assertEqual(len(set(style2_names)), 5, f"Duplicate style 2 names: {style2_names}")
+        self.assertEqual(len(set(style3_names)), 5, f"Duplicate style 3 names: {style3_names}")
+
+        # 2. Verify that if an LLM returns generic/repeated names on option 2, it gets replaced
+        sc_repeated = CreativeScenario(
+            id="noir_whisper",
+            title="Noir Echoes",
+            genre="Atmospheric Noir",
+            concept="A dark rainy street investigation.",
+            omni_prompt="Shot 1...",
+            shots=[],
+            number=2,
+            styles=[
+                ScenarioStyle(id="s1", name="Noir Signature", genre="Atmospheric Noir", omni_prompt="..."),
+                ScenarioStyle(
+                    id="s2",
+                    name="Clean Modern Tech / Studio Commercial",
+                    genre="Clean Modern Tech",
+                    omni_prompt="...",
+                ),
+                ScenarioStyle(
+                    id="s3",
+                    name="Dynamic Cinematic Realism / Contrasting Movement",
+                    genre="Cinematic Realism",
+                    omni_prompt="...",
+                ),
+            ],
+        )
+        _ensure_scenario_styles(sc_repeated, idx=2)
+        # Should be replaced with Option 2's specific presets, not the generic ones
+        self.assertEqual(sc_repeated.styles[1].name, "Architectural Daylight")
+        self.assertEqual(sc_repeated.styles[2].name, "High-Velocity Kinetic")
 
 
 if __name__ == "__main__":

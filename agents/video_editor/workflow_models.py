@@ -93,6 +93,7 @@ class CreativeScenario(BaseModel):
     omni_prompt: str
     styles: list[ScenarioStyle] = Field(default_factory=list)
     narrative_metaphor: str | None = None
+    number: int | None = None
 
 
 class VideoEditorDraft(VideoEditorRequest):

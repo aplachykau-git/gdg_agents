@@ -102,6 +102,7 @@ class _RawScenarioItem(BaseModel):
     shots: list[Any] = Field(default_factory=list, description="5 progressive shots detailing the 10-second sequence")
     omni_prompt: str | None = Field(default=None, alias="omniPrompt", description="Complete 9:16 multi-shot prompt")
     styles: list[Any] = Field(default_factory=list, description="Switchable styles for the scenario")
+    number: int | None = Field(default=None, description="Scenario option number (1..5)")
 
 
 class _RawGeneratedScenarios(BaseModel):
@@ -203,7 +204,6 @@ def _normalize_scenario_item(entry: Any, idx: int, speaker_name: str | None = No
     sc_id = str(entry.get("id") or f"scenario_{idx}")
     title = str(entry.get("title") or f"Creative Concept {idx}")
     genre = str(entry.get("genre") or "Cinematic Commercial")
-    concept = _sanitize_scenario_text(str(entry.get("concept") or "A high-concept visual story."), speaker_name)
     raw_metaphor = entry.get("narrative_metaphor") or entry.get("narrativeMetaphor")
     narrative_metaphor = _sanitize_scenario_text(str(raw_metaphor), speaker_name) if raw_metaphor else None
 
@@ -232,6 +232,24 @@ def _normalize_scenario_item(entry: Any, idx: int, speaker_name: str | None = No
                 lighting_atmosphere="Rich volumetric lighting and cinematic atmosphere.",
             )
         )
+
+    # Narrative storyline concept (plot synopsis): ensure rich, non-placeholder description
+    raw_concept = entry.get("concept") or entry.get("storyline") or entry.get("plot") or entry.get("description")
+    concept_candidate = _sanitize_scenario_text(str(raw_concept).strip(), speaker_name) if raw_concept else ""
+    if not concept_candidate or concept_candidate.lower() in (
+        "a high-concept visual story.",
+        "a high-concept visual story",
+    ):
+        if shots and len(shots) >= 3:
+            action1 = shots[0].action.rstrip(".")
+            action_climax = shots[3].action.rstrip(".") if len(shots) > 3 else shots[-1].action.rstrip(".")
+            concept = f"In this {genre.lower()} sequence, {action1.lower()}, culminating as {action_climax.lower()}."
+        elif narrative_metaphor:
+            concept = f"Set in a {genre.lower()} universe where {narrative_metaphor.lower()}."
+        else:
+            concept = f"A high-velocity 10-second cinematic sequence in a {genre.lower()} universe."
+    else:
+        concept = concept_candidate
 
     omni_prompt = str(entry.get("omni_prompt") or entry.get("omniPrompt") or "")
     if not omni_prompt and raw_styles and isinstance(raw_styles, list):
@@ -288,8 +306,9 @@ def _normalize_scenario_item(entry: Any, idx: int, speaker_name: str | None = No
         shots=shots,
         omni_prompt=omni_prompt,
         styles=styles,
+        number=idx,
     )
-    return _ensure_scenario_styles(sc)
+    return _ensure_scenario_styles(sc, idx)
 
 
 def _sanitize_scenario_text(text: str, speaker_name: str | None = None) -> str:
@@ -597,14 +616,26 @@ def _build_fallback_scenarios(talk_title: str, speaker_name: str) -> list[Creati
     ]
 
 
-def _ensure_scenario_styles(sc: CreativeScenario) -> CreativeScenario:
+def _ensure_scenario_styles(sc: CreativeScenario, idx: int = 1) -> CreativeScenario:
     """Ensure every scenario has 3 switchable style tabs adapting the same narrative plot."""
+    sc_idx = getattr(sc, "number", None) or idx or 1
+    if sc_idx <= 1:
+        match = re.search(r"(\d+)", sc.id or "")
+        if match:
+            try:
+                sc_idx = int(match.group(1))
+            except ValueError:
+                sc_idx = idx or 1
+
     if sc.styles and len(sc.styles) >= 3:
         names = [st.name for st in sc.styles]
         genres = [st.genre for st in sc.styles]
-        is_all_generic = all(n in ("Style 1", "Style 2", "Style 3", "Style", "") for n in names) or (
-            len(set(genres)) == 1 and genres[0] == sc.genre
+        has_generic_labels = all(n in ("Style 1", "Style 2", "Style 3", "Style", "") for n in names)
+        has_same_genre = len(set(genres)) == 1 and genres[0] == sc.genre
+        has_repeated_generic = sc_idx > 1 and any(
+            re.search(r"clean modern|studio commercial|cinematic 35mm|dynamic cinematic", n, re.I) for n in names
         )
+        is_all_generic = has_generic_labels or has_same_genre or has_repeated_generic
         if not is_all_generic:
             if not sc.shots and sc.styles[0].shots:
                 sc.shots = sc.styles[0].shots
@@ -623,15 +654,6 @@ def _ensure_scenario_styles(sc: CreativeScenario) -> CreativeScenario:
         shots=list(sc.shots),
         omni_prompt=sc.omni_prompt,
     )
-
-    # Derive numeric index from sc.id or title to vary presets across scenarios
-    sc_idx = 1
-    match = re.search(r"(\d+)", sc.id or "")
-    if match:
-        try:
-            sc_idx = int(match.group(1))
-        except ValueError:
-            sc_idx = 1
 
     # Category A: Clean Modern Tech / Studio Commercial ("Попроще" / Grounded Realism)
     grounded_styles = [
@@ -831,8 +853,9 @@ def _build_single_scenario_from_genre(
         narrative_metaphor=g.narrative_metaphor,
         shots=shots,
         omni_prompt=format_timed_omni_prompt(shots, g.genre),
+        number=idx,
     )
-    _ensure_scenario_styles(sc)
+    _ensure_scenario_styles(sc, idx)
     return sc
 
 
@@ -885,10 +908,11 @@ def direct_single_scenario(
         "- Strictly NO public speaking, conference halls, stage, audience, or slides.\n"
         "- FAITHFULLY IMPLEMENT THE ASSIGNED GENRE: The shots, atmosphere, and camera movements must match the assigned aesthetic manifesto and visual universe.\n"
         "- Exactly 5 progressive shots of 2 seconds each (total 10 seconds).\n"
-        "- Provide 3 switchable 'styles' variations with unique names and contrasting aesthetics:\n"
-        "  * Style 1: Signature Vision (the assigned bold creative genre)\n"
-        "  * Style 2: Clean Modern Tech / Studio Commercial ('Попроще' - sleek, grounded, professional, clean studio/architectural lighting, natural skin tones, no surrealism)\n"
-        "  * Style 3: Dynamic Cinematic Realism / Contrasting Movement (distinct cinematic color grade, lens, and pacing)\n"
+        "- 'concept': A vivid 2-sentence storyline plot synopsis describing what happens to the protagonist across these 5 shots in this mini-film.\n"
+        "- Provide 3 switchable 'styles' variations with UNIQUE names tailored specifically to this world and story (NEVER reuse generic labels like 'Clean Modern Tech' across options):\n"
+        "  * Style 1: Primary Aesthetic (the core bold signature aesthetic of this world)\n"
+        "  * Style 2: Grounded / Commercial Alternative ('Попроще' - clean studio/natural commercial lighting and elegant realism, tailored to this universe)\n"
+        "  * Style 3: Radical / Contrasting Movement (high-contrast, distinct lens, kinetic camera, or moody color grade tailored to this universe)\n"
         "- 'omni_prompt' MUST explicitly incorporate all 5 shots with their exact timestamps (00:00 - 00:02, 00:02 - 00:04, 00:04 - 00:06, 00:06 - 00:08, 00:08 - 00:10).\n"
         "- Deliver a JSON object with a 'scenarios' list containing this single scenario or a single scenario object."
     )
@@ -936,7 +960,16 @@ def direct_single_scenario(
                         sc.title = genre.title
                     if not sc.narrative_metaphor:
                         sc.narrative_metaphor = genre.narrative_metaphor
-                    _ensure_scenario_styles(sc)
+                    if not sc.concept or sc.concept.strip() in (
+                        "A high-concept visual story.",
+                        "A high-concept visual story",
+                    ):
+                        if sc.shots and len(sc.shots) >= 3:
+                            sc.concept = f"{genre.title}: {sc.shots[0].action} The narrative escalates into {sc.shots[3].action.lower()}."
+                        elif genre.narrative_metaphor:
+                            sc.concept = f"Set in {genre.visual_universe}, {genre.narrative_metaphor.lower()}."
+                    sc.number = idx
+                    _ensure_scenario_styles(sc, idx)
                     return sc
             break
         except Exception as e:
@@ -1083,7 +1116,7 @@ def format_scenarios_markdown(scenarios: Sequence[CreativeScenario]) -> str:
         "",
     ]
     for idx, sc in enumerate(scenarios, start=1):
-        _ensure_scenario_styles(sc)
+        _ensure_scenario_styles(sc, idx)
         lines.append(f"#### Option {idx}: {sc.title} (`{sc.genre}`)")
         lines.append(f"**Concept:** {sc.concept}\n")
         if sc.narrative_metaphor:

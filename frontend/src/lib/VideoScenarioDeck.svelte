@@ -53,12 +53,17 @@
     userSelectedId = sc.id;
   }
 
-  function ensureScenarioStyles(sc) {
+  function ensureScenarioStyles(sc, idx = 0) {
+    const num = sc.number || (idx + 1) || parseInt((sc.id || '').replace(/\D/g, '') || '1', 10);
     if (sc.styles && sc.styles.length >= 3) {
       const names = sc.styles.map(s => s.name || '');
       const genres = sc.styles.map(s => s.genre || '');
-      const isGeneric = names.every(n => /^Style\s*\d*$/i.test(n.trim()) || n.trim() === 'Style') ||
-        (new Set(genres).size === 1 && genres[0] === sc.genre);
+      const hasGenericLabels = names.every(n => /^Style\s*\d*$/i.test(n.trim()) || n.trim() === 'Style');
+      const hasSameGenre = new Set(genres).size === 1 && genres[0] === sc.genre;
+      const hasRepeatedGeneric = num > 1 && names.some(n =>
+        /clean modern|studio commercial|cinematic 35mm|dynamic cinematic/i.test(n)
+      );
+      const isGeneric = hasGenericLabels || hasSameGenre || hasRepeatedGeneric;
       if (!isGeneric) {
         return sc.styles;
       }
@@ -77,8 +82,6 @@
       shots: shots,
       omniPrompt: sc.omniPrompt
     };
-
-    const num = sc.number || parseInt((sc.id || '').replace(/\D/g, '') || '1', 10);
 
     // Category A: Clean Modern Tech / Studio Commercial ("Попроще" / Grounded Realism)
     const groundedPresets = [
@@ -190,8 +193,8 @@
     return [style1, style2, style3];
   }
 
-  function getActiveStyle(sc) {
-    const styles = ensureScenarioStyles(sc);
+  function getActiveStyle(sc, idx = 0) {
+    const styles = ensureScenarioStyles(sc, idx);
     const chosenId = selectedStylesMap[sc.id];
     return styles.find(s => s.id === chosenId) || styles[0];
   }
@@ -259,8 +262,8 @@
     reorderedSyncedMap = updatedSynced;
   }
 
-  function handleConfirmRender(sc) {
-    const activeStyle = getActiveStyle(sc);
+  function handleConfirmRender(sc, idx = 0) {
+    const activeStyle = getActiveStyle(sc, idx);
     const finalPrompt = (getPromptValue(sc, activeStyle) || activeStyle.omniPrompt || sc.omniPrompt || '').trim();
     onSelect(`Please render video with scenario: ${sc.title} (${activeStyle.name} style). Creative direction: "${finalPrompt}"`);
   }
@@ -281,6 +284,21 @@
   function cleanShotText(text) {
     if (!text) return '';
     return text.replace(/\s*\*\([^)]+\)\*\s*$/g, '').trim();
+  }
+
+  function getConceptText(sc) {
+    const raw = (sc.concept || '').trim();
+    if (raw && !/^A high-concept visual story/i.test(raw)) {
+      return raw;
+    }
+    const shots = sc.shots || [];
+    if (shots.length >= 3) {
+      return `${shots[0].action} The narrative escalates into ${shots[shots.length - 2].action.toLowerCase()}`;
+    }
+    if (shots.length > 0) {
+      return shots[0].action;
+    }
+    return '';
   }
 </script>
 
@@ -314,11 +332,12 @@
     {#each scenarios as sc, idx (sc.id || idx)}
       {@const isSelected = selectedId === sc.id}
       {@const isExpanded = isItemExpanded(sc.id, idx)}
-      {@const styles = ensureScenarioStyles(sc)}
-      {@const activeStyle = getActiveStyle(sc)}
+      {@const styles = ensureScenarioStyles(sc, idx)}
+      {@const activeStyle = getActiveStyle(sc, idx)}
       {@const activeShots = getActiveShots(sc, activeStyle)}
       {@const promptKey = `${sc.id}_${activeStyle.id}`}
       {@const promptValue = getPromptValue(sc, activeStyle)}
+      {@const conceptText = getConceptText(sc)}
 
       <div class="scenario-card" class:selected={isSelected}>
         <div 
@@ -353,10 +372,18 @@
           </button>
         </div>
 
-        {#if sc.narrativeMetaphor}
+        {#if conceptText}
+          <div class="scenario-concept-box">
+            <span class="concept-label">Plot:</span>
+            <span class="concept-text">{conceptText}</span>
+          </div>
+        {/if}
+
+        {#if sc.narrativeMetaphor || sc.narrative_metaphor}
           <div class="metaphor-bridge">
             <Lightbulb size={11} class="metaphor-icon" />
-            <span class="metaphor-text">{sc.narrativeMetaphor}</span>
+            <span class="metaphor-label">Metaphor:</span>
+            <span class="metaphor-text">{sc.narrativeMetaphor || sc.narrative_metaphor}</span>
           </div>
         {/if}
 
@@ -471,7 +498,7 @@
             <div class="action-buttons-row">
               <button 
                 class="render-scenario-btn primary"
-                onclick={() => handleConfirmRender(sc)}
+                onclick={() => handleConfirmRender(sc, idx)}
               >
                 <Play size={14} />
                 <span>Render Video with this Scenario</span>
@@ -655,12 +682,28 @@
     color: var(--text-primary);
   }
 
+  .scenario-concept-box {
+    margin: 8px 0 0 24px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-secondary, #cbd5e1);
+  }
+
+  .concept-label {
+    font-weight: 600;
+    color: var(--text-primary, #ffffff);
+    margin-right: 4px;
+  }
+
+  .concept-text {
+    color: var(--text-secondary, #cbd5e1);
+  }
 
   .metaphor-bridge {
     display: flex;
     align-items: flex-start;
     gap: 7px;
-    margin: 8px 0 0 24px;
+    margin: 6px 0 0 24px;
     padding: 6px 10px;
     background: rgba(251, 188, 4, 0.08);
     border: 1px solid rgba(251, 188, 4, 0.25);
@@ -668,6 +711,11 @@
     font-size: 11px;
     line-height: 1.4;
     color: var(--text-secondary, #cbd5e1);
+  }
+
+  .metaphor-label {
+    font-weight: 600;
+    color: var(--agent-video, #fbbc04);
   }
 
   :global(.metaphor-icon) {
