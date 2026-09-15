@@ -138,11 +138,11 @@ class TestPromptDirector(unittest.TestCase):
         self.assertEqual(scout_kwargs.get("model"), "gemini-3.8-flash")
         self.assertEqual(scout_kwargs.get("config").temperature, 1.6)
 
-        # Stage 2 called
-        director_client.models.generate_content.assert_called_once()
+        # Stage 2 called concurrently for each of the 5 genres
+        self.assertEqual(director_client.models.generate_content.call_count, 5)
         director_kwargs = director_client.models.generate_content.call_args.kwargs
         self.assertEqual(director_kwargs.get("model"), "gemini-3.8-flash")
-        self.assertEqual(director_kwargs.get("config").temperature, 1.0)
+        self.assertEqual(director_kwargs.get("config").temperature, 1.2)
 
         # Confirm scenarios inherited genres from Stage 1
         self.assertEqual(scenarios[0].genre, "Film Noir")
@@ -184,7 +184,7 @@ class TestPromptDirector(unittest.TestCase):
         call_kwargs = mock_client.models.generate_content.call_args.kwargs
         self.assertEqual(call_kwargs.get("model"), "gemini-3.8-flash")
         config = call_kwargs.get("config")
-        self.assertEqual(config.temperature, 1.0)
+        self.assertEqual(config.temperature, 1.2)
         self.assertEqual(scenarios[0].genre, "Cyberpunk Thriller")
 
     @patch("agents.video_editor.prompt_director.get_gemini_client")
@@ -441,6 +441,49 @@ class TestAnonymousPromptSanitization(unittest.TestCase):
                 self.assertNotIn("Aplachykava", shot.action)
             self.assertNotIn("Yuliya", sc.narrative_metaphor or "")
             self.assertNotIn("Aplachykava", sc.narrative_metaphor or "")
+
+    def test_reorder_shots_and_rebuild_prompt(self):
+        from agents.video_editor.prompt_director import reorder_shots_and_rebuild_prompt
+        from agents.video_editor.workflow_models import VideoShot
+
+        original_shots = [
+            VideoShot(
+                shot_number=1,
+                time_range="00:00 - 00:02",
+                action="Entering the misty street.",
+                camera="Slow push",
+                lighting_atmosphere="Amber glow",
+            ),
+            VideoShot(
+                shot_number=2,
+                time_range="00:02 - 00:04",
+                action="Activating the generator.",
+                camera="Pan right",
+                lighting_atmosphere="Amber glow",
+            ),
+            VideoShot(
+                shot_number=3,
+                time_range="00:04 - 00:06",
+                action="Gears engage at high speed.",
+                camera="Close up",
+                lighting_atmosphere="Amber glow",
+            ),
+        ]
+        # Swap Shot 1 and Shot 3
+        swapped = [original_shots[2], original_shots[1], original_shots[0]]
+        reindexed, prompt = reorder_shots_and_rebuild_prompt(swapped, genre="Steampunk Mechanical")
+
+        self.assertEqual(len(reindexed), 3)
+        self.assertEqual(reindexed[0].shot_number, 1)
+        self.assertEqual(reindexed[0].time_range, "00:00 - 00:02")
+        self.assertEqual(reindexed[0].action, "Gears engage at high speed.")
+
+        self.assertEqual(reindexed[2].shot_number, 3)
+        self.assertEqual(reindexed[2].time_range, "00:04 - 00:06")
+        self.assertEqual(reindexed[2].action, "Entering the misty street.")
+
+        self.assertIn("Shot 1 (00:00 - 00:02): Gears engage at high speed.", prompt)
+        self.assertIn("Shot 3 (00:04 - 00:06): Entering the misty street.", prompt)
 
 
 if __name__ == "__main__":

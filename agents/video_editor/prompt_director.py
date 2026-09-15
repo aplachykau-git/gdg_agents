@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import os
 import re
@@ -778,73 +779,84 @@ CRITICAL REQUIREMENTS:
 """
 
 
+def _build_single_scenario_from_genre(
+    g: GenreBrief,
+    idx: int,
+    talk_title: str,
+    speaker_name: str,
+) -> CreativeScenario:
+    """Builds a single structured 5-shot scenario directly from a GenreBrief."""
+    shots = [
+        VideoShot(
+            shot_number=1,
+            time_range="00:00 - 00:02",
+            action=f"The protagonist enters the world of {g.genre}, taking in the surroundings of {g.visual_universe.split('.')[0]}.",
+            camera="Atmospheric wide establishing shot pushing slowly forward.",
+            lighting_atmosphere=f"Signature {g.aesthetic_manifesto.split('.')[0]}.",
+        ),
+        VideoShot(
+            shot_number=2,
+            time_range="00:02 - 00:04",
+            action=f"The protagonist initiates a pivotal interaction, setting {g.narrative_metaphor.lower()} in motion.",
+            camera="Dynamic tracking shot following the rapid movement.",
+            lighting_atmosphere="Deep cinematic shadows with sharp directional highlights.",
+        ),
+        VideoShot(
+            shot_number=3,
+            time_range="00:04 - 00:06",
+            action="At the center of the space, the protagonist maneuvers complex physical components representing the core mechanism.",
+            camera="Intense low-angle rotational close-up.",
+            lighting_atmosphere="Vibrant specular reflections and rich atmospheric depth.",
+        ),
+        VideoShot(
+            shot_number=4,
+            time_range="00:06 - 00:08",
+            action="The environment responds to the protagonist's action, revealing a breathtaking transformation of the entire space.",
+            camera="Expansive crane tilt-up revealing the wider visual architecture.",
+            lighting_atmosphere="Volumetric shafts of light cutting across the scene.",
+        ),
+        VideoShot(
+            shot_number=5,
+            time_range="00:08 - 00:10",
+            action="The protagonist holds an iconic, confident stance amidst the transformed world as the final frame locks in.",
+            camera="Dramatic centered hero hold into the final frame.",
+            lighting_atmosphere="Stunning golden-hour rim lighting with crisp silhouette.",
+        ),
+    ]
+    sc = CreativeScenario(
+        id=g.id or f"scenario_{idx}",
+        title=g.title,
+        genre=g.genre,
+        concept=f"{g.visual_universe} {g.narrative_metaphor}",
+        narrative_metaphor=g.narrative_metaphor,
+        shots=shots,
+        omni_prompt=format_timed_omni_prompt(shots, g.genre),
+    )
+    _ensure_scenario_styles(sc)
+    return sc
+
+
 def _build_scenarios_from_genres(
     genres: list[GenreBrief],
     talk_title: str,
     speaker_name: str,
 ) -> list[CreativeScenario]:
     """Generates structural 5-shot scenarios directly from GenreBrief objects."""
-    results = []
-    for idx, g in enumerate(genres, start=1):
-        shots = [
-            VideoShot(
-                shot_number=1,
-                time_range="00:00 - 00:02",
-                action=f"The protagonist enters the world of {g.genre}, taking in the surroundings of {g.visual_universe.split('.')[0]}.",
-                camera="Atmospheric wide establishing shot pushing slowly forward.",
-                lighting_atmosphere=f"Signature {g.aesthetic_manifesto.split('.')[0]}.",
-            ),
-            VideoShot(
-                shot_number=2,
-                time_range="00:02 - 00:04",
-                action=f"The protagonist initiates a pivotal interaction, setting {g.narrative_metaphor.lower()} in motion.",
-                camera="Dynamic tracking shot following the rapid movement.",
-                lighting_atmosphere="Deep cinematic shadows with sharp directional highlights.",
-            ),
-            VideoShot(
-                shot_number=3,
-                time_range="00:04 - 00:06",
-                action="At the center of the space, the protagonist maneuvers complex physical components representing the core mechanism.",
-                camera="Intense low-angle rotational close-up.",
-                lighting_atmosphere="Vibrant specular reflections and rich atmospheric depth.",
-            ),
-            VideoShot(
-                shot_number=4,
-                time_range="00:06 - 00:08",
-                action="The environment responds to the protagonist's action, revealing a breathtaking transformation of the entire space.",
-                camera="Expansive crane tilt-up revealing the wider visual architecture.",
-                lighting_atmosphere="Volumetric shafts of light cutting across the scene.",
-            ),
-            VideoShot(
-                shot_number=5,
-                time_range="00:08 - 00:10",
-                action="The protagonist holds an iconic, confident stance amidst the transformed world as the final frame locks in.",
-                camera="Dramatic centered hero hold into the final frame.",
-                lighting_atmosphere="Stunning golden-hour rim lighting with crisp silhouette.",
-            ),
-        ]
-        sc = CreativeScenario(
-            id=g.id or f"scenario_{idx}",
-            title=g.title,
-            genre=g.genre,
-            concept=f"{g.visual_universe} {g.narrative_metaphor}",
-            narrative_metaphor=g.narrative_metaphor,
-            shots=shots,
-            omni_prompt=format_timed_omni_prompt(shots, g.genre),
-        )
-        _ensure_scenario_styles(sc)
-        results.append(sc)
-    return results
+    return [
+        _build_single_scenario_from_genre(g, idx, talk_title, speaker_name) for idx, g in enumerate(genres, start=1)
+    ]
 
 
-def direct_scenarios_from_genres(
-    genres: list[GenreBrief],
+def direct_single_scenario(
+    genre: GenreBrief,
+    idx: int,
     talk_title: str,
     speaker_name: str,
     position_company: str | None = None,
     speaker_bio: str | None = None,
-) -> list[CreativeScenario]:
-    """Stage 2: Takes pre-selected creative genres and directs the 5-shot sequences, omni prompt, and styles."""
+    temperature: float = 1.2,
+) -> CreativeScenario:
+    """Directs a single 5-shot cinematic storyboard for one assigned genre concept with high temperature."""
     client = get_gemini_client()
 
     context_lines = [
@@ -856,32 +868,28 @@ def direct_scenarios_from_genres(
     if speaker_bio:
         context_lines.append(f"Speaker Background / Expertise: {speaker_bio}")
 
-    genres_text_blocks = []
-    for i, g in enumerate(genres, start=1):
-        genres_text_blocks.append(
-            f"--- ASSIGNED GENRE {i}: {g.title} ({g.genre}) ---\n"
-            f"Identifier: {g.id}\n"
-            f"Assigned Visual Universe: {g.visual_universe}\n"
-            f"Assigned Aesthetic Manifesto: {g.aesthetic_manifesto}\n"
-            f"Narrative Metaphor to Dramatize: {g.narrative_metaphor}\n"
-        )
-
     user_prompt = (
-        f"Flesh out these {len(genres)} pre-selected creative genre worlds into full 5-shot x 2-second cinematic storyboards for this protagonist and topic.\n\n"
+        f"Direct a 5-shot x 2-second cinematic storyboard for Option {idx}.\n\n"
         f"CONTEXT:\n" + "\n".join(context_lines) + "\n\n"
-        "PRE-SELECTED GENRE BRIEFS:\n" + "\n".join(genres_text_blocks) + "\n\n"
+        f"ASSIGNED GENRE BRIEF:\n"
+        f"- Identifier: {genre.id}\n"
+        f"- Title: {genre.title}\n"
+        f"- Genre / Universe: {genre.genre}\n"
+        f"- Visual Universe: {genre.visual_universe}\n"
+        f"- Aesthetic Manifesto: {genre.aesthetic_manifesto}\n"
+        f"- Narrative Metaphor to Dramatize: {genre.narrative_metaphor}\n\n"
         "MANDATORY REQUIREMENTS:\n"
-        "- Protagonist is the main character and hero of each mini-film.\n"
+        "- Protagonist is the main character and hero of this mini-film.\n"
         "- ABSOLUTELY NO REAL NAMES: NEVER write the speaker's personal name in shot descriptions, actions, camera notes, lighting atmosphere, or omni prompts. Always use 'the protagonist' or 'the hero'.\n"
         "- Strictly NO public speaking, conference halls, stage, audience, or slides.\n"
-        "- FAITHFULLY IMPLEMENT EACH ASSIGNED GENRE: The shots, atmosphere, and camera movements must match the assigned aesthetic manifesto and visual universe.\n"
+        "- FAITHFULLY IMPLEMENT THE ASSIGNED GENRE: The shots, atmosphere, and camera movements must match the assigned aesthetic manifesto and visual universe.\n"
         "- Exactly 5 progressive shots of 2 seconds each (total 10 seconds).\n"
-        "- For EACH scenario, provide 3 switchable 'styles' variations with unique names and contrasting aesthetics:\n"
+        "- Provide 3 switchable 'styles' variations with unique names and contrasting aesthetics:\n"
         "  * Style 1: Signature Vision (the assigned bold creative genre)\n"
         "  * Style 2: Clean Modern Tech / Studio Commercial ('Попроще' - sleek, grounded, professional, clean studio/architectural lighting, natural skin tones, no surrealism)\n"
         "  * Style 3: Dynamic Cinematic Realism / Contrasting Movement (distinct cinematic color grade, lens, and pacing)\n"
         "- 'omni_prompt' MUST explicitly incorporate all 5 shots with their exact timestamps (00:00 - 00:02, 00:02 - 00:04, 00:04 - 00:06, 00:06 - 00:08, 00:08 - 00:10).\n"
-        "- Deliver a JSON object with 'scenarios' list containing id, title, concept, genre, narrative_metaphor, shots, omni_prompt, and styles."
+        "- Deliver a JSON object with a 'scenarios' list containing this single scenario or a single scenario object."
     )
 
     retries = 2
@@ -893,47 +901,43 @@ def direct_scenarios_from_genres(
                 contents=[types.Part.from_text(text=user_prompt)],
                 config=types.GenerateContentConfig(
                     system_instruction=SHOT_DIRECTOR_INSTRUCTION,
-                    temperature=1.0,
+                    temperature=temperature,
                     top_p=0.95,
                     response_mime_type="application/json",
                 ),
             )
-            raw_list: list[Any] = []
-            if response.parsed and getattr(response.parsed, "scenarios", None):
-                raw_list = response.parsed.scenarios
+            raw_entry: Any = None
+            if response.parsed:
+                if getattr(response.parsed, "scenarios", None) and response.parsed.scenarios:
+                    raw_entry = response.parsed.scenarios[0]
+                elif getattr(response.parsed, "id", None) or getattr(response.parsed, "title", None):
+                    raw_entry = response.parsed
             elif response.text:
                 cleaned_json = response.text.strip()
                 if cleaned_json.startswith("```"):
                     cleaned_json = re.sub(r"^```(?:json)?\n?", "", cleaned_json)
                     cleaned_json = re.sub(r"\n?```$", "", cleaned_json).strip()
                 data = json.loads(cleaned_json)
-                raw_list = (
-                    data.get("scenarios", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
-                )
+                if isinstance(data, dict):
+                    if "scenarios" in data and isinstance(data["scenarios"], list) and data["scenarios"]:
+                        raw_entry = data["scenarios"][0]
+                    else:
+                        raw_entry = data
+                elif isinstance(data, list) and data:
+                    raw_entry = data[0]
 
-            final_scenarios: list[CreativeScenario] = []
-            for idx, entry in enumerate(raw_list, start=1):
-                sc = _normalize_scenario_item(entry, idx, speaker_name=speaker_name)
+            if raw_entry:
+                sc = _normalize_scenario_item(raw_entry, idx, speaker_name=speaker_name)
                 if sc:
-                    # If the generated scenario dropped the assigned genre info, restore it from the brief
-                    if idx <= len(genres):
-                        g = genres[idx - 1]
-                        if not sc.genre or sc.genre == "Cinematic / Commercial":
-                            sc.genre = g.genre
-                        if not sc.title or sc.title == f"Scenario {idx}":
-                            sc.title = g.title
-                        if not sc.narrative_metaphor:
-                            sc.narrative_metaphor = g.narrative_metaphor
-                    final_scenarios.append(sc)
-
-            if final_scenarios:
-                print(
-                    f"🎬 [Shot Director] Successfully directed {len(final_scenarios)} 5-shot scenarios via Gemini ({PROMPT_DIRECTOR_MODEL})"
-                )
-                return final_scenarios
-            else:
-                print("⚠️ [Shot Director] Model response contained no valid scenarios after normalization.")
-                break
+                    if not sc.genre or sc.genre == "Cinematic / Commercial":
+                        sc.genre = genre.genre
+                    if not sc.title or sc.title == f"Scenario {idx}":
+                        sc.title = genre.title
+                    if not sc.narrative_metaphor:
+                        sc.narrative_metaphor = genre.narrative_metaphor
+                    _ensure_scenario_styles(sc)
+                    return sc
+            break
         except Exception as e:
             err_str = str(e).lower()
             is_transient = any(
@@ -944,11 +948,92 @@ def direct_scenarios_from_genres(
                 time.sleep(delay)
                 delay *= 2
                 continue
-            print(f"⚠️ [Shot Director] Model generation failed: {e}")
+            print(f"⚠️ [Parallel Shot Director] Worker for '{genre.title}' failed: {e}")
             break
 
-    # Fallback to building scenarios directly from the assigned genres
-    return _build_scenarios_from_genres(genres, talk_title, speaker_name)
+    return _build_single_scenario_from_genre(genre, idx, talk_title, speaker_name)
+
+
+def direct_scenarios_from_genres(
+    genres: list[GenreBrief],
+    talk_title: str,
+    speaker_name: str,
+    position_company: str | None = None,
+    speaker_bio: str | None = None,
+    temperature: float = 1.2,
+) -> list[CreativeScenario]:
+    """Stage 2: Directs each pre-selected creative genre in PARALLEL via dedicated concurrent sub-directors (high temperature)."""
+    if not genres:
+        return []
+
+    max_workers = min(len(genres), 5)
+    results: list[tuple[int, CreativeScenario]] = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_idx = {
+            executor.submit(
+                direct_single_scenario,
+                genre=g,
+                idx=i,
+                talk_title=talk_title,
+                speaker_name=speaker_name,
+                position_company=position_company,
+                speaker_bio=speaker_bio,
+                temperature=temperature,
+            ): i
+            for i, g in enumerate(genres, start=1)
+        }
+        for future in concurrent.futures.as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            try:
+                sc = future.result()
+                results.append((idx, sc))
+            except Exception as e:
+                print(f"⚠️ [Parallel Shot Director] Execution failed for genre index {idx}: {e}")
+                results.append((idx, _build_single_scenario_from_genre(genres[idx - 1], idx, talk_title, speaker_name)))
+
+    results.sort(key=lambda x: x[0])
+    final_scenarios = [r[1] for r in results]
+    print(
+        f"🎬 [Shot Director] Successfully directed {len(final_scenarios)} 5-shot scenarios concurrently via Gemini ({PROMPT_DIRECTOR_MODEL})"
+    )
+    return final_scenarios
+
+
+def reorder_shots_and_rebuild_prompt(
+    shots: Sequence[VideoShot | dict[str, Any]],
+    genre: str = "",
+) -> tuple[list[VideoShot], str]:
+    """Re-indexes an arbitrarily ordered sequence of shots to 2-second intervals (1..5) and rebuilds the timed omni prompt."""
+    reindexed_shots: list[VideoShot] = []
+    for i, raw_sh in enumerate(shots, start=1):
+        if isinstance(raw_sh, VideoShot):
+            action = raw_sh.action
+            camera = raw_sh.camera
+            lighting = raw_sh.lighting_atmosphere
+        elif isinstance(raw_sh, dict):
+            action = raw_sh.get("action", "")
+            camera = raw_sh.get("camera", "")
+            lighting = raw_sh.get("lighting_atmosphere", raw_sh.get("lightingAtmosphere", ""))
+        else:
+            action = getattr(raw_sh, "action", "")
+            camera = getattr(raw_sh, "camera", "")
+            lighting = getattr(raw_sh, "lighting_atmosphere", "")
+
+        start_sec = (i - 1) * 2
+        end_sec = i * 2
+        time_range = f"00:0{start_sec} - 00:{end_sec:02d}"
+        reindexed_shots.append(
+            VideoShot(
+                shot_number=i,
+                time_range=time_range,
+                action=str(action).strip(),
+                camera=str(camera).strip(),
+                lighting_atmosphere=str(lighting).strip(),
+            )
+        )
+    prompt = format_timed_omni_prompt(reindexed_shots, genre=genre)
+    return reindexed_shots, prompt
 
 
 def generate_creative_scenarios(

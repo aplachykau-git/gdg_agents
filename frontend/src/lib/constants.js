@@ -1393,6 +1393,14 @@ export function extractEventDates(text, author) {
   };
 }
 
+export function areScenariosComplete(scenarios) {
+  if (!Array.isArray(scenarios) || scenarios.length === 0) return false;
+  return scenarios.every(sc => {
+    if (!sc || !Array.isArray(sc.shots) || sc.shots.length < 5) return false;
+    return sc.shots.every(sh => sh && typeof sh.action === 'string' && sh.action.trim().length > 3);
+  });
+}
+
 export function hasVideoScenarios(input) {
   if (!input) return false;
   if (Array.isArray(input) && input.length > 0) return true;
@@ -1404,7 +1412,7 @@ export function hasVideoScenarios(input) {
   if (typeof input === 'string') {
     return (
       input.includes('Creative Video Scenarios') ||
-      (/Option\s*\d+:\s*.+?\(`.+?`\)/i.test(input) && input.includes('Shot 1') && input.includes('Shot 5'))
+      (/Option\s*\d+:\s*.+?\(`.+?`\)/i.test(input) && input.includes('Shot 1'))
     );
   }
   return false;

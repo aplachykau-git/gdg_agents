@@ -3,11 +3,12 @@
     Film, 
     Image as ImageIcon, 
     Download, 
-    Loader2
+    Loader2,
+    Edit3
   } from '@lucide/svelte';
   import { downloadDirectFile } from './constants.js';
 
-  let { media = {} } = $props();
+  let { media = {}, onRefine = () => {} } = $props();
 
   let downloadingMap = $state({});
 
@@ -129,6 +130,15 @@
           {/if}
         </button>
       {/if}
+
+      <button 
+        class="download-pill-btn edit-reopen"
+        onclick={() => onRefine("Please reopen the video card for this speaker so I can adjust shots, reorder timeline, or choose another style.")}
+        title="Re-open scenario card and edit shots or styles"
+      >
+        <Edit3 size={14} />
+        <span>Edit & Reopen Card</span>
+      </button>
     </div>
   </div>
 {/if}
@@ -221,5 +231,17 @@
   .download-pill-btn.secondary:hover:not(:disabled) {
     background: var(--bg-hover, rgba(255, 255, 255, 0.1));
     border-color: var(--primary-accent, #8ab4f8);
+  }
+
+  .download-pill-btn.edit-reopen {
+    background: rgba(66, 133, 244, 0.15);
+    color: var(--primary-accent, #8ab4f8);
+    border-color: rgba(66, 133, 244, 0.35);
+  }
+
+  .download-pill-btn.edit-reopen:hover:not(:disabled) {
+    background: rgba(66, 133, 244, 0.25);
+    border-color: var(--primary-accent, #8ab4f8);
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.25);
   }
 </style>

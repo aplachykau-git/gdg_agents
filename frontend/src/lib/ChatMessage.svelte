@@ -4,7 +4,9 @@
     Paperclip, 
     AlertCircle, 
     Workflow, 
-    ArrowRight 
+    ArrowRight,
+    Film,
+    Sparkles
   } from '@lucide/svelte';
   import { 
     getAgentTheme, 
@@ -21,7 +23,8 @@
     shouldShowDelegationHandoff,
     getEventAgent,
     hasVideoScenarios,
-    extractVideoScenarios
+    extractVideoScenarios,
+    areScenariosComplete
   } from './constants.js';
   import AgendaTimeline from './AgendaTimeline.svelte';
   import VariantCard from './VariantCard.svelte';
@@ -235,7 +238,7 @@
               {#if cleanedText}
                 <div class="markdown-body">{@html renderMarkdown(cleanedText)}</div>
               {/if}
-              <VideoPreviewCard {media} />
+              <VideoPreviewCard {media} onRefine={onRefine} />
             {:else if doc}
               {@const cleanedText = cleanTextForDocumentDisplay(part.text)}
               {#if cleanedText}
@@ -259,11 +262,48 @@
         {/each}
 
         {#if activeScenarios && activeScenarios.length > 0}
-          <VideoScenarioDeck 
-            scenarios={activeScenarios} 
-            onSelect={(msg) => onRefine(msg)} 
-            onRegenerate={(msg) => onRefine(msg)} 
-          />
+          {#if areScenariosComplete(activeScenarios)}
+            <VideoScenarioDeck 
+              scenarios={activeScenarios} 
+              onSelect={(msg) => onRefine(msg)} 
+              onRegenerate={(msg) => onRefine(msg)} 
+            />
+          {:else}
+            <div class="scenario-progress-card">
+              <div class="scenario-progress-header">
+                <div class="scenario-progress-icon-wrap">
+                  <Film size={18} class="accent-icon" />
+                </div>
+                <div class="scenario-progress-meta">
+                  <div class="scenario-progress-title-row">
+                    <span class="scenario-progress-title">Directing 5-Shot Storyboards...</span>
+                    <span class="scenario-progress-pill">
+                      <Sparkles size={11} />
+                      <span>AI Directing</span>
+                    </span>
+                  </div>
+                  <p class="scenario-progress-desc">
+                    {#if activeScenarios[0]?.shots?.length > 0}
+                      Assembling 10s multi-shot timeline ({activeScenarios[0].shots.length} / 5 shots formed)...
+                    {:else}
+                      Scouting radical genres and dramatizing narrative metaphors...
+                    {/if}
+                  </p>
+                </div>
+              </div>
+              <div class="scenario-progress-track">
+                <div 
+                  class="scenario-progress-fill" 
+                  style="width: {Math.max(20, Math.min(95, ((activeScenarios[0]?.shots?.length || 1) / 5) * 100))}%"
+                ></div>
+              </div>
+              <div class="scenario-progress-steps">
+                <span class="progress-step-item done">✓ 1. Multi-Axis Genre Scout</span>
+                <span class="progress-step-item active">⏳ 2. 5-Shot Storyboards ({activeScenarios[0]?.shots?.length || 0}/5)</span>
+                <span class="progress-step-item">3. Style Variations</span>
+              </div>
+            </div>
+          {/if}
         {/if}
       {/if}
     </div>
@@ -462,5 +502,112 @@
     padding: 2px 6px;
     border-radius: var(--radius-xs);
     margin-top: 6px;
+  }
+
+  /* Scenario Progress Indicator */
+  .scenario-progress-card {
+    margin-top: 14px;
+    background: var(--bg-surface-elevated, #1a1a2e);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    border-left: 3px solid var(--agent-video, #ea4335);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+    animation: fadeIn 0.25s ease-out;
+  }
+
+  .scenario-progress-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .scenario-progress-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: rgba(234, 67, 53, 0.12);
+    border: 1px solid rgba(234, 67, 53, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--agent-video, #ea4335);
+    flex-shrink: 0;
+  }
+
+  .scenario-progress-meta {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .scenario-progress-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .scenario-progress-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary, #ffffff);
+  }
+
+  .scenario-progress-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(234, 67, 53, 0.15);
+    color: var(--agent-video, #ea4335);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+  }
+
+  .scenario-progress-desc {
+    margin: 4px 0 0 0;
+    font-size: 12px;
+    color: var(--text-secondary, #94a3b8);
+  }
+
+  .scenario-progress-track {
+    width: 100%;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .scenario-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--agent-video, #ea4335), #f59e0b);
+    border-radius: 9999px;
+    transition: width 0.35s ease;
+  }
+
+  .scenario-progress-steps {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+
+  .progress-step-item {
+    color: var(--text-muted, #64748b);
+  }
+
+  .progress-step-item.done {
+    color: var(--accent-green, #10b981);
+    font-weight: 600;
+  }
+
+  .progress-step-item.active {
+    color: var(--agent-video, #ea4335);
+    font-weight: 600;
   }
 </style>

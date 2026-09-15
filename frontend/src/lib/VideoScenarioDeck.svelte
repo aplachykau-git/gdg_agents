@@ -10,6 +10,10 @@
     Sliders,
     ChevronDown,
     ChevronUp,
+    ChevronLeft,
+    ChevronRight,
+    RotateCcw,
+    UserCheck,
     Palette,
     Lightbulb
   } from '@lucide/svelte';
@@ -26,6 +30,8 @@
   let customPrompts = $state({});
   let isEditing = $state(false);
   let selectedStylesMap = $state({});
+  let reorderedShotsMap = $state({});
+  let reorderedSyncedMap = $state({});
 
   let allExpanded = $state(true);
 
@@ -201,6 +207,59 @@
     return activeStyle.omniPrompt || sc.omniPrompt || '';
   }
 
+  function getActiveShots(sc, activeStyle) {
+    const key = `${sc.id}_${activeStyle.id}`;
+    if (reorderedShotsMap[key]) return reorderedShotsMap[key];
+    return (activeStyle.shots && activeStyle.shots.length > 0) ? activeStyle.shots : (sc.shots || []);
+  }
+
+  function moveShot(sc, activeStyle, shotIdx, direction) {
+    const key = `${sc.id}_${activeStyle.id}`;
+    const shotsList = [...getActiveShots(sc, activeStyle)];
+    const targetIdx = shotIdx + direction;
+    if (targetIdx < 0 || targetIdx >= shotsList.length) return;
+
+    const temp = shotsList[shotIdx];
+    shotsList[shotIdx] = shotsList[targetIdx];
+    shotsList[targetIdx] = temp;
+
+    const reindexed = shotsList.map((sh, idx) => {
+      const start = idx * 2;
+      const end = (idx + 1) * 2;
+      const timeRange = `00:0${start} - 00:${end < 10 ? '0' + end : end}`;
+      return {
+        ...sh,
+        shotNumber: idx + 1,
+        timeRange
+      };
+    });
+
+    reorderedShotsMap = { ...reorderedShotsMap, [key]: reindexed };
+
+    // Dynamically rebuild and update the omni text prompt to match the new shot sequence
+    const baseGenre = activeStyle.genre || sc.genre || 'Cinematic Film';
+    const updatedPrompt = `Cinematic 9:16 ${baseGenre}. ` + 
+      reindexed.map(sh => `Shot ${sh.shotNumber} (${sh.timeRange}): ${sh.action}${sh.camera ? ' (' + sh.camera + ')' : ''}`).join(' ');
+
+    customPrompts = { ...customPrompts, [key]: updatedPrompt };
+    reorderedSyncedMap = { ...reorderedSyncedMap, [key]: true };
+  }
+
+  function resetShotsOrder(sc, activeStyle) {
+    const key = `${sc.id}_${activeStyle.id}`;
+    const updatedShots = { ...reorderedShotsMap };
+    delete updatedShots[key];
+    reorderedShotsMap = updatedShots;
+
+    const updatedPrompts = { ...customPrompts };
+    delete updatedPrompts[key];
+    customPrompts = updatedPrompts;
+
+    const updatedSynced = { ...reorderedSyncedMap };
+    delete updatedSynced[key];
+    reorderedSyncedMap = updatedSynced;
+  }
+
   function handleConfirmRender(sc) {
     const activeStyle = getActiveStyle(sc);
     const finalPrompt = (getPromptValue(sc, activeStyle) || activeStyle.omniPrompt || sc.omniPrompt || '').trim();
@@ -217,6 +276,10 @@
     <div class="deck-title-row">
       <Video size={18} class="accent-icon" />
       <span class="deck-title">Creative Video Concepts (5 Shots &times; 2s)</span>
+      <div class="retained-speaker-pill" title="Previous speaker photo and metadata retained in session draft">
+        <UserCheck size={12} />
+        <span>Speaker & Portrait Retained</span>
+      </div>
     </div>
     <div class="deck-header-actions">
       <button 
@@ -239,7 +302,7 @@
   </div>
 
   <p class="deck-intro">
-    Choose one cinematic storyline and visual style (3 styles per scenario). All alternative concepts detail 5 progressive shots (2 seconds each).
+    Choose one cinematic storyline and visual style (3 styles per scenario). Reorder shots with &larr; &rarr; arrows to update prompt timeline sequence live.
   </p>
 
   <div class="scenario-cards-list">
@@ -248,7 +311,7 @@
       {@const isExpanded = isItemExpanded(sc.id, idx)}
       {@const styles = ensureScenarioStyles(sc)}
       {@const activeStyle = getActiveStyle(sc)}
-      {@const activeShots = (activeStyle.shots && activeStyle.shots.length > 0) ? activeStyle.shots : (sc.shots || [])}
+      {@const activeShots = getActiveShots(sc, activeStyle)}
       {@const promptKey = `${sc.id}_${activeStyle.id}`}
       {@const promptValue = getPromptValue(sc, activeStyle)}
 
@@ -320,16 +383,57 @@
 
         {#if isExpanded && activeShots && activeShots.length > 0}
           <div class="shots-timeline">
-            <div class="shots-timeline-label">
-              <Film size={13} />
-              <span>Timeline Breakdown (5 Shots &times; 2s = 10s):</span>
+            <div class="shots-timeline-header-row">
+              <div class="shots-timeline-label">
+                <Film size={13} />
+                <span>Timeline Breakdown (5 Shots &times; 2s = 10s):</span>
+              </div>
+              <div class="shots-timeline-actions">
+                {#if reorderedSyncedMap[promptKey]}
+                  <span class="synced-badge" title="Omni prompt sequence updated to match new shot order">
+                    <Check size={11} />
+                    <span>Prompt Synced</span>
+                  </span>
+                  <button 
+                    type="button"
+                    class="reset-order-btn"
+                    onclick={(e) => { e.stopPropagation(); resetShotsOrder(sc, activeStyle); }}
+                    title="Reset to original shot sequence"
+                  >
+                    <RotateCcw size={11} />
+                    <span>Reset Order</span>
+                  </button>
+                {/if}
+              </div>
             </div>
             <div class="shots-grid">
-              {#each activeShots as shot}
+              {#each activeShots as shot, sIdx (shot.shotNumber + '_' + sIdx + '_' + shot.timeRange)}
                 <div class="shot-chip">
                   <div class="shot-chip-header">
-                    <span class="shot-badge">Shot {shot.shotNumber}</span>
-                    <span class="shot-time">{shot.timeRange}</span>
+                    <div class="shot-badge-group">
+                      <span class="shot-badge">Shot {shot.shotNumber}</span>
+                      <span class="shot-time">{shot.timeRange}</span>
+                    </div>
+                    <div class="shot-reorder-btns">
+                      <button 
+                        type="button" 
+                        class="shot-move-btn"
+                        disabled={sIdx === 0}
+                        onclick={(e) => { e.stopPropagation(); moveShot(sc, activeStyle, sIdx, -1); }}
+                        title="Move shot earlier (swap with previous)"
+                      >
+                        <ChevronLeft size={13} />
+                      </button>
+                      <button 
+                        type="button" 
+                        class="shot-move-btn"
+                        disabled={sIdx === activeShots.length - 1}
+                        onclick={(e) => { e.stopPropagation(); moveShot(sc, activeStyle, sIdx, 1); }}
+                        title="Move shot later (swap with next)"
+                      >
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
                   </div>
                   <div class="shot-action">{shot.action}</div>
                   {#if shot.camera}
@@ -706,6 +810,106 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .shots-timeline-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .shots-timeline-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .synced-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--accent-green, #10b981);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+  }
+
+  .reset-order-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    color: var(--text-tertiary, #94a3b8);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    border-radius: 9999px;
+    font-size: 10px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .reset-order-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    border-color: var(--primary-accent);
+  }
+
+  .shot-badge-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .shot-reorder-btns {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .shot-move-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 4px;
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+    background: var(--bg-surface-elevated, rgba(255, 255, 255, 0.05));
+    color: var(--text-secondary, #cbd5e1);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .shot-move-btn:hover:not(:disabled) {
+    background: var(--agent-video, #ea4335);
+    color: #ffffff;
+    border-color: var(--agent-video, #ea4335);
+    transform: scale(1.08);
+  }
+
+  .shot-move-btn:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+  }
+
+  .retained-speaker-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 10px;
+    padding: 2px 9px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(66, 133, 244, 0.12);
+    color: #8ab4f8;
+    border: 1px solid rgba(66, 133, 244, 0.28);
   }
 
   .shot-badge {

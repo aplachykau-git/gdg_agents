@@ -21,6 +21,7 @@ from . import media_tools
 
 DRAFT_STATE_KEY = "video_editor_draft"
 COMPLETED_MEDIA_STATE_KEY = "video_editor_completed_media"
+LAST_RENDERED_DRAFT_KEY = "video_editor_last_rendered_draft"
 
 
 def confirmation_required() -> bool:
@@ -71,7 +72,12 @@ def _validate_required_inputs(
 
 
 def _load_draft(tool_context: ToolContext) -> VideoEditorDraft:
-    return VideoEditorDraft.model_validate(tool_context.state.get(DRAFT_STATE_KEY, {}))
+    raw = tool_context.state.get(DRAFT_STATE_KEY)
+    if not raw or not isinstance(raw, dict) or not raw.get("name"):
+        fallback = tool_context.state.get(LAST_RENDERED_DRAFT_KEY, {})
+        if isinstance(fallback, dict) and fallback.get("name"):
+            raw = fallback
+    return VideoEditorDraft.model_validate(raw or {})
 
 
 def _save_draft(tool_context: ToolContext, draft: VideoEditorDraft) -> None:
@@ -184,6 +190,12 @@ async def create_video_card(
         raise ValueError("tool_context is required.")
 
     draft = _load_draft(tool_context)
+    if name and draft.name and name.strip().lower() != draft.name.strip().lower():
+        draft = VideoEditorDraft()
+    elif talk_title and draft.title and talk_title.strip().lower() != draft.title.strip().lower():
+        if name and draft.name and name.strip().lower() != draft.name.strip().lower():
+            draft = VideoEditorDraft()
+
     current_upload = _latest_user_upload(tool_context)
     completed_media = tool_context.state.get(COMPLETED_MEDIA_STATE_KEY)
     if current_upload and current_upload.model_dump() == completed_media:
@@ -200,10 +212,14 @@ async def create_video_card(
         elif mime.startswith("video/"):
             media_type = "video"
 
+    effective_title = (talk_title or "").strip() or (draft.title or "").strip()
+    effective_name = (name or "").strip() or (draft.name or "").strip()
+    effective_position = (position_company or "").strip() or (draft.position_company or "").strip()
+
     input_failure = _validate_required_inputs(
-        talk_title,
-        name,
-        position_company,
+        effective_title,
+        effective_name,
+        effective_position,
         media_type,
         active_media,
     )
@@ -241,14 +257,14 @@ async def create_video_card(
 
     draft = merge_draft(
         draft,
-        title=talk_title,
-        name=name,
-        position_company=position_company,
+        title=effective_title,
+        name=effective_name,
+        position_company=effective_position,
         creative_direction=resolved_direction,
         speaker_bio=speaker_bio or draft.speaker_bio,
         creative_guidance=creative_guidance or draft.creative_guidance,
         selected_scenario_id=matched_scenario_id,
-        media=current_upload,
+        media=active_media,
     )
 
     missing_fields = missing_draft_fields(draft)
@@ -355,6 +371,20 @@ async def create_video_card(
         return _failure_result(rendered, draft).model_dump()
 
     tool_context.state[COMPLETED_MEDIA_STATE_KEY] = draft.media.model_dump() if draft.media else {}
+    tool_context.state[LAST_RENDERED_DRAFT_KEY] = draft.model_dump()
+    reopenable_draft = merge_draft(
+        draft,
+        title=draft.title,
+        name=draft.name,
+        position_company=draft.position_company,
+        creative_direction=None,
+        media=draft.media,
+        speaker_bio=draft.speaker_bio,
+        creative_guidance=draft.creative_guidance,
+        suggested_scenarios=draft.suggested_scenarios,
+        selected_scenario_id=None,
+    )
+    reopenable_draft.confirmed_fingerprint = None
     tool_context.state[DRAFT_STATE_KEY] = {}
     raw_notice = getattr(rendered, "notice", None)
     notice = raw_notice if isinstance(raw_notice, str) else ""
@@ -362,4 +392,5 @@ async def create_video_card(
         status="success",
         message=format_render_success_message(rendered.assets, notice=notice),
         assets=rendered.assets,
+        draft=reopenable_draft,
     ).model_dump()
