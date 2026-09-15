@@ -854,9 +854,10 @@ def direct_single_scenario(
     speaker_name: str,
     position_company: str | None = None,
     speaker_bio: str | None = None,
-    temperature: float = 1.2,
+    creative_guidance: str | None = None,
+    temperature: float = 1.5,
 ) -> CreativeScenario:
-    """Directs a single 5-shot cinematic storyboard for one assigned genre concept with high temperature."""
+    """Directs a single 5-shot cinematic storyboard for one assigned genre concept with high temperature (1.5)."""
     client = get_gemini_client()
 
     context_lines = [
@@ -902,7 +903,7 @@ def direct_single_scenario(
                 config=types.GenerateContentConfig(
                     system_instruction=SHOT_DIRECTOR_INSTRUCTION,
                     temperature=temperature,
-                    top_p=0.95,
+                    top_p=1.0,
                     response_mime_type="application/json",
                 ),
             )
@@ -960,9 +961,9 @@ def direct_scenarios_from_genres(
     speaker_name: str,
     position_company: str | None = None,
     speaker_bio: str | None = None,
-    temperature: float = 1.2,
+    temperature: float = 1.5,
 ) -> list[CreativeScenario]:
-    """Stage 2: Directs each pre-selected creative genre in PARALLEL via dedicated concurrent sub-directors (high temperature)."""
+    """Stage 2: Directs each pre-selected creative genre in PARALLEL via dedicated concurrent sub-directors (high temperature 1.5)."""
     if not genres:
         return []
 

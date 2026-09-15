@@ -142,7 +142,7 @@ class TestPromptDirector(unittest.TestCase):
         self.assertEqual(director_client.models.generate_content.call_count, 5)
         director_kwargs = director_client.models.generate_content.call_args.kwargs
         self.assertEqual(director_kwargs.get("model"), "gemini-3.8-flash")
-        self.assertEqual(director_kwargs.get("config").temperature, 1.2)
+        self.assertEqual(director_kwargs.get("config").temperature, 1.5)
 
         # Confirm scenarios inherited genres from Stage 1
         self.assertEqual(scenarios[0].genre, "Film Noir")
@@ -184,7 +184,7 @@ class TestPromptDirector(unittest.TestCase):
         call_kwargs = mock_client.models.generate_content.call_args.kwargs
         self.assertEqual(call_kwargs.get("model"), "gemini-3.8-flash")
         config = call_kwargs.get("config")
-        self.assertEqual(config.temperature, 1.2)
+        self.assertEqual(config.temperature, 1.5)
         self.assertEqual(scenarios[0].genre, "Cyberpunk Thriller")
 
     @patch("agents.video_editor.prompt_director.get_gemini_client")
