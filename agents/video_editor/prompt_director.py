@@ -185,6 +185,35 @@ def _normalize_shot(raw: Any, idx: int, speaker_name: str | None = None) -> Vide
     )
 
 
+def _extract_shots_from_text_or_prompt(text: str, speaker_name: str | None = None) -> list[VideoShot]:
+    """Attempts to parse progressive 5 shots from an omni prompt or raw string."""
+    if not text:
+        return []
+    pattern = re.compile(
+        r"(?:Shot\s*(\d+)|\b(\d+)\b)\s*(?:\(([^)]+)\)|\[([^\]]+)\])?\s*[:\-–]\s*([^\n]+?)(?=(?:Shot\s*\d+|\b\d+\s*\(|\n\n|$))",
+        re.IGNORECASE,
+    )
+    matches = list(pattern.finditer(text))
+    shots = []
+    for s_idx, m in enumerate(matches, start=1):
+        num_str = m.group(1) or m.group(2) or str(s_idx)
+        time_str = m.group(3) or m.group(4) or DEFAULT_TIMINGS[min(s_idx - 1, len(DEFAULT_TIMINGS) - 1)]
+        action = m.group(5).strip()
+        if action:
+            shots.append(
+                VideoShot(
+                    shot_number=int(num_str) if num_str.isdigit() else s_idx,
+                    time_range=time_str.strip(),
+                    action=_sanitize_scenario_text(action, speaker_name),
+                    camera="Dynamic cinematic camera tracking.",
+                    lighting_atmosphere="Cinematic atmospheric lighting.",
+                )
+            )
+        if len(shots) == 5:
+            break
+    return shots
+
+
 def _normalize_scenario_item(entry: Any, idx: int, speaker_name: str | None = None) -> CreativeScenario | None:
     """Robustly normalize a raw scenario dictionary or model into a valid CreativeScenario."""
     if isinstance(entry, CreativeScenario):
@@ -207,31 +236,53 @@ def _normalize_scenario_item(entry: Any, idx: int, speaker_name: str | None = No
     raw_metaphor = entry.get("narrative_metaphor") or entry.get("narrativeMetaphor")
     narrative_metaphor = _sanitize_scenario_text(str(raw_metaphor), speaker_name) if raw_metaphor else None
 
-    # Extract shots: prefer entry["shots"], else fallback to entry["styles"][0]["shots"]
-    raw_shots = entry.get("shots") or []
+    # Extract shots: look for shots under common keys
+    raw_shots = (
+        entry.get("shots")
+        or entry.get("storyboard")
+        or entry.get("scenes")
+        or entry.get("shot_list")
+        or entry.get("timeline")
+        or []
+    )
     raw_styles = entry.get("styles") or []
 
     if not raw_shots and raw_styles and isinstance(raw_styles, list):
         first_style = raw_styles[0]
         if isinstance(first_style, dict):
-            raw_shots = first_style.get("shots", [])
+            raw_shots = first_style.get("shots") or first_style.get("storyboard") or first_style.get("scenes") or []
         elif hasattr(first_style, "shots"):
             raw_shots = getattr(first_style, "shots", [])
 
     shots = [_normalize_shot(sh, s_idx, speaker_name) for s_idx, sh in enumerate(raw_shots, start=1)]
 
-    # If shots are missing or fewer than 5, fill progressive shots
-    while len(shots) < 5:
-        s_idx = len(shots) + 1
-        shots.append(
-            VideoShot(
-                shot_number=s_idx,
-                time_range=DEFAULT_TIMINGS[min(s_idx - 1, len(DEFAULT_TIMINGS) - 1)],
-                action=f"The protagonist drives the visual climax in phase {s_idx} with commanding presence.",
-                camera="Dynamic cinematic camera move with dramatic depth of field.",
-                lighting_atmosphere="Rich volumetric lighting and cinematic atmosphere.",
+    # If shots are missing or empty, attempt extraction from omni_prompt or description
+    if not shots:
+        omni_candidate = str(entry.get("omni_prompt") or entry.get("omniPrompt") or entry.get("prompt") or "")
+        if omni_candidate:
+            shots = _extract_shots_from_text_or_prompt(omni_candidate, speaker_name)
+
+    # If shots are missing or fewer than 5, fill progressive contextual shots tailored to the genre
+    if len(shots) < 5:
+        contextual_actions = [
+            f"The protagonist enters the world of {genre}, engaging with the atmosphere.",
+            f"The protagonist initiates a pivotal action, setting {narrative_metaphor.lower() if narrative_metaphor else 'the narrative'} in motion.",
+            "At the center of the action, the protagonist maneuvers complex elements with confident mastery.",
+            "The entire scene transforms dramatically as the core mechanism reaches peak intensity.",
+            "The protagonist holds an iconic hero stance amid the transformed space into the final frame.",
+        ]
+        while len(shots) < 5:
+            s_idx = len(shots) + 1
+            action_text = contextual_actions[min(s_idx - 1, len(contextual_actions) - 1)]
+            shots.append(
+                VideoShot(
+                    shot_number=s_idx,
+                    time_range=DEFAULT_TIMINGS[min(s_idx - 1, len(DEFAULT_TIMINGS) - 1)],
+                    action=action_text,
+                    camera="Dynamic cinematic camera move with dramatic depth of field.",
+                    lighting_atmosphere="Rich volumetric lighting and cinematic atmosphere.",
+                )
             )
-        )
 
     # Narrative storyline concept (plot synopsis): ensure rich, non-placeholder description
     raw_concept = entry.get("concept") or entry.get("storyline") or entry.get("plot") or entry.get("description")
@@ -913,8 +964,9 @@ def direct_single_scenario(
         "  * Style 1: Primary Aesthetic (the core bold signature aesthetic of this world)\n"
         "  * Style 2: Grounded / Commercial Alternative ('Попроще' - clean studio/natural commercial lighting and elegant realism, tailored to this universe)\n"
         "  * Style 3: Radical / Contrasting Movement (high-contrast, distinct lens, kinetic camera, or moody color grade tailored to this universe)\n"
+        "- 'shots': A list of exactly 5 shot objects, each with 'shot_number' (1..5), 'time_range' ('00:00 - 00:02', '00:02 - 00:04', etc.), 'action', 'camera', and 'lighting_atmosphere'.\n"
         "- 'omni_prompt' MUST explicitly incorporate all 5 shots with their exact timestamps (00:00 - 00:02, 00:02 - 00:04, 00:04 - 00:06, 00:06 - 00:08, 00:08 - 00:10).\n"
-        "- Deliver a JSON object with a 'scenarios' list containing this single scenario or a single scenario object."
+        "- Deliver a JSON object containing: 'id', 'title', 'genre', 'concept', 'narrative_metaphor', 'shots' (5 shot objects), 'styles' (3 styles), and 'omni_prompt'."
     )
 
     retries = 3
