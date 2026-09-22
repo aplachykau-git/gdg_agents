@@ -14,16 +14,20 @@
     ChevronRight,
     RotateCcw,
     Palette,
-    Lightbulb
+    Lightbulb,
+    Loader2,
+    Lock
   } from '@lucide/svelte';
 
   let { 
     scenarios = [], 
+    isLocked = false,
     onSelect = () => {}, 
     onRegenerate = () => {} 
   } = $props();
 
   let userSelectedId = $state(null);
+  let isSubmitting = $state(false);
   let selectedId = $derived(userSelectedId ?? scenarios[0]?.id ?? '');
   let expandedMap = $state({});
   let customPrompts = $state({});
@@ -50,6 +54,7 @@
   }
 
   function handleSelect(sc) {
+    if (isLocked || isSubmitting) return;
     userSelectedId = sc.id;
   }
 
@@ -200,6 +205,7 @@
   }
 
   function handleSelectStyle(scId, styleId) {
+    if (isLocked || isSubmitting) return;
     selectedStylesMap = { ...selectedStylesMap, [scId]: styleId };
   }
 
@@ -216,6 +222,7 @@
   }
 
   function moveShot(sc, activeStyle, shotIdx, direction) {
+    if (isLocked || isSubmitting) return;
     const key = `${sc.id}_${activeStyle.id}`;
     const shotsList = [...getActiveShots(sc, activeStyle)];
     const targetIdx = shotIdx + direction;
@@ -248,6 +255,7 @@
   }
 
   function resetShotsOrder(sc, activeStyle) {
+    if (isLocked || isSubmitting) return;
     const key = `${sc.id}_${activeStyle.id}`;
     const updatedShots = { ...reorderedShotsMap };
     delete updatedShots[key];
@@ -263,12 +271,15 @@
   }
 
   function handleConfirmRender(sc, idx = 0) {
+    if (isLocked || isSubmitting) return;
+    isSubmitting = true;
     const activeStyle = getActiveStyle(sc, idx);
     const finalPrompt = (getPromptValue(sc, activeStyle) || activeStyle.omniPrompt || sc.omniPrompt || '').trim();
     onSelect(`Please render video with scenario: ${sc.title} (${activeStyle.name} style). Creative direction: "${finalPrompt}"`);
   }
 
   function handleRegenerateClick() {
+    if (isLocked || isSubmitting) return;
     onRegenerate("Please invent 5 new creative scenarios for this talk.");
   }
 
@@ -302,11 +313,17 @@
   }
 </script>
 
-<div class="scenarios-deck-container">
+<div class="scenarios-deck-container" class:locked-deck={isLocked}>
   <div class="deck-header">
     <div class="deck-title-row">
       <Video size={16} class="accent-icon" />
       <span class="deck-title">Video Concepts (10s)</span>
+      {#if isLocked}
+        <span class="deck-status-pill locked">
+          <Lock size={11} />
+          <span>Locked</span>
+        </span>
+      {/if}
     </div>
     <div class="deck-header-actions">
       <button 
@@ -317,14 +334,17 @@
         <Film size={12} />
         <span>{allExpanded ? "Collapse" : "Shots"}</span>
       </button>
-      <button 
-        class="regenerate-btn" 
-        onclick={handleRegenerateClick}
-        title="Generate 5 new concepts"
-      >
-        <RefreshCw size={12} />
-        <span>New</span>
-      </button>
+      {#if !isLocked}
+        <button 
+          class="regenerate-btn" 
+          disabled={isSubmitting}
+          onclick={handleRegenerateClick}
+          title="Generate 5 new concepts"
+        >
+          <RefreshCw size={12} />
+          <span>New</span>
+        </button>
+      {/if}
     </div>
   </div>
 
@@ -339,13 +359,18 @@
       {@const promptValue = getPromptValue(sc, activeStyle)}
       {@const conceptText = getConceptText(sc)}
 
-      <div class="scenario-card" class:selected={isSelected}>
+      <div 
+        class="scenario-card" 
+        class:selected={isSelected}
+        class:locked-selected={isLocked && isSelected}
+        class:locked-unselected={isLocked && !isSelected}
+      >
         <div 
           class="card-top-bar" 
           role="button"
-          tabindex="0"
+          tabindex={isLocked ? -1 : 0}
           onclick={() => handleSelect(sc)}
-          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(sc); } }}
+          onkeydown={(e) => { if (!isLocked && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleSelect(sc); } }}
         >
           <div class="title-group">
             <div class="radio-indicator">
@@ -356,6 +381,12 @@
             <span class="scenario-number">#{sc.number || idx + 1}</span>
             <span class="scenario-title">{sc.title}</span>
             <span class="scenario-genre-badge">{activeStyle.name || activeStyle.genre || sc.genre}</span>
+            {#if isLocked && isSelected}
+              <span class="selected-for-render-tag">
+                <Check size={11} />
+                <span>Selected for Render</span>
+              </span>
+            {/if}
           </div>
 
           <button 
@@ -396,6 +427,7 @@
                 type="button"
                 class="style-tab-btn"
                 class:active={isStyleActive}
+                disabled={isLocked || isSubmitting}
                 onclick={(e) => { e.stopPropagation(); handleSelectStyle(sc.id, st.id); }}
                 title={st.description || st.name}
               >
@@ -413,7 +445,7 @@
                 <span>Timeline (10s)</span>
               </div>
               <div class="shots-timeline-actions">
-                {#if reorderedSyncedMap[promptKey]}
+                {#if reorderedSyncedMap[promptKey] && !isLocked}
                   <span class="synced-badge" title="Omni prompt updated">
                     <Check size={11} />
                     <span>Synced</span>
@@ -438,26 +470,28 @@
                       <span class="shot-badge">{shot.shotNumber || sIdx + 1}</span>
                       <span class="shot-time">{formatCompactTime(shot.timeRange, sIdx)}</span>
                     </div>
-                    <div class="shot-reorder-btns">
-                      <button 
-                        type="button" 
-                        class="shot-move-btn"
-                        disabled={sIdx === 0}
-                        onclick={(e) => { e.stopPropagation(); moveShot(sc, activeStyle, sIdx, -1); }}
-                        title="Move shot earlier"
-                      >
-                        <ChevronLeft size={11} />
-                      </button>
-                      <button 
-                        type="button" 
-                        class="shot-move-btn"
-                        disabled={sIdx === activeShots.length - 1}
-                        onclick={(e) => { e.stopPropagation(); moveShot(sc, activeStyle, sIdx, 1); }}
-                        title="Move shot later"
-                      >
-                        <ChevronRight size={11} />
-                      </button>
-                    </div>
+                    {#if !isLocked}
+                      <div class="shot-reorder-btns">
+                        <button 
+                          type="button" 
+                          class="shot-move-btn"
+                          disabled={isSubmitting || sIdx === 0}
+                          onclick={(e) => { e.stopPropagation(); moveShot(sc, activeStyle, sIdx, -1); }}
+                          title="Move shot earlier"
+                        >
+                          <ChevronLeft size={11} />
+                        </button>
+                        <button 
+                          type="button" 
+                          class="shot-move-btn"
+                          disabled={isSubmitting || sIdx === activeShots.length - 1}
+                          onclick={(e) => { e.stopPropagation(); moveShot(sc, activeStyle, sIdx, 1); }}
+                          title="Move shot later"
+                        >
+                          <ChevronRight size={11} />
+                        </button>
+                      </div>
+                    {/if}
                   </div>
                   <div class="shot-action">{cleanShotText(shot.action)}</div>
                   {#if shot.camera}
@@ -473,16 +507,18 @@
           <div class="scenario-action-panel">
             <div class="prompt-preview-header">
               <span class="prompt-header-title">Omni Video Prompt ({activeStyle.name}):</span>
-              <button 
-                class="edit-toggle-btn" 
-                onclick={() => isEditing = !isEditing}
-              >
-                <Edit3 size={12} />
-                <span>{isEditing ? 'Done Editing' : 'Customize Prompt'}</span>
-              </button>
+              {#if !isLocked}
+                <button 
+                  class="edit-toggle-btn" 
+                  onclick={() => isEditing = !isEditing}
+                >
+                  <Edit3 size={12} />
+                  <span>{isEditing ? 'Done Editing' : 'Customize Prompt'}</span>
+                </button>
+              {/if}
             </div>
 
-            {#if isEditing}
+            {#if isEditing && !isLocked}
               <textarea 
                 class="prompt-textarea"
                 rows="3"
@@ -496,18 +532,31 @@
             {/if}
 
             <div class="action-buttons-row">
-              <button 
-                class="render-scenario-btn primary"
-                onclick={() => handleConfirmRender(sc, idx)}
-              >
-                <Play size={14} />
-                <span>Render Video with this Scenario</span>
-              </button>
+              {#if isLocked}
+                <div class="scenario-confirmed-badge">
+                  <Check size={14} />
+                  <span>Render Launched with this Scenario</span>
+                </div>
+              {:else}
+                <button 
+                  class="render-scenario-btn primary"
+                  disabled={isSubmitting}
+                  onclick={() => handleConfirmRender(sc, idx)}
+                >
+                  {#if isSubmitting}
+                    <Loader2 size={14} class="spin-icon" />
+                    <span>Launching Render...</span>
+                  {:else}
+                    <Play size={14} />
+                    <span>Render Video with this Scenario</span>
+                  {/if}
+                </button>
+              {/if}
             </div>
           </div>
-        {:else}
+        {:else if !isLocked}
           <div class="select-scenario-bar">
-            <button class="select-btn" onclick={() => handleSelect(sc)}>
+            <button class="select-btn" disabled={isSubmitting} onclick={() => handleSelect(sc)}>
               <span>Select Option {sc.number || idx + 1}</span>
             </button>
           </div>
@@ -1068,5 +1117,76 @@
   .select-btn:hover {
     border-color: var(--border-focus);
     color: var(--text-primary);
+  }
+
+  .deck-status-pill.locked {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+  }
+
+  .scenario-card.locked-selected {
+    border-color: rgba(52, 168, 83, 0.45);
+    background: var(--bg-surface-elevated);
+    box-shadow: 0 0 0 1px rgba(52, 168, 83, 0.2);
+  }
+
+  .scenario-card.locked-unselected {
+    opacity: 0.5;
+    filter: grayscale(0.25);
+  }
+
+  .scenario-card.locked-unselected:hover {
+    border-color: var(--border-subtle);
+  }
+
+  .selected-for-render-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--agent-receipt, #34A853);
+    background: rgba(52, 168, 83, 0.1);
+    border: 1px solid rgba(52, 168, 83, 0.3);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+  }
+
+  .scenario-confirmed-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius-md);
+    background: rgba(52, 168, 83, 0.12);
+    border: 1px solid rgba(52, 168, 83, 0.3);
+    color: var(--agent-receipt, #34A853);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  :global(.spin-icon) {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .style-tab-btn:disabled,
+  .shot-move-btn:disabled,
+  .select-btn:disabled,
+  .render-scenario-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

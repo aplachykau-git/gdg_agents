@@ -328,8 +328,13 @@ def _read_video_duration(video_path: str) -> int:
             check=False,
         )
         if result.returncode == 0 and result.stdout.strip():
-            return 8 if float(result.stdout.strip()) <= 8.5 else 10
-    return 8 if "video_example" in video_path.lower() else 10
+            try:
+                dur = float(result.stdout.strip())
+                if dur >= 10.0:
+                    return int(round(dur))
+            except ValueError:
+                pass
+    return 10
 
 
 def _build_creative_direction(metadata: ValidatedMetadata, user_prompt: str | None) -> str:

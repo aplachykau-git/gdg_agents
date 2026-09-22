@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Annotated, Literal, Sequence
 
 from google.adk.tools import ToolContext
@@ -16,7 +17,7 @@ from ..video_card_service import (
     missing_draft_fields,
     render_video_card,
 )
-from ..workflow_models import RenderedAsset, ValidationFailure, VideoCardToolResult, VideoEditorDraft
+from ..workflow_models import CreativeScenario, RenderedAsset, ValidationFailure, VideoCardToolResult, VideoEditorDraft
 from . import media_tools
 
 DRAFT_STATE_KEY = "video_editor_draft"
@@ -71,12 +72,15 @@ def _validate_required_inputs(
     return None
 
 
-def _load_draft(tool_context: ToolContext) -> VideoEditorDraft:
+def _load_draft(tool_context: ToolContext, allow_fallback: bool = False) -> VideoEditorDraft:
     raw = tool_context.state.get(DRAFT_STATE_KEY)
     if not raw or not isinstance(raw, dict) or not raw.get("name"):
-        fallback = tool_context.state.get(LAST_RENDERED_DRAFT_KEY, {})
-        if isinstance(fallback, dict) and fallback.get("name"):
-            raw = fallback
+        if allow_fallback:
+            fallback = tool_context.state.get(LAST_RENDERED_DRAFT_KEY, {})
+            if isinstance(fallback, dict) and fallback.get("name"):
+                raw = fallback
+        else:
+            raw = {}
     return VideoEditorDraft.model_validate(raw or {})
 
 
@@ -133,6 +137,34 @@ def format_render_success_message(assets: Sequence[RenderedAsset], notice: str =
     return "\n".join(lines)
 
 
+REOPEN_CARD_KEYWORDS = (
+    "reopen",
+    "повторить карточку",
+    "повтори карточку",
+    "открой карточку",
+    "открой заново карточку",
+    "переоткрой карточку",
+    "отредактировать карточку",
+    "редактировать карточку",
+    "edit and reopen",
+    "edit & reopen",
+    "show card",
+    "покажи карточку",
+    "верни карточку",
+    "покажи варианты",
+    "показать варианты",
+)
+
+
+def is_reopen_request(creative_direction: str | None = None, reopen_existing_card: bool = False) -> bool:
+    if reopen_existing_card:
+        return True
+    if not creative_direction:
+        return False
+    lower = creative_direction.strip().lower()
+    return any(kw in lower for kw in REOPEN_CARD_KEYWORDS)
+
+
 def should_propose_scenarios(
     tool_context: ToolContext,
     media_type: str,
@@ -150,14 +182,125 @@ def should_propose_scenarios(
         return True
     if selected_scenario_id:
         return False
-    # If scenarios have already been proposed, and user provides custom prompt without an ID:
-    if has_suggested_scenarios and creative_direction:
+    if has_suggested_scenarios:
         return False
     # If user explicitly provided their own rich multi-shot storyboard (e.g. SHOT 1, SHOT 2):
     if creative_direction and ("shot 1" in creative_direction.lower() or "shot 2" in creative_direction.lower()):
         return False
 
     return True
+
+
+def resolve_selected_scenario_prompt(
+    scenarios: Sequence[CreativeScenario],
+    selected_scenario_id: str | None = None,
+    creative_direction: str | None = None,
+) -> tuple[CreativeScenario | None, str | None, str | None]:
+    """Resolves a chosen scenario or style from suggested scenarios.
+
+    Returns:
+        (matched_scenario, matched_scenario_or_style_id, resolved_prompt)
+    """
+    if not scenarios:
+        return None, selected_scenario_id, creative_direction
+
+    matched_sc: CreativeScenario | None = None
+    matched_style: object | None = None
+    matched_id: str | None = selected_scenario_id
+    resolved_prompt = creative_direction
+
+    if selected_scenario_id:
+        sel_clean = selected_scenario_id.strip()
+        sel_lower = sel_clean.lower()
+
+        # 1. Option number matching: e.g. "option 2", "вариант 3", "scenario 1", "5", "option_2"
+        opt_match = re.search(r"(?:option|вариант|сценарий|scenario)[_\s]*(\d+)", sel_lower) or re.match(
+            r"^(\d+)$", sel_lower
+        )
+        if opt_match:
+            idx = int(opt_match.group(1)) - 1
+            if 0 <= idx < len(scenarios):
+                matched_sc = scenarios[idx]
+                matched_id = matched_sc.id
+
+        # 2. Exact match on scenario ID or style ID
+        if not matched_sc:
+            for sc in scenarios:
+                if sc.id.lower() == sel_lower:
+                    matched_sc = sc
+                    matched_id = sc.id
+                    break
+                for st in getattr(sc, "styles", []) or []:
+                    if getattr(st, "id", "").lower() == sel_lower:
+                        matched_sc = sc
+                        matched_style = st
+                        matched_id = st.id
+                        break
+                if matched_sc:
+                    break
+
+        # 3. Prefix or substring match (e.g. style_5_fantasy_genre_art_movement_style_1 starts with style_5_fantasy_genre_art_movement)
+        if not matched_sc:
+            for sc in scenarios:
+                sc_id_lower = sc.id.lower()
+                if sel_lower.startswith(sc_id_lower) or sc_id_lower.startswith(sel_lower):
+                    matched_sc = sc
+                    matched_id = sc.id
+                    for st in getattr(sc, "styles", []) or []:
+                        st_id_lower = getattr(st, "id", "").lower()
+                        if st_id_lower == sel_lower or sel_lower.endswith(st_id_lower.split("_")[-1]):
+                            matched_style = st
+                            matched_id = st.id
+                            break
+                    break
+                if sel_lower in sc.title.lower() or sc.title.lower() in sel_lower:
+                    matched_sc = sc
+                    matched_id = sc.id
+                    break
+                for st in getattr(sc, "styles", []) or []:
+                    st_name = getattr(st, "name", "").lower()
+                    if st_name and (st_name in sel_lower or sel_lower in st_name):
+                        matched_sc = sc
+                        matched_style = st
+                        matched_id = getattr(st, "id", sc.id)
+                        break
+                if matched_sc:
+                    break
+
+    elif creative_direction:
+        cd_lower = creative_direction.lower()
+        for sc in scenarios:
+            if sc.title.lower() in cd_lower or sc.id.lower() in cd_lower:
+                matched_sc = sc
+                matched_id = sc.id
+                for st in getattr(sc, "styles", []) or []:
+                    st_name = getattr(st, "name", "").lower()
+                    st_id = getattr(st, "id", "").lower()
+                    if (st_name and st_name in cd_lower) or (st_id and st_id in cd_lower):
+                        matched_style = st
+                        matched_id = getattr(st, "id", sc.id)
+                        break
+                break
+
+    if matched_sc:
+        has_timings = bool(
+            resolved_prompt and any(m in resolved_prompt.lower() for m in ("00:00", "0-2s", "shot 1", "shot 2"))
+        )
+        if not has_timings:
+            if matched_style and getattr(matched_style, "omni_prompt", None):
+                sc_prompt = matched_style.omni_prompt
+                shots = getattr(matched_style, "shots", None) or matched_sc.shots
+                genre = getattr(matched_style, "genre", None) or matched_sc.genre
+            else:
+                sc_prompt = matched_sc.omni_prompt
+                shots = matched_sc.shots
+                genre = matched_sc.genre
+
+            if shots and not any(m in sc_prompt.lower() for m in ("00:00", "0-2s", "shot 1")):
+                sc_prompt = format_timed_omni_prompt(shots, genre, sc_prompt)
+            resolved_prompt = sc_prompt
+
+    return matched_sc, matched_id, resolved_prompt
 
 
 async def create_video_card(
@@ -178,6 +321,7 @@ async def create_video_card(
     speaker_bio: str | None = None,
     creative_guidance: str | None = None,
     regenerate_scenarios: bool = False,
+    reopen_existing_card: bool = False,
     confirm_render: bool = False,
     tool_context: ToolContext | None = None,
 ) -> dict:
@@ -189,7 +333,9 @@ async def create_video_card(
     if tool_context is None:
         raise ValueError("tool_context is required.")
 
-    draft = _load_draft(tool_context)
+    # Check if this is a request to reopen / edit / repeat the existing card
+    is_reopen = is_reopen_request(creative_direction, reopen_existing_card)
+    draft = _load_draft(tool_context, allow_fallback=is_reopen)
     if name and draft.name and name.strip().lower() != draft.name.strip().lower():
         draft = VideoEditorDraft()
     elif talk_title and draft.title and talk_title.strip().lower() != draft.title.strip().lower():
@@ -212,6 +358,11 @@ async def create_video_card(
         elif mime.startswith("video/"):
             media_type = "video"
 
+    if is_reopen:
+        creative_direction = None
+        selected_scenario_id = None
+        confirm_render = False
+
     effective_title = (talk_title or "").strip() or (draft.title or "").strip()
     effective_name = (name or "").strip() or (draft.name or "").strip()
     effective_position = (position_company or "").strip() or (draft.position_company or "").strip()
@@ -229,31 +380,32 @@ async def create_video_card(
     # Handle scenario selection from existing scenarios if provided
     resolved_direction = creative_direction
     matched_scenario_id = selected_scenario_id
-    if draft.suggested_scenarios:
-        matched_sc = None
-        if selected_scenario_id:
-            for sc in draft.suggested_scenarios:
-                if sc.id.lower() == selected_scenario_id.lower() or selected_scenario_id.lower() in sc.title.lower():
-                    matched_sc = sc
-                    matched_scenario_id = sc.id
-                    break
-        elif creative_direction:
-            for sc in draft.suggested_scenarios:
-                if sc.title.lower() in creative_direction.lower() or sc.id.lower() in creative_direction.lower():
-                    matched_sc = sc
-                    matched_scenario_id = sc.id
-                    break
+    if draft.suggested_scenarios and not is_reopen:
+        matched_sc, matched_scenario_id, resolved_direction = resolve_selected_scenario_prompt(
+            draft.suggested_scenarios,
+            selected_scenario_id=selected_scenario_id,
+            creative_direction=creative_direction,
+        )
+    elif is_reopen:
+        resolved_direction = None
+        matched_scenario_id = None
 
-        if matched_sc:
-            has_timings = bool(
-                resolved_direction
-                and any(m in resolved_direction.lower() for m in ("00:00", "0-2s", "shot 1", "shot 2"))
-            )
-            if not has_timings:
-                sc_prompt = matched_sc.omni_prompt
-                if matched_sc.shots and not any(m in sc_prompt.lower() for m in ("00:00", "0-2s", "shot 1")):
-                    sc_prompt = format_timed_omni_prompt(matched_sc.shots, matched_sc.genre, sc_prompt)
-                resolved_direction = sc_prompt
+    # Safety net: if creative_direction is still missing, check recent session user messages for explicit prompt
+    if not resolved_direction and tool_context and hasattr(tool_context, "session") and tool_context.session:
+        for ev in reversed(getattr(tool_context.session, "events", []) or []):
+            if ev.author == "user" and ev.content and ev.content.parts:
+                for p in ev.content.parts:
+                    if p.text and "creative direction" in p.text.lower():
+                        m = re.search(
+                            r'creative direction:\s*["\'](.+?)["\'](?:\s*$|\s*\[|\s*\n)',
+                            p.text,
+                            re.DOTALL | re.IGNORECASE,
+                        )
+                        if m and len(m.group(1).strip()) > 20:
+                            resolved_direction = m.group(1).strip()
+                            break
+                if resolved_direction:
+                    break
 
     draft = merge_draft(
         draft,
@@ -350,12 +502,16 @@ async def create_video_card(
     # Block rendering if scenarios were suggested but none chosen and no creative direction set
     if draft.suggested_scenarios and not draft.selected_scenario_id and not draft.creative_direction:
         _save_draft(tool_context, draft)
+        msg = (
+            f"{format_scenarios_markdown(draft.suggested_scenarios)}\n\n"
+            "🎬 **Creative Video Scenarios:**\n"
+            "Here is your existing video card with the 5 creative scenarios. "
+            "Please select which scenario you would like to render (e.g. **Option 1**, **Option 2**, **Option 3**, **Option 4**, or **Option 5**), "
+            "or adjust shots, reorder timeline, and choose styles before rendering."
+        )
         return VideoCardToolResult(
             status="awaiting_confirmation",
-            message=(
-                "Please select one of the suggested creative scenarios (e.g. Option 1, Option 2, Option 3, Option 4, or Option 5) "
-                "or customize the prompt before rendering."
-            ),
+            message=msg,
             requested_action="select_scenario",
             scenarios=draft.suggested_scenarios,
             draft=draft,
@@ -380,19 +536,6 @@ async def create_video_card(
 
     tool_context.state[COMPLETED_MEDIA_STATE_KEY] = draft.media.model_dump() if draft.media else {}
     tool_context.state[LAST_RENDERED_DRAFT_KEY] = draft.model_dump()
-    reopenable_draft = merge_draft(
-        draft,
-        title=draft.title,
-        name=draft.name,
-        position_company=draft.position_company,
-        creative_direction=None,
-        media=draft.media,
-        speaker_bio=draft.speaker_bio,
-        creative_guidance=draft.creative_guidance,
-        suggested_scenarios=draft.suggested_scenarios,
-        selected_scenario_id=None,
-    )
-    reopenable_draft.confirmed_fingerprint = None
     tool_context.state[DRAFT_STATE_KEY] = {}
     raw_notice = getattr(rendered, "notice", None)
     notice = raw_notice if isinstance(raw_notice, str) else ""
@@ -400,5 +543,5 @@ async def create_video_card(
         status="success",
         message=format_render_success_message(rendered.assets, notice=notice),
         assets=rendered.assets,
-        draft=reopenable_draft,
+        draft=draft,
     ).model_dump()

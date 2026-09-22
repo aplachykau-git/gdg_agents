@@ -64,7 +64,7 @@ def _safe_b64decode(data: str) -> bytes:
 
 
 def sanitize_i2v_prompt(prompt: str) -> str:
-    """Strips references to specific names, likenesses, character references, or safety-triggering phrases for AI video generation."""
+    """Strips references to specific names, likenesses, character references, foreign scripts, or safety-triggering phrases for AI video generation."""
     cleaned = prompt
     # Strip metadata headers if pasted into prompt
     cleaned = re.sub(r"(?i)^(?:Name|Role|Company|Talk|Title|Speaker)\s*:\s*[^\n]+", "", cleaned, flags=re.MULTILINE)
@@ -84,12 +84,33 @@ def sanitize_i2v_prompt(prompt: str) -> str:
         "",
         cleaned,
     )
+    # Strip CJK, Cyrillic, Hebrew, Arabic characters that trip safety/language filters
+    cleaned = re.sub(
+        r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f\uac00-\ud7af\u0400-\u04ff\u0590-\u05ff\u0600-\u06ff]",
+        "",
+        cleaned,
+    )
+    # Strip Wikipedia dictionary parentheticals e.g. (lit. 'special filming'), (postal code 92)
+    cleaned = re.sub(
+        r"\([^)]*(?:lit\.|meaning|postal code|trend that emerged|collective|movement that began|century|centuries)[^)]*\)",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    # Strip long parentheticals (> 30 chars)
+    cleaned = re.sub(r"\([^)]{30,}\)", "", cleaned)
+    # Strip empty quotes and stray punctuation
+    cleaned = re.sub(r"['\"]{2}", "", cleaned)
     cleaned = re.sub(r"(?i)Create a polished speaker introduction for [^.,]+[,.]?", "", cleaned)
     cleaned = re.sub(r"(?i)\b(speaker|presenter|attendee|guest|subject)\s+named\s+[^,.\n]+", "the protagonist", cleaned)
     cleaned = re.sub(
         r"(?i)\b(speaker|presenter|talk title|presentation|topic|role|company)\s*[:=]\s*[^,.\n]+", "", cleaned
     )
-    cleaned = re.sub(r"(?i)\b(real\s+person|person'?s\s+likeness|celebrity|identity)\b", "", cleaned)
+    cleaned = re.sub(
+        r"(?i)\b(real\s+person|person'?s\s+(?:face|likeness|identity)|facial\s+identity|likeness|identity\s+reference|celebrity)\b",
+        "",
+        cleaned,
+    )
     # Strip empty brackets/parentheses and stray punctuation
     cleaned = re.sub(r"\(\s*[,;.]*\s*\)", "", cleaned)
     cleaned = re.sub(r"\[\s*[,;.]*\s*\]", "", cleaned)
@@ -104,6 +125,14 @@ def sanitize_i2v_prompt(prompt: str) -> str:
             "Cinematic conference stage in a modern professional tech setting. "
             "Gentle studio lighting, subtle natural movement, soft realistic background bokeh"
         )
+    # Cap length to 3,500 chars only if excessively bloated, ensuring all 5 shots remain intact
+    if len(cleaned) > 3500:
+        trimmed = cleaned[:3500]
+        last_period = trimmed.rfind(".")
+        if last_period > 2000:
+            cleaned = trimmed[: last_period + 1].strip()
+        else:
+            cleaned = trimmed.strip()
     return cleaned
 
 
@@ -428,15 +457,17 @@ def validate_video_generation_backend(engine: str = "omni") -> None:
 
 
 PHOTO_EXCLUSION_DIRECTIVE = (
-    "MANDATORY PERSONA AND ANTI-FREEZE DIRECTIVE:\n"
-    "1. DO NOT USE THE INPUT PHOTO AS A FRAME IN THE VIDEO. DO NOT show, freeze, fade from, or hold the reference portrait or its original background as frame 0, shot 1, or any part of the footage.\n"
-    "2. USE THE PERSON FROM THE PHOTO AS AN ACTOR/IDENTITY REFERENCE ONLY: Cast this exact human person (their facial identity and likeness) as the protagonist in a 100% newly rendered cinematic scene.\n"
-    "3. IMMEDIATE DYNAMIC ACTION: From the very first millisecond (00:00), the video MUST start in active cinematic motion and camera movement within the new environment described in Shot 1. Never start on a still portrait pose."
+    "CINEMATIC SCENE DIRECTIVE:\n"
+    "1. Place the protagonist in a 100% newly rendered cinematic environment. Do not freeze, hold, or fade from the input photo framing.\n"
+    "2. IMMEDIATE ACTION: The video must begin immediately at 00:00 in active cinematic motion, natural human movement, and camera movement in the described scene."
+)
+FINAL_INSTRUCTION = (
+    "FINAL INSTRUCTION: Begin immediately at 00:00 in dynamic cinematic action in the newly rendered scene."
 )
 
 
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
-    """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-1.1-flash) via Interactions API."""
+    """Generates a 10s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-1.1-flash) via Interactions API."""
     api_key = get_gemini_api_key()
 
     with open(photo_path, "rb") as f:
@@ -446,11 +477,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     mime_type = "image/png" if photo_path.lower().endswith(".png") else "image/jpeg"
 
     i2v_prompt = augment_creative_prompt(creative_prompt)
-    omni_payload_prompt = (
-        f"{PHOTO_EXCLUSION_DIRECTIVE}\n\n"
-        f"SCENARIO DIRECTION:\n{i2v_prompt}\n\n"
-        "FINAL INSTRUCTION: Use only the person's face/identity from the image. Do NOT use or show the source photo itself. Begin immediately at 00:00 in the dynamic cinematic action of Shot 1."
-    )
+    omni_payload_prompt = f"{PHOTO_EXCLUSION_DIRECTIVE}\n\nSCENARIO DIRECTION:\n{i2v_prompt}\n\n{FINAL_INSTRUCTION}"
 
     print(f'🎬 [Gemini Omni Flash Prompt] Base prompt: "{creative_prompt}"')
     print(f'   └─ Final Omni Prompt: "{omni_payload_prompt}"')
@@ -495,11 +522,49 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
         },
         "response_format": {
             "type": "video",
+            "duration": "10s",
             "aspect_ratio": "9:16",
         },
     }
 
     resp = requests.post(url, headers=headers, json=payload, timeout=300)
+    if resp.status_code != 200:
+        err_text = resp.text
+        if resp.status_code == 400 and ("content_blocked" in err_text or "blocked" in err_text.lower()):
+            print(
+                "⚠️ [Omni Flash Warning] Prompt content blocked (400). Retrying with safe minimalist cinematic prompt..."
+            )
+            safe_scenario = (
+                "Cinematic 9:16 sequence in a modern professional tech setting. "
+                "Shot 1 (00:00 - 00:02): The protagonist enters a warm, modern architectural space with confident natural movement. "
+                "Shot 2 (00:02 - 00:04): Gestures engagingly toward the camera with subtle natural expression. "
+                "Shot 3 (00:04 - 00:06): Interacts dynamically with surrounding ambient light and environment. "
+                "Shot 4 (00:06 - 00:08): Steps into clear focus with radiant rim lighting. "
+                "Shot 5 (00:08 - 00:10): Holds an iconic, confident stance with warm studio rim lighting and soft background bokeh. "
+                "Natural physical dynamics, pristine temporal stability."
+            )
+            safe_payload_prompt = (
+                f"{PHOTO_EXCLUSION_DIRECTIVE}\n\nSCENARIO DIRECTION:\n{safe_scenario}\n\n{FINAL_INSTRUCTION}"
+            )
+            retry_payload = {
+                "model": "gemini-omni-1.1-flash",
+                "input": [
+                    {"type": "text", "text": safe_payload_prompt},
+                    {"type": "image", "data": b64_img, "mime_type": mime_type},
+                ],
+                "generation_config": {
+                    "video_config": {
+                        "task": "image_to_video",
+                    }
+                },
+                "response_format": {
+                    "type": "video",
+                    "duration": "10s",
+                    "aspect_ratio": "9:16",
+                },
+            }
+            resp = requests.post(url, headers=headers, json=retry_payload, timeout=300)
+
     if resp.status_code != 200:
         raise RuntimeError(f"Gemini Omni Flash generation failed ({resp.status_code}): {resp.text}")
 
@@ -568,7 +633,10 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
     try:
         result_path = _generate_with_omni(photo_path, creative_prompt)
     except Exception as omni_err:
-        print(f"⚠️ [Omni Flash Notice] {omni_err}. Falling back to outpainted portrait image.")
+        err_msg = str(omni_err)
+        print(f"⚠️ [Omni Flash Notice] {err_msg}. Falling back to outpainted portrait image.")
+        if tool_context and hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
+            tool_context.state["video_generation_failure"] = err_msg
         result_path = photo_path
 
     try:

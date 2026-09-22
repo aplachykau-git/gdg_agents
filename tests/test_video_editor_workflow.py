@@ -1,8 +1,9 @@
 import asyncio
+import base64
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 from agents.video_editor.tools import media_tools
 from agents.video_editor.tools.composer_tools import build_card_config, render_composer, update_composer
@@ -713,6 +714,273 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         # Without notice
         msg_no_notice = format_render_success_message(assets)
         self.assertTrue(msg_no_notice.startswith("Generation complete."))
+
+    def test_reopen_existing_card_preserves_exact_scenarios(self):
+        from agents.video_editor.prompt_director import CreativeScenario, VideoShot
+        from agents.video_editor.tools.video_card_tool import LAST_RENDERED_DRAFT_KEY
+
+        existing_shots = [
+            VideoShot(
+                shot_number=1,
+                time_range="00:00 - 00:02",
+                action="Protagonist inspects antique camera.",
+                camera="Close-up macro.",
+                lighting_atmosphere="Warm amber daylight.",
+            ),
+            VideoShot(
+                shot_number=2,
+                time_range="00:02 - 00:04",
+                action="Gears click and turn.",
+                camera="Rack focus.",
+                lighting_atmosphere="Golden haze.",
+            ),
+        ]
+        sample_sc = CreativeScenario(
+            id="sc_1",
+            title="Clockwork Voyage",
+            genre="Steampunk Industrial",
+            concept="Mechanical discovery.",
+            shots=existing_shots,
+            omni_prompt="Cinematic 9:16 Steampunk. Shot 1: Protagonist inspects antique camera.",
+        )
+        prior_draft = {
+            "title": "Architecting Agents",
+            "name": "Alex",
+            "position_company": "Lead AI Engineer",
+            "media": {"event_id": "upload_1", "part_index": 0, "mime_type": "image/png"},
+            "suggested_scenarios": [sample_sc.model_dump()],
+        }
+        context = FakeToolContext(
+            {
+                LAST_RENDERED_DRAFT_KEY: prior_draft,
+                "video_editor_draft": {},
+            },
+            [],
+        )
+
+        # Reopen with reopen_existing_card=True
+        result = asyncio.run(
+            create_video_card(
+                talk_title="Architecting Agents",
+                name="Alex",
+                position_company="Lead AI Engineer",
+                media_type="image",
+                reopen_existing_card=True,
+                tool_context=context,
+            )
+        )
+        self.assertEqual(result["status"], "awaiting_confirmation")
+        self.assertEqual(result["requested_action"], "select_scenario")
+        self.assertEqual(len(result["scenarios"]), 1)
+        self.assertEqual(result["scenarios"][0]["title"], "Clockwork Voyage")
+        self.assertIn("Clockwork Voyage", result["message"])
+
+        # Reopen with natural language keyword "повторить карточку"
+        result2 = asyncio.run(
+            create_video_card(
+                talk_title="Architecting Agents",
+                name="Alex",
+                position_company="Lead AI Engineer",
+                media_type="image",
+                creative_direction="повтори карточку из ui пожалуйста",
+                tool_context=context,
+            )
+        )
+        self.assertEqual(result2["status"], "awaiting_confirmation")
+        self.assertEqual(result2["requested_action"], "select_scenario")
+        self.assertEqual(result2["scenarios"][0]["title"], "Clockwork Voyage")
+
+    @patch("agents.video_editor.tools.media_tools.get_gemini_api_key", return_value="test_key")
+    @patch("agents.video_editor.tools.media_tools.requests.post")
+    def test_generate_with_omni_retries_on_400_content_blocked(self, mock_post, mock_key):
+        resp_blocked = MagicMock()
+        resp_blocked.status_code = 400
+        resp_blocked.text = '{"error":{"message":"Input blocked","code":"content_blocked"}}'
+
+        fake_video_b64 = base64.b64encode(b"FAKE_MP4_VIDEO_BYTES").decode("utf-8")
+        resp_ok = MagicMock()
+        resp_ok.status_code = 200
+        resp_ok.json.return_value = {"steps": [{"content": [{"type": "video", "data": fake_video_b64}]}]}
+
+        mock_post.side_effect = [resp_blocked, resp_ok]
+
+        with patch("builtins.open", mock_open(read_data=b"PNG_IMAGE_DATA")):
+            result = media_tools._generate_with_omni("test_image.png", "A prompt with risky tokens")
+
+        self.assertEqual(result, "assets/Video_example.mp4")
+        self.assertEqual(mock_post.call_count, 2)
+        initial_payload = mock_post.call_args_list[0][1]["json"]
+        self.assertEqual(initial_payload["response_format"]["duration"], "10s")
+        # Check retry payload used the safe scenario and 10s duration
+        retry_payload = mock_post.call_args_list[1][1]["json"]
+        self.assertEqual(retry_payload["response_format"]["duration"], "10s")
+        self.assertIn("modern architectural space", retry_payload["input"][0]["text"])
+
+    @patch("agents.video_editor.tools.media_tools.get_gemini_api_key", return_value="test_key")
+    @patch("agents.video_editor.tools.media_tools.requests.post")
+    def test_generate_with_omni_raises_on_429(self, mock_post, mock_key):
+        resp_429 = MagicMock()
+        resp_429.status_code = 429
+        resp_429.text = '{"error":{"message":"You exceeded your spend-based rate limit","code":"too_many_requests"}}'
+        mock_post.return_value = resp_429
+
+        with patch("builtins.open", mock_open(read_data=b"PNG_DATA")):
+            with self.assertRaises(RuntimeError) as cm:
+                media_tools._generate_with_omni("test_image.png", "A standard prompt")
+            self.assertIn("429", str(cm.exception))
+            self.assertIn("spend-based rate limit", str(cm.exception))
+
+    @patch("agents.video_editor.tools.media_tools.video_generation_enabled", return_value=True)
+    @patch("agents.video_editor.tools.media_tools.get_gemini_client")
+    @patch("agents.video_editor.tools.media_tools.outpaint_to_9_16", return_value="assets/portrait_outpainted.png")
+    @patch(
+        "agents.video_editor.tools.media_tools._generate_with_omni",
+        side_effect=RuntimeError("Gemini Omni Flash generation failed (429): spend-based rate limit"),
+    )
+    def test_animate_photo_records_failure_state_when_omni_fails(
+        self, mock_omni, mock_outpaint, mock_client, mock_enabled
+    ):
+        tool_context = FakeToolContext({"ENABLE_VIDEO_GENERATION": True}, [])
+        res = animate_photo("assets/portrait_outpainted.png", "A nice prompt", tool_context=tool_context)
+        self.assertTrue(res.endswith(".png"))
+        self.assertIn("video_generation_failure", tool_context.state)
+        self.assertIn("429", tool_context.state["video_generation_failure"])
+
+    def test_render_video_card_sets_notice_when_falling_back_to_static_image_with_429(self):
+        draft = VideoEditorDraft(
+            title="Architektura Wielu Agentów",
+            name="Dominika Zając",
+            position_company="Tech Lead, Google Developer Groups",
+            confirmed=True,
+            media=UploadedMedia(event_id="evt_123", part_index=0, mime_type="image/png"),
+        )
+        mock_context = MagicMock()
+        mock_context.session.id = "session_123"
+        mock_context.session.state = {"enable_video_generation": True}
+        mock_context.state = {
+            "video_generation_failure": "Gemini Omni Flash generation failed (429): spend-based rate limit exceeded",
+        }
+        with (
+            patch("agents.video_editor.video_card_service._review_metadata", return_value=None),
+            patch("agents.video_editor.video_card_service.workflow.validate_render_environment", return_value=None),
+            patch("agents.video_editor.video_card_service.isolated_workspace"),
+            patch("agents.video_editor.video_card_service._workspace_tool_paths"),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.stage_uploaded_media", return_value="portrait.png"
+            ),
+            patch("agents.video_editor.video_card_service.workflow.validate_resolved_media", return_value=None),
+            patch("agents.video_editor.video_card_service._review_face", return_value=None),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.outpaint_to_9_16",
+                return_value="assets/portrait_outpainted.png",
+            ),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.animate_photo",
+                return_value="assets/portrait_outpainted.png",
+            ),
+            patch("agents.video_editor.video_card_service.workflow._read_video_duration", return_value=8),
+            patch("agents.video_editor.video_card_service.composer_tools.update_composer"),
+            patch(
+                "agents.video_editor.video_card_service.composer_tools.render_composer",
+                return_value="Generated renders/dominika_zajac_4k.mp4",
+            ),
+            patch(
+                "agents.video_editor.video_card_service.normalise_rendered_assets",
+                return_value=[
+                    RenderedAsset(kind="video", label="1080p MP4", availability="available", url="file:///test.mp4")
+                ],
+            ),
+        ):
+            from agents.video_editor.video_card_service import render_video_card
+
+            result = asyncio.run(render_video_card(draft, mock_context))
+
+        self.assertEqual(result.status, "completed")
+        self.assertIsNotNone(result.notice)
+        self.assertIn("429", result.notice)
+        self.assertIn("spend-based rate limit", result.notice)
+        self.assertIn("расширенного портрета", result.notice)
+        self.assertIn("статичное фото", result.notice)
+
+    def test_render_video_card_sets_notice_when_content_blocked(self):
+        draft = VideoEditorDraft(
+            title="Architektura Wielu Agentów",
+            name="Dominika Zając",
+            position_company="Tech Lead, Google Developer Groups",
+            confirmed=True,
+            media=UploadedMedia(event_id="evt_123", part_index=0, mime_type="image/png"),
+        )
+        mock_context = MagicMock()
+        mock_context.session.id = "session_123"
+        mock_context.session.state = {"enable_video_generation": True}
+        mock_context.state = {
+            "video_generation_failure": "Gemini Omni Flash generation failed (400): content_blocked",
+        }
+        with (
+            patch("agents.video_editor.video_card_service._review_metadata", return_value=None),
+            patch("agents.video_editor.video_card_service.workflow.validate_render_environment", return_value=None),
+            patch("agents.video_editor.video_card_service.isolated_workspace"),
+            patch("agents.video_editor.video_card_service._workspace_tool_paths"),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.stage_uploaded_media", return_value="portrait.png"
+            ),
+            patch("agents.video_editor.video_card_service.workflow.validate_resolved_media", return_value=None),
+            patch("agents.video_editor.video_card_service._review_face", return_value=None),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.outpaint_to_9_16",
+                return_value="assets/portrait_outpainted.png",
+            ),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.animate_photo",
+                return_value="assets/portrait_outpainted.png",
+            ),
+            patch("agents.video_editor.video_card_service.workflow._read_video_duration", return_value=8),
+            patch("agents.video_editor.video_card_service.composer_tools.update_composer"),
+            patch(
+                "agents.video_editor.video_card_service.composer_tools.render_composer",
+                return_value="Generated renders/dominika_zajac_4k.mp4",
+            ),
+            patch(
+                "agents.video_editor.video_card_service.normalise_rendered_assets",
+                return_value=[
+                    RenderedAsset(kind="video", label="1080p MP4", availability="available", url="file:///test.mp4")
+                ],
+            ),
+        ):
+            from agents.video_editor.video_card_service import render_video_card
+
+            result = asyncio.run(render_video_card(draft, mock_context))
+
+        self.assertEqual(result.status, "completed")
+        self.assertIsNotNone(result.notice)
+        self.assertIn("prompt content blocked", result.notice)
+        self.assertIn("расширенного портрета", result.notice)
+        self.assertIn("статичное фото", result.notice)
+
+    def test_read_video_duration_defaults_to_10_seconds(self):
+        from agents.video_editor.workflow import _read_video_duration
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/ffprobe"),
+            patch("os.path.exists", return_value=True),
+            patch("subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stdout="6.0\n")
+            # Even for a 6s probed file or Video_example.mp4, standard card timeline is 10s
+            duration = _read_video_duration("assets/Video_example.mp4")
+            self.assertEqual(duration, 10)
+
+    def test_read_video_duration_respects_longer_custom_video(self):
+        from agents.video_editor.workflow import _read_video_duration
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/ffprobe"),
+            patch("os.path.exists", return_value=True),
+            patch("subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stdout="14.8\n")
+            duration = _read_video_duration("assets/custom_longer_talk.mp4")
+            self.assertEqual(duration, 15)
 
 
 if __name__ == "__main__":

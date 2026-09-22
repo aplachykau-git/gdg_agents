@@ -1,15 +1,19 @@
 import os
+import re
 import unittest
 from unittest.mock import MagicMock, patch
 
 from agents.video_editor.prompt_director import (
     FORBIDDEN_TERMS,
     _build_fallback_scenarios,
+    _clean_taxonomy_text,
     _ensure_scenario_styles,
     format_scenarios_markdown,
+    format_timed_omni_prompt,
     generate_creative_scenarios,
     reorder_shots_and_rebuild_prompt,
 )
+from agents.video_editor.tools.media_tools import sanitize_i2v_prompt
 from agents.video_editor.tools.video_card_tool import create_video_card
 from agents.video_editor.workflow_models import CreativeScenario, ScenarioStyle, VideoEditorDraft, VideoShot
 
@@ -132,6 +136,7 @@ class TestPromptDirector(unittest.TestCase):
             speaker_name="Sarah Jenkins",
             position_company="Chief Scientist, Q-Labs",
             speaker_bio="Expert in fault-tolerant qubits and quantum circuits.",
+            use_taxonomy=False,
         )
         self.assertEqual(len(scenarios), 5)
         # Stage 1 called
@@ -152,6 +157,30 @@ class TestPromptDirector(unittest.TestCase):
         self.assertEqual(scenarios[2].genre, "Pop-Art Symmetrical")
         self.assertEqual(scenarios[3].genre, "Constructivist Steampunk")
         self.assertEqual(scenarios[4].genre, "Sports Anthem")
+
+    @patch("agents.video_editor.prompt_director.get_gemini_client")
+    def test_generate_creative_scenarios_with_taxonomy_database(self, mock_director_client):
+        director_client = MagicMock()
+        mock_director_client.return_value = director_client
+        director_response = MagicMock()
+        director_response.parsed = None
+        director_response.text = None
+        director_client.models.generate_content.return_value = director_response
+
+        scenarios = generate_creative_scenarios(
+            talk_title="Agentic Web Architectures",
+            speaker_name="Alex Rivera",
+            position_company="Lead Architect, DevCorp",
+            speaker_bio="Specialist in distributed agents and WebMCP.",
+            use_taxonomy=True,
+        )
+        self.assertEqual(len(scenarios), 5)
+        for sc in scenarios:
+            self.assertTrue(sc.id)
+            self.assertTrue(sc.genre)
+            self.assertIsNotNone(sc.style_profile)
+            self.assertEqual(len(sc.shots), 5)
+            self.assertEqual(len(sc.styles), 3)
 
     @patch("agents.video_editor.prompt_director.get_gemini_client")
     def test_direct_scenarios_from_genres_invokes_gemini_3_8_flash(self, mock_get_client):
@@ -278,6 +307,7 @@ class TestGenreScout(unittest.TestCase):
         briefs = scout_creative_genres(
             talk_title="Modern Concurrency",
             speaker_name="Jan Kowalski",
+            use_taxonomy=False,
         )
         self.assertEqual(len(briefs), 5)
         mock_client.models.generate_content.assert_called_once()
@@ -289,6 +319,22 @@ class TestGenreScout(unittest.TestCase):
         self.assertEqual(briefs[2].genre, "90s MTV Mixed-Media")
         self.assertEqual(briefs[3].genre, "Visionary Solarpunk")
         self.assertEqual(briefs[4].genre, "Constructivist Steampunk")
+
+    def test_scout_creative_genres_uses_taxonomy_database_by_default(self):
+        from agents.video_editor.genre_scout import scout_creative_genres
+
+        briefs = scout_creative_genres(
+            talk_title="Modern Concurrency",
+            speaker_name="Jan Kowalski",
+        )
+        self.assertEqual(len(briefs), 5)
+        for b in briefs:
+            self.assertTrue(b.id)
+            self.assertTrue(b.title)
+            self.assertTrue(b.genre)
+            self.assertTrue(b.visual_universe)
+            self.assertTrue(b.aesthetic_manifesto)
+            self.assertIsNotNone(b.style_profile)
 
 
 class TestCreateVideoCardWithScenarioSelection(unittest.IsolatedAsyncioTestCase):
@@ -358,6 +404,108 @@ class TestCreateVideoCardWithScenarioSelection(unittest.IsolatedAsyncioTestCase)
                 self.assertEqual(draft_arg.selected_scenario_id, scenarios[0].id)
                 self.assertTrue(draft_arg.creative_direction)
                 self.assertIn("Shot 1", draft_arg.creative_direction)
+
+    async def test_create_video_card_with_selected_style_id(self):
+        fake_upload = FakePart(
+            inline_data=FakeInlineData(
+                mime_type="image/png",
+                data=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82",
+            )
+        )
+        from agents.video_editor.prompt_director import _ensure_scenario_styles
+
+        scenarios = [
+            _ensure_scenario_styles(s, i)
+            for i, s in enumerate(_build_fallback_scenarios("Microservices in Space", "Commander Mark"), 1)
+        ]
+        style = scenarios[0].styles[0]
+        context = FakeToolContext(
+            state={
+                "video_editor_draft": {
+                    "title": "Microservices in Space",
+                    "name": "Commander Mark",
+                    "position_company": "Space Station Alpha",
+                    "suggested_scenarios": [s.model_dump() for s in scenarios],
+                }
+            },
+            events=[FakeEvent("evt-1", [fake_upload])],
+        )
+
+        with patch("agents.video_editor.tools.video_card_tool.render_video_card") as mock_render:
+            mock_render.return_value = MagicMock(assets=[])
+            with patch("agents.video_editor.tools.video_card_tool.confirmation_required", return_value=False):
+                result = await create_video_card(
+                    talk_title="Microservices in Space",
+                    name="Commander Mark",
+                    position_company="Space Station Alpha",
+                    media_type="image",
+                    selected_scenario_id=style.id,
+                    tool_context=context,
+                )
+                self.assertEqual(result["status"], "success")
+                mock_render.assert_called_once()
+                draft_arg = mock_render.call_args[0][0]
+                self.assertEqual(draft_arg.selected_scenario_id, style.id)
+                self.assertTrue(draft_arg.creative_direction)
+                self.assertIn("Shot 1", draft_arg.creative_direction)
+
+    async def test_create_video_card_with_option_number(self):
+        fake_upload = FakePart(
+            inline_data=FakeInlineData(
+                mime_type="image/png",
+                data=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82",
+            )
+        )
+        scenarios = _build_fallback_scenarios("Microservices in Space", "Commander Mark")
+        context = FakeToolContext(
+            state={
+                "video_editor_draft": {
+                    "title": "Microservices in Space",
+                    "name": "Commander Mark",
+                    "position_company": "Space Station Alpha",
+                    "suggested_scenarios": [s.model_dump() for s in scenarios],
+                }
+            },
+            events=[FakeEvent("evt-1", [fake_upload])],
+        )
+
+        with patch("agents.video_editor.tools.video_card_tool.render_video_card") as mock_render:
+            mock_render.return_value = MagicMock(assets=[])
+            with patch("agents.video_editor.tools.video_card_tool.confirmation_required", return_value=False):
+                result = await create_video_card(
+                    talk_title="Microservices in Space",
+                    name="Commander Mark",
+                    position_company="Space Station Alpha",
+                    media_type="image",
+                    selected_scenario_id="Option 2",
+                    tool_context=context,
+                )
+                self.assertEqual(result["status"], "success")
+                mock_render.assert_called_once()
+                draft_arg = mock_render.call_args[0][0]
+                self.assertEqual(draft_arg.selected_scenario_id, scenarios[1].id)
+                self.assertTrue(draft_arg.creative_direction)
+
+    def test_compile_creative_prompt_resolves_from_suggested_scenarios_fallback(self):
+        from agents.video_editor.prompt_director import _ensure_scenario_styles
+        from agents.video_editor.video_card_service import compile_creative_prompt
+        from agents.video_editor.workflow_models import VideoEditorDraft
+
+        scenarios = [
+            _ensure_scenario_styles(s, i)
+            for i, s in enumerate(_build_fallback_scenarios("Microservices in Space", "Commander Mark"), 1)
+        ]
+        draft = VideoEditorDraft(
+            title="Microservices in Space",
+            name="Commander Mark",
+            position_company="Space Station Alpha",
+            creative_direction=None,
+            selected_scenario_id=scenarios[2].styles[0].id,
+            suggested_scenarios=scenarios,
+        )
+        prompt = compile_creative_prompt(draft)
+        self.assertNotIn("Cinematic conference speaker portrait in a modern professional setting", prompt)
+        self.assertIn("Shot 1", prompt)
 
     async def test_render_blocked_until_scenario_is_selected(self):
         fake_upload = FakePart(
@@ -536,6 +684,148 @@ class TestAnonymousPromptSanitization(unittest.TestCase):
         # Should be replaced with Option 2's specific presets, not the generic ones
         self.assertEqual(sc_repeated.styles[1].name, "Architectural Daylight")
         self.assertEqual(sc_repeated.styles[2].name, "High-Velocity Kinetic")
+
+    def test_clean_taxonomy_text(self):
+        # 1. Strips CJK and Wikipedia parentheticals
+        raw = "Tokusatsu (特撮（とくさつ）; lit. 'special filming') is a Japanese term for live-action films."
+        cleaned = _clean_taxonomy_text(raw)
+        self.assertNotIn("特撮", cleaned)
+        self.assertNotIn("とくさつ", cleaned)
+        self.assertNotIn("lit.", cleaned)
+        self.assertIn("Tokusatsu", cleaned)
+
+        # 2. Strips Cyrillic / Hebrew
+        raw_cyr = "Chernukha (хнрачуе) gritty realism"
+        cleaned_cyr = _clean_taxonomy_text(raw_cyr)
+        self.assertNotIn("хнрачуе", cleaned_cyr)
+        self.assertIn("Chernukha", cleaned_cyr)
+
+        # 3. Strips empty quotes
+        raw_quotes = "embodying '' in the world"
+        cleaned_quotes = _clean_taxonomy_text(raw_quotes)
+        self.assertNotIn("''", cleaned_quotes)
+
+    def test_format_timed_omni_prompt_length_and_deduplication(self):
+        shots = [
+            VideoShot(
+                shot_number=i,
+                time_range=f"00:0{2 * i - 2} - 00:0{2 * i}",
+                action=f"Action step {i} of the protagonist.",
+                camera="Slit-scan — A visual effect that distorts images by scanning a narrow vertical or horizontal slit across scenes.",
+                lighting_atmosphere="Golden Hour Low-Angle Lens Flare [2800K Honeyed Warmth] — Raking horizontal sunlight striking glass.",
+            )
+            for i in range(1, 6)
+        ]
+        style_profile = {
+            "genre": {
+                "name": "Tokusatsu",
+                "description": "Tokusatsu (特撮（とくさつ）; lit. 'special filming') practical effects.",
+            },
+            "visual_style": {"name": "Retro Future", "description": "Analog aesthetic."},
+            "camera_movement": {
+                "name": "Slit-scan",
+                "description": "A visual effect that distorts images by scanning a narrow vertical or horizontal slit across scenes.",
+            },
+            "lighting": {
+                "name": "Golden Hour",
+                "description": "Raking horizontal sunlight striking glass.",
+            },
+        }
+
+        prompt = format_timed_omni_prompt(shots=shots, genre="Tokusatsu", style_profile=style_profile)
+
+        # Must not contain CJK
+        self.assertNotIn("特撮", prompt)
+        # Must stay well under 1,500 chars (unlike the original 6,495 chars)
+        self.assertLess(len(prompt), 1500)
+        # Camera description must not be repeated 5 times across the shots
+        self.assertEqual(prompt.count("A visual effect that distorts images"), 1)
+        # All 5 shots must be strictly preserved
+        for i in range(1, 6):
+            self.assertIn(f"Shot {i}", prompt)
+
+    def test_sanitize_i2v_prompt_safety_and_scripts(self):
+        raw_prompt = (
+            "Cast this exact human person (their facial identity and likeness) as the protagonist in Tokusatsu (特撮（とくさつ）). "
+            "Use only the person's face/identity from the reference photo. Shot 1 (00:00 - 00:02): The protagonist moves forward."
+        )
+        cleaned = sanitize_i2v_prompt(raw_prompt)
+        self.assertNotIn("facial identity", cleaned)
+        self.assertNotIn("likeness", cleaned)
+        self.assertNotIn("person's face", cleaned)
+        self.assertNotIn("特撮", cleaned)
+        self.assertIn("Shot 1", cleaned)
+        self.assertLessEqual(len(cleaned), 1200)
+
+    def test_sanitize_i2v_prompt_preserves_full_five_shot_prompt(self):
+        prompt = (
+            "Cinematic 9:16 Visionary Solarpunk. Setting grounded in Solarpunk (Futuristic). "
+            "Visual style: Organic Architecture. Atmosphere & Optics: Camera: 360 Arc; Lighting: Prismatic Sun. "
+            "Shot 1 (00:00 - 00:02): The protagonist steps onto a sunlit glass sky-terrace overlooking a spiral city. "
+            "Shot 2 (00:02 - 00:04): The protagonist reaches toward floating geometric prisms rotating in zero gravity. "
+            "Shot 3 (00:04 - 00:06): Touch ignites branching spectral light beams through lush vertical garden canopies. "
+            "Shot 4 (00:06 - 00:08): The entire bio-architectural canopy pulses with synchronized emerald and gold light. "
+            "Shot 5 (00:08 - 00:10): The protagonist turns toward the horizon with a calm visionary smile into final frame. "
+            "Ending Anchor: In the final frame, the action resolves into a steady, iconic hero hold. "
+            "Photorealistic physical dynamics, zero warping or morphing, natural surface textures, pristine temporal stability."
+        )
+        cleaned = sanitize_i2v_prompt(prompt)
+        for i in range(1, 6):
+            self.assertIn(f"Shot {i}", cleaned)
+        self.assertIn("00:00 - 00:02", cleaned)
+        self.assertIn("00:08 - 00:10", cleaned)
+
+    def test_all_styles_json_entries_produce_clean_omni_prompts(self):
+        import json
+
+        styles_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "agents", "video_editor", "styles.json"
+        )
+        with open(styles_path, encoding="utf-8") as f:
+            data = json.load(f)
+
+        genres = data.get("genres", [])
+        visual_styles = data.get("visual_styles", [])
+        camera_moves = data.get("camera_movements", [])
+        lightings = data.get("lighting", [])
+
+        # Test cross-combinations across the catalog
+        for i in range(min(20, len(genres))):
+            g = genres[i]
+            s = visual_styles[i % len(visual_styles)]
+            c = camera_moves[i % len(camera_moves)]
+            lighting_item = lightings[i % len(lightings)]
+            sp = {
+                "genre": g,
+                "visual_style": s,
+                "camera_movement": c,
+                "lighting": lighting_item,
+            }
+            shots = [
+                VideoShot(
+                    shot_number=n,
+                    time_range=f"00:0{2 * n - 2} - 00:0{2 * n}",
+                    action=f"Action step {n} for protagonist.",
+                    camera=c.get("name", "Camera move"),
+                    lighting_atmosphere=lighting_item.get("name", "Lighting setup"),
+                )
+                for n in range(1, 6)
+            ]
+            prompt = format_timed_omni_prompt(shots=shots, genre=g.get("name", ""), style_profile=sp)
+            # Must have no CJK or Cyrillic characters
+            self.assertFalse(
+                re.search(r"[\u3040-\u30ff\u4e00-\u9fff\u0400-\u04ff]", prompt),
+                f"Non-Latin script found in prompt for {g['name']}: {prompt}",
+            )
+            # Must be strictly under 1,500 chars
+            self.assertLess(len(prompt), 1500, f"Prompt too long ({len(prompt)}) for {g['name']}")
+            # Must not contain safety triggers
+            self.assertNotIn("facial identity", prompt.lower())
+            self.assertNotIn("likeness", prompt.lower())
+            self.assertNotIn("person's face", prompt.lower())
+            # All 5 shots must be strictly preserved
+            for n in range(1, 6):
+                self.assertIn(f"Shot {n}", prompt)
 
 
 if __name__ == "__main__":

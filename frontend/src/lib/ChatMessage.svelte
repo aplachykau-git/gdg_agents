@@ -143,6 +143,25 @@
   );
   const hasScenarios = $derived(Boolean(activeScenarios && activeScenarios.length > 0));
   const isWide = $derived(Boolean(hasVariants || hasAgenda || hasEventDate || hasMedia || hasDoc || hasEmail || hasScenarios));
+
+  // Determine if this scenario deck is locked (i.e. subsequent turn took place or render launched)
+  const isDeckLocked = $derived.by(() => {
+    if (!allEvents || index >= allEvents.length - 1) return false;
+    for (let i = index + 1; i < allEvents.length; i++) {
+      const ev = allEvents[i];
+      if (!ev) continue;
+      // If user sent a subsequent message in this conversation
+      if (ev.author === 'user') return true;
+      // If subsequent event rendered video or confirmed draft
+      const parts = ev.content?.parts || [];
+      for (const p of parts) {
+        if (p.text && extractMediaAssets(p.text)) return true;
+        const fr = p.function_response || p.functionResponse;
+        if (fr?.response?.assets || (fr?.response?.status === 'success' && fr?.response?.draft)) return true;
+      }
+    }
+    return false;
+  });
 </script>
 
 {#if errInfo}
@@ -265,6 +284,7 @@
           {#if areScenariosComplete(activeScenarios)}
             <VideoScenarioDeck 
               scenarios={activeScenarios} 
+              isLocked={isDeckLocked}
               onSelect={(msg) => onRefine(msg)} 
               onRegenerate={(msg) => onRefine(msg)} 
             />

@@ -74,6 +74,34 @@ def missing_draft_fields(draft: VideoEditorDraft) -> list[str]:
 def compile_creative_prompt(draft: VideoEditorDraft) -> str:
     assert draft.name and draft.position_company and draft.title
     direction = _normalise(draft.creative_direction)
+
+    # Robust fallback: if creative_direction is missing but scenarios exist, resolve from selected scenario or style
+    if not direction and draft.suggested_scenarios:
+        sel_id = (draft.selected_scenario_id or "").strip().lower()
+        matched_prompt = None
+        for sc in draft.suggested_scenarios:
+            if sel_id:
+                if sc.id.lower() == sel_id or sel_id.startswith(sc.id.lower()):
+                    matched_prompt = sc.omni_prompt
+                    for st in getattr(sc, "styles", []) or []:
+                        if getattr(st, "id", "").lower() == sel_id:
+                            matched_prompt = getattr(st, "omni_prompt", sc.omni_prompt)
+                            break
+                    break
+                for st in getattr(sc, "styles", []) or []:
+                    if getattr(st, "id", "").lower() == sel_id:
+                        matched_prompt = getattr(st, "omni_prompt", sc.omni_prompt)
+                        break
+                if matched_prompt:
+                    break
+        if not matched_prompt and draft.suggested_scenarios:
+            first_sc = draft.suggested_scenarios[0]
+            first_style = getattr(first_sc, "styles", [None])[0] if getattr(first_sc, "styles", None) else None
+            matched_prompt = getattr(first_style, "omni_prompt", None) or first_sc.omni_prompt
+
+        if matched_prompt:
+            direction = _normalise(matched_prompt)
+
     if direction:
         # 1. Replace speaker full name with 'the protagonist'
         if draft.name:
@@ -427,11 +455,31 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
                     requested_action="retry",
                 )
             notice = None
-            if any(str(prepared_media.video_path).lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]):
+            is_static_fallback = any(
+                str(prepared_media.video_path).lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]
+            )
+            vg_err = ""
+            if tool_context and hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
+                vg_err = tool_context.state.get("video_generation_failure", "")
+
+            if is_static_fallback or vg_err:
+                if (
+                    "429" in vg_err
+                    or "spend-based rate limit" in vg_err.lower()
+                    or "too_many_requests" in vg_err.lower()
+                ):
+                    reason = "API spend-based rate limit exceeded (429)"
+                elif "content_blocked" in vg_err.lower() or "blocked" in vg_err.lower():
+                    reason = "prompt content blocked by safety policy"
+                elif vg_err:
+                    reason = vg_err[:120]
+                else:
+                    reason = "API generation unavailable"
+
                 notice = (
-                    "⚠️ **Notice:** AI video animation via Gemini Omni Flash is currently unavailable due to API quota limits "
-                    "(free tier requests limit: 0). Rendered a high-resolution static speaker card poster and outpainted avatar instead. "
-                    "To generate a dynamic animated video card, upload a speaker video file (.mp4) directly."
+                    f"⚠️ **Обратите внимание:** Фоновое видео не удалось сгенерировать через Gemini Omni Flash ({reason}). "
+                    "Карточка была сгенерирована с использованием расширенного портрета (статичное фото с анимированными титрами, скобками и бейджами DevFest). "
+                    "Чтобы видео-фон был динамическим, можно повторить рендер позже или загрузить готовое видео спикера (.mp4)."
                 )
 
             return RenderResult(

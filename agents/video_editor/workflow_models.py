@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -94,6 +94,7 @@ class CreativeScenario(BaseModel):
     styles: list[ScenarioStyle] = Field(default_factory=list)
     narrative_metaphor: str | None = None
     number: int | None = None
+    style_profile: dict[str, Any] | None = None
 
 
 class VideoEditorDraft(VideoEditorRequest):

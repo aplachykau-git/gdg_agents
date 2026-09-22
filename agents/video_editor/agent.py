@@ -43,7 +43,9 @@ Creative Two-Stage Pipeline & Multi-Shot Scenarios (For Images):
 - When the tool returns scenarios, you MUST repeat the tool's markdown message verbatim so that ALL alternative options (Option 1, Option 2, Option 3) and ALL 5 shots for each option are completely presented in full detail with their tables and timings. Do NOT abbreviate, summarize, or omit shots for any option.
 - CRITICAL: Never start or confirm rendering before the user has chosen an option or confirmed their prompt. Do NOT pass `confirm_render=true` on the scenario proposal step!
 - If the user asks for new concepts, different vibes, or commercial styles (e.g. "хочу как рекламу Nike", "добавь юмора / поп-арт", "перегенерируй", "еще вариантов"), call `create_video_card` with `creative_guidance` or `regenerate_scenarios=true` to re-roll genres and propose fresh scenarios.
-- Only when the user explicitly chooses an option (e.g. "Option 1", "Option 2", "вариант 1") or provides custom prompt edits, call `create_video_card` with `selected_scenario_id` or the refined `creative_direction`.
+- Only when the user explicitly chooses an option (e.g. "Option 1", "Option 2", "вариант 1", or a specific style) or provides/confirms a prompt:
+  * Pass `selected_scenario_id` with the chosen scenario or style ID.
+  * If the user message contains custom prompt text or quotes like `Creative direction: "..."`, you MUST also extract and pass that full text as `creative_direction`.
 - If the user says "yes" or "render" while scenarios are still awaiting selection without specifying which scenario they want, ask them: "Which scenario would you like to render (Option 1, 2, or 3)? Or would you like to refine the prompt?"
 - Never generate videos for multiple scenarios simultaneously. Only render ONE chosen scenario at a time.
 
@@ -63,10 +65,13 @@ Input Extraction & Creative Direction:
 
 Conversation:
 - Preserve the existing draft. A new uploaded image or video replaces only the media; it does not erase prior text.
-- After a render or in subsequent turns, if the user asks to edit the card, reopen the card, adjust shots, or re-render (e.g. "открой карточку", "хочу отредактировать", "перегенерируй для этого спикера", "смени стиль", "покажи варианты"): the previous speaker's portrait image, name, title, and bio are preserved in session memory. Call create_video_card directly with any updated parameters (or regenerate_scenarios=true) without asking the user to re-upload the photo or re-enter speaker details.
+- After a render or in subsequent turns, if the user asks to edit the card, reopen the card, adjust shots, or re-render (e.g. "открой карточку", "хочу отредактировать", "переоткрой карточку", "повторить карточку", "повтори карточку", "верни карточку", "edit and reopen card"):
+  * The previous speaker's portrait image, name, title, bio, and suggested scenarios are preserved in session memory.
+  * To reopen or repeat the existing card so the user can tweak shots, timeline, or styles in the UI, call create_video_card with reopen_existing_card=true. DO NOT set regenerate_scenarios=true (unless the user explicitly asks for brand new / different scenarios like "придумай новые варианты").
+  * When reopen_existing_card=true is called, the exact same card with the existing 5 scenarios is presented in the UI for the user to interact with.
 - Do not claim that rendering has started until the tool returns success.
 - When proposing creative scenarios or when status is awaiting_confirmation, ALWAYS repeat the tool’s Markdown message verbatim so the full scenario breakdown, style variations, and shots remain accessible to the user and interface.
-- On successful output, repeat the tool’s Markdown message verbatim so every available generated asset remains clickable.
+- On successful output, repeat the tool’s Markdown message verbatim (including any notices at the top if AI video generation was unavailable and a static portrait was used instead) so every available generated asset remains clickable and the user has full transparency.
 """
 
 INSTRUCTION = INSTRUCTION_TEMPLATE.format(typo_instruction=typo_instruction())

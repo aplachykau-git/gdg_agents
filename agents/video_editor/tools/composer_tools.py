@@ -105,16 +105,16 @@ def update_composer(
     duration_seconds: int | None = None,
     theme_colors: dict[str, str] | None = None,
 ) -> str:
-    """Updates index.html with the new video path, title, speaker name, position/company texts, and sets timeline duration (8s for Omni, 10s for user uploads)."""
+    """Updates index.html with the new video path, title, speaker name, position/company texts, and sets timeline duration (10s standard)."""
     # Ensure video_path is a relative path inside index.html for correct HTTP serving in headless Chrome
     if os.path.isabs(video_path):
         video_path = os.path.relpath(video_path, BASE_DIR)
 
-    # 1. Determine timeline duration: 8.0s for Omni generated video, 10.0s for uploaded custom video
+    # 1. Determine timeline duration: 10.0s standard for Omni and video cards
     target_duration = duration_seconds or 10
     abs_video_path = resolve_path(video_path)
 
-    # Probe duration if ffprobe is installed
+    # Probe duration if ffprobe is installed and duration_seconds was not explicitly specified
     if duration_seconds is None and shutil.which("ffprobe") and os.path.exists(abs_video_path):
         try:
             cmd = [
@@ -130,21 +130,20 @@ def update_composer(
             res = subprocess.run(cmd, capture_output=True, text=True)
             if res.returncode == 0 and res.stdout.strip():
                 dur = float(res.stdout.strip())
-                if dur <= 8.5:
-                    target_duration = 8
+                if dur >= 10.0:
+                    target_duration = int(round(dur))
                 else:
                     target_duration = 10
         except Exception:
             pass
-    elif duration_seconds is None and "video_example" in video_path.lower():
-        # Generated from Omni
-        target_duration = 8
 
     print("\n✍️ [Tool: update_composer] Inserting new details into index.html")
     print(f'   ├─ Title: "{title}"')
     print(f'   ├─ Name: "{name}"')
     print(f'   ├─ Position & Company: "{position_company}"')
-    print(f"   ├─ Duration: {target_duration}s ({'Omni 8s' if target_duration == 8 else 'Custom Upload 10s'})")
+    print(
+        f"   ├─ Duration: {target_duration}s ({'Omni 10s' if 'video_example' in video_path.lower() else f'Video {target_duration}s'})"
+    )
     print(f'   └─ Video: "{video_path}"')
 
     target_file = resolve_path("index.html")

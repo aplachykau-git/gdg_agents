@@ -262,6 +262,9 @@ class GenreBrief(BaseModel):
     narrative_metaphor: str = Field(
         description="How the speaker's topic is creatively turned into hero action in this world"
     )
+    style_profile: dict[str, Any] | None = Field(
+        default=None, description="Detailed cinematic taxonomy parameters from styles.json"
+    )
 
 
 class _RawScoutResponse(BaseModel):
@@ -363,10 +366,35 @@ def scout_creative_genres(
     speaker_bio: str | None = None,
     creative_guidance: str | None = None,
     count: int = 5,
+    use_taxonomy: bool = True,
 ) -> list[GenreBrief]:
-    """Stage 1: Generates 5 radically diverse, non-formulaic creative genres.
-    Samples 5 distinct architectural pillars and fuses them with the talk topic & speaker bio.
+    """Stage 1: Generates 5 radically diverse creative genres.
+
+    When use_taxonomy=True (default), samples verified cinematic style ingredients
+    directly from styles.json (590 items from Experiments/Jenres) via style_sampler,
+    passing clean parameters downstream without redundant LLM style generation.
     """
+    if use_taxonomy:
+        try:
+            from .style_sampler import pick_random_cinematic_styles, styles_to_genre_briefs
+
+            sampled_styles = pick_random_cinematic_styles(
+                n=count,
+                creative_guidance=creative_guidance,
+            )
+            briefs = styles_to_genre_briefs(
+                styles=sampled_styles,
+                talk_title=talk_title,
+                speaker_name=speaker_name,
+                position_company=position_company,
+                speaker_bio=speaker_bio,
+            )
+            if len(briefs) >= count:
+                print(f"🎬 [Genre Scout] Selected {len(briefs)} diverse cinematic profiles from taxonomy database")
+                return briefs[:count]
+        except Exception as e:
+            print(f"⚠️ [Genre Scout] Taxonomy sampler error ({e}), proceeding with stochastic matrix.")
+
     client = get_gemini_client()
 
     # Sample random archetypes from distinct clusters
