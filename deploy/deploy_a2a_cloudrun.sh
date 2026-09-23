@@ -98,6 +98,26 @@ rm -f "$LIFECYCLE_TMP"
     --role="roles/storage.objectUser" \
     --quiet >/dev/null 2>&1 || true
 
+# Persistent session store (see deploy/setup_sessions_db.sh). With the secret present every
+# service stores ADK sessions in Cloud SQL and may scale out; without it sessions live in a
+# SQLite file inside the container, so each service is pinned to a single instance.
+SESSION_SECRET_NAME="${SESSION_SECRET_NAME:-session-service-uri}"
+SESSION_DB_INSTANCE="${SESSION_DB_INSTANCE:-community-sessions}"
+SESSION_FLAGS=()
+if "$GCLOUD_BIN" secrets describe "$SESSION_SECRET_NAME" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    SESSION_CONNECTION_NAME="$("$GCLOUD_BIN" sql instances describe "$SESSION_DB_INSTANCE" --project "$PROJECT_ID" --format='value(connectionName)')"
+    echo "🗄️ Persistent sessions: Cloud SQL ${SESSION_CONNECTION_NAME} (secret ${SESSION_SECRET_NAME})"
+    SESSION_FLAGS=(
+        --add-cloudsql-instances "$SESSION_CONNECTION_NAME"
+        --set-secrets "SESSION_SERVICE_URI=${SESSION_SECRET_NAME}:latest"
+        --max-instances "${MAX_INSTANCES:-5}"
+    )
+else
+    echo "⚠️ No ${SESSION_SECRET_NAME} secret: sessions stay inside each container (lost on restart)."
+    echo "   Run deploy/setup_sessions_db.sh once to enable Cloud SQL session storage."
+    SESSION_FLAGS=(--max-instances 1)
+fi
+
 # Helper function to build and deploy a service
 build_and_deploy() {
     local SERVICE_NAME="$1"
@@ -136,6 +156,8 @@ EOF
         --memory "$MEMORY" \
         --cpu "$CPU" \
         --timeout "$TIMEOUT" \
+        --session-affinity \
+        "${SESSION_FLAGS[@]}" \
         --set-env-vars "$ENV_VARS"
 }
 
