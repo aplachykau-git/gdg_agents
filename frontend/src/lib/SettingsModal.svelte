@@ -1,30 +1,27 @@
 <script>
-  import { 
-    Settings, 
-    X, 
-    Check, 
-    Globe, 
-    HardDrive, 
-    AlertCircle, 
-    FileText, 
-    ExternalLink, 
-    Copy, 
-    ChevronDown, 
+  import {
+    Settings,
+    X,
+    Check,
+    Globe,
+    HardDrive,
+    AlertCircle,
+    FileText,
+    ExternalLink,
+    ChevronDown,
     ChevronRight,
-    Info,
     Video,
     AlertTriangle,
-    Layout
+    Layout,
   } from '@lucide/svelte';
-  import { 
-    DEFAULT_CONFIG, 
+  import {
+    DEFAULT_CONFIG,
     DEFAULT_TEMPLATE_URL,
-    DEFAULT_TEMPLATE_ID,
     VIDEO_TEMPLATES,
-    extractDriveFolderId, 
+    extractDriveFolderId,
     validateDriveFolderInput,
     extractGoogleDocId,
-    validateGoogleDocTemplateInput
+    validateGoogleDocTemplateInput,
   } from './constants.js';
 
   let {

@@ -1,13 +1,11 @@
 <script>
-  import { 
-    Video, 
-    Film, 
-    Sparkles, 
-    RefreshCw, 
-    Check, 
-    Edit3, 
-    Play, 
-    Sliders,
+  import {
+    Video,
+    Film,
+    RefreshCw,
+    Check,
+    Edit3,
+    Play,
     ChevronDown,
     ChevronUp,
     ChevronLeft,
@@ -16,7 +14,7 @@
     Palette,
     Lightbulb,
     Loader2,
-    Lock
+    Lock,
   } from '@lucide/svelte';
 
   let { 
@@ -652,7 +650,6 @@
     background: var(--bg-hover);
   }
 
-
   .scenario-cards-list {
     display: flex;
     flex-direction: column;
@@ -838,7 +835,6 @@
     box-shadow: var(--shadow-sm);
   }
 
-
   .shots-timeline {
     margin: 10px 0 6px 24px;
     display: flex;
@@ -985,7 +981,6 @@
     opacity: 0.2;
     cursor: not-allowed;
   }
-
 
   .shot-badge {
     display: inline-flex;

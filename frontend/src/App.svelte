@@ -2,12 +2,7 @@
   import { onMount } from "svelte";
   import {
     Sparkles,
-    History,
     Paperclip,
-    Sun,
-    Moon,
-    ChevronDown,
-    HelpCircle,
     ArrowRight,
     Receipt,
     Video,
@@ -16,12 +11,9 @@
     Calendar,
     Clock,
     Mail,
-    Workflow,
     Layers,
     AlertCircle,
-    Plus,
     Settings,
-    MoreVertical,
     X,
     FileText,
     Image as ImageIcon,
@@ -51,7 +43,6 @@
     getAgentHeading,
     getAgentDescription,
     getAgentStarterPrompts,
-    getAgentIconName,
     isIntermediateEvent,
     computeScenarioDecks,
     getAppConfig,
@@ -195,7 +186,6 @@
     onAuthStateChanged,
   } from "./lib/firebase.js";
   import LoginScreen from "./lib/LoginScreen.svelte";
-  import { LogOut } from "@lucide/svelte";
 
   function getOrCreateUserId() {
     if (typeof window === "undefined") return "user";
@@ -806,7 +796,6 @@
     };
   });
 </script>
-
 
 
 {#if isAuthLoading}
