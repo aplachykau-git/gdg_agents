@@ -7,6 +7,8 @@ import os
 import re
 import shutil
 import tempfile
+import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -35,6 +37,11 @@ logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 WORKSPACE_ROOT = BASE_DIR / "workspaces"
+WORKSPACE_TTL_SECONDS = int(os.getenv("VIDEO_EDITOR_WORKSPACE_TTL_SECONDS", str(24 * 3600)))
+# media_tools/composer_tools resolve every path through a module-level BASE_DIR that is
+# swapped per render (see _workspace_tool_paths). Renders are therefore serialised so two
+# sessions can never write into each other's workspace.
+_RENDER_LOCK = threading.Lock()
 DEFAULT_THEME = {
     "break_color": "#4285F4",
     "circle_color": "#34A853",
@@ -223,12 +230,29 @@ def _copy_workspace_template(workspace: Path, template_name: str = "build_with_a
     shutil.copytree(BASE_DIR / "assets", workspace / "assets", dirs_exist_ok=True)
 
 
+def prune_old_workspaces(root: Path = WORKSPACE_ROOT, ttl_seconds: int = WORKSPACE_TTL_SECONDS) -> int:
+    """Delete render workspaces older than ``ttl_seconds``. Returns the number removed."""
+    if ttl_seconds <= 0 or not root.is_dir():
+        return 0
+    cutoff = time.time() - ttl_seconds
+    removed = 0
+    for child in root.iterdir():
+        try:
+            if child.is_dir() and child.stat().st_mtime < cutoff:
+                shutil.rmtree(child, ignore_errors=True)
+                removed += 1
+        except OSError:
+            continue
+    return removed
+
+
 @contextmanager
 def isolated_workspace(session_id: str, template_name: str = "build_with_ai") -> Iterator[Path]:
     safe_session_id = "".join(
         character if character.isalnum() or character in "-_" else "_" for character in session_id
     )
     WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
+    prune_old_workspaces()
     workspace = Path(tempfile.mkdtemp(prefix=f"{safe_session_id[:48]}-", dir=WORKSPACE_ROOT))
     _copy_workspace_template(workspace, template_name=template_name)
     yield workspace
@@ -245,6 +269,32 @@ def _workspace_tool_paths(workspace: Path) -> Iterator[None]:
     finally:
         media_tools.BASE_DIR = original_media_base_dir
         composer_tools.BASE_DIR = original_composer_base_dir
+
+
+def _state_get(tool_context: object, key: str, default: object = None) -> object:
+    """Read a key from ADK ``State`` (not a dict!) or a plain dict / session state."""
+    for holder in (
+        getattr(tool_context, "state", None),
+        getattr(getattr(tool_context, "session", None), "state", None),
+    ):
+        if holder is None:
+            continue
+        try:
+            value = holder.get(key)
+        except Exception:
+            continue
+        if isinstance(value, (bool, int, float, str, dict, list)):
+            return value
+    return default
+
+
+def _state_set(tool_context: object, key: str, value: object) -> None:
+    state = getattr(tool_context, "state", None)
+    if state is not None:
+        try:
+            state[key] = value
+        except Exception:
+            pass
 
 
 async def _review_metadata(metadata: ValidatedMetadata) -> ValidationFailure | None:
@@ -355,17 +405,49 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
     environment_failure = workflow.validate_render_environment()
     if environment_failure:
         return environment_failure
-    session_state = {}
-    if hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
-        session_state = tool_context.session.state or {}
-    elif hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
-        session_state = tool_context.state
+    if draft.media is None:
+        return ValidationFailure(
+            code="media_not_found",
+            message="Please upload a portrait photo or a speaker video.",
+            requested_action="replace_media",
+        )
 
-    video_template = (
-        session_state.get("video_template")
-        or session_state.get("videoTemplate")
+    # Wait for any other render (in any session) to finish without blocking the event loop.
+    await asyncio.to_thread(_RENDER_LOCK.acquire)
+    try:
+        return await _render_locked(draft, metadata, tool_context)
+    finally:
+        _RENDER_LOCK.release()
+
+
+def _static_fallback_notice(failure_reason: str) -> str:
+    lower = failure_reason.lower()
+    if "429" in failure_reason or "spend-based rate limit" in lower or "too_many_requests" in lower:
+        reason = "API spend-based rate limit exceeded (429)"
+    elif "blocked" in lower:
+        reason = "prompt content blocked by safety policy"
+    elif failure_reason:
+        reason = failure_reason[:120]
+    else:
+        reason = "API generation unavailable"
+    return (
+        f"⚠️ **Обратите внимание:** Фоновое видео не удалось сгенерировать через Gemini Omni Flash ({reason}). "
+        "Карточка была сгенерирована с использованием расширенного портрета (статичное фото с анимированными титрами, скобками и бейджами DevFest). "
+        "Чтобы видео-фон был динамическим, можно повторить рендер позже или загрузить готовое видео спикера (.mp4)."
+    )
+
+
+async def _render_locked(
+    draft: VideoEditorDraft, metadata: ValidatedMetadata, tool_context: ToolContext
+) -> RenderResult | ValidationFailure:
+    video_template = str(
+        _state_get(tool_context, "video_template")
+        or _state_get(tool_context, "videoTemplate")
         or os.getenv("VIDEO_TEMPLATE", "build_with_ai")
     )
+    theme_colors = _state_get(tool_context, "theme_colors")
+    # A failure from a previous render must not leak into this one.
+    _state_set(tool_context, "video_generation_failure", "")
 
     with isolated_workspace(tool_context.session.id, template_name=video_template) as workspace:
         with _workspace_tool_paths(workspace):
@@ -384,7 +466,7 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
                 return media_failure
 
             if resolved_media.media_type == "image":
-                if not media_tools.video_generation_enabled(tool_context or session_state):
+                if not media_tools.video_generation_enabled(tool_context):
                     return ValidationFailure(
                         code="model_unavailable",
                         message=(
@@ -398,89 +480,70 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
                 if face_failure:
                     return face_failure
                 try:
-                    source_path = media_tools.outpaint_to_9_16(resolved_media.source_path, get_gemini_client())
-                    video_path = media_tools.animate_photo(
-                        photo_path=source_path,
+                    # animate_photo outpaints to 9:16 itself; doing it here as well doubled cost and time.
+                    video_path = await asyncio.to_thread(
+                        media_tools.animate_photo,
+                        photo_path=resolved_media.source_path,
                         creative_prompt=compile_creative_prompt(draft),
                         tool_context=tool_context,
                     )
-                    if isinstance(video_path, str) and video_path.startswith("Error:"):
-                        return ValidationFailure(
-                            code="model_unavailable",
-                            message=video_path.removeprefix("Error:").strip(),
-                            requested_action="replace_media",
-                            retryable=False,
-                        )
                 except Exception as anim_err:
+                    logger.exception("Speaker animation failed")
                     return ValidationFailure(
                         code="model_unavailable",
                         message=f"Failed to generate speaker animation: {anim_err}",
-                        requested_action="replace_media",
+                        requested_action="retry",
                         retryable=True,
+                    )
+                if isinstance(video_path, str) and video_path.startswith("Error:"):
+                    return ValidationFailure(
+                        code="model_unavailable",
+                        message=video_path.removeprefix("Error:").strip(),
+                        requested_action="replace_media",
+                        retryable=False,
                     )
                 prepared_media = PreparedMedia(
                     media_type="image",
                     source_path=resolved_media.source_path,
-                    working_path=source_path,
+                    working_path=video_path,
                     video_path=video_path,
-                    duration_seconds=workflow._read_video_duration(video_path),
+                    duration_seconds=await asyncio.to_thread(workflow._read_video_duration, video_path),
                 )
             else:
                 target_video_path = os.path.join(media_tools.BASE_DIR, "assets", "Video_example.mp4")
                 source_path = media_tools.resolve_path(resolved_media.source_path)
                 if os.path.abspath(source_path) != os.path.abspath(target_video_path):
-                    shutil.copy2(source_path, target_video_path)
+                    await asyncio.to_thread(shutil.copy2, source_path, target_video_path)
                 prepared_media = PreparedMedia(
                     media_type="video",
                     source_path=resolved_media.source_path,
                     working_path=os.path.relpath(target_video_path, media_tools.BASE_DIR),
                     video_path="assets/Video_example.mp4",
-                    duration_seconds=workflow._read_video_duration("assets/Video_example.mp4"),
+                    duration_seconds=await asyncio.to_thread(workflow._read_video_duration, "assets/Video_example.mp4"),
                 )
 
-            composer_tools.update_composer(
-                video_path=prepared_media.video_path,
-                title=metadata.title,
-                name=metadata.name,
-                position_company=metadata.position_company,
-                duration_seconds=prepared_media.duration_seconds,
-                theme_colors=session_state.get("theme_colors"),
-            )
             try:
-                summary = composer_tools.render_composer(tool_context=tool_context)
+                await asyncio.to_thread(
+                    composer_tools.update_composer,
+                    video_path=prepared_media.video_path,
+                    title=metadata.title,
+                    name=metadata.name,
+                    position_company=metadata.position_company,
+                    duration_seconds=prepared_media.duration_seconds,
+                    theme_colors=theme_colors,
+                )
+                summary = await asyncio.to_thread(composer_tools.render_composer, tool_context=tool_context)
             except Exception as render_err:
+                logger.exception("Composition render failed")
                 return ValidationFailure(
                     code="render_failed",
                     message=f"Failed to render video composition: {render_err}",
                     requested_action="retry",
                 )
-            notice = None
-            is_static_fallback = any(
-                str(prepared_media.video_path).lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]
-            )
-            vg_err = ""
-            if tool_context and hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
-                vg_err = tool_context.state.get("video_generation_failure", "")
 
-            if is_static_fallback or vg_err:
-                if (
-                    "429" in vg_err
-                    or "spend-based rate limit" in vg_err.lower()
-                    or "too_many_requests" in vg_err.lower()
-                ):
-                    reason = "API spend-based rate limit exceeded (429)"
-                elif "content_blocked" in vg_err.lower() or "blocked" in vg_err.lower():
-                    reason = "prompt content blocked by safety policy"
-                elif vg_err:
-                    reason = vg_err[:120]
-                else:
-                    reason = "API generation unavailable"
-
-                notice = (
-                    f"⚠️ **Обратите внимание:** Фоновое видео не удалось сгенерировать через Gemini Omni Flash ({reason}). "
-                    "Карточка была сгенерирована с использованием расширенного портрета (статичное фото с анимированными титрами, скобками и бейджами DevFest). "
-                    "Чтобы видео-фон был динамическим, можно повторить рендер позже или загрузить готовое видео спикера (.mp4)."
-                )
+            is_static_fallback = str(prepared_media.video_path).lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
+            failure_reason = str(_state_get(tool_context, "video_generation_failure", "") or "")
+            notice = _static_fallback_notice(failure_reason) if (is_static_fallback or failure_reason) else None
 
             return RenderResult(
                 status="completed",

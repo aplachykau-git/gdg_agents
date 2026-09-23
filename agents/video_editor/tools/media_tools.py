@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import time
+import uuid
 from typing import Any, Optional
 
 import google.auth
@@ -42,10 +43,18 @@ def video_generation_enabled(tool_context: Optional[Any] = None) -> bool:
         state = {}
         if isinstance(tool_context, dict):
             state = tool_context
-        elif hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
-            state = tool_context.state
-        elif hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
-            state = tool_context.session.state or {}
+        else:
+            # ADK's State is not a dict subclass; check it first, then the persisted session state.
+            holders = [getattr(tool_context, "state", None)]
+            session = getattr(tool_context, "session", None)
+            holders.append(getattr(session, "state", None) if session else None)
+            for holder in holders:
+                if holder is None or not hasattr(holder, "get"):
+                    continue
+                for key in ("enable_video_generation", "enableVideoGeneration"):
+                    value = holder.get(key)
+                    if isinstance(value, (bool, int, str)):
+                        return value.lower() in ("true", "1", "yes") if isinstance(value, str) else bool(value)
         for key in ("enable_video_generation", "enableVideoGeneration"):
             if key in state and state[key] is not None:
                 return bool(state[key])
@@ -356,7 +365,7 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
                     try:
                         cloud_img_url = upload_bytes_to_storage(
                             data=img_data,
-                            destination_blob_name="images/portrait_outpainted.png",
+                            destination_blob_name=f"images/portrait_outpainted_{uuid.uuid4().hex}.png",
                             content_type="image/png",
                         )
                         if cloud_img_url:
@@ -635,8 +644,12 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
     except Exception as omni_err:
         err_msg = str(omni_err)
         print(f"⚠️ [Omni Flash Notice] {err_msg}. Falling back to outpainted portrait image.")
-        if tool_context and hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
-            tool_context.state["video_generation_failure"] = err_msg
+        state = getattr(tool_context, "state", None) if tool_context else None
+        if state is not None:
+            try:
+                state["video_generation_failure"] = err_msg
+            except Exception:
+                pass
         result_path = photo_path
 
     try:
@@ -644,7 +657,7 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
         if os.path.exists(abs_res_path) and result_path.endswith(".mp4"):
             cloud_vid_url = upload_file_to_storage(
                 local_path=abs_res_path,
-                destination_blob_name="videos/Video_example.mp4",
+                destination_blob_name=f"videos/omni_{uuid.uuid4().hex}.mp4",
                 content_type="video/mp4",
             )
             if cloud_vid_url:

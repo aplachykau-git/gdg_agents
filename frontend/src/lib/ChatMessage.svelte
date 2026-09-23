@@ -23,7 +23,7 @@
     shouldShowDelegationHandoff,
     getEventAgent,
     hasVideoScenarios,
-    extractVideoScenarios,
+    extractVideoScenariosCached,
     areScenariosComplete
   } from './constants.js';
   import AgendaTimeline from './AgendaTimeline.svelte';
@@ -39,7 +39,10 @@
     event, 
     index = 0, 
     allEvents = [], 
-    onRefine = () => {} 
+    deck = null,
+    isBusy = false,
+    onRefine = () => {},
+    onSend = () => {}
   } = $props();
 
   const errInfo = $derived(getEventError(event));
@@ -56,72 +59,8 @@
     return [];
   });
 
-  // Helper to find scenarios from tool response in preceding events of this turn
-  function findPrecedingScenarios(currentIdx, eventsList) {
-    if (!eventsList || currentIdx <= 0) return null;
-    for (let i = currentIdx - 1; i >= 0; i--) {
-      const ev = eventsList[i];
-      if (!ev) continue;
-      if (ev.author === 'user') break; // Stop at previous user prompt
-      const parts = ev.content?.parts || [];
-      for (const p of parts) {
-        const fr = p.function_response || p.functionResponse;
-        if (fr && fr.response) {
-          if (Array.isArray(fr.response.scenarios) && fr.response.scenarios.length > 0) {
-            return fr.response.scenarios;
-          }
-          if (typeof fr.response.message === 'string' && hasVideoScenarios(fr.response.message)) {
-            return fr.response.message;
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  // Check if a subsequent event in the same turn will render scenarios
-  function willSubsequentEventRenderScenarios(currentIdx, eventsList) {
-    if (!eventsList || currentIdx >= eventsList.length - 1) return false;
-    for (let i = currentIdx + 1; i < eventsList.length; i++) {
-      const ev = eventsList[i];
-      if (!ev || ev.author === 'user') break;
-      const parts = ev.content?.parts || [];
-      for (const p of parts) {
-        if (p.text && p.text.trim()) return true;
-      }
-    }
-    return false;
-  }
-
-  // Resolved scenarios for this event card
-  const activeScenarios = $derived.by(() => {
-    // 1. Direct scenarios in text
-    if (messageParts.some(p => p.text && hasVideoScenarios(p.text))) {
-      const p = messageParts.find(p => p.text && hasVideoScenarios(p.text));
-      return extractVideoScenarios(p.text);
-    }
-    // 2. If this is a model text message, see if a preceding tool response in this turn had scenarios
-    const isModelText = messageParts.some(p => p.text && p.text.trim());
-    if (isModelText) {
-      const preceding = findPrecedingScenarios(index, allEvents);
-      if (preceding && (Array.isArray(preceding) ? preceding.length > 0 : true)) {
-        return extractVideoScenarios(preceding);
-      }
-    }
-    // 3. If this is a tool response event itself, only render if no subsequent model text event exists
-    const hasToolResponseScenarios = messageParts.some(p => {
-      const fr = p.function_response || p.functionResponse;
-      return fr?.response?.scenarios?.length > 0 || (fr?.response?.message && hasVideoScenarios(fr.response.message));
-    });
-    if (hasToolResponseScenarios && !willSubsequentEventRenderScenarios(index, allEvents)) {
-      for (const p of messageParts) {
-        const fr = p.function_response || p.functionResponse;
-        if (fr?.response?.scenarios?.length > 0) return extractVideoScenarios(fr.response.scenarios);
-        if (fr?.response?.message && hasVideoScenarios(fr.response.message)) return extractVideoScenarios(fr.response.message);
-      }
-    }
-    return null;
-  });
+  // Scenario deck anchored to this event (computed once in App.svelte).
+  const activeScenarios = $derived(deck ? extractVideoScenariosCached(deck.source) : null);
 
   const hasVariants = $derived(
     messageParts.some(p => p.text && parseResponseVariants(p.text, event.author).length > 1)
@@ -144,24 +83,7 @@
   const hasScenarios = $derived(Boolean(activeScenarios && activeScenarios.length > 0));
   const isWide = $derived(Boolean(hasVariants || hasAgenda || hasEventDate || hasMedia || hasDoc || hasEmail || hasScenarios));
 
-  // Determine if this scenario deck is locked (i.e. subsequent turn took place or render launched)
-  const isDeckLocked = $derived.by(() => {
-    if (!allEvents || index >= allEvents.length - 1) return false;
-    for (let i = index + 1; i < allEvents.length; i++) {
-      const ev = allEvents[i];
-      if (!ev) continue;
-      // If user sent a subsequent message in this conversation
-      if (ev.author === 'user') return true;
-      // If subsequent event rendered video or confirmed draft
-      const parts = ev.content?.parts || [];
-      for (const p of parts) {
-        if (p.text && extractMediaAssets(p.text)) return true;
-        const fr = p.function_response || p.functionResponse;
-        if (fr?.response?.assets || (fr?.response?.status === 'success' && fr?.response?.draft)) return true;
-      }
-    }
-    return false;
-  });
+  const isDeckLocked = $derived(Boolean(deck?.locked));
 </script>
 
 {#if errInfo}
@@ -285,8 +207,9 @@
             <VideoScenarioDeck 
               scenarios={activeScenarios} 
               isLocked={isDeckLocked}
-              onSelect={(msg) => onRefine(msg)} 
-              onRegenerate={(msg) => onRefine(msg)} 
+              {isBusy}
+              onSelect={(msg, extraState) => onSend(msg, extraState)} 
+              onRegenerate={(msg) => onSend(msg)} 
             />
           {:else}
             <div class="scenario-progress-card">
@@ -337,7 +260,9 @@
     margin-bottom: 20px;
     width: 100%;
     content-visibility: auto;
-    contain-intrinsic-size: 120px;
+    /* 'auto' remembers the real rendered height; a fixed 120px estimate made the
+       scrollbar jump whenever tall cards (scenario decks, videos) scrolled in/out of view. */
+    contain-intrinsic-size: auto 120px;
   }
 
   .user-row {

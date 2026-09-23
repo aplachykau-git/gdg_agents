@@ -8,11 +8,7 @@ from unittest.mock import MagicMock, mock_open, patch
 from agents.video_editor.tools import media_tools
 from agents.video_editor.tools.composer_tools import build_card_config, render_composer, update_composer
 from agents.video_editor.tools.media_tools import _safe_b64decode, animate_photo
-from agents.video_editor.tools.video_card_tool import (
-    confirmation_required,
-    create_video_card,
-    format_render_success_message,
-)
+from agents.video_editor.tools.video_card_tool import format_render_success_message
 from agents.video_editor.video_card_service import (
     _copy_workspace_template,
     compile_creative_prompt,
@@ -37,42 +33,7 @@ from agents.video_editor.workflow_models import (
     VideoEditorDraft,
     VideoEditorRequest,
 )
-
-
-class FakeInlineData:
-    def __init__(self, mime_type: str, data: bytes):
-        self.mime_type = mime_type
-        self.data = data
-
-
-class FakePart:
-    def __init__(self, text: str | None = None, inline_data: FakeInlineData | None = None):
-        self.text = text
-        self.inline_data = inline_data
-
-
-class FakeContent:
-    def __init__(self, parts: list[FakePart]):
-        self.parts = parts
-
-
-class FakeEvent:
-    def __init__(self, event_id: str, parts: list[FakePart]):
-        self.id = event_id
-        self.author = "user"
-        self.content = FakeContent(parts)
-
-
-class FakeSession:
-    def __init__(self, events: list[FakeEvent]):
-        self.id = "test-session"
-        self.events = events
-
-
-class FakeToolContext:
-    def __init__(self, state: dict, events: list[FakeEvent]):
-        self.state = state
-        self.session = FakeSession(events)
+from tests.video_editor_fakes import FakeEvent, FakeInlineData, FakePart, FakeToolContext  # noqa: E402
 
 
 class TestVideoEditorWorkflow(unittest.TestCase):
@@ -158,68 +119,6 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         self.assertEqual(merged.name, "First speaker")
         self.assertEqual(merged.media.event_id, "new-upload")
 
-    def test_tool_uses_prior_video_upload_after_later_text_message(self):
-        video_event = FakeEvent(
-            "video-upload",
-            [FakePart(inline_data=FakeInlineData("video/mp4", b"video"))],
-        )
-        text_event = FakeEvent("details", [FakePart(text="Use my uploaded video.")])
-        context = FakeToolContext({}, [video_event, text_event])
-        fake_result = RenderResult(
-            status="completed",
-            summary="Completed.",
-            assets=[RenderedAsset(label="Video", url="https://example.com/video.mp4")],
-        )
-
-        with patch("agents.video_editor.tools.video_card_tool.render_video_card", return_value=fake_result):
-            result = asyncio.run(
-                create_video_card(
-                    talk_title="Talk",
-                    name="Jane Doe",
-                    position_company="Developer Advocate, Example",
-                    media_type="video",
-                    tool_context=context,
-                )
-            )
-
-        self.assertEqual(result["status"], "success")
-        self.assertEqual(context.state["video_editor_draft"], {})
-
-    def test_tool_does_not_reuse_media_after_a_completed_render(self):
-        upload = FakeEvent("video-upload", [FakePart(inline_data=FakeInlineData("video/mp4", b"video"))])
-        context = FakeToolContext({}, [upload])
-        rendered = RenderResult(
-            status="completed",
-            summary="Completed.",
-            assets=[RenderedAsset(label="Video", url="https://example.com/video.mp4")],
-        )
-
-        with patch("agents.video_editor.tools.video_card_tool.render_video_card", return_value=rendered):
-            first = asyncio.run(
-                create_video_card(
-                    talk_title="First talk",
-                    name="First speaker",
-                    position_company="First role",
-                    media_type="video",
-                    tool_context=context,
-                )
-            )
-
-        self.assertEqual(first["status"], "success")
-
-        second = asyncio.run(
-            create_video_card(
-                talk_title="Second talk",
-                name="Second speaker",
-                position_company="Second role",
-                media_type="video",
-                tool_context=context,
-            )
-        )
-
-        self.assertEqual(second["status"], "error")
-        self.assertEqual(second["code"], "missing_media")
-
     def test_creative_prompt_includes_user_direction(self):
         draft = VideoEditorDraft(
             title="Reliable AI systems",
@@ -249,10 +148,6 @@ class TestVideoEditorWorkflow(unittest.TestCase):
 
         self.assertEqual(_collect_assets_from_summary(summary)[0].url, "file:///private/tmp/video.mp4")
         self.assertEqual(_normalise_render_summary(summary), "• [Video](file:///private/tmp/video.mp4)")
-
-    def test_confirmation_flag_defaults_to_false(self):
-        with patch.dict("os.environ", {}, clear=True):
-            self.assertFalse(confirmation_required())
 
     def test_video_generation_enabled_reads_the_environment_at_call_time(self):
         with patch.dict("os.environ", {"ENABLE_VIDEO_GENERATION": "false"}):
@@ -299,113 +194,6 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             _copy_workspace_template(workspace, template_name="devfest")
             index_content = (workspace / "index.html").read_text(encoding="utf-8")
             self.assertIn("DEVFEST", index_content)
-
-    def test_tool_returns_missing_input_without_rendering(self):
-        context = FakeToolContext({}, [])
-
-        result = asyncio.run(
-            create_video_card(
-                talk_title="",
-                name="",
-                position_company="",
-                media_type="image",
-                tool_context=context,
-            )
-        )
-
-        self.assertEqual(result["status"], "error")
-        self.assertEqual(result["code"], "missing_input")
-        self.assertIn("speaker name", result["missing_fields"])
-
-    def test_tool_requires_confirmation_when_enabled(self):
-        event = FakeEvent("upload", [FakePart(inline_data=FakeInlineData("image/png", b"image"))])
-        context = FakeToolContext({}, [event])
-        with patch.dict("os.environ", {"VIDEO_EDITOR_REQUIRE_CONFIRMATION": "true"}):
-            result = asyncio.run(
-                create_video_card(
-                    talk_title="Talk",
-                    name="Jane Doe",
-                    position_company="Developer Advocate, Example",
-                    media_type="image",
-                    selected_scenario_id="scenario_1",
-                    tool_context=context,
-                )
-            )
-
-        self.assertEqual(result["status"], "awaiting_confirmation")
-        self.assertEqual(result["requested_action"], "confirm_render")
-
-    @patch("agents.video_editor.tools.video_card_tool.generate_creative_scenarios")
-    def test_tool_renders_after_confirmation(self, mock_gen_scenarios):
-        from agents.video_editor.prompt_director import _build_fallback_scenarios
-
-        mock_gen_scenarios.return_value = _build_fallback_scenarios("Talk", "Jane Doe")
-        event = FakeEvent("upload", [FakePart(inline_data=FakeInlineData("image/png", b"image"))])
-        context = FakeToolContext({}, [event])
-        fake_result = RenderResult(
-            status="completed",
-            summary="Completed.",
-            assets=[RenderedAsset(label="Video", url="https://example.com/video.mp4")],
-        )
-        with patch.dict("os.environ", {"VIDEO_EDITOR_REQUIRE_CONFIRMATION": "true"}):
-            with patch("agents.video_editor.tools.video_card_tool.render_video_card", return_value=fake_result):
-                first = asyncio.run(
-                    create_video_card(
-                        talk_title="Talk",
-                        name="Jane Doe",
-                        position_company="Developer Advocate, Example",
-                        media_type="image",
-                        tool_context=context,
-                    )
-                )
-                selected_id = first["scenarios"][0]["id"]
-                result = asyncio.run(
-                    create_video_card(
-                        talk_title="Talk",
-                        name="Jane Doe",
-                        position_company="Developer Advocate, Example",
-                        media_type="image",
-                        selected_scenario_id=selected_id,
-                        confirm_render=True,
-                        tool_context=context,
-                    )
-                )
-
-        self.assertEqual(first["status"], "awaiting_confirmation")
-        self.assertEqual(result["status"], "success")
-        self.assertEqual(result["assets"][0]["url"], "https://example.com/video.mp4")
-        self.assertEqual(context.state["video_editor_draft"], {})
-
-    @patch("agents.video_editor.tools.video_card_tool.generate_creative_scenarios")
-    def test_confirmation_is_invalidated_by_changed_creative_direction(self, mock_gen_scenarios):
-        from agents.video_editor.prompt_director import _build_fallback_scenarios
-
-        mock_gen_scenarios.return_value = _build_fallback_scenarios("Talk", "Jane Doe")
-        event = FakeEvent("upload", [FakePart(inline_data=FakeInlineData("image/png", b"image"))])
-        context = FakeToolContext({}, [event])
-        with patch.dict("os.environ", {"VIDEO_EDITOR_REQUIRE_CONFIRMATION": "true"}):
-            first = asyncio.run(
-                create_video_card(
-                    talk_title="Talk",
-                    name="Jane Doe",
-                    position_company="Developer Advocate, Example",
-                    media_type="image",
-                    tool_context=context,
-                )
-            )
-            result = asyncio.run(
-                create_video_card(
-                    talk_title="Talk",
-                    name="Jane Doe",
-                    position_company="Developer Advocate, Example",
-                    media_type="image",
-                    creative_direction="Warm studio lighting.",
-                    tool_context=context,
-                )
-            )
-
-        self.assertEqual(first["status"], "awaiting_confirmation")
-        self.assertEqual(result["status"], "awaiting_confirmation")
 
     def test_render_composer_session_state_blocks_when_all_disabled(self):
         mock_context = MagicMock()
@@ -715,81 +503,6 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         msg_no_notice = format_render_success_message(assets)
         self.assertTrue(msg_no_notice.startswith("Generation complete."))
 
-    def test_reopen_existing_card_preserves_exact_scenarios(self):
-        from agents.video_editor.prompt_director import CreativeScenario, VideoShot
-        from agents.video_editor.tools.video_card_tool import LAST_RENDERED_DRAFT_KEY
-
-        existing_shots = [
-            VideoShot(
-                shot_number=1,
-                time_range="00:00 - 00:02",
-                action="Protagonist inspects antique camera.",
-                camera="Close-up macro.",
-                lighting_atmosphere="Warm amber daylight.",
-            ),
-            VideoShot(
-                shot_number=2,
-                time_range="00:02 - 00:04",
-                action="Gears click and turn.",
-                camera="Rack focus.",
-                lighting_atmosphere="Golden haze.",
-            ),
-        ]
-        sample_sc = CreativeScenario(
-            id="sc_1",
-            title="Clockwork Voyage",
-            genre="Steampunk Industrial",
-            concept="Mechanical discovery.",
-            shots=existing_shots,
-            omni_prompt="Cinematic 9:16 Steampunk. Shot 1: Protagonist inspects antique camera.",
-        )
-        prior_draft = {
-            "title": "Architecting Agents",
-            "name": "Alex",
-            "position_company": "Lead AI Engineer",
-            "media": {"event_id": "upload_1", "part_index": 0, "mime_type": "image/png"},
-            "suggested_scenarios": [sample_sc.model_dump()],
-        }
-        context = FakeToolContext(
-            {
-                LAST_RENDERED_DRAFT_KEY: prior_draft,
-                "video_editor_draft": {},
-            },
-            [],
-        )
-
-        # Reopen with reopen_existing_card=True
-        result = asyncio.run(
-            create_video_card(
-                talk_title="Architecting Agents",
-                name="Alex",
-                position_company="Lead AI Engineer",
-                media_type="image",
-                reopen_existing_card=True,
-                tool_context=context,
-            )
-        )
-        self.assertEqual(result["status"], "awaiting_confirmation")
-        self.assertEqual(result["requested_action"], "select_scenario")
-        self.assertEqual(len(result["scenarios"]), 1)
-        self.assertEqual(result["scenarios"][0]["title"], "Clockwork Voyage")
-        self.assertIn("Clockwork Voyage", result["message"])
-
-        # Reopen with natural language keyword "повторить карточку"
-        result2 = asyncio.run(
-            create_video_card(
-                talk_title="Architecting Agents",
-                name="Alex",
-                position_company="Lead AI Engineer",
-                media_type="image",
-                creative_direction="повтори карточку из ui пожалуйста",
-                tool_context=context,
-            )
-        )
-        self.assertEqual(result2["status"], "awaiting_confirmation")
-        self.assertEqual(result2["requested_action"], "select_scenario")
-        self.assertEqual(result2["scenarios"][0]["title"], "Clockwork Voyage")
-
     @patch("agents.video_editor.tools.media_tools.get_gemini_api_key", return_value="test_key")
     @patch("agents.video_editor.tools.media_tools.requests.post")
     def test_generate_with_omni_retries_on_400_content_blocked(self, mock_post, mock_key):
@@ -857,9 +570,13 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         mock_context = MagicMock()
         mock_context.session.id = "session_123"
         mock_context.session.state = {"enable_video_generation": True}
-        mock_context.state = {
-            "video_generation_failure": "Gemini Omni Flash generation failed (429): spend-based rate limit exceeded",
-        }
+        mock_context.state = {}
+        failure_reason = "Gemini Omni Flash generation failed (429): spend-based rate limit exceeded"
+
+        def fake_animate(**kwargs):
+            kwargs["tool_context"].state["video_generation_failure"] = failure_reason
+            return "assets/portrait_outpainted.png"
+
         with (
             patch("agents.video_editor.video_card_service._review_metadata", return_value=None),
             patch("agents.video_editor.video_card_service.workflow.validate_render_environment", return_value=None),
@@ -871,12 +588,8 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             patch("agents.video_editor.video_card_service.workflow.validate_resolved_media", return_value=None),
             patch("agents.video_editor.video_card_service._review_face", return_value=None),
             patch(
-                "agents.video_editor.video_card_service.media_tools.outpaint_to_9_16",
-                return_value="assets/portrait_outpainted.png",
-            ),
-            patch(
                 "agents.video_editor.video_card_service.media_tools.animate_photo",
-                return_value="assets/portrait_outpainted.png",
+                side_effect=fake_animate,
             ),
             patch("agents.video_editor.video_card_service.workflow._read_video_duration", return_value=8),
             patch("agents.video_editor.video_card_service.composer_tools.update_composer"),
@@ -913,9 +626,13 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         mock_context = MagicMock()
         mock_context.session.id = "session_123"
         mock_context.session.state = {"enable_video_generation": True}
-        mock_context.state = {
-            "video_generation_failure": "Gemini Omni Flash generation failed (400): content_blocked",
-        }
+        mock_context.state = {}
+        failure_reason = "Gemini Omni Flash generation failed (400): content_blocked"
+
+        def fake_animate(**kwargs):
+            kwargs["tool_context"].state["video_generation_failure"] = failure_reason
+            return "assets/portrait_outpainted.png"
+
         with (
             patch("agents.video_editor.video_card_service._review_metadata", return_value=None),
             patch("agents.video_editor.video_card_service.workflow.validate_render_environment", return_value=None),
@@ -927,12 +644,8 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             patch("agents.video_editor.video_card_service.workflow.validate_resolved_media", return_value=None),
             patch("agents.video_editor.video_card_service._review_face", return_value=None),
             patch(
-                "agents.video_editor.video_card_service.media_tools.outpaint_to_9_16",
-                return_value="assets/portrait_outpainted.png",
-            ),
-            patch(
                 "agents.video_editor.video_card_service.media_tools.animate_photo",
-                return_value="assets/portrait_outpainted.png",
+                side_effect=fake_animate,
             ),
             patch("agents.video_editor.video_card_service.workflow._read_video_duration", return_value=8),
             patch("agents.video_editor.video_card_service.composer_tools.update_composer"),

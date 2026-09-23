@@ -1,4 +1,4 @@
-"""Run video-editor ADK chat evaluations for both confirmation configurations."""
+"""Run the video-editor ADK chat evaluations (offline rendering, only the chat model is called)."""
 
 from __future__ import annotations
 
@@ -14,21 +14,17 @@ EVAL_CONFIG = EVALUATION_DIRECTORY / "video_editor_chat_eval_config.json"
 
 
 def run(adk_command: str) -> int:
-    for value in ("false", "true"):
-        environment = os.environ | {"VIDEO_EDITOR_REQUIRE_CONFIRMATION": value}
-        command = [
-            *shlex.split(adk_command),
-            "eval",
-            str(EVALUATION_DIRECTORY),
-            str(EVAL_SET),
-            "--config_file_path",
-            str(EVAL_CONFIG),
-            "--print_detailed_results",
-        ]
-        process = subprocess.run(command, env=environment, check=False)
-        if process.returncode:
-            return process.returncode
-    return 0
+    environment = os.environ | {"VIDEO_EDITOR_OFFLINE": "true"}
+    command = [
+        *shlex.split(adk_command),
+        "eval",
+        str(EVALUATION_DIRECTORY),
+        str(EVAL_SET),
+        "--config_file_path",
+        str(EVAL_CONFIG),
+        "--print_detailed_results",
+    ]
+    return subprocess.run(command, env=environment, check=False).returncode
 
 
 def main() -> int:

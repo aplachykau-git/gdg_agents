@@ -726,6 +726,11 @@ export function getFriendlyToolCall(name, args) {
     transfer_to_agenda_generator: () => "Delegating task to Agenda Formatter...",
     transfer_to_office_secretary: () => "Delegating task to Office Secretary...",
 
+    update_speaker: (a) => a?.new_speaker ? "🪪 Starting a card for a new speaker..." : "🪪 Saving speaker details...",
+    propose_scenarios: (a) => a?.creative_guidance ? `🎬 Inventing new scenarios (${a.creative_guidance})...` : "🎬 Inventing 5 cinematic scenarios...",
+    show_scenarios: () => "🗂️ Reopening saved scenarios...",
+    render_video: (a) => a?.option ? `🎞️ Rendering option ${a.option}... (usually 1–3 min)` : "🎞️ Rendering speaker card... (usually 1–3 min)",
+    get_card_status: () => "🔎 Checking the saved card...",
     stage_uploaded_media: () => "📦 Staging attached media to workspace assets...",
     validate_metadata: (a) => `📏 Validating text character limits for "${a?.name || 'speaker'}"...`,
     verify_portrait_photo: () => "🔍 Running facial detection on portrait photo...",
@@ -804,6 +809,11 @@ export function getFriendlyToolResponse(name, response, args) {
     transfer_to_agenda_generator: () => "Workflow handed off to Agenda Formatter.",
     transfer_to_office_secretary: () => "Workflow handed off to Office Secretary.",
 
+    update_speaker: (r) => r?.missing_fields?.length ? `Details saved. Missing: ${r.missing_fields.join(', ')}` : "Speaker details saved.",
+    propose_scenarios: (r) => r?.scenarios?.length ? `${r.scenarios.length} scenarios ready.` : (r?.message || "Scenarios step finished."),
+    show_scenarios: (r) => r?.scenarios?.length ? "Saved scenarios reopened." : (r?.message || "No saved scenarios."),
+    render_video: (r) => r?.status === 'success' ? "Speaker card rendered." : (r?.message || "Render step finished."),
+    get_card_status: () => "Card status checked.",
     stage_uploaded_media: () => "Media staged in workspace assets.",
     validate_metadata: () => "Speaker details verified.",
     verify_portrait_photo: () => "Portrait photo verified.",
@@ -1565,4 +1575,64 @@ export function extractVideoScenarios(input) {
   }
 
   return scenarios;
+}
+
+// ---------------------------------------------------------------------------
+// Scenario decks: computed once per chat update in App.svelte instead of every
+// ChatMessage re-scanning the whole event list on every streamed token.
+
+export function getToolResponseScenarios(event) {
+  for (const part of event?.content?.parts || []) {
+    const response = (part.function_response || part.functionResponse)?.response;
+    if (!response) continue;
+    if (Array.isArray(response.scenarios) && response.scenarios.length > 0) return response.scenarios;
+    if (typeof response.message === 'string' && hasVideoScenarios(response.message)) return response.message;
+  }
+  return null;
+}
+
+/**
+ * Returns Map<eventIndex, {source, locked}>. A deck is anchored to the tool response that
+ * produced it (so it does not jump to the text message that streams in afterwards). Only the
+ * most recent deck is interactive; older ones are shown locked.
+ */
+export function computeScenarioDecks(events) {
+  const anchors = [];
+  let turnHasToolDeck = false;
+  (events || []).forEach((event, idx) => {
+    if (!event) return;
+    if (event.author === 'user') {
+      turnHasToolDeck = false;
+      return;
+    }
+    const fromTool = getToolResponseScenarios(event);
+    if (fromTool) {
+      anchors.push([idx, fromTool]);
+      turnHasToolDeck = true;
+      return;
+    }
+    if (!turnHasToolDeck) {
+      // Legacy sessions where the model repeated the scenario markdown as text.
+      const textPart = (event.content?.parts || []).find(p => p.text && hasVideoScenarios(p.text));
+      if (textPart) anchors.push([idx, textPart.text]);
+    }
+  });
+  const lastIdx = anchors.length ? anchors[anchors.length - 1][0] : -1;
+  return new Map(anchors.map(([idx, source]) => [idx, { source, locked: idx !== lastIdx }]));
+}
+
+const scenarioObjectCache = new WeakMap();
+const scenarioTextCache = new Map();
+
+export function extractVideoScenariosCached(source) {
+  if (!source) return [];
+  if (typeof source === 'object') {
+    if (!scenarioObjectCache.has(source)) scenarioObjectCache.set(source, extractVideoScenarios(source));
+    return scenarioObjectCache.get(source);
+  }
+  if (!scenarioTextCache.has(source)) {
+    if (scenarioTextCache.size > 30) scenarioTextCache.delete(scenarioTextCache.keys().next().value);
+    scenarioTextCache.set(source, extractVideoScenarios(source));
+  }
+  return scenarioTextCache.get(source);
 }

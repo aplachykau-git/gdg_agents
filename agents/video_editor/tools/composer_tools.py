@@ -318,10 +318,17 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
     # Check session state overrides from user frontend settings
     state = {}
     if tool_context:
-        if hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
-            state = tool_context.state
-        elif hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
-            state = tool_context.session.state or {}
+        if isinstance(tool_context, dict):
+            state = tool_context
+        else:
+            # ADK's State is not a dict: merge persisted session state with the live state delta.
+            session = getattr(tool_context, "session", None)
+            state = dict(getattr(session, "state", None) or {}) if session else {}
+            live = getattr(tool_context, "state", None)
+            if live is not None and hasattr(live, "to_dict"):
+                state.update(live.to_dict())
+            elif isinstance(live, dict):
+                state.update(live)
 
     if "render_4k" in state or "render4k" in state:
         val = state.get("render_4k") if "render_4k" in state else state.get("render4k")

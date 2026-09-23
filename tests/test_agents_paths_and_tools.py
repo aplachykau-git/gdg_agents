@@ -59,12 +59,15 @@ assert expected.issubset(agents), (agents, expected)
 
         self.assertIsNotNone(video_editor_agent)
         self.assertEqual(video_editor_agent.name, "video_editor")
-        self.assertEqual(len(video_editor_agent.tools), 1)
+        self.assertEqual(len(video_editor_agent.tools), 5)
 
     def test_video_editor_tool_is_registered(self):
         from agents.video_editor.agent import video_editor_agent
 
-        self.assertEqual(video_editor_agent.tools[0].__name__, "create_video_card")
+        self.assertEqual(
+            [tool.__name__ for tool in video_editor_agent.tools],
+            ["update_speaker", "propose_scenarios", "show_scenarios", "render_video", "get_card_status"],
+        )
 
     def test_receipt_scanner_agent_import(self):
         from agents.receipt_scanner.agent import receipt_agent

@@ -66,7 +66,7 @@ video-editor-evals: ## Run live ADK video-editor chat evaluations.
 
 video-editor-evals-all: ## Run video-editor unit tests, then live chat evaluations.
 	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
-	"$(UV_BIN)" run --locked --no-sync python -m unittest tests.test_video_editor_workflow -v
+	"$(UV_BIN)" run --locked --no-sync python -m unittest tests.test_video_editor_card_tools tests.test_video_editor_workflow tests.test_video_editor_prompt_director tests.test_video_editor_agent -v
 	@$(MAKE) video-editor-evals
 
 run-all: ## Start Video A2A, Receipt A2A, ADK web, and the frontend; Ctrl+C stops all.

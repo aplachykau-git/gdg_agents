@@ -51,6 +51,7 @@
     getAgentStarterPrompts,
     getAgentIconName,
     isIntermediateEvent,
+    computeScenarioDecks,
     getAppConfig,
     saveAppConfig,
     resolveAgentId,
@@ -259,6 +260,7 @@
   const filteredEvents = $derived(
     events.filter((e) => !isIntermediateEvent(e)),
   );
+  const scenarioDecks = $derived(computeScenarioDecks(filteredEvents));
 
   // Agent selector manual switch
   async function handleAgentChange(newApp) {
@@ -563,9 +565,83 @@
   }
 
   // Send Message / Run Agent
-  async function sendMessage() {
+  function sendMessage() {
     if (isLoading || isSubmitting) return;
     if (!queryText.trim() && stagedFiles.length === 0) return;
+    const text = queryText;
+    const files = [...stagedFiles];
+    queryText = "";
+    if (textareaElement) {
+      textareaElement.style.height = "auto";
+    }
+    stagedFiles = [];
+    return runTurn({ text, files });
+  }
+
+  // Send a message straight from an interactive card (e.g. the scenario deck).
+  // `extraState` travels as state_delta so tools can read structured choices
+  // instead of relying on the LLM to copy long prompts.
+  function sendDirect(text, extraState = null) {
+    if (isLoading || isSubmitting || !text?.trim()) return;
+    return runTurn({ text, files: [], extraState });
+  }
+
+  // Streaming events are coalesced and applied at most once per animation frame:
+  // re-rendering the whole chat for every token was what made the UI lag and jump.
+  let pendingStreamEvents = [];
+  let streamFlushRaf = null;
+
+  function mergeStreamEvent(list, eventObj) {
+    const existingIdx = eventObj.id ? list.findLastIndex((e) => e.id === eventObj.id) : -1;
+    if (existingIdx === -1) {
+      list.push(eventObj);
+      return;
+    }
+    if (eventObj.partial === false) {
+      // Final consolidated payload from ADK replaces the accumulated partial chunks.
+      list[existingIdx] = eventObj;
+      return;
+    }
+    const existingEv = list[existingIdx];
+    const newText = eventObj.content?.parts?.[0]?.text || "";
+    const prevText = existingEv.content?.parts?.[0]?.text || "";
+    list[existingIdx] = {
+      ...eventObj,
+      content: {
+        ...eventObj.content,
+        parts: [
+          {
+            ...(eventObj.content?.parts?.[0] || {}),
+            text: prevText + newText,
+          },
+        ],
+      },
+    };
+  }
+
+  function flushStreamEvents() {
+    streamFlushRaf = null;
+    if (pendingStreamEvents.length === 0) return;
+    const batch = pendingStreamEvents;
+    pendingStreamEvents = [];
+    const next = [...events];
+    for (const eventObj of batch) mergeStreamEvent(next, eventObj);
+    events = next;
+    if (!userHasScrolledUp) scrollToBottom(false);
+  }
+
+  function queueStreamEvent(eventObj) {
+    pendingStreamEvents.push(eventObj);
+    if (streamFlushRaf === null) {
+      streamFlushRaf =
+        typeof requestAnimationFrame === "function"
+          ? requestAnimationFrame(flushStreamEvents)
+          : setTimeout(flushStreamEvents, 16);
+    }
+  }
+
+  async function runTurn({ text, files, extraState = null }) {
+    if (isLoading || isSubmitting) return;
 
     if (currentAbortController) {
       try {
@@ -593,21 +669,13 @@
       }
     }
 
-    const currentText = queryText;
-    const currentFiles = [...stagedFiles];
-
-    queryText = "";
-    if (textareaElement) {
-      textareaElement.style.height = "auto";
-    }
-    stagedFiles = [];
     errorMsg = "";
     currentExecutingAgent = activeAgent || sessionOwnerApp || selectedApp || "root_agent";
     startStatusTicker(currentExecutingAgent);
 
     try {
       const parts = [];
-      currentFiles.forEach((f) => {
+      files.forEach((f) => {
         parts.push({
           inline_data: {
             mime_type: f.type,
@@ -615,8 +683,8 @@
           },
         });
       });
-      if (currentText.trim()) {
-        parts.push({ text: currentText });
+      if (text.trim()) {
+        parts.push({ text });
       }
 
       // Add user message to events list
@@ -631,7 +699,7 @@
       userHasScrolledUp = false;
       scrollToBottom(true);
 
-      const statePayload = getSessionStatePayload();
+      const statePayload = { ...getSessionStatePayload(), ...(extraState || {}) };
       let metadataHeader = "";
       if (statePayload.google_drive_folder_id) {
         metadataHeader += `[Target Drive Folder: ${statePayload.google_drive_folder_id}] `;
@@ -677,43 +745,7 @@
             }
           }
 
-          const existingIdx = eventObj.id
-            ? events.findIndex((e) => e.id === eventObj.id)
-            : -1;
-
-          if (existingIdx !== -1) {
-            // Existing event with same ID
-            const existingEv = events[existingIdx];
-            const updatedEvents = [...events];
-
-            if (eventObj.partial === false) {
-              // Final complete event emitted by ADK: replace with final consolidated payload
-              updatedEvents[existingIdx] = eventObj;
-            } else {
-              // Partial stream chunk: append text deltas
-              const newText = eventObj.content?.parts?.[0]?.text || "";
-              const prevText = existingEv.content?.parts?.[0]?.text || "";
-              updatedEvents[existingIdx] = {
-                ...eventObj,
-                content: {
-                  ...eventObj.content,
-                  parts: [
-                    {
-                      ...(eventObj.content?.parts?.[0] || {}),
-                      text: prevText + newText,
-                    },
-                  ],
-                },
-              };
-            }
-            events = updatedEvents;
-          } else {
-            // New event ID or first chunk
-            events = [...events, eventObj];
-          }
-          if (!userHasScrolledUp) {
-            scrollToBottom(false);
-          }
+          queueStreamEvent(eventObj);
         },
       });
     } catch (e) {
@@ -724,6 +756,12 @@
         errorMsg = e.message || "Execution failed";
       }
     } finally {
+      if (streamFlushRaf !== null) {
+        if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(streamFlushRaf);
+        clearTimeout(streamFlushRaf);
+        streamFlushRaf = null;
+      }
+      flushStreamEvents();
       isLoading = false;
       isSubmitting = false;
       currentAbortController = null;
@@ -1212,7 +1250,10 @@
                 {event}
                 index={idx}
                 allEvents={filteredEvents}
+                deck={scenarioDecks.get(idx) || null}
+                isBusy={isLoading}
                 onRefine={refineVariant}
+                onSend={sendDirect}
               />
             {/each}
 

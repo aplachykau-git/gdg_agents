@@ -22,12 +22,15 @@
   let { 
     scenarios = [], 
     isLocked = false,
+    isBusy = false,
     onSelect = () => {}, 
     onRegenerate = () => {} 
   } = $props();
 
   let userSelectedId = $state(null);
-  let isSubmitting = $state(false);
+  // Buttons are disabled while the agent is working; the deck stays usable afterwards
+  // so the user can render another option for the same speaker.
+  const isSubmitting = $derived(isBusy);
   let selectedId = $derived(userSelectedId ?? scenarios[0]?.id ?? '');
   let expandedMap = $state({});
   let customPrompts = $state({});
@@ -272,15 +275,31 @@
 
   function handleConfirmRender(sc, idx = 0) {
     if (isLocked || isSubmitting) return;
-    isSubmitting = true;
     const activeStyle = getActiveStyle(sc, idx);
-    const finalPrompt = (getPromptValue(sc, activeStyle) || activeStyle.omniPrompt || sc.omniPrompt || '').trim();
-    onSelect(`Please render video with scenario: ${sc.title} (${activeStyle.name} style). Creative direction: "${finalPrompt}"`);
+    const key = `${sc.id}_${activeStyle.id}`;
+    const defaultPrompt = (activeStyle.omniPrompt || sc.omniPrompt || '').trim();
+    const finalPrompt = (getPromptValue(sc, activeStyle) || defaultPrompt).trim();
+    // Styles synthesised in the browser are unknown to the backend, so their prompt must travel along.
+    const styleKnown = (scenarios[idx]?.styles || []).some(st => st.id === activeStyle.id && st.omniPrompt);
+    const edited = (customPrompts[key] !== undefined && finalPrompt !== defaultPrompt) || !styleKnown;
+    const number = sc.number || idx + 1;
+    let message = `Render option ${number}: ${sc.title} (${activeStyle.name} style).`;
+    if (edited) {
+      message += `\nEdited storyboard: "${finalPrompt}"`;
+    }
+    onSelect(message, {
+      video_editor_ui_selection: {
+        scenario_id: sc.id,
+        style_id: styleKnown ? activeStyle.id : null,
+        prompt: finalPrompt,
+        edited,
+      },
+    });
   }
 
   function handleRegenerateClick() {
     if (isLocked || isSubmitting) return;
-    onRegenerate("Please invent 5 new creative scenarios for this talk.");
+    onRegenerate("Please propose 5 new scenarios for the same speaker.");
   }
 
   function formatCompactTime(timeRange, sIdx) {

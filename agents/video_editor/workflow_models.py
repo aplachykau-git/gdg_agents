@@ -120,7 +120,7 @@ class RenderedAsset(BaseModel):
 
 
 class VideoCardToolResult(BaseModel):
-    status: Literal["success", "error", "awaiting_confirmation", "awaiting_scenario_selection"]
+    status: Literal["ok", "success", "error", "awaiting_confirmation", "awaiting_scenario_selection"]
     code: str | None = None
     message: str
     retryable: bool = True
@@ -139,6 +139,8 @@ class VideoCardToolResult(BaseModel):
     scenarios: list[CreativeScenario] = Field(default_factory=list)
     assets: list[RenderedAsset] = Field(default_factory=list)
     draft: VideoEditorDraft | None = None
+    speaker: dict[str, Any] | None = None
+    next_step: str | None = None
 
 
 class RenderResult(BaseModel):
