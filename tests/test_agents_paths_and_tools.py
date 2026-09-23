@@ -3,12 +3,13 @@ Comprehensive Integration Tests for Community AI Studio.
 Tests agent initialization, path resolution, tool resilience, and A2A cards.
 """
 
-import os
 import subprocess
 import sys
 import unittest
 import warnings
 from pathlib import Path
+
+from tests.network import requires_network
 
 # Suppress upstream Google ADK BaseAgentConfig deprecation warning
 warnings.filterwarnings("ignore", message=".*BaseAgentConfig.*")
@@ -129,7 +130,7 @@ class TestPathResolutions(unittest.TestCase):
     """Verifies that resolve_path functions handle varied relative and nested path formats correctly."""
 
     def test_registration_manager_resolve_path(self):
-        from agents.registration_manager.tools import BASE_DIR, resolve_path
+        from agents.registration_manager.tools import resolve_path
 
         # Test 1: Simple relative path inside agent
         res1 = resolve_path("results/staged_manual_registrations.csv")
@@ -184,10 +185,16 @@ class TestToolExecutionAndResilience(unittest.TestCase):
 
         # Process the newly staged file
         result = process_registrations(staged_path, capacity=2)
-        self.assertIsInstance(result, str)
-        self.assertIn("Confirmed Registrants", result)
-        self.assertIn("Waitlist", result)
+        self.assertIsInstance(result, dict)
+        self.assertIn("Confirmed Registrants", result["result"])
+        self.assertIn("Waitlist", result["result"])
+        # the roster is delivered as a structured UI payload, not as an HTML comment for the model to echo
+        self.assertNotIn("ATTENDEE_ROSTER_START", result["result"])
+        self.assertEqual(result["ui"]["type"], "document")
+        self.assertEqual(result["ui"]["kind"], "registration_roster")
+        self.assertIn("Jan Kowalski", result["ui"]["roster_text"])
 
+    @requires_network
     def test_get_usd_pln_rate(self):
         from agents.receipt_scanner.tools import get_usd_pln_rate
 
@@ -198,6 +205,7 @@ class TestToolExecutionAndResilience(unittest.TestCase):
         else:
             self.assertIn("error", res)
 
+    @requires_network
     def test_get_public_holidays(self):
         from agents.event_planner.tools import get_public_holidays
 

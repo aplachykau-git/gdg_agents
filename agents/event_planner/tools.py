@@ -1,4 +1,8 @@
+import logging
+
 import requests
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Tool: get_public_holidays
@@ -21,7 +25,7 @@ def get_public_holidays(year: int, country_code: str = "PL") -> dict:
     country_code = country_code.upper().strip()
     api_url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{country_code}"
     try:
-        print(f"[DEBUG] Fetching holidays for {year} (country: {country_code}) from Nager.Date API...")
+        logger.debug(f"[DEBUG] Fetching holidays for {year} (country: {country_code}) from Nager.Date API...")
         resp = requests.get(api_url, timeout=10)
         resp.raise_for_status()
         holidays_data = resp.json()
@@ -40,7 +44,7 @@ def get_public_holidays(year: int, country_code: str = "PL") -> dict:
         return {"success": True, "year": year, "country_code": country_code, "holidays": cleaned_holidays}
 
     except Exception as e:
-        print(f"[WARNING] Failed to fetch holidays from Nager.Date: {e}")
+        logger.warning(f"[WARNING] Failed to fetch holidays from Nager.Date: {e}")
         # Dynamic fallback based on country code
         if country_code == "PL":
             static_holidays = [
@@ -104,7 +108,7 @@ def search_local_tech_events(city: str = "Krakow", month: str = "", year: int = 
     }
 
     try:
-        print(f"[DEBUG] Searching local tech events for '{city}' in {month} {year}...")
+        logger.debug(f"[DEBUG] Searching local tech events for '{city}' in {month} {year}...")
         resp = requests.get(
             "https://html.duckduckgo.com/html/",
             params={"q": query},
@@ -149,7 +153,7 @@ def search_local_tech_events(city: str = "Krakow", month: str = "", year: int = 
             "events": events,
         }
     except Exception as e:
-        print(f"[WARNING] Local event search failed: {e}")
+        logger.warning(f"[WARNING] Local event search failed: {e}")
         return {
             "success": True,
             "city": city,

@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -5,6 +6,8 @@ import google.auth
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
+
+logger = logging.getLogger(__name__)
 
 SCOPES = [
     "https://www.googleapis.com/auth/documents",
@@ -62,7 +65,7 @@ def _try_oauth_token():
                 if creds and creds.valid:
                     return creds
             except Exception as err:
-                print(f"Notice: OAuth token load failed ({candidate}): {err}")
+                logger.warning(f"Notice: OAuth token load failed ({candidate}): {err}")
     return None
 
 
@@ -75,5 +78,5 @@ def _try_service_account():
             try:
                 return service_account.Credentials.from_service_account_file(str(candidate), scopes=SCOPES)
             except Exception as err:
-                print(f"Notice: Service account load failed ({candidate}): {err}")
+                logger.warning(f"Notice: Service account load failed ({candidate}): {err}")
     return None

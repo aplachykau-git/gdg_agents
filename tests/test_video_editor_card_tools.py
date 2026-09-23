@@ -310,6 +310,9 @@ class TestOfflineMode(unittest.TestCase):
             result = run(card_tools.render_video(option="1", tool_context=ctx))
         self.assertEqual(result["status"], "success")
         self.assertTrue(result["assets"][0]["url"].startswith("file://"))
+        self.assertEqual(result["ui"]["type"], "media")
+        self.assertTrue(result["ui"]["urls"]["video"].endswith("Video_example.mp4"))
+        self.assertEqual(result["ui"]["speaker"]["name"], "Jane Doe")
 
 
 class TestLegacyStateMigration(unittest.TestCase):

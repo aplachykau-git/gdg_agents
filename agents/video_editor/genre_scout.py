@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import json
-import os
+import logging
 import random
 import re
 import time
-from typing import Any, Sequence
+from typing import Any
 
 from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field
 
-from agents.gemini_config import get_gemini_client
+from agents.gemini_config import get_gemini_client, model_for
 
-GENRE_SCOUT_MODEL = os.getenv("VIDEO_GENRE_SCOUT_MODEL", "gemini-3.8-flash")
+logger = logging.getLogger(__name__)
+
+GENRE_SCOUT_MODEL = model_for("video_genre_scout", legacy_env="VIDEO_GENRE_SCOUT_MODEL")
 
 # Dynamic multidimensional catalysts organized into 5 diverse foundational pillars:
 # Pillar 1: Grounded Human Realism / European Cinema / Cozy Artisanal
@@ -390,10 +392,12 @@ def scout_creative_genres(
                 speaker_bio=speaker_bio,
             )
             if len(briefs) >= count:
-                print(f"🎬 [Genre Scout] Selected {len(briefs)} diverse cinematic profiles from taxonomy database")
+                logger.info(
+                    f"🎬 [Genre Scout] Selected {len(briefs)} diverse cinematic profiles from taxonomy database"
+                )
                 return briefs[:count]
         except Exception as e:
-            print(f"⚠️ [Genre Scout] Taxonomy sampler error ({e}), proceeding with stochastic matrix.")
+            logger.warning(f"⚠️ [Genre Scout] Taxonomy sampler error ({e}), proceeding with stochastic matrix.")
 
     client = get_gemini_client()
 
@@ -505,17 +509,19 @@ def scout_creative_genres(
                     )
 
             if len(briefs) >= count:
-                print(
+                logger.info(
                     f"🎨 [Genre Scout] Discovered {len(briefs)} radical genre concepts via Gemini ({GENRE_SCOUT_MODEL})"
                 )
                 return briefs[:count]
             elif briefs:
-                print(f"🎨 [Genre Scout] Produced {len(briefs)} briefs; padding to {count} with stochastic fallbacks.")
+                logger.info(
+                    f"🎨 [Genre Scout] Produced {len(briefs)} briefs; padding to {count} with stochastic fallbacks."
+                )
                 while len(briefs) < count:
                     briefs.append(_build_fallback_brief(talk_title, speaker_name, len(briefs) + 1, sampled_seeds))
                 return briefs
             else:
-                print("⚠️ [Genre Scout] Model returned no parseable genres. Using stochastic fallback matrix.")
+                logger.warning("⚠️ [Genre Scout] Model returned no parseable genres. Using stochastic fallback matrix.")
                 break
         except Exception as e:
             err_str = str(e).lower()
@@ -527,7 +533,7 @@ def scout_creative_genres(
                 time.sleep(delay)
                 delay *= 2
                 continue
-            print(f"⚠️ [Genre Scout] Generation failed: {e}. Falling back to stochastic archetype matrix.")
+            logger.warning(f"⚠️ [Genre Scout] Generation failed: {e}. Falling back to stochastic archetype matrix.")
             break
 
     return [_build_fallback_brief(talk_title, speaker_name, i + 1, sampled_seeds) for i in range(count)]

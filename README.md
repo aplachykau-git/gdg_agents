@@ -303,6 +303,36 @@ npm run video:render
 
 ---
 
+## 🧪 Local Development, Testing & Operations
+
+### Work without cloud costs
+- `VIDEO_EDITOR_OFFLINE=true` — the video editor uses built-in fallback scenarios and returns the bundled
+  sample video instead of calling Gemini Omni / HyperFrames (`VIDEO_EDITOR_OFFLINE_RENDER_SECONDS` simulates render time).
+- `VITE_DEV_AUTH_BYPASS=true npm run dev --prefix frontend` — skip Google sign-in locally (ignored in production builds).
+
+### Tests
+- `uv run --locked python -m unittest discover tests` — no network, no Gemini: conversations run through the real ADK
+  `Runner` with a scripted model (`tests/agent_harness.py`). Tests that hit real external APIs run only with `RUN_NETWORK_TESTS=1`.
+- `npm test --prefix frontend` — UI payload adapters, scenario decks and stream merging (`node --test`, no extra deps).
+
+### Structured UI payloads
+Cards in the UI (video, scenarios, LinkedIn variants, agenda, e-mail draft, meetup dates, documents) are rendered from a
+`ui` payload produced by the backend (`agents/common/ui_payloads.py`), not guessed from the model's wording:
+tool results carry `{"ui": {...}}`, text-only agents (LinkedIn, agenda) get it in `event.custom_metadata["ui"]`.
+The old regex parsers live in `frontend/src/lib/legacy/textParsers.js` and are used only for sessions recorded before this.
+
+### Persistent sessions
+Locally nothing is needed: sessions are kept in SQLite files under `agents/<agent>/.adk/` and survive restarts.
+In the cloud, `deploy/deploy_a2a_cloudrun.sh` reads a Postgres URI from the Secret Manager secret `session-service-uri`
+if it exists. Any Postgres works: a free-tier external one (store e.g. `postgresql+asyncpg://user:pass@host/db` in the
+secret) or Cloud SQL via `deploy/setup_sessions_db.sh` / `terraform apply -var enable_persistent_sessions=true` (paid).
+Without the secret each Cloud Run service is pinned to one instance and sessions live until the container restarts.
+
+### Models & logging
+- Models are configured in `agents/gemini_config.py`: `GEMINI_MODEL` for all text roles, or per role `MODEL_<ROLE>`
+  (e.g. `MODEL_VIDEO_EDITOR`, `MODEL_ROOT_AGENT`, `MODEL_VIDEO_OUTPAINT`).
+- `LOG_LEVEL` controls verbosity; on Cloud Run logs are JSON lines with proper severity (`LOG_FORMAT=json` forces it locally).
+
 ## 🧹 Code Quality & Style Formatting (Python)
 
 To keep the codebase clean, ordered, and formatted to a style guide (with a line length limit of **120 characters**), we use **Ruff** — an extremely fast Python linter and formatter configured via `pyproject.toml`.

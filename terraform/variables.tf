@@ -77,9 +77,9 @@ variable "service_account_id" {
 }
 
 variable "enable_persistent_sessions" {
-  description = "Store ADK sessions in Cloud SQL Postgres (survives restarts, allows scaling). ~10 USD/month for db-f1-micro."
+  description = "Store ADK sessions in Cloud SQL Postgres (survives restarts, allows scaling). Costs money (db-f1-micro); off by default."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "session_db_tier" {

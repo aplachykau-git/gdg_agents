@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
-import os
+import logging
 import re
 import time
 from typing import Any, Sequence
@@ -10,12 +10,14 @@ from typing import Any, Sequence
 from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field
 
-from agents.gemini_config import get_gemini_client
+from agents.gemini_config import get_gemini_client, model_for
 
 from .genre_scout import GenreBrief, scout_creative_genres
 from .workflow_models import CreativeScenario, ScenarioStyle, VideoShot
 
-PROMPT_DIRECTOR_MODEL = os.getenv("VIDEO_PROMPT_DIRECTOR_MODEL", "gemini-3.8-flash")
+logger = logging.getLogger(__name__)
+
+PROMPT_DIRECTOR_MODEL = model_for("video_prompt_director", legacy_env="VIDEO_PROMPT_DIRECTOR_MODEL")
 
 FORBIDDEN_TERMS = [
     "public speaking",
@@ -1303,7 +1305,7 @@ def direct_single_scenario(
                 time.sleep(delay)
                 delay *= 2.0
                 continue
-            print(f"⚠️ [Parallel Shot Director] Worker for '{genre.title}' failed: {e}")
+            logger.warning(f"⚠️ [Parallel Shot Director] Worker for '{genre.title}' failed: {e}")
             break
 
     return _build_single_scenario_from_genre(genre, idx, talk_title, speaker_name)
@@ -1348,12 +1350,12 @@ def direct_scenarios_from_genres(
                 sc = future.result()
                 results.append((idx, sc))
             except Exception as e:
-                print(f"⚠️ [Parallel Shot Director] Execution failed for genre index {idx}: {e}")
+                logger.warning(f"⚠️ [Parallel Shot Director] Execution failed for genre index {idx}: {e}")
                 results.append((idx, _build_single_scenario_from_genre(genres[idx - 1], idx, talk_title, speaker_name)))
 
     results.sort(key=lambda x: x[0])
     final_scenarios = [r[1] for r in results]
-    print(
+    logger.info(
         f"🎬 [Shot Director] Successfully directed {len(final_scenarios)} 5-shot scenarios concurrently via Gemini ({PROMPT_DIRECTOR_MODEL})"
     )
     return final_scenarios

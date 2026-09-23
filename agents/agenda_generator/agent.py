@@ -6,6 +6,9 @@ except ModuleNotFoundError:
     from bootstrap import initialise_agent_environment
 from google.adk import Agent
 
+from agents.common.ui_payloads import parse_agenda, text_ui_callback
+from agents.gemini_config import model_for
+
 initialise_agent_environment()
 
 community_name = os.getenv("COMMUNITY_NAME", "Community")
@@ -81,10 +84,11 @@ Please register on this page (RSVP), and bring your ID with you.
 """
 
 agenda_agent = Agent(
-    model="gemini-3.8-flash",
+    model=model_for("agenda_generator"),
     name="agenda_generator",
     description=f"Agent that drafts beautifully formatted, copy-pasteable {community_name} meetups agendas with exact visual structure and emojis.",
     instruction=INSTRUCTION,
+    after_model_callback=text_ui_callback(parse_agenda),
     tools=[],
 )
 

@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 from agents.video_editor.tools import media_tools
-from agents.video_editor.tools.composer_tools import build_card_config, render_composer, update_composer
+from agents.video_editor.tools.composer_tools import render_composer, update_composer
 from agents.video_editor.tools.media_tools import _safe_b64decode, animate_photo
 from agents.video_editor.tools.video_card_tool import format_render_success_message
 from agents.video_editor.video_card_service import (
@@ -26,14 +26,13 @@ from agents.video_editor.workflow import (
 )
 from agents.video_editor.workflow_models import (
     RenderedAsset,
-    RenderResult,
     ResolvedMedia,
     UploadedMedia,
     ValidationFailure,
     VideoEditorDraft,
     VideoEditorRequest,
 )
-from tests.video_editor_fakes import FakeEvent, FakeInlineData, FakePart, FakeToolContext  # noqa: E402
+from tests.video_editor_fakes import FakeToolContext  # noqa: E402
 
 
 class TestVideoEditorWorkflow(unittest.TestCase):

@@ -16,8 +16,6 @@ from pathlib import Path
 from google.adk.tools import ToolContext
 from google.genai import types
 
-from agents.gemini_config import get_gemini_client
-
 from . import workflow
 from .tools import composer_tools, media_tools
 from .workflow_models import (

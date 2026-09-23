@@ -2,7 +2,7 @@
 Unit and Integration Tests for Event Planner Agent and Tools.
 """
 
-import os
+import datetime as dt
 import sys
 import unittest
 from pathlib import Path
@@ -15,10 +15,10 @@ sys.path.insert(0, str(WORKSPACE_ROOT))
 
 from google.adk.runners import Runner
 from google.adk.sessions.in_memory_session_service import InMemorySessionService
-from google.genai import types
 
 from agents.event_planner.agent import planner_agent
 from agents.event_planner.tools import get_public_holidays
+from tests.agent_harness import AgentHarness, call, text
 
 
 class TestGetPublicHolidaysTool(unittest.TestCase):
@@ -100,39 +100,30 @@ class TestEventPlannerAgentIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(session)
         self.assertEqual(session.id, "planner_sess_01")
 
-    async def test_event_planner_runner_execution_flow(self):
-        session_service = InMemorySessionService()
-        runner = Runner(
-            app_name="event_planner_test",
-            agent=planner_agent,
-            session_service=session_service,
-            auto_create_session=True,
+
+class TestEventPlannerConversation(unittest.TestCase):
+    """Real ADK runner + scripted model: the dates card comes from a validated tool result."""
+
+    def test_rejects_weekend_and_presents_structured_dates(self):
+        today = dt.date.today()
+        wednesday = today + dt.timedelta(days=(2 - today.weekday()) % 7 + 14)
+        saturday = wednesday + dt.timedelta(days=3)
+
+        harness = AgentHarness(planner_agent)
+        harness.script(
+            call("present_meetup_dates", options=[{"date": saturday.isoformat(), "reason": "free evening"}]),
+            call("present_meetup_dates", options=[{"date": wednesday.isoformat(), "reason": "mid-week"}]),
+            text("Wednesday works best."),
         )
+        responses = AgentHarness.tool_responses(harness.say("Find a date for our meetup"), "present_meetup_dates")
 
-        community_name = os.getenv("COMMUNITY_NAME", "Community")
-        mock_event = MagicMock()
-        mock_event.content = types.Content(
-            role="model",
-            parts=[types.Part.from_text(text=f"I recommend Tuesday, June 9, 2026 for the {community_name} meetup.")],
-        )
-
-        async def fake_run_async(*args, **kwargs):
-            yield mock_event
-
-        with patch.object(runner, "run_async", side_effect=fake_run_async):
-            events = []
-            async for event in runner.run_async(
-                user_id="test_organizer",
-                session_id="planner_sess_02",
-                new_message=types.Content(
-                    role="user",
-                    parts=[types.Part.from_text(text="Find the best meetup date for June 2026 in Krakow.")],
-                ),
-            ):
-                events.append(event)
-
-            self.assertEqual(len(events), 1)
-            self.assertIn("Tuesday, June 9, 2026", events[0].content.parts[0].text)
+        self.assertEqual(responses[0]["status"], "error")
+        self.assertIn("Saturday", responses[0]["message"])
+        ui = responses[1]["ui"]
+        self.assertEqual(ui["type"], "meetup_dates")
+        self.assertEqual(ui["dates"][0]["date"], wednesday.isoformat())
+        self.assertEqual(ui["dates"][0]["weekday"], "Wednesday")
+        self.assertTrue(ui["dates"][0]["primary"])
 
 
 if __name__ == "__main__":

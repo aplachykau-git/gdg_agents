@@ -3,6 +3,8 @@ import os
 from google.adk import Agent
 from google.genai import types
 
+from agents.gemini_config import model_for
+
 try:
     from agents.bootstrap import initialise_agent_environment
 except ModuleNotFoundError:
@@ -68,7 +70,7 @@ No public-speaking imagery (stages, podiums, microphones, audiences).
 INSTRUCTION = INSTRUCTION_TEMPLATE.format(typo_instruction=typo_instruction())
 
 video_editor_agent = Agent(
-    model="gemini-3.8-flash",
+    model=model_for("video_editor"),
     name="video_editor",
     description="Conversational speaker-card video editor with deterministic rendering.",
     instruction=INSTRUCTION,

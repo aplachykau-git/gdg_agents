@@ -22,7 +22,7 @@ try:
 except ModuleNotFoundError:
     from bootstrap import initialise_agent_environment
 
-from agents.gemini_config import get_gemini_client
+from agents.gemini_config import get_gemini_client, model_for
 
 from .tools import composer_tools, media_tools
 from .workflow_models import (
@@ -43,7 +43,7 @@ initialise_agent_environment()
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INTAKE_MODEL = "gemini-3.8-flash"
+INTAKE_MODEL = model_for("video_review")
 MAX_TITLE_LEN = int(os.getenv("VIDEO_EDITOR_MAX_TITLE_LEN", "110"))
 MAX_NAME_LEN = int(os.getenv("VIDEO_EDITOR_MAX_NAME_LEN", "50"))
 MAX_POSITION_COMPANY_LEN = int(os.getenv("VIDEO_EDITOR_MAX_POSITION_COMPANY_LEN", "80"))

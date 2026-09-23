@@ -7,6 +7,8 @@ except ModuleNotFoundError:
     from bootstrap import initialise_agent_environment
 from google.adk import Agent
 
+from agents.gemini_config import model_for
+
 from .tools import export_summary_to_google_doc, get_usd_pln_rate, read_receipt_file
 
 initialise_agent_environment()
@@ -76,7 +78,7 @@ You MUST automatically determine the title of the document using the following r
 """
 
 receipt_agent = Agent(
-    model="gemini-3.8-flash",
+    model=model_for("receipt_scanner"),
     name="receipt_scanner",
     description=(
         "Agent for recognizing receipts and invoices. "

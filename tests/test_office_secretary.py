@@ -24,7 +24,7 @@ class TestOfficeSecretaryAgent(unittest.TestCase):
     def test_office_agent_structure(self):
         self.assertIsNotNone(office_agent)
         self.assertEqual(office_agent.name, "office_secretary")
-        self.assertEqual(office_agent.tools, [])
+        self.assertEqual([tool.__name__ for tool in office_agent.tools], ["present_email_draft"])
 
 
 class TestOfficeSecretaryIntegration(unittest.IsolatedAsyncioTestCase):

@@ -1,13 +1,18 @@
+import logging
 import os
 import sys
 import warnings
 
 from google.adk import Agent
 
+from agents.gemini_config import model_for
+
 try:
     from agents.bootstrap import initialise_agent_environment
 except ModuleNotFoundError:
     from bootstrap import initialise_agent_environment
+
+logger = logging.getLogger(__name__)
 
 
 # Suppress upstream Google ADK BaseAgentConfig deprecation warning
@@ -63,7 +68,7 @@ receipt_a2a_url = os.getenv("RECEIPT_AGENT_A2A_URL")
 if receipt_a2a_url:
     try:
         card_url = f"{receipt_a2a_url.rstrip('/')}{AGENT_CARD_WELL_KNOWN_PATH}"
-        print(f"🔗 [A2A Connected] receipt_scanner agent linked via A2A at: {card_url}")
+        logger.info(f"🔗 [A2A Connected] receipt_scanner agent linked via A2A at: {card_url}")
         receipt_agent = RemoteA2aAgent(
             name="receipt_scanner",
             description="Agent for recognizing receipts and invoices. Natively analyzes images and PDFs using gemini-3.8-flash, converts to PLN and USD using live banking exchange rates, exports reports to Google Docs.",
@@ -72,7 +77,7 @@ if receipt_a2a_url:
             timeout=600.0,
         )
     except Exception as e:
-        print(f"⚠️ Failed to connect receipt_scanner over A2A ({e}). Falling back to local sub-agent.")
+        logger.warning(f"⚠️ Failed to connect receipt_scanner over A2A ({e}). Falling back to local sub-agent.")
 
 community_name = os.getenv("COMMUNITY_NAME", "Community")
 
@@ -148,7 +153,7 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
 """
 
 root_agent = Agent(
-    model="gemini-3.8-flash",
+    model=model_for("root_agent"),
     name="root_agent",
     description=f"Root coordinator agent for Community AI Studio ({community_name})",
     instruction=INSTRUCTION,

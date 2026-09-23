@@ -12,10 +12,13 @@ database configured with ``SESSION_SERVICE_URI``:
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import json
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from google.adk.agents.base_agent import BaseAgent
 from google.adk.artifacts.in_memory_artifact_service import InMemoryArtifactService
@@ -90,10 +93,34 @@ class DynamicAgentCardOriginMiddleware(BaseHTTPMiddleware):
         return Response(content=body, status_code=response.status_code, headers=headers, media_type="application/json")
 
 
+def build_streaming_agent_card(agent: BaseAgent, rpc_url: str) -> Any:
+    """Agent card that advertises streaming.
+
+    With ``streaming=False`` (ADK's default) the calling root agent receives only the final
+    answer of the remote agent, so intermediate tool results - e.g. the video editor's scenario
+    cards - never reach the UI. Streaming forwards every event of the remote run.
+    """
+    from a2a.types import AgentCapabilities
+    from google.adk.a2a.utils.agent_card_builder import AgentCardBuilder
+
+    builder = AgentCardBuilder(agent=agent, rpc_url=rpc_url, capabilities=AgentCapabilities(streaming=True))
+    # build() is async; run it on a private loop so this also works while uvicorn's loop is running.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, builder.build()).result()
+
+
 def build_a2a_app(agent: BaseAgent, *, local_name: str, host: str, port: int, protocol: str) -> Starlette:
-    """A2A Starlette app with persistent sessions and origin-aware agent card."""
+    """A2A Starlette app with persistent sessions, streaming, and an origin-aware agent card."""
     from google.adk.a2a.utils.agent_to_a2a import to_a2a
 
-    app = to_a2a(agent=agent, host=host, port=port, protocol=protocol, runner=build_runner(agent, local_name))
+    card = build_streaming_agent_card(agent, f"{protocol}://{host}:{port}/")
+    app = to_a2a(
+        agent=agent,
+        host=host,
+        port=port,
+        protocol=protocol,
+        agent_card=card,
+        runner=build_runner(agent, local_name),
+    )
     app.add_middleware(DynamicAgentCardOriginMiddleware)
     return app

@@ -2,15 +2,15 @@ import base64
 import datetime
 import io
 import json
+import logging
 import mimetypes
 import os
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Callable, List, Optional
 
 import requests
-from google import genai
 from google.adk.tools import ToolContext
 from google.genai import types
 
@@ -27,11 +27,10 @@ except ImportError:
     MediaFileUpload = None
     MediaIoBaseUpload = None
 
-from agents.common.storage import upload_bytes_to_storage
-from agents.gemini_config import get_gemini_client
+from agents.common import ui_payloads
+from agents.gemini_config import get_gemini_client, model_for
 
-from .docx_generator import generate_expense_report_docx
-from .utils import _auto_rotate_image, _pdf_to_png_screenshot
+logger = logging.getLogger(__name__)
 
 
 def extract_google_drive_folder_id(raw_input: Optional[str]) -> Optional[str]:
@@ -143,7 +142,7 @@ def _fetch_pekao_pln_rate(currency: str) -> dict:
     currency = currency.upper().strip()
     pekao_url = "https://www.pekao.com.pl/kursy-walut.html"
     try:
-        print(f"[DEBUG] Attempting to fetch {currency}/PLN rate from Pekao bank...")
+        logger.debug(f"[DEBUG] Attempting to fetch {currency}/PLN rate from Pekao bank...")
         resp = requests.get(
             pekao_url,
             headers={"User-Agent": "Mozilla/5.0"},
@@ -176,7 +175,7 @@ def _fetch_pekao_pln_rate(currency: str) -> dict:
         }
 
     except Exception as pekao_err:
-        print(f"[WARNING] Pekao {currency} rate fetch failed: {pekao_err}. Falling back to NBP API...")
+        logger.warning(f"[WARNING] Pekao {currency} rate fetch failed: {pekao_err}. Falling back to NBP API...")
 
         # Fallback: Official NBP API (Table C contains buy/sell rates)
         currency_lower = currency.lower()
@@ -266,7 +265,7 @@ def get_nbp_rate(currency: str) -> float:
         data = resp.json()
         return float(data["rates"][-1]["mid"])
     except Exception as err:
-        print(
+        logger.warning(
             f"[WARNING] Failed to fetch {currency}/PLN rate from NBP Table A: {err}. Falling back to default/cached values."
         )
         # Common defaults in case NBP is entirely offline (rough estimates)
@@ -371,8 +370,8 @@ def read_receipt_file(file_path: str) -> dict:
     path = Path(file_path).expanduser().resolve()
 
     if not path.exists():
-        print(f"[DEBUG] File not found at resolved path: {path}")
-        print(f"[DEBUG] Current working directory: {os.getcwd()}")
+        logger.debug(f"[DEBUG] File not found at resolved path: {path}")
+        logger.debug(f"[DEBUG] Current working directory: {os.getcwd()}")
 
         # Self-healing search across the workspace and parent directories
         found_path = None
@@ -383,18 +382,18 @@ def read_receipt_file(file_path: str) -> dict:
         target_name = Path(file_path).name
 
         for sd in search_dirs:
-            print(f"[DEBUG] Searching for '{target_name}' in {sd}...")
+            logger.debug(f"[DEBUG] Searching for '{target_name}' in {sd}...")
             try:
                 matches = list(sd.rglob(target_name))
                 if matches:
                     # Sort matches by modification time descending
                     matches.sort(key=lambda p: p.stat().st_mtime if p.exists() else 0, reverse=True)
                     found_path = matches[0]
-                    print(f"[DEBUG] Self-healing path resolution! Located at: {found_path}")
+                    logger.debug(f"[DEBUG] Self-healing path resolution! Located at: {found_path}")
                     path = found_path
                     break
             except Exception as search_err:
-                print(f"[DEBUG] Search error in {sd}: {search_err}")
+                logger.debug(f"[DEBUG] Search error in {sd}: {search_err}")
 
         if not path.exists():
             # Gather nearby files up to depth 2 for diagnostic feedback
@@ -457,7 +456,7 @@ def read_receipt_file(file_path: str) -> dict:
             "Perform this extraction with maximum accuracy and detail."
         )
 
-        model = os.getenv("RECEIPT_SCANNER_MODEL", "gemini-3.8-flash")
+        model = model_for("receipt_ocr", legacy_env="RECEIPT_SCANNER_MODEL")
         response = client.models.generate_content(
             model=model,
             contents=[
@@ -689,9 +688,9 @@ def export_summary_to_google_doc(
                     from google.oauth2.credentials import Credentials
 
                     credentials = Credentials(token=user_token)
-                    print("🔑 [Google Drive Auth] Successfully loaded user's personal Google OAuth access token!")
+                    logger.info("🔑 [Google Drive Auth] Successfully loaded user's personal Google OAuth access token!")
                 except Exception as oauth_err:
-                    print(f"⚠️ [Google Drive Auth] Failed to initialize user OAuth credentials: {oauth_err}")
+                    logger.warning(f"⚠️ [Google Drive Auth] Failed to initialize user OAuth credentials: {oauth_err}")
 
             if not credentials:
                 credentials = get_google_credentials()
@@ -724,7 +723,9 @@ def export_summary_to_google_doc(
                     active_template = "1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw"
 
                 active_template = extract_google_doc_id(active_template) or active_template
-                print(f"📁 [Google Docs Export] Target Drive Folder: {target_folder}, Template ID: {active_template}")
+                logger.info(
+                    f"📁 [Google Docs Export] Target Drive Folder: {target_folder}, Template ID: {active_template}"
+                )
 
                 copy_body = {"name": doc_title}
                 if target_folder:
@@ -742,15 +743,15 @@ def export_summary_to_google_doc(
                     initial_text = _extract_text_from_gdoc(initial_doc)
                     missing_tags = [tag for tag in REQUIRED_TEMPLATE_TAGS if tag not in initial_text]
                     if missing_tags:
-                        print(
+                        logger.warning(
                             f"⚠️ [Template Validation Warning] Template {active_template} is missing required tags: {', '.join(missing_tags)}"
                         )
                     else:
-                        print(
+                        logger.info(
                             f"✅ [Template Validation] All required template tags verified in template {active_template}"
                         )
                 except Exception as val_err:
-                    print(f"Notice: Template tag pre-check: {val_err}")
+                    logger.warning(f"Notice: Template tag pre-check: {val_err}")
 
                 try:
                     drive_service.permissions().create(
@@ -760,7 +761,7 @@ def export_summary_to_google_doc(
                         supportsAllDrives=True,
                     ).execute()
                 except Exception as perm_err:
-                    print(f"Notice: Public link permission creation: {perm_err}")
+                    logger.warning(f"Notice: Public link permission creation: {perm_err}")
 
                 today_str = datetime.date.today().strftime("%d.%m.%Y")
                 total_curr_str, total_target_str = calculate_receipt_totals(receipts_data, target_currency)
@@ -809,13 +810,13 @@ def export_summary_to_google_doc(
                                         supportsAllDrives=True,
                                     ).execute()
                                 except Exception as perm_err:
-                                    print(
+                                    logger.warning(
                                         f"⚠️ [Google Drive Proof Upload Notice] Could not make proof image "
                                         f"'{proof_id}' publicly viewable: {perm_err}"
                                     )
                                 uploaded_proof_ids.append(proof_id)
                     except Exception as upload_err:
-                        print(f"⚠️ [Google Drive Proof Upload Notice] {upload_err}")
+                        logger.warning(f"⚠️ [Google Drive Proof Upload Notice] {upload_err}")
 
                 global_replaces = [
                     ("{{TITLE}}", title),
@@ -846,7 +847,7 @@ def export_summary_to_google_doc(
                 docs_service.documents().batchUpdate(
                     documentId=google_doc_id, body={"requests": gdoc_requests}
                 ).execute()
-                print(f"✅ [Google Docs API] Successfully populated template text: {google_doc_url}")
+                logger.info(f"✅ [Google Docs API] Successfully populated template text: {google_doc_url}")
 
                 # Directly embed inline images into the Google Doc
                 for idx, proof_id in enumerate(uploaded_proof_ids):
@@ -866,9 +867,9 @@ def export_summary_to_google_doc(
                         docs_service.documents().batchUpdate(
                             documentId=google_doc_id, body={"requests": [image_req]}
                         ).execute()
-                        print(f"✅ [Google Docs API] Embedded inline proof image #{idx + 1} directly into doc.")
+                        logger.info(f"✅ [Google Docs API] Embedded inline proof image #{idx + 1} directly into doc.")
                     except Exception as embed_err:
-                        print(f"⚠️ [Google Docs Image Embed Notice] {embed_err}")
+                        logger.warning(f"⚠️ [Google Docs Image Embed Notice] {embed_err}")
                         try:
                             fallback_uri = f"https://drive.google.com/uc?export=download&id={proof_id}"
                             docs_service.documents().batchUpdate(
@@ -879,11 +880,13 @@ def export_summary_to_google_doc(
                                     ]
                                 },
                             ).execute()
-                            print(f"✅ [Google Docs API] Embedded inline proof image #{idx + 1} using fallback URI.")
+                            logger.info(
+                                f"✅ [Google Docs API] Embedded inline proof image #{idx + 1} using fallback URI."
+                            )
                         except Exception as fb_err:
-                            print(f"⚠️ [Google Docs Image Fallback Notice] {fb_err}")
+                            logger.warning(f"⚠️ [Google Docs Image Fallback Notice] {fb_err}")
         except Exception as gdoc_err:
-            print(f"⚠️ [Google Docs API Error] {gdoc_err}")
+            logger.warning(f"⚠️ [Google Docs API Error] {gdoc_err}")
             return {
                 "success": False,
                 "error": "GOOGLE_DOCS_ACCESS_ERROR",
@@ -913,6 +916,13 @@ def export_summary_to_google_doc(
             "exchange_rate": rate_val,
             "receipts_count": len(receipts_data or []),
             "message": f"Successfully generated Expense Reimbursement report in Google Docs: [{title}]({google_doc_url})",
+            "ui": ui_payloads.document(
+                google_doc_url,
+                title=title,
+                kind="expense_report",
+                file_type="Google Docs",
+                filename=title,
+            ),
         }
 
     except Exception as e:

@@ -9,6 +9,10 @@ initialise_agent_environment()
 
 from google.adk import Agent
 
+from agents.gemini_config import model_for
+
+from .tools import present_email_draft
+
 community_name = os.getenv("COMMUNITY_NAME", "Community")
 
 INSTRUCTION = f"""You are the {community_name} Office Secretary Agent.
@@ -79,16 +83,22 @@ You support two types of requests:
 4. **Tone**:
    - Maintain a highly polite, cooperative, and professional tone in all templates.
 
+## 📨 Output:
+- When the e-mail is complete, call `present_email_draft(subject, body)` with the final subject and body.
+  The user sees it as an e-mail card with copy / Gmail buttons. Afterwards reply with one short sentence
+  (e.g. what to double-check); do NOT repeat the e-mail text.
+- If the date is missing, do not call the tool; ask for the date instead.
+
 ## 🔄 Task Delegation & Root Orchestrator Handoff:
 - If the user asks for a task that does NOT belong to office admin requests or space reservations (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, registration lists, date planning, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main Root Orchestrator can route it to the appropriate specialist.
 """
 
 office_agent = Agent(
-    model="gemini-3.8-flash",
+    model=model_for("office_secretary"),
     name="office_secretary",
     description=f"Agent that generates polite templated emails for {community_name} office administration and space reservations.",
     instruction=INSTRUCTION,
-    tools=[],
+    tools=[present_email_draft],
 )
 
 # ADK Entry point

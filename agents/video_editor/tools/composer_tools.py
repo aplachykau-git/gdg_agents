@@ -1,6 +1,7 @@
 import datetime
 import glob
 import json
+import logging
 import os
 import random
 import re
@@ -11,6 +12,8 @@ from typing import Any, Optional
 from PIL import Image, ImageDraw
 
 from agents.common.storage import upload_file_to_storage
+
+logger = logging.getLogger(__name__)
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -82,9 +85,9 @@ def restore_default_placeholder(force: bool = False):
         d.ellipse([(175, 120), (325, 270)], fill="#333333")
         d.ellipse([(100, 310), (400, 500)], fill="#333333")
         img.save(placeholder_path, "PNG")
-        print(f"✅ [Placeholder] Restored generic placeholder image to '{placeholder_path}'")
+        logger.info(f"✅ [Placeholder] Restored generic placeholder image to '{placeholder_path}'")
     except Exception as e:
-        print(f"⚠️ [Placeholder] Failed to restore generic placeholder: {e}")
+        logger.warning(f"⚠️ [Placeholder] Failed to restore generic placeholder: {e}")
 
 
 def build_card_config(title: str, name: str, position_company: str, year: int) -> str:
@@ -137,14 +140,14 @@ def update_composer(
         except Exception:
             pass
 
-    print("\n✍️ [Tool: update_composer] Inserting new details into index.html")
-    print(f'   ├─ Title: "{title}"')
-    print(f'   ├─ Name: "{name}"')
-    print(f'   ├─ Position & Company: "{position_company}"')
-    print(
+    logger.info("✍️ [Tool: update_composer] Inserting new details into index.html")
+    logger.info(f'   ├─ Title: "{title}"')
+    logger.info(f'   ├─ Name: "{name}"')
+    logger.info(f'   ├─ Position & Company: "{position_company}"')
+    logger.info(
         f"   ├─ Duration: {target_duration}s ({'Omni 10s' if 'video_example' in video_path.lower() else f'Video {target_duration}s'})"
     )
-    print(f'   └─ Video: "{video_path}"')
+    logger.info(f'   └─ Video: "{video_path}"')
 
     target_file = resolve_path("index.html")
     if not os.path.exists(target_file):
@@ -213,11 +216,11 @@ def update_composer(
             pill_color = selected_colors[2]
             hexagon_color = selected_colors[3]
 
-        print("🎨 [Color Randomizer] Selected random Google palette colors:")
-        print(f"   ├─ breaks: {break_color}")
-        print(f"   ├─ circle: {circle_color}")
-        print(f"   ├─ pill: {pill_color}")
-        print(f"   └─ hexagon: {hexagon_color}")
+        logger.info("🎨 [Color Randomizer] Selected random Google palette colors:")
+        logger.info(f"   ├─ breaks: {break_color}")
+        logger.info(f"   ├─ circle: {circle_color}")
+        logger.info(f"   ├─ pill: {pill_color}")
+        logger.info(f"   └─ hexagon: {hexagon_color}")
 
         # Safely replace fill/stroke attributes for breaks, circle, pill and hexagon
         break_1_pattern = r'(<path\s+id="break_1"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
@@ -240,7 +243,7 @@ def update_composer(
         year_pattern = r'(<text\s+id="pill-text"[^>]*?>)(\d{4})(</text>)'
         content, count_year = re.subn(year_pattern, lambda m: f"{m.group(1)}{current_year}{m.group(3)}", content)
 
-        print(
+        logger.info(
             f"   └─ Updated elements: break_1 ({count1}), break_2 ({count2}), circle ({count3}), pill badge ({count4}), hexagon ({count5}), year text ({count_year} -> {current_year}), duration: {target_duration}s"
         )
         color_details = f"breaks: {break_color}, circle: {circle_color}, pill: {pill_color}, hexagon: {hexagon_color}, year: {current_year}"
@@ -260,10 +263,10 @@ def update_composer(
             dot_2_color = dots_color
             dot_3_color = dots_color
 
-        print("🎨 [Color Randomizer] DevFest template: Selected random Google palette colors:")
-        print(f"   ├─ breaks: {break_color}")
-        print(f"   ├─ dots: {dots_color}")
-        print("   └─ krakow pill: #FFFFFF (preserved canonical)")
+        logger.info("🎨 [Color Randomizer] DevFest template: Selected random Google palette colors:")
+        logger.info(f"   ├─ breaks: {break_color}")
+        logger.info(f"   ├─ dots: {dots_color}")
+        logger.info("   └─ krakow pill: #FFFFFF (preserved canonical)")
 
         # Replace fill attributes for brackets (break_1, break_2) and dots (dot_1, dot_2, dot_3)
         break_1_pattern = r'(<path\s+id="break_1"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
@@ -281,7 +284,7 @@ def update_composer(
         dot_3_pattern = r'(<circle\s+id="dot_3"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
         content, count_d3 = re.subn(dot_3_pattern, lambda m: f"{m.group(1)}{dot_3_color}{m.group(3)}", content)
 
-        print(
+        logger.info(
             f"   └─ Updated DevFest elements: break_1 ({count1}), break_2 ({count2}), dot_1 ({count_d1}), dot_2 ({count_d2}), dot_3 ({count_d3}), duration: {target_duration}s"
         )
         color_details = f"breaks: {break_color}, dots: {dots_color}"
@@ -297,7 +300,7 @@ def update_composer(
 
 def render_composer(tool_context: Optional[Any] = None) -> str:
     """Executes the HyperFrames compiler to render the updated composition into configured high-quality formats sequentially."""
-    print("\n🚀 [Tool: render_composer] Starting sequential HyperFrames rendering pipeline...")
+    logger.info("🚀 [Tool: render_composer] Starting sequential HyperFrames rendering pipeline...")
 
     render_ordinary = (
         os.getenv("RENDER_ORDINARY", "").lower() in ("true", "1", "yes")
@@ -343,20 +346,20 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
         if val is not None:
             render_ordinary = bool(val)
 
-    print(f"⚙️  [Render Config] 4K: {render_4k}, GIF: {render_gif}, 1080p: {render_ordinary}")
+    logger.info(f"⚙️  [Render Config] 4K: {render_4k}, GIF: {render_gif}, 1080p: {render_ordinary}")
 
     # 1. Block rendering if everything is turned off
     if not render_ordinary and not render_gif and not render_4k:
         error_msg = "All rendering options are disabled in configuration! Enable at least one (Ordinary, GIF, or 4K) in settings."
-        print(f"❌ [Render Blocked] {error_msg}")
+        logger.warning(f"❌ [Render Blocked] {error_msg}")
         raise ValueError(error_msg)
 
     # 2. Check if ffmpeg is installed
     ffmpeg_installed = shutil.which("ffmpeg") is not None
     if ffmpeg_installed:
-        print(f"✅ [System] ffmpeg detected at: {shutil.which('ffmpeg')}")
+        logger.info(f"✅ [System] ffmpeg detected at: {shutil.which('ffmpeg')}")
     else:
-        print("⚠️ [System] ffmpeg NOT found. Audio stripping and GIF conversion will be skipped.")
+        logger.warning("⚠️ [System] ffmpeg NOT found. Audio stripping and GIF conversion will be skipped.")
 
     # 3. Extract speaker name from index.html and generate timestamp
     speaker_name = "speaker"
@@ -369,23 +372,25 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
             if name_match:
                 speaker_name = name_match.group(1)
     except Exception as e:
-        print(f"⚠️ [Naming] Could not parse speaker name from index.html: {e}")
+        logger.warning(f"⚠️ [Naming] Could not parse speaker name from index.html: {e}")
 
     speaker_name_clean = re.sub(r"[^\w\u0400-\u04FF]+", "_", speaker_name.strip().lower()).strip("_")
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-    print(f'🏷️  [Naming Config] Speaker name: "{speaker_name}" -> clean: "{speaker_name_clean}"')
-    print(f"⏱️  [Naming Config] Synchronized timestamp: {timestamp}")
+    logger.info(f'🏷️  [Naming Config] Speaker name: "{speaker_name}" -> clean: "{speaker_name_clean}"')
+    logger.info(f"⏱️  [Naming Config] Synchronized timestamp: {timestamp}")
 
     rendered_files = []
     ordinary_file = ""
+    # Referenced by the poster step even when the base render failed; must always exist.
+    target_4k_name = None
     gif_file = ""
 
     # ============================================================================
     # PIPELINE 1: BASE COMPOSITION RENDERING (1080p)
     # ============================================================================
     # We always render the base 1080p composition first via HyperFrames (fast & reliable).
-    print("\n🎬 [Render Step 1/2] Rendering vector composition...")
+    logger.info("🎬 [Render Step 1/2] Rendering vector composition...")
     render_env = {
         **os.environ,
         "PRODUCER_LOW_MEMORY_MODE": "true",
@@ -402,7 +407,7 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
     )
 
     if result.returncode == 0:
-        print("🎉 [Base Render successful!]")
+        logger.info("🎉 [Base Render successful!]")
         output_lines = result.stdout.split("\n")
         local_ordinary_file = ""
         for line in output_lines:
@@ -423,38 +428,38 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
             # Strip audio
             if ffmpeg_installed:
                 temp_no_audio = local_ordinary_file.rsplit(".", 1)[0] + "_no_audio.mp4"
-                print(f"🔇 [Audio] Stripping audio from render '{local_ordinary_file}'...")
+                logger.info(f"🔇 [Audio] Stripping audio from render '{local_ordinary_file}'...")
                 try:
                     strip_cmd = ["ffmpeg", "-y", "-i", local_ordinary_file, "-an", "-c:v", "copy", temp_no_audio]
                     strip_result = subprocess.run(strip_cmd, capture_output=True, text=True, cwd=BASE_DIR)
                     if strip_result.returncode == 0 and os.path.exists(temp_no_audio):
                         os.replace(temp_no_audio, local_ordinary_file)
-                        print(f"✅ [Audio] Audio stripped from '{local_ordinary_file}'!")
+                        logger.info(f"✅ [Audio] Audio stripped from '{local_ordinary_file}'!")
                     else:
-                        print(f"⚠️ [Audio] ffmpeg failed to strip audio: {strip_result.stderr}")
+                        logger.warning(f"⚠️ [Audio] ffmpeg failed to strip audio: {strip_result.stderr}")
                 except Exception as e:
-                    print(f"⚠️ [Audio] Failed to strip audio: {e}")
+                    logger.warning(f"⚠️ [Audio] Failed to strip audio: {e}")
             else:
-                print("⏭️  [Audio] Skipping audio stripping (ffmpeg not found)")
+                logger.warning("⏭️  [Audio] Skipping audio stripping (ffmpeg not found)")
 
             # Rename base file
             renders_folder = resolve_path("renders")
             os.makedirs(renders_folder, exist_ok=True)
             target_ordinary_name = os.path.join(renders_folder, f"{speaker_name_clean}_{timestamp}.mp4")
             target_ordinary_path = os.path.abspath(target_ordinary_name)
-            print(f"🏷️ [Rename] Renaming render to '{target_ordinary_name}'...")
+            logger.info(f"🏷️ [Rename] Renaming render to '{target_ordinary_name}'...")
             try:
                 os.rename(local_ordinary_file, target_ordinary_path)
                 local_ordinary_file = target_ordinary_path
                 ordinary_file = target_ordinary_path
             except Exception as e:
-                print(f"⚠️ [Rename] Failed to rename render: {e}")
+                logger.warning(f"⚠️ [Rename] Failed to rename render: {e}")
 
             # Optional GIF conversion
             if render_gif:
                 if ffmpeg_installed:
                     local_gif_file = local_ordinary_file.rsplit(".", 1)[0] + ".gif"
-                    print(f"🎬 [GIF] Converting render to GIF: '{local_gif_file}'...")
+                    logger.info(f"🎬 [GIF] Converting render to GIF: '{local_gif_file}'...")
                     try:
                         ffmpeg_cmd = [
                             "ffmpeg",
@@ -467,7 +472,7 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                         ]
                         gif_result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, cwd=BASE_DIR)
                         if gif_result.returncode == 0:
-                            print(f"✅ [GIF] GIF successfully created: '{local_gif_file}'")
+                            logger.info(f"✅ [GIF] GIF successfully created: '{local_gif_file}'")
                             gif_file = local_gif_file
                             cloud_url = upload_file_to_storage(
                                 local_gif_file, f"renders/{os.path.basename(local_gif_file)}"
@@ -475,18 +480,18 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                             file_link = cloud_url if cloud_url else local_gif_file
                             rendered_files.append(f"• GIF Animation: {file_link}")
                         else:
-                            print(f"⚠️ [GIF] ffmpeg failed: {gif_result.stderr}")
+                            logger.warning(f"⚠️ [GIF] ffmpeg failed: {gif_result.stderr}")
                     except Exception as e:
-                        print(f"⚠️ [GIF] GIF conversion exception: {e}")
+                        logger.warning(f"⚠️ [GIF] GIF conversion exception: {e}")
                 else:
-                    print("⏭️  [GIF] Skipping GIF conversion (ffmpeg not found)")
+                    logger.warning("⏭️  [GIF] Skipping GIF conversion (ffmpeg not found)")
                     rendered_files.append("• (Skipped) GIF Animation: ffmpeg not found on host machine.")
 
             # ============================================================================
             # PIPELINE 2: 4K UHD RENDERING VIA HIGH-QUALITY LANCZOS PIPELINE
             # ============================================================================
             if render_4k:
-                print("\n🎬 [Render Step 2/2] Generating Ultra-HD 4K (2160p) video via Lanczos...")
+                logger.info("🎬 [Render Step 2/2] Generating Ultra-HD 4K (2160p) video via Lanczos...")
                 target_4k_name = os.path.join(renders_folder, f"{speaker_name_clean}_{timestamp}_4k.mp4")
                 target_4k_path = os.path.abspath(target_4k_name)
 
@@ -511,18 +516,18 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                         ]
                         result_4k = subprocess.run(cmd_4k, capture_output=True, text=True, cwd=BASE_DIR)
                         if result_4k.returncode == 0 and os.path.exists(target_4k_path):
-                            print(f"🎉 [4K Render successful!] Generated '{target_4k_path}'")
+                            logger.info(f"🎉 [4K Render successful!] Generated '{target_4k_path}'")
                             cloud_url = upload_file_to_storage(
                                 target_4k_path, f"renders/{os.path.basename(target_4k_path)}"
                             )
                             file_link = cloud_url if cloud_url else target_4k_path
                             rendered_files.append(f"• Video in 4K quality (2160p): {file_link}")
                         else:
-                            print(f"⚠️ [4K Render] ffmpeg 4K scale failed: {result_4k.stderr}")
+                            logger.warning(f"⚠️ [4K Render] ffmpeg 4K scale failed: {result_4k.stderr}")
                     except Exception as e:
-                        print(f"⚠️ [4K Render] 4K generation exception: {e}")
+                        logger.warning(f"⚠️ [4K Render] 4K generation exception: {e}")
                 else:
-                    print("⏭️  [4K Render] Skipping 4K (ffmpeg not found)")
+                    logger.warning("⏭️  [4K Render] Skipping 4K (ffmpeg not found)")
 
             # Manage 1080p ordinary file upload or cleanup
             if render_ordinary:
@@ -537,20 +542,22 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                 and local_ordinary_file
                 and os.path.exists(local_ordinary_file)
             ):
-                print(f"🗑️ [Cleanup] Removing intermediate 1080p file '{local_ordinary_file}' (only 4K requested)...")
+                logger.info(
+                    f"🗑️ [Cleanup] Removing intermediate 1080p file '{local_ordinary_file}' (only 4K requested)..."
+                )
                 try:
                     os.remove(local_ordinary_file)
                 except Exception as e:
-                    print(f"⚠️ [Cleanup] Failed to delete temp 1080p file: {e}")
+                    logger.warning(f"⚠️ [Cleanup] Failed to delete temp 1080p file: {e}")
     else:
-        print("❌ [Base Render failed]")
-        print(result.stderr)
+        logger.warning("❌ [Base Render failed]")
+        logger.info(result.stderr)
         raise RuntimeError(f"Base composition render returned a non-zero exit code: {result.stderr}")
 
     # ============================================================================
     # PIPELINE 3: HIGH-RESOLUTION POSTER/SCREENSHOT GENERATION (PNG)
     # ============================================================================
-    print("\n📸 [Poster Step] Preparing high-resolution static card poster (PNG)...")
+    logger.info("📸 [Poster Step] Preparing high-resolution static card poster (PNG)...")
     try:
         # Read index.html backup
         with open(target_index_html, "r", encoding="utf-8") as f:
@@ -580,7 +587,7 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
             cand_abs = resolve_path(cand)
             if os.path.exists(cand_abs) and os.path.isfile(cand_abs):
                 temp_image_src = cand
-                print(f"📸 [Poster] Using authentic speaker portrait '{cand}' for high-resolution card poster.")
+                logger.info(f"📸 [Poster] Using authentic speaker portrait '{cand}' for high-resolution card poster.")
                 break
 
         # If original_video_src was already a static image, use it
@@ -592,17 +599,19 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
             video_abs = resolve_path(original_video_src)
             if os.path.exists(video_abs):
                 frame_out_path = os.path.join(BASE_DIR, "assets", "temp_video_frame.png")
-                print(f"🎥 [Poster] Fallback: Extracting first frame of video '{original_video_src}' for snapshot...")
+                logger.info(
+                    f"🎥 [Poster] Fallback: Extracting first frame of video '{original_video_src}' for snapshot..."
+                )
                 try:
                     extract_cmd = ["ffmpeg", "-y", "-i", video_abs, "-ss", "00:00:00", "-vframes", "1", frame_out_path]
                     extract_res = subprocess.run(extract_cmd, capture_output=True, text=True, cwd=BASE_DIR)
                     if extract_res.returncode == 0 and os.path.exists(frame_out_path):
                         temp_image_src = "assets/temp_video_frame.png"
-                        print("✅ [Poster] First frame extracted successfully!")
+                        logger.info("✅ [Poster] First frame extracted successfully!")
                     else:
-                        print(f"⚠️ [Poster] Failed to extract first frame from video: {extract_res.stderr}")
+                        logger.warning(f"⚠️ [Poster] Failed to extract first frame from video: {extract_res.stderr}")
                 except Exception as frame_err:
-                    print(f"⚠️ [Poster] Error extracting first frame: {frame_err}")
+                    logger.warning(f"⚠️ [Poster] Error extracting first frame: {frame_err}")
 
         # Fallback to portrait_outpainted if temp_image_src is not resolved or not found
         if not temp_image_src or not os.path.exists(resolve_path(temp_image_src)):
@@ -618,7 +627,7 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
 
             snapshot_result = None
             try:
-                print(
+                logger.info(
                     f"🖼️  [Poster] Swapping video for placeholder and setting card-image to '{temp_image_src}' in index.html..."
                 )
                 # Set card-video src to placeholder Video_example.mp4 (valid fallback for static guard and chrome video tag)
@@ -653,7 +662,7 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                 with open(target_index_html, "w", encoding="utf-8") as f:
                     f.write(temp_content)
 
-                print(
+                logger.info(
                     f"📸 [Poster] Taking high-resolution PNG snapshot of the final card state at T={snapshot_time}s..."
                 )
                 snapshot_result = subprocess.run(
@@ -668,7 +677,7 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                 # Unconditionally restore index.html backup immediately
                 with open(target_index_html, "w", encoding="utf-8") as f:
                     f.write(html_backup)
-                print("✅ [Poster] Restored original index.html sources.")
+                logger.info("✅ [Poster] Restored original index.html sources.")
 
             if snapshot_result and snapshot_result.returncode == 0:
                 snapshot_file = resolve_path(f"snapshots/frame-00-at-{snapshot_time}s.png")
@@ -688,10 +697,10 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                         video_stem = f"{speaker_name_clean}_{timestamp}"
                     target_poster_name = os.path.join(renders_folder, f"{video_stem}.png")
                     target_poster_path = os.path.abspath(target_poster_name)
-                    print(f"🏷️ [Poster] Saving high-resolution card poster to '{target_poster_path}'...")
+                    logger.info(f"🏷️ [Poster] Saving high-resolution card poster to '{target_poster_path}'...")
                     try:
                         if render_4k and ffmpeg_installed:
-                            print(
+                            logger.info(
                                 f"🎬 [Poster 4K] Generating high-resolution 4K card poster using Lanczos: '{target_poster_path}'..."
                             )
                             try:
@@ -715,9 +724,9 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                                     )
                                     file_link = cloud_url if cloud_url else target_poster_path
                                     rendered_files.append(f"• High-Resolution Card Poster (4K PNG): {file_link}")
-                                    print("✅ [Poster 4K] 4K poster successfully created!")
+                                    logger.info("✅ [Poster 4K] 4K poster successfully created!")
                                 else:
-                                    print(
+                                    logger.warning(
                                         f"⚠️ [Poster 4K] ffmpeg failed to upscale, falling back to 1080p copy: {upscale_result.stderr}"
                                     )
                                     shutil.copy2(snapshot_file, target_poster_path)
@@ -727,7 +736,7 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                                     file_link = cloud_url if cloud_url else target_poster_path
                                     rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
                             except Exception as upscale_err:
-                                print(
+                                logger.warning(
                                     f"⚠️ [Poster 4K] Failed to generate 4K poster, falling back to 1080p copy: {upscale_err}"
                                 )
                                 shutil.copy2(snapshot_file, target_poster_path)
@@ -744,24 +753,26 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                             file_link = cloud_url if cloud_url else target_poster_path
                             rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
                     except Exception as e:
-                        print(f"⚠️ [Poster] Failed to save poster: {e}")
+                        logger.warning(f"⚠️ [Poster] Failed to save poster: {e}")
                 else:
-                    print("⚠️ [Poster] Snapshot file was not found after execution.")
+                    logger.warning("⚠️ [Poster] Snapshot file was not found after execution.")
             elif snapshot_result:
-                print(f"⚠️ [Poster] Snapshot rendering failed: {snapshot_result.stderr}")
+                logger.warning(f"⚠️ [Poster] Snapshot rendering failed: {snapshot_result.stderr}")
         else:
-            print("⚠️ [Poster] No processed outpainted portrait found, skipping high-resolution poster generation.")
+            logger.warning(
+                "⚠️ [Poster] No processed outpainted portrait found, skipping high-resolution poster generation."
+            )
     except Exception as poster_err:
-        print(f"⚠️ [Poster] Unexpected error during poster generation: {poster_err}")
+        logger.warning(f"⚠️ [Poster] Unexpected error during poster generation: {poster_err}")
     finally:
         # Unconditionally cleanup snapshots directory and AI contact sheets to keep workspace pristine!
-        print("🗑️ [Poster Cleanup] Ensuring snapshots and contact-sheets are cleaned up...")
+        logger.info("🗑️ [Poster Cleanup] Ensuring snapshots and contact-sheets are cleaned up...")
         shutil.rmtree(resolve_path("snapshots"), ignore_errors=True)
         if os.path.exists(resolve_path("contact-sheet.jpg")):
             try:
                 os.remove(resolve_path("contact-sheet.jpg"))
             except Exception as ce:
-                print(f"⚠️ Failed to remove contact-sheet.jpg: {ce}")
+                logger.warning(f"⚠️ Failed to remove contact-sheet.jpg: {ce}")
 
     # Save the Gemini outpainted avatar if it exists and is not the default placeholder
     outpainted_src = resolve_path("assets/portrait_outpainted.png")
@@ -774,7 +785,7 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                 os.makedirs(renders_folder, exist_ok=True)
                 target_avatar_name = os.path.join(renders_folder, f"{speaker_name_clean}_{timestamp}_avatar.png")
                 target_avatar_path = os.path.abspath(target_avatar_name)
-                print(
+                logger.info(
                     f"🖼️ [Save Avatar] Saving Gemini outpainted avatar ({width}x{height}) to '{target_avatar_path}'..."
                 )
                 shutil.copy2(outpainted_src, target_avatar_path)
@@ -784,14 +795,14 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                 file_link = cloud_url if cloud_url else target_avatar_path
                 rendered_files.append(f"• Gemini Outpainted Avatar: {file_link}")
             else:
-                print("⏭️  [Save Avatar] Skipping placeholder avatar copy (500x500 placeholder detected)")
+                logger.warning("⏭️  [Save Avatar] Skipping placeholder avatar copy (500x500 placeholder detected)")
         except Exception as e:
-            print(f"⚠️ [Save Avatar] Failed to copy Gemini outpainted avatar: {e}")
+            logger.warning(f"⚠️ [Save Avatar] Failed to copy Gemini outpainted avatar: {e}")
 
     # ============================================================================
     # CLEANUP INTERMEDIATE ASSETS
     # ============================================================================
-    print("\n🗑️ [Cleanup Step] Cleaning up intermediate uploaded staging assets...")
+    logger.info("🗑️ [Cleanup Step] Cleaning up intermediate uploaded staging assets...")
     intermediate_files = [
         "assets/staged_media.png",
         "assets/staged_media.jpg",
@@ -806,9 +817,9 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
         if os.path.exists(item_abs):
             try:
                 os.remove(item_abs)
-                print(f"   Deleted intermediate file: '{item}'")
+                logger.info(f"   Deleted intermediate file: '{item}'")
             except Exception as cleanup_err:
-                print(f"   ⚠️ Failed to delete '{item}': {cleanup_err}")
+                logger.warning(f"   ⚠️ Failed to delete '{item}': {cleanup_err}")
 
     # Restore the default placeholder to prevent 404/file-not-found issues in other checks
     restore_default_placeholder()

@@ -11,6 +11,9 @@ except ModuleNotFoundError:
 from google.adk import Agent
 from google.genai import types
 
+from agents.common.ui_payloads import parse_post_variants, text_ui_callback
+from agents.gemini_config import model_for
+
 initialise_agent_environment()
 
 community_name = os.getenv("COMMUNITY_NAME", "Krakow")
@@ -69,10 +72,11 @@ Your goal is to write natural, engaging, and well-developed LinkedIn announcemen
 """
 
 linkedin_agent = Agent(
-    model="gemini-3.8-flash",
+    model=model_for("linkedin_post_generator"),
     name="linkedin_post_generator",
     description=f"Agent that drafts highly engaging LinkedIn announcement posts for speakers and event recap summaries for {community_name}.",
     instruction=INSTRUCTION,
+    after_model_callback=text_ui_callback(parse_post_variants),
     tools=[],
     generate_content_config=types.GenerateContentConfig(
         temperature=1.0,

@@ -15,6 +15,8 @@ from typing import Any
 
 from google.adk.tools import ToolContext
 
+from agents.common import ui_payloads
+
 from .. import prompt_director
 from ..card_session import (
     CardSession,
@@ -410,6 +412,11 @@ async def render_video(
         status="success",
         message=format_render_success_message(rendered.assets, notice=notice),
         assets=rendered.assets,
+        ui=ui_payloads.media(
+            [asset.model_dump(mode="json") for asset in rendered.assets],
+            speaker=session.speaker.summary(),
+            notice=notice,
+        ),
         next_step=(
             "Share the links. The speaker, photo and scenarios are still saved: the user can render another "
             "option or style, ask for new scenarios, or change any text."

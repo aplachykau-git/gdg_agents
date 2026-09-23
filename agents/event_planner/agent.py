@@ -12,6 +12,9 @@ except ModuleNotFoundError:
 from google.adk import Agent
 from google.adk.tools.google_search_tool import GoogleSearchTool
 
+from agents.gemini_config import model_for
+
+from .presentation import present_meetup_dates
 from .tools import get_public_holidays
 
 initialise_agent_environment()
@@ -49,7 +52,9 @@ You MUST analyze calendar parameters, public holidays for the country where the 
 4. **Determine & Propose the Optimal Date**:
      - Filter out all excluded dates (weekends, Fridays, holidays, long-weekend bridge days, late December vacation peaks, and days of conflicting meetups).
    - Choose 1-2 prime, highly optimal dates (preferably Tuesday, Wednesday, or Thursday).
-   - Present your recommendation clearly with a professional, structured explanation:
+   - Call `present_meetup_dates` with your 1-2 dates (best first, YYYY-MM-DD, one-sentence reason each).
+     The user sees them as calendar cards. If the tool rejects a date, pick another one and call it again.
+   - Then present your recommendation in text with a professional, structured explanation:
      - **Recommended Date**: The exact date and day of the week.
      - **Conflict Check**: List any other meetups found in that month to show why this date is safe.
      - **Holiday Check**: Confirm that no public holidays or long-weekend bridges interfere with this date.
@@ -60,11 +65,11 @@ You MUST analyze calendar parameters, public holidays for the country where the 
 """
 
 planner_agent = Agent(
-    model="gemini-3.8-flash",
+    model=model_for("event_planner"),
     name="event_planner",
     description=f"Agent that analyzes local tech calendars and holidays to recommend the optimal date for {community_name} meetups.",
     instruction=INSTRUCTION,
-    tools=[get_public_holidays, GoogleSearchTool(bypass_multi_tools_limit=True)],
+    tools=[get_public_holidays, present_meetup_dates, GoogleSearchTool(bypass_multi_tools_limit=True)],
 )
 
 # ADK entry point registration

@@ -1,11 +1,14 @@
 import base64
 import csv
 import datetime
+import logging
 import os
 import re
 import shutil
 import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
+
+from agents.common import ui_payloads
 
 try:
     import openpyxl
@@ -26,6 +29,8 @@ except ImportError:
     Inches = None
     Pt = None
     RGBColor = None
+
+logger = logging.getLogger(__name__)
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -69,14 +74,14 @@ async def stage_uploaded_registration(file_path: str = "", tool_context: Optiona
     Args:
         file_path: Fallback local file path (if no chat attachment is uploaded).
     """
-    print("\n📥 [Tool: stage_uploaded_registration] Resolving user uploaded registration file from session...")
+    logger.info("📥 [Tool: stage_uploaded_registration] Resolving user uploaded registration file from session...")
 
     # 1. ALWAYS scan session events first to check if the user uploaded a document in the active chat.
     try:
         if tool_context and hasattr(tool_context, "session") and tool_context.session:
             session = tool_context.session
             events = session.events or []
-            print(f"DEBUG: Staging scanning total events: {len(events)}")
+            logger.debug(f"DEBUG: Staging scanning total events: {len(events)}")
 
             # Iterate events in REVERSE to find the most recent user-uploaded file
             for event in reversed(events):
@@ -89,7 +94,7 @@ async def stage_uploaded_registration(file_path: str = "", tool_context: Optiona
                     if part.inline_data and part.inline_data.data:
                         mime = part.inline_data.mime_type or ""
                         data = part.inline_data.data
-                        print(f"DEBUG: Found user attachment with mime: {mime} ({len(data)} bytes)")
+                        logger.debug(f"DEBUG: Found user attachment with mime: {mime} ({len(data)} bytes)")
 
                         # Deduce extension based on MIME
                         ext = ".csv"
@@ -105,20 +110,20 @@ async def stage_uploaded_registration(file_path: str = "", tool_context: Optiona
                         with open(save_path, "wb") as f:
                             f.write(file_bytes)
 
-                        print(f"✅ Successfully staged user uploaded registration file to: {save_path}")
+                        logger.info(f"✅ Successfully staged user uploaded registration file to: {save_path}")
                         return f"registration_manager/results/staged_registrations{ext}"
     except Exception as e:
-        print(f"⚠️ Could not extract attachment from session events: {e}")
+        logger.warning(f"⚠️ Could not extract attachment from session events: {e}")
 
     # 2. Fallback to local file path
-    print("⚠️ No chat attachment found. Checking local file path fallback...")
+    logger.warning("⚠️ No chat attachment found. Checking local file path fallback...")
     resolved = resolve_path(file_path)
     if os.path.exists(resolved) and os.path.isfile(resolved):
         ext = os.path.splitext(resolved.lower())[1]
         save_path = os.path.join(BASE_DIR, "results", f"staged_registrations{ext}")
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
         shutil.copy2(resolved, save_path)
-        print(f"✅ Staged local registration file to: {save_path}")
+        logger.info(f"✅ Staged local registration file to: {save_path}")
         return f"registration_manager/results/staged_registrations{ext}"
 
     return (
@@ -134,7 +139,7 @@ def stage_manual_text_registrations(text_content: str) -> str:
     Args:
         text_content: Raw text content containing the list of registrants.
     """
-    print("\n📝 [Tool: stage_manual_text_registrations] Staging manual text registration list...")
+    logger.info("📝 [Tool: stage_manual_text_registrations] Staging manual text registration list...")
     lines = [line.strip() for line in text_content.strip().split("\n") if line.strip()]
 
     # Determine if it's already comma/semicolon/tab separated CSV-like text
@@ -166,7 +171,7 @@ def stage_manual_text_registrations(text_content: str) -> str:
             for line in lines:
                 writer.writerow([line])
 
-    print(f"✅ Staged manual text registrations to: {save_path}")
+    logger.info(f"✅ Staged manual text registrations to: {save_path}")
     return "registration_manager/results/staged_manual_registrations.csv"
 
 
@@ -428,7 +433,7 @@ def load_organisers() -> List[str]:
         with open(org_file, "r", encoding="utf-8") as f:
             return [line.strip() for line in f if line.strip()]
     except Exception as e:
-        print(f"⚠️ Error loading organisers file: {e}")
+        logger.warning(f"⚠️ Error loading organisers file: {e}")
         return [
             "Aliaksandr Aplachykau",
             "Yuliya Aplachykava",
@@ -480,7 +485,7 @@ def _load_registration_rows(abs_path: str, ext: str, file_path: str):
 
     # 1. Parse based on file type
     if ext == ".csv":
-        print("📊 Reading CSV file...")
+        logger.info("📊 Reading CSV file...")
         try:
             with open(abs_path, "r", encoding="utf-8-sig") as f:
                 reader = csv.reader(f)
@@ -490,7 +495,7 @@ def _load_registration_rows(abs_path: str, ext: str, file_path: str):
                         raw_rows.append(dict(zip(headers, r)))
         except Exception as e:
             # Fallback to alternative encoding if utf-8 fails
-            print(f"⚠️ UTF-8 read failed, trying ISO-8859-1 fallback: {e}")
+            logger.warning(f"⚠️ UTF-8 read failed, trying ISO-8859-1 fallback: {e}")
             try:
                 with open(abs_path, "r", encoding="ISO-8859-1") as f:
                     reader = csv.reader(f)
@@ -501,7 +506,7 @@ def _load_registration_rows(abs_path: str, ext: str, file_path: str):
             except Exception as e2:
                 return f"Error: Failed to parse CSV file '{file_path}': {e2}"
     elif ext in [".xlsx", ".xls"]:
-        print("📊 Reading Excel file via openpyxl...")
+        logger.info("📊 Reading Excel file via openpyxl...")
         try:
             wb = openpyxl.load_workbook(abs_path, data_only=True)
             sheet = wb.active or (wb.worksheets[0] if wb.worksheets else None)
@@ -525,7 +530,7 @@ def _load_registration_rows(abs_path: str, ext: str, file_path: str):
     else:
         return f"Error: Unsupported file format '{ext}'! Please upload a .csv or .xlsx file."
 
-    print(f"📊 Loaded {len(raw_rows)} total raw rows from file headers: {headers}")
+    logger.info(f"📊 Loaded {len(raw_rows)} total raw rows from file headers: {headers}")
     return raw_rows, headers
 
 
@@ -584,12 +589,12 @@ def _detect_registration_columns(headers):
 
     timestamp_col = prio1_timestamp or prio2_timestamp or prio3_timestamp
 
-    print("🔍 Dynamic Column Detection Results:")
-    print(f"   ├─ First Name Col: {first_name_col or '(not found)'}")
-    print(f"   ├─ Last Name Col: {last_name_col or '(not found)'}")
-    print(f"   ├─ Full Name Col: {full_name_col or '(not found)'}")
-    print(f"   ├─ Status/Waitlist Col: {status_col or '(not found)'}")
-    print(f"   └─ Registration Date Col: {timestamp_col or '(not found)'}")
+    logger.info("🔍 Dynamic Column Detection Results:")
+    logger.info(f"   ├─ First Name Col: {first_name_col or '(not found)'}")
+    logger.info(f"   ├─ Last Name Col: {last_name_col or '(not found)'}")
+    logger.info(f"   ├─ Full Name Col: {full_name_col or '(not found)'}")
+    logger.info(f"   ├─ Status/Waitlist Col: {status_col or '(not found)'}")
+    logger.info(f"   └─ Registration Date Col: {timestamp_col or '(not found)'}")
     return first_name_col, last_name_col, full_name_col, timestamp_col, status_col
 
 
@@ -724,7 +729,7 @@ def _build_attendee_rosters(
             }
         )
 
-    print(f"🧹 Removed {duplicate_count} duplicate registration entries.")
+    logger.info(f"🧹 Removed {duplicate_count} duplicate registration entries.")
 
     # 5. Parse manual confirmed override additions
     manual_entries_cleaned = []
@@ -901,7 +906,9 @@ def _build_attendee_rosters(
             or (tok_set is not None and tok_set in final_seen_tokens)
         ):
             secondary_dupes_removed += 1
-            print(f"⚠️ [Secondary Deduplication] Dropped duplicate attendee: {att['first_name']} {att['last_name']}")
+            logger.warning(
+                f"⚠️ [Secondary Deduplication] Dropped duplicate attendee: {att['first_name']} {att['last_name']}"
+            )
             continue
         final_seen_direct.add(d_key)
         final_seen_inverted.add(inv_key)
@@ -918,7 +925,7 @@ def _build_attendee_rosters(
             or (tok_set is not None and tok_set in final_seen_tokens)
         ):
             secondary_dupes_removed += 1
-            print(
+            logger.warning(
                 f"⚠️ [Secondary Deduplication] Dropped duplicate waitlisted attendee: {att['first_name']} {att['last_name']}"
             )
             continue
@@ -930,7 +937,7 @@ def _build_attendee_rosters(
 
     if secondary_dupes_removed > 0:
         duplicate_count += secondary_dupes_removed
-        print(
+        logger.info(
             f"🧹 [Secondary Verification Pass] Eliminated {secondary_dupes_removed} additional duplicates across tiers."
         )
 
@@ -954,9 +961,9 @@ def _build_attendee_rosters(
     for idx, att in enumerate(waitlist_list):
         att["no"] = idx + 1
 
-    print("📊 Partitioning Complete:")
-    print(f"   ├─ Organisers Confirmed: {len(organisers_tier)}")
-    print(f"   ├─ Speakers Confirmed: {len(speakers_tier)}")
+    logger.info("📊 Partitioning Complete:")
+    logger.info(f"   ├─ Organisers Confirmed: {len(organisers_tier)}")
+    logger.info(f"   ├─ Speakers Confirmed: {len(speakers_tier)}")
     return {
         "registered_list": registered_list,
         "waitlist_list": waitlist_list,
@@ -1143,7 +1150,7 @@ def _write_registration_outputs(registered_list, waitlist_list):
 
         doc.save(doc_path)
         doc_ok = True
-        print(f"✅ Successfully wrote beautiful DOCX document to: {doc_path}")
+        logger.info(f"✅ Successfully wrote beautiful DOCX document to: {doc_path}")
 
         roster_text = ""
         try:
@@ -1181,9 +1188,9 @@ def _write_registration_outputs(registered_list, waitlist_list):
             roster_text = "\n".join(names_lines)
             with open(txt_path, "w", encoding="utf-8") as tf:
                 tf.write(roster_text)
-            print(f"✅ Successfully wrote plain text roster to: {txt_path}")
+            logger.info(f"✅ Successfully wrote plain text roster to: {txt_path}")
         except Exception as txt_err:
-            print(f"⚠️ Failed to write plain text roster: {txt_err}")
+            logger.warning(f"⚠️ Failed to write plain text roster: {txt_err}")
 
         cloud_doc_url = None
         cloud_txt_url = None
@@ -1196,7 +1203,7 @@ def _write_registration_outputs(registered_list, waitlist_list):
                 content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
             if cloud_doc_url:
-                print(f"☁️ [Cloud Storage] Registration document uploaded: {cloud_doc_url}")
+                logger.info(f"☁️ [Cloud Storage] Registration document uploaded: {cloud_doc_url}")
 
             if roster_text and os.path.exists(txt_path):
                 cloud_txt_url = upload_file_to_storage(
@@ -1205,11 +1212,11 @@ def _write_registration_outputs(registered_list, waitlist_list):
                     content_type="text/plain; charset=utf-8",
                 )
                 if cloud_txt_url:
-                    print(f"☁️ [Cloud Storage] Plain text roster uploaded: {cloud_txt_url}")
+                    logger.info(f"☁️ [Cloud Storage] Plain text roster uploaded: {cloud_txt_url}")
         except Exception as upload_err:
-            print(f"⚠️ [Cloud Storage Notice] {upload_err}")
+            logger.warning(f"⚠️ [Cloud Storage Notice] {upload_err}")
     except Exception as docx_err:
-        print(f"⚠️ Failed to generate DOCX document: {docx_err}")
+        logger.warning(f"⚠️ Failed to generate DOCX document: {docx_err}")
     return {
         "doc_ok": doc_ok,
         "doc_path": doc_path,
@@ -1218,7 +1225,7 @@ def _write_registration_outputs(registered_list, waitlist_list):
     }
 
 
-def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: str = "") -> str:
+def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: str = "") -> str | dict:
     """Loads a CSV or Excel registration file, cleans, sorts (Latin vs Cyrillic vs Other scripts),
     handles capacity limits, manual overrides, and pre-existing waitlist marks.
 
@@ -1227,10 +1234,10 @@ def process_registrations(file_path: str, capacity: int = 0, manual_confirmed: s
         capacity: Optional maximum attendee capacity. If 0 or None, defaults to pre-existing waitlist marks.
         manual_confirmed: Optional comma-separated or newline-separated list of names to force-add to Confirmed List.
     """
-    print("\n📂 [Tool: process_registrations] Starting processing of registration list...")
-    print(f"   ├─ File: {file_path}")
-    print(f"   ├─ Target Capacity: {capacity or '(Not specified, relying on status marks)'}")
-    print(f"   └─ Manual Confirmed Overrides: {manual_confirmed or '(None)'}")
+    logger.info("📂 [Tool: process_registrations] Starting processing of registration list...")
+    logger.info(f"   ├─ File: {file_path}")
+    logger.info(f"   ├─ Target Capacity: {capacity or '(Not specified, relying on status marks)'}")
+    logger.info(f"   └─ Manual Confirmed Overrides: {manual_confirmed or '(None)'}")
 
     abs_path = resolve_path(file_path)
     if not os.path.exists(abs_path):
@@ -1281,14 +1288,24 @@ Successfully processed the registrations list:
   * *Standard Registered Attendees*: {rosters["standard_confirmed_count"]}
 - **Waitlisted Registrants (waitlist)**: **{len(waitlist_list)}**
 """
-    if doc_ok:
-        primary_url = cloud_doc_url or f"/results/{os.path.basename(doc_path)}"
-        summary_str += f"\n- **Event Registration Document (DOCX)**: [{os.path.basename(doc_path)}]({primary_url})\n"
-        if roster_text:
-            summary_str += f"\n<!-- ATTENDEE_ROSTER_START\n{roster_text}\nATTENDEE_ROSTER_END -->\n"
-    else:
+    if not doc_ok:
         summary_str += "\n⚠️ Failed to generate Word document due to an error.\n"
-    return summary_str
+        return {"result": summary_str}
+    primary_url = cloud_doc_url or f"/results/{os.path.basename(doc_path)}"
+    summary_str += f"\n- **Event Registration Document (DOCX)**: [{os.path.basename(doc_path)}]({primary_url})\n"
+    # The roster travels only in the structured UI payload: the model does not need to echo it.
+    return {
+        "result": summary_str,
+        "ui": ui_payloads.document(
+            primary_url,
+            title="Event Registration Roster",
+            kind="registration_roster",
+            file_type="DOCX",
+            filename=os.path.basename(doc_path),
+            extra_urls={"txt": "/results/registrations_list.txt"},
+            roster_text=roster_text or None,
+        ),
+    }
 
 
 def verify_and_deduplicate_registrations(
@@ -1310,7 +1327,7 @@ def verify_and_deduplicate_registrations(
     Returns:
         str: Comprehensive markdown verification report with statistics on duplicates detected and removed.
     """
-    print("\n🔍 [Tool: verify_and_deduplicate_registrations] Starting list audit and deduplication pass...")
+    logger.info("🔍 [Tool: verify_and_deduplicate_registrations] Starting list audit and deduplication pass...")
     raw_names = []
 
     # 1. Check if text_content was provided
@@ -1360,7 +1377,7 @@ def verify_and_deduplicate_registrations(
         ]:
             staged_p = os.path.join(results_dir, staged_name)
             if os.path.exists(staged_p):
-                print(f"ℹ️ Found staged registrations file: {staged_p}")
+                logger.info(f"ℹ️ Found staged registrations file: {staged_p}")
                 try:
                     with open(staged_p, "r", encoding="utf-8-sig") as f:
                         reader = csv.reader(f)
@@ -1371,7 +1388,7 @@ def verify_and_deduplicate_registrations(
                     if raw_names:
                         break
                 except Exception as read_err:
-                    print(f"⚠️ Failed to read staged registrations file '{staged_p}': {read_err}")
+                    logger.warning(f"⚠️ Failed to read staged registrations file '{staged_p}': {read_err}")
 
     if not raw_names and not manual_confirmed:
         return (
@@ -1446,7 +1463,7 @@ def verify_and_deduplicate_registrations(
             continue
 
         if inv_key in seen_inverted or (tok_set is not None and tok_set in seen_tokens):
-            primary_name = seen_inverted.get(inv_key) or (seen_tokens.get(tok_set) if tok_set else "")
+            primary_name = seen_inverted.get(inv_key) or (seen_tokens.get(tok_set) if tok_set else "") or ""
             if "Manual Priority" in primary_name:
                 manual_duplicates.append((item, primary_name, "Inverted name matched manual priority attendee"))
             else:

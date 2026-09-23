@@ -141,6 +141,7 @@ class VideoCardToolResult(BaseModel):
     draft: VideoEditorDraft | None = None
     speaker: dict[str, Any] | None = None
     next_step: str | None = None
+    ui: dict[str, Any] | None = None
 
 
 class RenderResult(BaseModel):

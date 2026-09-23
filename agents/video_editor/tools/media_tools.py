@@ -1,10 +1,10 @@
 import base64
+import logging
 import os
 import random
 import re
 import shutil
 import subprocess
-import time
 import uuid
 from typing import Any, Optional
 
@@ -13,17 +13,18 @@ import google.auth.transport.requests
 import requests
 from google import genai
 from google.adk.tools import ToolContext
-from google.cloud import storage
 from google.genai import types
 
 from agents.common.storage import upload_bytes_to_storage, upload_file_to_storage
 from agents.gemini_config import (
+    DEFAULT_IMAGE_MODEL,
     GeminiConfigurationError,
     get_gemini_api_key,
     get_gemini_client,
-    require_vertex_ai,
-    use_vertex_ai,
+    model_for,
 )
+
+logger = logging.getLogger(__name__)
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -192,14 +193,14 @@ async def stage_uploaded_media(
     """Finds and stages the active user uploaded photo or video from session events.
     Called by the root orchestrator in the parent context.
     """
-    print("\n📥 [Tool: stage_uploaded_media] Resolving user uploaded media from session...")
+    logger.info("📥 [Tool: stage_uploaded_media] Resolving user uploaded media from session...")
 
     # 1. ALWAYS scan session events first to check if the user uploaded new media in the active chat.
     try:
         if tool_context and hasattr(tool_context, "session") and tool_context.session:
             session = tool_context.session
             events = session.events or []
-            print(f"DEBUG: Staging scanning total events: {len(events)}")
+            logger.debug(f"DEBUG: Staging scanning total events: {len(events)}")
 
             # Iterate events in REVERSE to find the most recent user-uploaded video or image.
             for event in reversed(events):
@@ -229,7 +230,7 @@ async def stage_uploaded_media(
                             os.makedirs(os.path.dirname(save_path), exist_ok=True)
                             with open(save_path, "wb") as f:
                                 f.write(raw_bytes)
-                            print(f"✅ Staged user video to: {save_path}")
+                            logger.info(f"✅ Staged user video to: {save_path}")
                             return "assets/staged_media.mp4"
                         elif mime.startswith("image/"):
                             ext_map = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
@@ -238,14 +239,14 @@ async def stage_uploaded_media(
                             os.makedirs(os.path.dirname(save_path), exist_ok=True)
                             with open(save_path, "wb") as f:
                                 f.write(raw_bytes)
-                            print(f"✅ Staged user image to: {save_path}")
+                            logger.info(f"✅ Staged user image to: {save_path}")
                             return f"assets/staged_media{ext}"
     except Exception as e:
-        print(f"⚠️ Error scanning parent session: {e}")
+        logger.warning(f"⚠️ Error scanning parent session: {e}")
 
     # 2. Fallback to local file path if provided
     if photo_path:
-        print(f"⚠️ Checking local file path: '{photo_path}'...")
+        logger.warning(f"⚠️ Checking local file path: '{photo_path}'...")
         resolved = resolve_path(photo_path)
         if os.path.exists(resolved) and os.path.isfile(resolved):
             lower_path = resolved.lower()
@@ -258,13 +259,13 @@ async def stage_uploaded_media(
             save_path = os.path.join(BASE_DIR, "assets", save_name)
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             shutil.copy2(resolved, save_path)
-            print(f"✅ Staged local media file to: {save_path}")
+            logger.info(f"✅ Staged local media file to: {save_path}")
             return f"assets/{save_name}"
 
     # 3. Fallback to default asset placeholder
     default_placeholder = resolve_path("assets/portrait_outpainted.png")
     if os.path.exists(default_placeholder):
-        print(f"ℹ️ Using default placeholder avatar: {default_placeholder}")
+        logger.info(f"ℹ️ Using default placeholder avatar: {default_placeholder}")
         return "assets/portrait_outpainted.png"
 
     raise FileNotFoundError("No media file was found in session events or local path. Please upload a photo or video.")
@@ -306,7 +307,7 @@ def extract_video_frame(video_path: str, output_image_path: str | None = None, t
         if res.returncode == 0 and os.path.exists(abs_out) and os.path.getsize(abs_out) > 0:
             return os.path.relpath(abs_out, BASE_DIR)
     except Exception as e:
-        print(f"⚠️ Error extracting video frame: {e}")
+        logger.warning(f"⚠️ Error extracting video frame: {e}")
     return ""
 
 
@@ -316,7 +317,7 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
     to fill the missing areas while preserving the original subject perfectly.
 
     Returns the file path to the outpainted image."""
-    print("🎨 [Outpaint] Extending image to 9:16 via intelligent outpainting...")
+    logger.info("🎨 [Outpaint] Extending image to 9:16 via intelligent outpainting...")
 
     photo_path = resolve_path(photo_path)
     if not os.path.exists(photo_path):
@@ -330,7 +331,7 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
         part = types.Part.from_bytes(data=img_bytes, mime_type=mime_type)
 
         response = client.models.generate_content(
-            model="gemini-3.1-flash-lite-image",
+            model=model_for("video_outpaint", default=DEFAULT_IMAGE_MODEL),
             contents=[
                 part,
                 types.Part.from_text(
@@ -361,7 +362,7 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
                     )
                     with open(outpainted_path, "wb") as f:
                         f.write(img_data)
-                    print(f"✅ [Outpaint] Extended image saved to '{outpainted_path}'")
+                    logger.info(f"✅ [Outpaint] Extended image saved to '{outpainted_path}'")
                     try:
                         cloud_img_url = upload_bytes_to_storage(
                             data=img_data,
@@ -369,12 +370,12 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
                             content_type="image/png",
                         )
                         if cloud_img_url:
-                            print(f"☁️ [Cloud Storage] Outpainted avatar uploaded: {cloud_img_url}")
+                            logger.info(f"☁️ [Cloud Storage] Outpainted avatar uploaded: {cloud_img_url}")
                     except Exception as upload_err:
-                        print(f"⚠️ [Cloud Storage Notice] {upload_err}")
+                        logger.warning(f"⚠️ [Cloud Storage Notice] {upload_err}")
                     return os.path.relpath(outpainted_path, BASE_DIR)
     except Exception as e:
-        print(f"⚠️ [Outpaint Notice] Outpainting not available ({e}). Using original image.")
+        logger.warning(f"⚠️ [Outpaint Notice] Outpainting not available ({e}). Using original image.")
 
     return os.path.relpath(photo_path, BASE_DIR)
 
@@ -409,18 +410,18 @@ def verify_portrait_photo(photo_path: str = "") -> str:
     Args:
         photo_path: The file path to verify.
     """
-    print(f"\n👤 [Tool: verify_portrait_photo] Verifying photo: {photo_path}")
+    logger.info(f"👤 [Tool: verify_portrait_photo] Verifying photo: {photo_path}")
 
     photo_path = resolve_media_path(photo_path)
 
     # Check if video
     lower_path = photo_path.lower()
     if any(lower_path.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"]):
-        print("🎥 [Face Verification] Video detected. Face verification skipped.")
+        logger.warning("🎥 [Face Verification] Video detected. Face verification skipped.")
         return "video"
 
     if not os.path.exists(photo_path):
-        print(f"⚠️ [Face Verification] Photo '{photo_path}' not on disk, proceeding with default placeholder.")
+        logger.warning(f"⚠️ [Face Verification] Photo '{photo_path}' not on disk, proceeding with default placeholder.")
         return "photo"
 
     try:
@@ -432,9 +433,9 @@ def verify_portrait_photo(photo_path: str = "") -> str:
 
         client = get_gemini_client()
 
-        print("🚀 Sending face detection verification call to Gemini-3.8-Flash...")
+        logger.info("🚀 Sending face detection verification call to Gemini-3.8-Flash...")
         response = client.models.generate_content(
-            model="gemini-3.8-flash",
+            model=model_for("video_face_check"),
             contents=[
                 part,
                 types.Part.from_text(
@@ -443,11 +444,11 @@ def verify_portrait_photo(photo_path: str = "") -> str:
             ],
         )
         answer = (response.text or "").strip().upper()
-        print(f"👤 [Face Detection] Model response: '{answer}'")
+        logger.info(f"👤 [Face Detection] Model response: '{answer}'")
     except Exception as e:
-        print(f"⚠️ [Face Verification Notice] Verification check bypassed: {e}")
+        logger.warning(f"⚠️ [Face Verification Notice] Verification check bypassed: {e}")
 
-    print("✅ [Face Verification] Face check completed!")
+    logger.info("✅ [Face Verification] Face check completed!")
     return "photo"
 
 
@@ -488,9 +489,9 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     i2v_prompt = augment_creative_prompt(creative_prompt)
     omni_payload_prompt = f"{PHOTO_EXCLUSION_DIRECTIVE}\n\nSCENARIO DIRECTION:\n{i2v_prompt}\n\n{FINAL_INSTRUCTION}"
 
-    print(f'🎬 [Gemini Omni Flash Prompt] Base prompt: "{creative_prompt}"')
-    print(f'   └─ Final Omni Prompt: "{omni_payload_prompt}"')
-    print("🚀 Submitting request to Google AI Gemini Omni Flash (Interactions API)...")
+    logger.info(f'🎬 [Gemini Omni Flash Prompt] Base prompt: "{creative_prompt}"')
+    logger.info(f'   └─ Final Omni Prompt: "{omni_payload_prompt}"')
+    logger.info("🚀 Submitting request to Google AI Gemini Omni Flash (Interactions API)...")
 
     headers = {"Content-Type": "application/json"}
     if api_key:
@@ -510,7 +511,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
             creds.refresh(auth_req)
             token = creds.token
         except Exception as e:
-            print(f"⚠️ [Omni Auth] Could not obtain OAuth2 token from ADC: {e}")
+            logger.warning(f"⚠️ [Omni Auth] Could not obtain OAuth2 token from ADC: {e}")
 
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -540,7 +541,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     if resp.status_code != 200:
         err_text = resp.text
         if resp.status_code == 400 and ("content_blocked" in err_text or "blocked" in err_text.lower()):
-            print(
+            logger.warning(
                 "⚠️ [Omni Flash Warning] Prompt content blocked (400). Retrying with safe minimalist cinematic prompt..."
             )
             safe_scenario = (
@@ -594,7 +595,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     with open(animated_video_path, "wb") as f:
         f.write(video_bytes)
 
-    print(f"💾 Saved Gemini Omni Flash video ({len(video_bytes)} bytes) to '{animated_video_path}'!")
+    logger.info(f"💾 Saved Gemini Omni Flash video ({len(video_bytes)} bytes) to '{animated_video_path}'!")
     return "assets/Video_example.mp4"
 
 
@@ -606,13 +607,13 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
         creative_prompt: Detailed prompt generated by Gemini to animate the portrait.
         tool_context: ADK execution context for accessing session state overrides.
     """
-    print("\n🎬 [Tool: animate_photo] Animating photo using AI Video Engine or processing background video...")
-    print(f'💡 [Creative Prompt]: "{creative_prompt}"')
+    logger.info("🎬 [Tool: animate_photo] Animating photo using AI Video Engine or processing background video...")
+    logger.info(f'💡 [Creative Prompt]: "{creative_prompt}"')
 
     photo_path = resolve_media_path(photo_path)
     lower_path = photo_path.lower()
     if any(lower_path.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"]):
-        print(f"🎥 [Video Detected] Media is a video ({photo_path}). Using it directly.")
+        logger.info(f"🎥 [Video Detected] Media is a video ({photo_path}). Using it directly.")
         target_video_path = os.path.join(BASE_DIR, "assets", "Video_example.mp4")
         os.makedirs(os.path.join(BASE_DIR, "assets"), exist_ok=True)
         if os.path.abspath(photo_path) != os.path.abspath(target_video_path):
@@ -629,7 +630,7 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
             "Only direct rendering of user-uploaded videos (.mp4, .mov, .webm) is supported.\n\n"
             "💡 You can enable AI video generation in Settings or attach an existing speaker video file."
         )
-        print(f"🚫 [Cost Protection] {msg}")
+        logger.warning(f"🚫 [Cost Protection] {msg}")
         return f"Error: {msg}"
 
     # Gemini client for outpainting
@@ -638,12 +639,12 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
     photo_path = outpaint_to_9_16(photo_path, gemini_client)
     photo_path = resolve_path(photo_path)
 
-    engine = get_video_engine()
+    get_video_engine()  # validates VIDEO_ENGINE early
     try:
         result_path = _generate_with_omni(photo_path, creative_prompt)
     except Exception as omni_err:
         err_msg = str(omni_err)
-        print(f"⚠️ [Omni Flash Notice] {err_msg}. Falling back to outpainted portrait image.")
+        logger.warning(f"⚠️ [Omni Flash Notice] {err_msg}. Falling back to outpainted portrait image.")
         state = getattr(tool_context, "state", None) if tool_context else None
         if state is not None:
             try:
@@ -661,9 +662,9 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
                 content_type="video/mp4",
             )
             if cloud_vid_url:
-                print(f"☁️ [Cloud Storage] Video successfully uploaded to bucket: {cloud_vid_url}")
+                logger.info(f"☁️ [Cloud Storage] Video successfully uploaded to bucket: {cloud_vid_url}")
     except Exception as upload_err:
-        print(f"⚠️ [Cloud Storage Notice] {upload_err}")
+        logger.warning(f"⚠️ [Cloud Storage Notice] {upload_err}")
 
     return result_path
 

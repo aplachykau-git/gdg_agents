@@ -8,38 +8,26 @@
     Film,
     Sparkles
   } from '@lucide/svelte';
-  import { 
-    getAgentTheme, 
-    getEventError, 
-    renderMarkdown, 
-    isAgendaOutput, 
-    parseResponseVariants, 
-    extractMediaAssets,
+  import { getAgentTheme, getEventError, shouldShowDelegationHandoff, getEventAgent } from './agents.js';
+  import { renderMarkdown } from './markdown.js';
+  import { hasVideoScenarios, extractVideoScenariosCached, areScenariosComplete } from './scenarios.js';
+  import {
     cleanTextForMediaDisplay,
-    extractDocumentAssets,
     cleanTextForDocumentDisplay,
-    extractEmailDraft,
-    extractEventDates,
-    shouldShowDelegationHandoff,
-    getEventAgent,
-    hasVideoScenarios,
-    extractVideoScenariosCached,
-    areScenariosComplete
-  } from './constants.js';
-  import AgendaTimeline from './AgendaTimeline.svelte';
-  import VariantCard from './VariantCard.svelte';
+    looksLikeLegacyCard,
+  } from './legacy/textParsers.js';
   import ToolCallCard from './ToolCallCard.svelte';
-  import VideoPreviewCard from './VideoPreviewCard.svelte';
-  import ReportDownloadCard from './ReportDownloadCard.svelte';
-  import EmailDraftCard from './EmailDraftCard.svelte';
-  import EventDateCard from './EventDateCard.svelte';
   import VideoScenarioDeck from './VideoScenarioDeck.svelte';
+  import StructuredCard from './StructuredCard.svelte';
+  import LegacyTextPart from './LegacyTextPart.svelte';
 
   let { 
     event, 
     index = 0, 
     allEvents = [], 
     deck = null,
+    ui = null,
+    structuredTurn = false,
     isBusy = false,
     onRefine = () => {},
     onSend = () => {}
@@ -62,26 +50,21 @@
   // Scenario deck anchored to this event (computed once in App.svelte).
   const activeScenarios = $derived(deck ? extractVideoScenariosCached(deck.source) : null);
 
-  const hasVariants = $derived(
-    messageParts.some(p => p.text && parseResponseVariants(p.text, event.author).length > 1)
-  );
-  const hasAgenda = $derived(
-    messageParts.some(p => p.text && isAgendaOutput(p.text, event.author))
-  );
-  const hasEventDate = $derived(
-    messageParts.some(p => p.text && extractEventDates(p.text, event.author))
-  );
-  const hasMedia = $derived(
-    messageParts.some(p => p.text && extractMediaAssets(p.text))
-  );
-  const hasDoc = $derived(
-    messageParts.some(p => p.text && extractDocumentAssets(p.text))
-  );
-  const hasEmail = $derived(
-    messageParts.some(p => p.text && extractEmailDraft(p.text, event.author))
-  );
+  // Text-born payloads (LinkedIn variants, agenda) replace the text they were parsed from.
+  const TEXT_PAYLOADS = new Set(['post_variants', 'agenda']);
+  const uiReplacesText = $derived(Boolean(ui && TEXT_PAYLOADS.has(ui.type)));
+  // Regex heuristics only for old sessions: never while streaming (the final event carries the
+  // payload) and never in a turn that already has a structured payload.
+  const useLegacyParsing = $derived(!ui && !structuredTurn && event?.partial !== true);
   const hasScenarios = $derived(Boolean(activeScenarios && activeScenarios.length > 0));
-  const isWide = $derived(Boolean(hasVariants || hasAgenda || hasEventDate || hasMedia || hasDoc || hasEmail || hasScenarios));
+  const isWide = $derived(
+    Boolean(ui || hasScenarios || (useLegacyParsing && messageParts.some((p) => p.text && looksLikeLegacyCard(p.text, event.author))))
+  );
+
+  function plainText(text) {
+    // Links to delivered files are already shown by the card of this turn.
+    return structuredTurn ? cleanTextForDocumentDisplay(cleanTextForMediaDisplay(text)) : text;
+  }
 
   const isDeckLocked = $derived(Boolean(deck?.locked));
 </script>
@@ -158,42 +141,13 @@
 
       {#if messageParts.length > 0}
         {#each messageParts as part}
-          {#if part.text}
-            {@const emailDraft = extractEmailDraft(part.text, event.author)}
-            {@const eventData = extractEventDates(part.text, event.author)}
-            {@const media = extractMediaAssets(part.text)}
-            {@const doc = extractDocumentAssets(part.text)}
-            {#if emailDraft}
-              <EmailDraftCard {emailDraft} onRefine={onRefine} />
-            {:else if isAgendaOutput(part.text, event.author)}
-              <AgendaTimeline 
-                rawText={part.text} 
-                author={event.author} 
-                onRefine={(refinedText) => onRefine(refinedText)} 
-              />
-            {:else if eventData}
-              <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
-              <EventDateCard {eventData} onRefine={onRefine} />
-            {:else if media}
-              {@const cleanedText = cleanTextForMediaDisplay(part.text)}
-              {#if cleanedText}
-                <div class="markdown-body">{@html renderMarkdown(cleanedText)}</div>
-              {/if}
-              <VideoPreviewCard {media} onRefine={onRefine} />
-            {:else if doc}
-              {@const cleanedText = cleanTextForDocumentDisplay(part.text)}
-              {#if cleanedText}
-                <div class="markdown-body">{@html renderMarkdown(cleanedText)}</div>
-              {/if}
-              <ReportDownloadCard {doc} />
-            {:else if hasVideoScenarios(part.text)}
-              <!-- Handled by activeScenarios below -->
+          {#if part.text && !part.thought && !uiReplacesText && !hasVideoScenarios(part.text)}
+            {#if useLegacyParsing}
+              <LegacyTextPart text={part.text} author={event.author} {onRefine} />
             {:else}
-              {@const variants = parseResponseVariants(part.text, event.author)}
-              {#if variants.length === 1}
-                <div class="markdown-body">{@html renderMarkdown(part.text)}</div>
-              {:else}
-                <VariantCard {variants} onRefine={onRefine} />
+              {@const shown = plainText(part.text)}
+              {#if shown}
+                <div class="markdown-body">{@html renderMarkdown(shown)}</div>
               {/if}
             {/if}
           {/if}
@@ -201,6 +155,10 @@
           <!-- Tool Call & Response Steps -->
           <ToolCallCard {part} />
         {/each}
+
+        {#if ui}
+          <StructuredCard {ui} author={event.author} {onRefine} />
+        {/if}
 
         {#if activeScenarios && activeScenarios.length > 0}
           {#if areScenariosComplete(activeScenarios)}

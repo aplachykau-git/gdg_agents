@@ -8,6 +8,7 @@ import base64
 import copy
 import datetime
 import io
+import logging
 import os
 import re
 from typing import Any, Dict, List, Optional
@@ -24,6 +25,8 @@ try:
 except ImportError:
     docx = None
     Document = None
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_receipt_totals(receipts_data: List[Dict[str, Any]], target_currency: str = "USD") -> tuple[str, str]:
@@ -226,14 +229,14 @@ def generate_expense_report_docx(
                     with open(raw, "rb") as f:
                         return f.read()
                 except Exception as err:
-                    print(f"⚠️ [Image Read Error] Could not read {raw}: {err}")
+                    logger.warning(f"⚠️ [Image Read Error] Could not read {raw}: {err}")
             # Try safe base64 decode (handles data URLs, standard base64, and urlsafe base64)
             try:
                 decoded = _safe_b64decode(raw)
                 if len(decoded) > 10:
                     return decoded
             except Exception as err:
-                print(f"⚠️ [Image Decode Error] Could not decode base64 data: {err}")
+                logger.warning(f"⚠️ [Image Decode Error] Could not decode base64 data: {err}")
         return None
 
     if session_images:
@@ -282,7 +285,7 @@ def generate_expense_report_docx(
                 run_img = p_img.add_run()
                 run_img.add_picture(buffer, width=Inches(5.0))
             except Exception as e:
-                print(f"⚠️ [DOCX Image Embed Error] {e}")
+                logger.warning(f"⚠️ [DOCX Image Embed Error] {e}")
 
     # Output document
     doc_io = io.BytesIO()
@@ -293,6 +296,6 @@ def generate_expense_report_docx(
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         with open(output_path, "wb") as f:
             f.write(docx_bytes)
-        print(f"✅ [DOCX Generator] Successfully saved report to: {output_path}")
+        logger.info(f"✅ [DOCX Generator] Successfully saved report to: {output_path}")
 
     return docx_bytes

@@ -1,3 +1,4 @@
+import logging
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -7,6 +8,8 @@ try:
 except ImportError:
     pdfium = None
 from PIL import ExifTags, Image
+
+logger = logging.getLogger(__name__)
 
 
 def _auto_rotate_image(img_path: str) -> str:
@@ -32,10 +35,10 @@ def _auto_rotate_image(img_path: str) -> str:
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
         rotated.save(tmp.name)
         tmp.close()
-        print(f"[DEBUG] Auto-rotated image (orientation={orientation}): {tmp.name}")
+        logger.debug(f"[DEBUG] Auto-rotated image (orientation={orientation}): {tmp.name}")
         return tmp.name
     except Exception as e:
-        print(f"[WARNING] Auto-rotate failed: {e}")
+        logger.warning(f"[WARNING] Auto-rotate failed: {e}")
         return img_path
 
 
@@ -45,7 +48,7 @@ def _pdf_to_png_screenshot(pdf_path: str) -> Optional[str]:
     Returns None on failure. The original PDF is never copied or moved.
     """
     if pdfium is None:
-        print("[WARNING] pypdfium2 is not installed. Cannot render PDF to image.")
+        logger.warning("[WARNING] pypdfium2 is not installed. Cannot render PDF to image.")
         return None
     try:
         doc = pdfium.PdfDocument(pdf_path)
@@ -56,8 +59,8 @@ def _pdf_to_png_screenshot(pdf_path: str) -> Optional[str]:
         pil_image.save(tmp.name, format="PNG")
         tmp.close()
         doc.close()
-        print(f"[DEBUG] PDF rendered to PNG screenshot: {tmp.name}")
+        logger.debug(f"[DEBUG] PDF rendered to PNG screenshot: {tmp.name}")
         return tmp.name
     except Exception as e:
-        print(f"[WARNING] PDF-to-PNG failed: {e}")
+        logger.warning(f"[WARNING] PDF-to-PNG failed: {e}")
         return None
