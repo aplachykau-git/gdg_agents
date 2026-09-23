@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "a2a-sdk==1.1.2",
+    "asyncpg==0.31.0",
     "fastapi==0.141.1",
     "google-adk[eval]==2.8.0",
     "google-api-python-client==2.199.0",
@@ -20,6 +21,7 @@ dependencies = [
     "python-docx==1.2.0",
     "python-dotenv==1.2.3",
     "requests==2.34.2",
+    "sqlalchemy[asyncio]==2.0.54",
     "sse-starlette==3.4.8",
     "uvicorn[standard]==0.52.4",
 ]
