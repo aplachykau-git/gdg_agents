@@ -34,7 +34,7 @@ resource "google_project_iam_member" "sa_trace_agent" {
 
 # Grant Cloud Storage Object User role to service account for storage bucket
 resource "google_storage_bucket_iam_member" "sa_storage_user" {
-  bucket = locals.bucket_name
+  bucket = local.bucket_name
   role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.studio_sa.email}"
 

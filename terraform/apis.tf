@@ -12,12 +12,14 @@ locals {
     "docs.googleapis.com",
     "drive.googleapis.com",
     "iam.googleapis.com",
-    "cloudresourcemanager.googleapis.com"
+    "cloudresourcemanager.googleapis.com",
+    "sqladmin.googleapis.com",
+    "secretmanager.googleapis.com"
   ]
 }
 
 resource "google_project_service" "enabled_apis" {
-  for_each           = toset(locals.required_apis)
+  for_each           = toset(local.required_apis)
   project            = var.project_id
   service            = each.key
   disable_on_destroy = false

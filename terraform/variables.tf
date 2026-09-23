@@ -75,3 +75,21 @@ variable "service_account_id" {
   type        = string
   default     = "community-studio-runtime"
 }
+
+variable "enable_persistent_sessions" {
+  description = "Store ADK sessions in Cloud SQL Postgres (survives restarts, allows scaling). ~10 USD/month for db-f1-micro."
+  type        = bool
+  default     = true
+}
+
+variable "session_db_tier" {
+  description = "Cloud SQL machine tier for the session database"
+  type        = string
+  default     = "db-f1-micro"
+}
+
+variable "max_instances" {
+  description = "Max Cloud Run instances per service when persistent sessions are enabled"
+  type        = number
+  default     = 5
+}
