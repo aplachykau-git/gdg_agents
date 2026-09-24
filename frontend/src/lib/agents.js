@@ -382,37 +382,37 @@ export function getFriendlyToolCall(name, args) {
     transfer_to_agenda_generator: () => "Delegating task to Agenda Formatter...",
     transfer_to_office_secretary: () => "Delegating task to Office Secretary...",
 
-    update_speaker: (a) => a?.new_speaker ? "🪪 Starting a card for a new speaker..." : "🪪 Saving speaker details...",
-    propose_scenarios: (a) => a?.creative_guidance ? `🎬 Inventing new scenarios (${a.creative_guidance})...` : "🎬 Inventing 5 cinematic scenarios...",
-    show_scenarios: () => "🗂️ Reopening saved scenarios...",
-    render_video: (a) => a?.option ? `🎞️ Rendering option ${a.option}... (usually 1–3 min)` : "🎞️ Rendering speaker card... (usually 1–3 min)",
-    get_card_status: () => "🔎 Checking the saved card...",
-    present_email_draft: () => "✉️ Preparing the e-mail card...",
-    present_meetup_dates: () => "📅 Validating the recommended dates...",
-    stage_uploaded_media: () => "📦 Staging attached media to workspace assets...",
-    validate_metadata: (a) => `📏 Validating text character limits for "${a?.name || 'speaker'}"...`,
-    verify_portrait_photo: () => "🔍 Running facial detection on portrait photo...",
-    animate_photo: (a) => `🎬 Animating 9:16 background video with Omni (${a?.creative_prompt ? 'AI Prompt' : 'Direct Video'})...`,
-    update_composer: (a) => `🎨 Updating HTML5 composition layout for "${a?.name || 'speaker'}"...`,
-    render_composer: () => "🚀 HyperFrames pipeline rendering 1080p MP4, GIF & Poster...",
+    update_speaker: (a) => a?.new_speaker ? "Starting a card for a new speaker..." : "Saving speaker details...",
+    propose_scenarios: (a) => a?.creative_guidance ? `Inventing new scenarios (${a.creative_guidance})...` : "Inventing 5 cinematic scenarios...",
+    show_scenarios: () => "Reopening saved scenarios...",
+    render_video: (a) => a?.option ? `Rendering option ${a.option}... (usually 1–3 min)` : "Rendering speaker card... (usually 1–3 min)",
+    get_card_status: () => "Checking the saved card...",
+    present_email_draft: () => "Preparing the e-mail card...",
+    present_meetup_dates: () => "Validating the recommended dates...",
+    stage_uploaded_media: () => "Staging attached media to workspace assets...",
+    validate_metadata: (a) => `Validating text character limits for "${a?.name || 'speaker'}"...`,
+    verify_portrait_photo: () => "Running facial detection on portrait photo...",
+    animate_photo: (a) => `Animating 9:16 background video with Omni (${a?.creative_prompt ? 'AI Prompt' : 'Direct Video'})...`,
+    update_composer: (a) => `Updating HTML5 composition layout for "${a?.name || 'speaker'}"...`,
+    render_composer: () => "HyperFrames pipeline rendering 1080p MP4, GIF & Poster...",
 
-    get_usd_pln_rate: () => "💱 Fetching live banking exchange rates (USD/PLN)...",
-    read_receipt_file: () => "🧾 Analyzing receipt image via Gemini 3.7 Flash Vision OCR...",
-    export_summary_to_google_doc: () => "📄 Exporting approved expense report to Google Docs...",
-    scan_receipt_with_vision: () => "🧾 Extracting items and taxes via Vision OCR...",
-    convert_currency: () => "💱 Converting currencies to PLN using exchange rates...",
-    export_to_google_docs: () => "📄 Exporting expense report to Google Docs template...",
+    get_usd_pln_rate: () => "Fetching live banking exchange rates (USD/PLN)...",
+    read_receipt_file: () => "Analyzing receipt image via Gemini 3.7 Flash Vision OCR...",
+    export_summary_to_google_doc: () => "Exporting approved expense report to Google Docs...",
+    scan_receipt_with_vision: () => "Extracting items and taxes via Vision OCR...",
+    convert_currency: () => "Converting currencies to PLN using exchange rates...",
+    export_to_google_docs: () => "Exporting expense report to Google Docs template...",
 
-    filter_and_clean_registrations: () => "👥 Cleaning, deduplicating, and partitioning registrations...",
-    process_registrations: () => "👥 Parsing attendee CSV and generating DOCX roster...",
-    verify_and_deduplicate_registrations: () => "🔍 Auditing attendee list and removing duplicates...",
-    transliterate_cyrillic_to_latin: () => "🔤 Transliterating Cyrillic attendee names to Latin...",
-    stage_manual_text_registrations: () => "📝 Staging attendee registration records...",
-    get_public_holidays: () => "📅 Checking statutory public holidays from Nager.Date...",
-    find_optimal_meetup_date: () => "📅 Scanning calendars, holidays, and meetup conflicts...",
-    generate_agenda: () => "⏱️ Formatting structured timeline and speaker agenda...",
-    generate_office_email: () => "✉️ Drafting office access and event reservation email...",
-    generate_visitor_access_request: () => "✉️ Generating building key & access request..."
+    filter_and_clean_registrations: () => "Cleaning, deduplicating, and partitioning registrations...",
+    process_registrations: () => "Parsing attendee CSV and generating DOCX roster...",
+    verify_and_deduplicate_registrations: () => "Auditing attendee list and removing duplicates...",
+    transliterate_cyrillic_to_latin: () => "Transliterating Cyrillic attendee names to Latin...",
+    stage_manual_text_registrations: () => "Staging attendee registration records...",
+    get_public_holidays: () => "Checking statutory public holidays from Nager.Date...",
+    find_optimal_meetup_date: () => "Scanning calendars, holidays, and meetup conflicts...",
+    generate_agenda: () => "⏱Formatting structured timeline and speaker agenda...",
+    generate_office_email: () => "Drafting office access and event reservation email...",
+    generate_visitor_access_request: () => "Generating building key & access request..."
   };
 
   if (mappings[name]) {
@@ -451,7 +451,7 @@ export function getToolErrorMessage(response) {
 
 export function getFriendlyToolResponse(name, response, args) {
   if (isToolResponseError(response)) {
-    return `❌ Tool error: ${getToolErrorMessage(response)}`;
+    return `Tool error: ${getToolErrorMessage(response)}`;
   }
   if (name === 'transfer_to_agent' || name === 'transferToAgent') {
     const target = args?.agent_name || args?.target_agent || args?.agentName || response?.agent_name || '';
