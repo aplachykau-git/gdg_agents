@@ -358,6 +358,10 @@ CRITICAL CREATIVE LAWS:
 7. METAPHORICAL GENIUS & BIO FUSION:
    - Boldly synthesize the speaker's specific talk topic (e.g. databases, concurrency, Agentic Web, AI agents, WebMCP) AND their personal background, hobbies, or bio details (e.g. powerlifting, athletics, botany, astronomy, music, photography) into tactile, sensory, unforgettable visual actions.
    - In `narrative_metaphor`, explicitly explain the clever metaphorical bridge connecting their talk topic/bio to their hero action in this world.
+8. STRICT SAFETY & POLICY COMPLIANCE (ZERO NSFW OR VIOLATION CONTENT):
+   - ABSOLUTELY NO adult, pornographic, sexually suggestive, or erotic themes.
+   - ABSOLUTELY NO extreme violence, gore, splatter, cannibalism, body horror, torture, or self-harm.
+   - All proposed genres and visual worlds must strictly adhere to Google AI safety policies suitable for an international conference community.
 """
 
 

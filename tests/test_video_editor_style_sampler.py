@@ -118,6 +118,48 @@ class TestStyleSampler(unittest.TestCase):
             self.assertNotIn("Elena Rostova", b.narrative_metaphor)
             self.assertIn("The protagonist", b.narrative_metaphor)
 
+    def test_taxonomy_excludes_prohibited_adult_and_violation_styles(self):
+        db = load_styles_db()
+        all_items = (
+            db.get("genres", [])
+            + db.get("visual_styles", [])
+            + db.get("camera_movements", [])
+            + db.get("lighting", [])
+            + db.get("optics_and_color", [])
+        )
+
+        prohibited_ids = {
+            "film_cartoon_pornography",
+            "cm_malayalam_softcore_pornography",
+            "film_bomba_genre",
+            "film_erotic_thriller",
+            "cm_extreme_cinema",
+            "film_cannibal_film",
+            "film_splatter_film",
+            "film_body_horror",
+            "film_slasher_film",
+            "film_badaga_cinema",
+            "film_bourekas_film",
+            "film_chernukha",
+            "aes_traumacore",
+            "aes_gothic_lolita",
+            "aes_arabfunny",
+        }
+
+        found_ids = {item.get("id") for item in all_items}
+        for pid in prohibited_ids:
+            self.assertNotIn(pid, found_ids, f"Prohibited ID {pid} should not be in taxonomy")
+
+        # Verify search returns nothing for prohibited keywords
+        porn_results = search_styles_database(db, "pornography")
+        self.assertEqual(len(porn_results), 0, "Pornography search should return 0 results")
+
+        erotic_results = search_styles_database(db, "erotic")
+        self.assertEqual(len(erotic_results), 0, "Erotic search should return 0 results")
+
+        cannibal_results = search_styles_database(db, "cannibal")
+        self.assertEqual(len(cannibal_results), 0, "Cannibal search should return 0 results")
+
 
 if __name__ == "__main__":
     unittest.main()

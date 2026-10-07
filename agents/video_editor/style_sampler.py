@@ -86,6 +86,35 @@ def filter_by_culture(items: List[Dict[str, Any]], culture_filter: str) -> List[
     return filtered if filtered else items
 
 
+PROHIBITED_STYLE_KEYWORDS = {
+    "porn",
+    "pornography",
+    "erotic",
+    "softcore",
+    "hardcore",
+    "sex",
+    "cannibal",
+    "splatter",
+    "bloodshed",
+    "torture",
+    "snuff",
+    "slasher",
+    "traumacore",
+    "lolita",
+    "bomba",
+    "chernukha",
+}
+
+
+def is_safe_style_entry(item: Dict[str, Any]) -> bool:
+    """Verifies that an ingredient does not contain prohibited/NSFW terms violating safety policies."""
+    text = f"{item.get('id', '')} {item.get('name', '')} {item.get('description', '')}".lower()
+    for kw in PROHIBITED_STYLE_KEYWORDS:
+        if re.search(r"\b" + re.escape(kw) + r"\b", text):
+            return False
+    return True
+
+
 def search_styles_database(db: Dict[str, Any], query: str) -> List[tuple[str, Dict[str, Any]]]:
     """Search for relevant items across all categories by keyword query."""
     q = query.lower().strip()
@@ -94,6 +123,8 @@ def search_styles_database(db: Dict[str, Any], query: str) -> List[tuple[str, Di
     matches = []
     for cat in ["genres", "visual_styles", "camera_movements", "lighting", "optics_and_color"]:
         for item in db.get(cat, []):
+            if not is_safe_style_entry(item):
+                continue
             name = item.get("name", "").lower()
             desc = item.get("description", "").lower()
             motifs = item.get("key_motifs", "").lower()
@@ -116,11 +147,11 @@ def pick_random_cinematic_styles(
     """
     data = db or load_styles_db()
 
-    all_genres = data.get("genres", [])
-    all_styles = data.get("visual_styles", [])
-    all_cameras = data.get("camera_movements", [])
-    all_lighting = data.get("lighting", [])
-    all_optics = data.get("optics_and_color", [])
+    all_genres = [g for g in data.get("genres", []) if is_safe_style_entry(g)]
+    all_styles = [s for s in data.get("visual_styles", []) if is_safe_style_entry(s)]
+    all_cameras = [c for c in data.get("camera_movements", []) if is_safe_style_entry(c)]
+    all_lighting = [lt for lt in data.get("lighting", []) if is_safe_style_entry(lt)]
+    all_optics = [o for o in data.get("optics_and_color", []) if is_safe_style_entry(o)]
 
     lenses = [o for o in all_optics if o.get("category") == "lens_optics"] or all_optics
     stocks = [o for o in all_optics if o.get("category") == "color_stock"] or all_optics

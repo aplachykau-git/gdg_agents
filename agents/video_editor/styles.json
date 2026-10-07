@@ -4,22 +4,15 @@
     "description": "Zero-URL, dense cinematic taxonomy engineered specifically as modular style ingredients for Gemini Omni video generation.",
     "target_model": "Gemini Omni / Multimodal Video Generation",
     "counts": {
-      "genres_and_narratives": 133,
-      "visual_styles_and_aesthetics": 276,
+      "genres_and_narratives": 108,
+      "visual_styles_and_aesthetics": 214,
       "camera_movement_and_framing": 153,
       "lighting_and_atmosphere": 12,
       "optics_and_color_stocks": 16,
-      "total_items": 590
+      "total_items": 503
     }
   },
   "genres": [
-    {
-      "id": "hong_kong_heroic_bloodshed",
-      "name": "Hong Kong Heroic Bloodshed",
-      "format": "feature_film",
-      "culture_era": "Hong Kong 1980s-90s",
-      "description": "Melodramatic brotherhood, tragic honor, dual-pistol choreography, slow-motion bullet squibs, and rain-swept neon urban streets."
-    },
     {
       "id": "wuxia_martial_arts",
       "name": "Wuxia Swordplay Fantasy",
@@ -81,7 +74,7 @@
       "name": "Nordic Noir Procedural",
       "format": "feature_film",
       "culture_era": "Scandinavia Modern",
-      "description": "Brooding detectives investigating gruesome rural crimes beneath desolate overcast skies, freezing coastal fjords, and bleak minimalist architecture."
+      "description": "Brooding detectives investigating mysterious rural cases beneath desolate overcast skies, freezing coastal fjords, and atmospheric minimalist architecture."
     },
     {
       "id": "latin_american_magic_realism",
@@ -147,25 +140,11 @@
       "description": "Scholars confronting incomprehensible geometries, sanity-eroding celestial voids, gelatinous non-Euclidean relics, and paralyzing human insignificance."
     },
     {
-      "id": "body_horror_transformation",
-      "name": "Biomechanical Body Horror",
-      "format": "feature_film",
-      "culture_era": "Global Modern",
-      "description": "Unsettling physical mutations, flesh fused with metallic conduits, clinical surgical horror, and the visceral breakdown of biological boundaries."
-    },
-    {
       "id": "soviet_montage_revolution",
       "name": "Soviet Montage Epic",
       "format": "feature_film",
       "culture_era": "USSR 1920s",
       "description": "Collision of dynamic intellectual imagery, rhythmic cutting, heroic collective worker gestures, monumental machinery, and stark angular framing."
-    },
-    {
-      "id": "giallo_stylish_slasher",
-      "name": "Italian Giallo Mystery",
-      "format": "feature_film",
-      "culture_era": "Italy 1970s",
-      "description": "Black-gloved killers wielding straight razors, hyper-saturated primary lighting gels, baroque architectural murder set-pieces, and operatic psycho-sexual tension."
     },
     {
       "id": "sb_action_genre",
@@ -287,13 +266,6 @@
       "description": "The adventure film is a broad genre of film. Some early genre studies found it no different from the Western film or argued that adventure could encompass all Hollywood genres."
     },
     {
-      "id": "film_body_horror",
-      "name": "Body horror",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Body horror, or biological horror, is a subgenre of horror fiction that intentionally showcases grotesque or a visceral experience of the human body or of another creature."
-    },
-    {
       "id": "film_comedy_film",
       "name": "Comedy film",
       "format": "feature_film",
@@ -383,20 +355,6 @@
       "format": "feature_film",
       "culture_era": "Global Cinematic",
       "description": "Style of humor involving exaggerated physical activity that exceeds the boundaries of normal physical comedy, which may involve both intentional violence and violence by mishap, often resulting from physical abuse or inept use of props."
-    },
-    {
-      "id": "film_slasher_film",
-      "name": "Slasher film",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "A slasher film is a subgenre of horror films involving a killer or a group of killers stalking and murdering a group of people, often by use of bladed or sharp tools."
-    },
-    {
-      "id": "film_splatter_film",
-      "name": "Splatter film",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "A splatter film is a subgenre of horror film that deliberately focuses on graphic portrayals of gore and graphic violence."
     },
     {
       "id": "film_supernatural_horror_film",
@@ -553,27 +511,6 @@
       "description": "Hybrid genre that combines elements of action fiction with comedy. While early action films feature stuntwork and humor, academic Cynthia King wrote that the genre only came into its own as a mainstay of the American action film genre."
     },
     {
-      "id": "film_actuality_film",
-      "name": "Actuality film",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Non-fiction film genre that uses footage of real events, places, and things (essentially B-roll), a predecessor to documentary film."
-    },
-    {
-      "id": "film_amateur_film",
-      "name": "Amateur film",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Genre of filmmaking done primarily for personal enjoyment, passion, or hobby, without commercial intent or substantial funding."
-    },
-    {
-      "id": "film_american_eccentric_cinema",
-      "name": "American eccentric cinema",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Mode of contemporary American filmmaking that emerged in what has been termed the metamodern or new sincerity."
-    },
-    {
       "id": "film_animated_documentary",
       "name": "Animated documentary",
       "format": "feature_film",
@@ -581,32 +518,11 @@
       "description": "The animated documentary (also known as anidoc) is a moving image form that combines animation and documentary."
     },
     {
-      "id": "film_blaxploitation",
-      "name": "Blaxploitation",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "In American cinema, Blaxploitation is the film subgenre of action movie derived from the exploitation film genre that began in the late 1960s and flourished throughout the early to mid-1970s, consequent to the combined cultural momentum."
-    },
-    {
       "id": "film_dystopia",
       "name": "Dystopia",
       "format": "feature_film",
       "culture_era": "Global Cinematic",
       "description": "A dystopia (lit. \"bad place\") is an imagined world or society in which people lead wretched, dehumanized, fearful lives."
-    },
-    {
-      "id": "film_erotic_thriller",
-      "name": "Erotic thriller",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "The erotic thriller is a film subgenre defined as a thriller with a thematic basis in illicit romance or sexual fantasy."
-    },
-    {
-      "id": "film_film_genre",
-      "name": "Film genre",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "A film genre is a stylistic or thematic category for motion pictures based on similarities either in the narrative elements, aesthetic approach, or the emotional response to the film."
     },
     {
       "id": "film_kaiju",
@@ -700,41 +616,6 @@
       "description": "Arthouse science fiction (or arthouse sci-fi) is a combination of art and science fiction cinema."
     },
     {
-      "id": "film_australian_western",
-      "name": "Australian Western",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Australian Western, also known as meat pie Western or kangaroo Western, is a sub-genre of Western films or TV series set in the arid Australian outback or \"the bush\"."
-    },
-    {
-      "id": "film_backstage_musical",
-      "name": "Backstage musical",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "A backstage musical is a genre of musical with a plot set in a theatrical context that revolves around the production of a play or musical revue."
-    },
-    {
-      "id": "film_badaga_cinema",
-      "name": "Badaga cinema",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Term used to refer to the Badaga language film industry based in Udagamandalam in Tamil Nadu, India."
-    },
-    {
-      "id": "film_beach_party_film",
-      "name": "Beach party film",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "The beach party film is an American film genre of feature films which were produced and released between 1963 and 1968, created by American International Pictures (AIP), beginning with their surprise hit, Beach Party, in July 1963."
-    },
-    {
-      "id": "film_behind_the_scenes",
-      "name": "Behind-the-scenes",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "In filmmaking, behind-the-scenes (BTS), also known as the making-of, the set, or on the set, is a documentary film that features the production of a film or television program."
-    },
-    {
       "id": "film_bildungsroman",
       "name": "Bildungsroman",
       "format": "feature_film",
@@ -747,34 +628,6 @@
       "format": "feature_film",
       "culture_era": "Global Cinematic",
       "description": "A biographical film, or biopic (, biographical picture), is a film that dramatizes the life of a real person or sometimes a group of people."
-    },
-    {
-      "id": "film_black_film",
-      "name": "Black film",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Classification of film that has a broad definition relating to the film involving participation and/or representation of black people."
-    },
-    {
-      "id": "film_bomba_genre",
-      "name": "Bomba (genre)",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Filipino film genre, characterized by its gratuitous use of sex scenes. It was most popular in the late 1960s, and was a focal point of cultural debates around sex and sexuality."
-    },
-    {
-      "id": "film_bourekas_film",
-      "name": "Bourekas film",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Bourekas films (Hebrew: סרטי בורקס) (named after the pastry bourekas) represent a genre of Israeli comic melodrama films popular in the 1960s and 1970s."
-    },
-    {
-      "id": "film_bromantic_comedy",
-      "name": "Bromantic comedy",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "A bromantic comedy is a comedy film genre that takes the formula of the typical \"romantic comedy\" but focuses on close male friendships."
     },
     {
       "id": "film_buddy_cop",
@@ -791,13 +644,6 @@
       "description": "The buddy film is a subgenre of adventure and comedy film in which two people go on an adventure, mission, or road trip."
     },
     {
-      "id": "film_cannibal_film",
-      "name": "Cannibal film",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Cannibal films, alternatively known as the cannibal genre or the cannibal boom, are a subgenre of horror films made predominantly by Italian filmmakers during the 1970s and 1980s."
-    },
-    {
       "id": "film_cartoon",
       "name": "Cartoon",
       "format": "feature_film",
@@ -805,32 +651,11 @@
       "description": "A cartoon is a type of visual art that is typically drawn, frequently animated, in an unrealistic or semi-realistic style."
     },
     {
-      "id": "film_cartoon_pornography",
-      "name": "Cartoon pornography",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Portrayal of illustrated or animated fictional cartoon characters in erotic or sexual situations."
-    },
-    {
-      "id": "film_chernukha",
-      "name": "Chernukha",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "In Russian culture, chernukha (Russian: чернуха, \"black stuff\") is a type of narrative in literature, film, and mass media focused on pessimistic description of the everyday life."
-    },
-    {
       "id": "film_chicano_cinema",
       "name": "Chicano cinema",
       "format": "feature_film",
       "culture_era": "Global Cinematic",
       "description": "Aspect of Mexican American cinema that refers to the filmmaking practices that emerged out of the cultural consciousness developed through the Chicano Movement."
-    },
-    {
-      "id": "film_chick_flick",
-      "name": "Chick flick",
-      "format": "feature_film",
-      "culture_era": "Global Cinematic",
-      "description": "Slang term for the film genre catered specifically to women's interests, and is marketed toward female demographics."
     },
     {
       "id": "film_children_s_film",
@@ -1030,7 +855,7 @@
       "id": "dir_gaspar_noe",
       "name": "Gaspar Noé Hallucinogenic Immersion",
       "type": "director_signature",
-      "description": "Floating Steadicam ceiling perspectives drifting through doorways, pulsing strobe lights, disorienting 360-degree rolls, and raw psycho-sexual euphoria and horror.",
+      "description": "Floating Steadicam ceiling perspectives drifting through doorways, pulsing strobe lights, disorienting 360-degree rolls, and sensory neon euphoria.",
       "key_motifs": "Pulsing red and amber strobe lights, overhead ceiling tracking, spinning camera axes, nightclub delirium, neon signs",
       "era_of_origin": "2000s-Present"
     },
@@ -1049,14 +874,6 @@
       "description": "Extreme wide-angle Dutch tilts, labyrinthine bureaucratic ductwork, retro-futuristic clunky cathode screens, and frantic surrealist physical comedy.",
       "key_motifs": "Dutch angles, 14mm wide-angle distortion, pneumatic tubes, towering paper stacks, rusted clockwork, eccentric costumes",
       "era_of_origin": "1980s-2000s"
-    },
-    {
-      "id": "dir_dario_argento",
-      "name": "Dario Argento Operatic Giallo",
-      "type": "director_signature",
-      "description": "Lurid primary colored lighting (crimson reds, cobalt blues), gliding extreme close-ups of mechanical objects, architectural terror, and theatrical baroque violence.",
-      "key_motifs": "Vivid crimson gel lighting, stained glass windows, peacock feathers, straight razors, art nouveau wallpaper",
-      "era_of_origin": "1970s-1980s"
     },
     {
       "id": "dir_claire_denis",
@@ -1219,14 +1036,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "art_abjection",
-      "name": "Abjection",
-      "type": "art_movement",
-      "description": "State of being cast off and separated from norms and rules, especially on the scale of society and morality.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "art_abstract_art",
       "name": "Abstract art",
       "type": "art_movement",
@@ -1259,14 +1068,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "art_art_movement",
-      "name": "Art movement",
-      "type": "art_movement",
-      "description": "Is a tendency or style in art with a specific art philosophy or goal, followed by a group of artists during a specific period of time, (usually a few months, years or decades) or, at least, with the heyday of the movement defined within.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "art_conceptual_art",
       "name": "Conceptual art",
       "type": "art_movement",
@@ -1287,14 +1088,6 @@
       "name": "Neo-expressionism",
       "type": "art_movement",
       "description": "Style of late modernist or early-postmodern painting and sculpture that emerged in the late 1970s.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_periods_in_western_art_history",
-      "name": "Periods in Western art history",
-      "type": "art_movement",
-      "description": "This is a chronological list of periods in Western art history. An art period is a phase in the development of the work of an artist, groups of artists or art movement.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -1347,14 +1140,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "art_artistic_symbol",
-      "name": "Artistic symbol",
-      "type": "art_movement",
-      "description": "In works of art, literature, and narrative, a symbol is a concrete element like an object, character, image, situation, or action that suggests or hints at abstract, deeper, or non-literal meanings or ideas.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "art_informalism",
       "name": "Informalism",
       "type": "art_movement",
@@ -1387,58 +1172,10 @@
       "era_of_origin": ""
     },
     {
-      "id": "art_animalier_school",
-      "name": "Animalier school",
-      "type": "art_movement",
-      "description": "Animalier school or animalier art was a late-18th and 19th-century artistic genre and school of artists who focused on depictions of animals.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_antipodeans",
-      "name": "Antipodeans",
-      "type": "art_movement",
-      "description": "The Antipodeans were a collective of Australian modern artists, known for their advocacy of figurative art and opposition to abstract expressionism.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_antwerp_mannerism",
-      "name": "Antwerp Mannerism",
-      "type": "art_movement",
-      "description": "Style of a group of largely anonymous painters active in the southern Netherlands, principally in Antwerp, in roughly the first three decades of the 16th century.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_antwerp_school",
-      "name": "Antwerp school",
-      "type": "art_movement",
-      "description": "The Antwerp School was a school of artists active in Antwerp, first during the 16th century when the city was the economic center of the Low Countries, and then during the 17th century when it became the artistic stronghold of the.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "art_art_deco_architecture",
       "name": "Art Deco architecture",
       "type": "art_movement",
       "description": "Art Deco, short for the French Arts décoratifs (lit. 'Decorative Arts'), is an architectural style that first appeared in Paris in the 1910s before World War I and flourished internationally throughout the 1920s and 1930s.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_art_dans_tout",
-      "name": "Art dans Tout",
-      "type": "art_movement",
-      "description": "The Art dans Tout movement was a French art group which operated from 1896 to 1901.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_art_in_defence_of_humanism",
-      "name": "Art in Defence of Humanism",
-      "type": "art_movement",
-      "description": "Aidoh is a shortening for Art In Defence Of Humanism. AIDOH was created by the Danish artist Jens Galschiot as a group focusing on the inhuman treatment of people in different countries related to political, religious or economic interests.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -1475,38 +1212,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "art_belarusian_icon_painting_school_of_the_16th_18th_centuries",
-      "name": "Belarusian icon-painting school of the 16th–18th centuries",
-      "type": "art_movement",
-      "description": "Belarusian icon-painting school of the 16th–18th centuries (Russian: Белорусская иконописная школа XVI—XVIII веков) is a school of icon painting that was formed under the influence of the Renaissance and based on the traditions of the.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_birmingham_group_artists",
-      "name": "Birmingham Group (artists)",
-      "type": "art_movement",
-      "description": "The Birmingham Group, sometimes called the Birmingham School, was an informal collective of painters and craftsmen associated with the Arts and Crafts Movement, that worked in Birmingham, England in the late 19th and early 20th centuries.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_bombay_progressive_artists_group",
-      "name": "Bombay Progressive Artists' Group",
-      "type": "art_movement",
-      "description": "The Progressive Artists' Group (PAG), was a group of modern artists, mainly based in Bombay, from its formation in 1947.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_the_blockhouse_of_boston",
-      "name": "The Blockhouse of Boston",
-      "type": "art_movement",
-      "description": "Pioneering art and design cooperative of alumni from the Massachusetts College of Art in Boston, Massachusetts that opened its doors in 1947.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "art_cobra_art_movement",
       "name": "COBRA (art movement)",
       "type": "art_movement",
@@ -1519,14 +1224,6 @@
       "name": "Caravaggisti",
       "type": "art_movement",
       "description": "The Caravaggisti (or the \"Caravagesques\"; singular: \"Caravaggista\") were stylistic followers of the late 16th-century Italian Baroque painter Caravaggio.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_cenacolo_artistico_forlivese",
-      "name": "Cenacolo Artistico Forlivese",
-      "type": "art_movement",
-      "description": "The Cenacolo Artistico Forlivese (literally \"Forlì Artistic Cenacle\") was an association of artists active in Forlì during the 1920s.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -1587,14 +1284,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "art_cracking_art",
-      "name": "Cracking Art",
-      "type": "art_movement",
-      "description": "Art movement created by an Italian artist collective, and known for urban installations characterized by the presence of giant animals made of recyclable and colored plastic.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "art_crystal_cubism",
       "name": "Crystal Cubism",
       "type": "art_movement",
@@ -1611,14 +1300,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "art_czech_informel",
-      "name": "Czech Informel",
-      "type": "art_movement",
-      "description": "Described as a current of expressive structural abstraction that emerged from specific local conditions at the turn of the 1950s and 1960s.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "art_danish_design",
       "name": "Danish design",
       "type": "art_movement",
@@ -1631,22 +1312,6 @@
       "name": "Dansaekhwa",
       "type": "art_movement",
       "description": "Dansaekhwa (Korean: 단색화, hanja 單色畵, also known as Tansaekhwa), often translated as \"monochrome painting\" from Korean, is a retroactive term grouping together disparate artworks that were exhibited in South Korea beginning in the mid 1970s.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_dau_al_set",
-      "name": "Dau al Set",
-      "type": "art_movement",
-      "description": "Dau al Set, the first post-World War II artistic movement in Spain, was founded in Barcelona in September 1948 by poet Joan Brossa.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_de_via",
-      "name": "De'VIA",
-      "type": "art_movement",
-      "description": "Deaf View Image Art, abbreviated as De'VIA, is a genre of visual art that intentionally represents the Deaf experience and Deaf culture.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -1715,22 +1380,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "art_fronte_nuovo_delle_arti",
-      "name": "Fronte Nuovo delle Arti",
-      "type": "art_movement",
-      "description": "Italian artistic movement active in Venice, Rome and Milan in the years following WWII (1946 to 1950).",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "art_the_dot_toyism",
-      "name": "The Dot (Toyism)",
-      "type": "art_movement",
-      "description": "Work of art in Emmen (Netherlands). It is designed and painted by art collective the toyists.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "cm_cinema_novo",
       "name": "Cinema Novo",
       "type": "cinematic_movement",
@@ -1763,14 +1412,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "cm_extreme_cinema",
-      "name": "Extreme cinema",
-      "type": "cinematic_movement",
-      "description": "Extreme cinema (or hardcore horror and extreme horror) is a film subgenre characterized by the deliberate use of graphic depictions of sex, violence, and other taboo or transgressive acts, including mutilation, torture, and sexual violence.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "cm_film_noir",
       "name": "Film noir",
       "type": "cinematic_movement",
@@ -1791,14 +1432,6 @@
       "name": "German expressionist cinema",
       "type": "cinematic_movement",
       "description": "Part of several related creative movements in Germany in the early 20th century that reached a peak in Berlin during the 1920s.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "cm_giallo",
-      "name": "Giallo",
-      "type": "cinematic_movement",
-      "description": "In Italian cinema, giallo is a genre that often contains slasher, thriller, psychological horror, psychological thriller, sexploitation, and, less frequently, supernatural.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -1883,34 +1516,10 @@
       "era_of_origin": ""
     },
     {
-      "id": "cm_cinema_of_greece",
-      "name": "Cinema of Greece",
-      "type": "cinematic_movement",
-      "description": "The cinema of Greece has a long and rich history. Though hampered at times by war or political instability, the Greek film industry dominates the domestic market and has experienced international success.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "cm_australian_new_wave",
       "name": "Australian New Wave",
       "type": "cinematic_movement",
       "description": "The Australian New Wave (also known as the Australian Film Revival, Australian Film Renaissance, or New Australian Cinema) was an era of resurgence in the worldwide popularity of the Australian cinema, particularly in the United States.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "cm_budapest_school",
-      "name": "Budapest school",
-      "type": "cinematic_movement",
-      "description": "The Budapest school, or documentarism, was a Hungarian film movement that flourished from roughly 1972 to 1984.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "cm_cinema_da_boca_do_lixo",
-      "name": "Cinema da Boca do Lixo",
-      "type": "cinematic_movement",
-      "description": "Cinema da Boca do Lixo (Mouth of Garbage film) is the collective name for a film genre associated with the Boca do Lixo (\"Mouth of Garbage\") downtown area of São Paulo, Brazil.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -1995,30 +1604,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "cm_vulgar_auteurism",
-      "name": "Vulgar auteurism",
-      "type": "cinematic_movement",
-      "description": "Movement that emerged in early 2010s cinephilia and film criticism associated with championing or reappraising filmmakers, mostly those working in the horror, sci-fi and action genres and whose work has otherwise received little.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "cm_cinema_of_transgression",
-      "name": "Cinema of Transgression",
-      "type": "cinematic_movement",
-      "description": "The Cinema of Transgression is a term coined by Nick Zedd in 1985 to describe a New York City–based underground film movement, consisting of a loose-knit group of artists using shock value and black humor in their films.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "cm_list_of_afrofuturist_films",
-      "name": "List of Afrofuturist films",
-      "type": "cinematic_movement",
-      "description": "In film, Afrofuturism is the incorporation of black people's history and culture in science fiction film and related genres.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "cm_new_queer_cinema",
       "name": "New queer cinema",
       "type": "cinematic_movement",
@@ -2043,14 +1628,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "cm_grupo_cine_liberaci_n",
-      "name": "Grupo Cine Liberación",
-      "type": "cinematic_movement",
-      "description": "The Grupo Cine Liberación (\"The Liberation Film Group\") was an Argentine film movement that took place during the end of the 1960s.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "cm_iranian_new_wave",
       "name": "Iranian New Wave",
       "type": "cinematic_movement",
@@ -2063,22 +1640,6 @@
       "name": "Kinoks",
       "type": "cinematic_movement",
       "description": "The Kinoks (Russian: Киноки, romanized: kino-oki, lit. 'cinema-eyes') were a collective of Soviet filmmakers in the 1920s, consisting of Dziga Vertov, Elizaveta Svilova and Mikhail Kaufman.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "cm_malayalam_softcore_pornography",
-      "name": "Malayalam softcore pornography",
-      "type": "cinematic_movement",
-      "description": "Popular genre of softcore pornography produced in the Indian state of Kerala in the Malayalam language.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "cm_neorealism_art",
-      "name": "Neorealism (art)",
-      "type": "cinematic_movement",
-      "description": "In art, neorealism refers to a few movements.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -2147,14 +1708,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "cm_cinema_of_thailand",
-      "name": "Cinema of Thailand",
-      "type": "cinematic_movement",
-      "description": "The cinema of Thailand dates back to the early days of filmmaking, when King Chulalongkorn's 1897 visit to Bern, Switzerland was recorded by François-Henri Lavancy-Clarke.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "aes_atompunk",
       "name": "Atompunk",
       "type": "visual_aesthetic",
@@ -2199,7 +1752,7 @@
       "name": "Dreamcore",
       "type": "visual_aesthetic",
       "description": "Surreal internet aesthetic that emerged in the early 2020s focusing on visuals inspired by dreams.",
-      "key_motifs": "Characters, creatures, reoccurrence of eyes (e.g. mushrooms with eyes, floating angels), teeth, dreamy liminal spaces, kidcore/yami kawaii/webcore elements, silhouettes, cryptic red text questioning reality, nature of dreams & identity, CRT TVs, organs, voids, flowers, clouds, and wings| Pink Wafer , === External Motifs ===, During the peak of Dreamcore's rise, users on platforms such as TikTok and Picsart would create object headed original characters (usually sporting cardboard cutout masks) and creatures such as winged-eyed angels, or silhouettes with facial features that usually reflected the \"weird\" and \"surreal\" feeling of dreams. , , In addition to these object-headed characters, users would also subvert the nostalgic settings using voids, cryptic read text and overlay, organs, animals, mushrooms, and motifs from other aesthetics, especially Yami Kawaii where users implement pills, bandages, and syringes, and Kidcore stickers. , , File:TypDreamcoreimg1.jpg|Example of Dreamcore settings., File:Dreamcore9.png|Example of Dreamcore's external motifs., , == Criticism ==, A part of the criticism around Dreamcore was due to inherent irony centered around the \"core\" suffix and the overcategorization of certain aesthetics. Communities like FlopTok viewed Dreamcore as \"cringey\" or a joke, and other communities believed that Dreamcore (and other related aesthetics, such as Traumacore and Weirdcore) were merely \"buzzwords\" or terms used to validate and romanticize \"fake\" or \"undiagnosed\" mental health issues. , , Dreamcore's visuals were also a significant factor of criticism since many people would call out the \"repetitive\" visuals of Dreamcore. Such as mushrooms, eyes, OC's, cryptic text, and angels with wings. Without any \"unique\" change to the aesthetic. The conflicting names of Weirdcore and Dreamcore also led to further criticism of Dreamcore, causing some viewers to yearn for the \"old\" Weirdcore or to label Dreamcore a \"watered-down\" version of Weirdcore. , == Differences from Weirdcore ==, {",
+      "key_motifs": "Dreamy surreal landscapes, floating clouds, soft nostalgic pastel skies, ethereal light reflections, surrealist geometry",
       "era_of_origin": "Late 2010s-Early 2020s"
     },
     {
@@ -2240,7 +1793,7 @@
       "type": "visual_aesthetic",
       "description": "Genre of speculative fiction originating in Brazil around the late 2000s that focuses on renewable energy, living in harmony with nature, and the better future envisioned through both.",
       "key_motifs": "Stained glass solar panels, plant life, art noveau, cluttered visuals, African and Asian patterns.",
-      "era_of_origin": "Coined c. 2000s Gained prevalence in the 2010s. '''Steampunk''' Solarpunk futurism is not nihilistic like Cyberpunk and it avoids Steampunk's potentially quasi-reactionary tendencies: it is about ingenuity, generativity, independence, and community. At its core, Solarpunk is a vision of a future that embodies the best of what humanity can achieve: a post-scarcity, post-hierarchy, post-capitalistic world where humanity sees itself as part of nature and clean energy replaces fossil fuels. The Solarpunk Manifesto may be found here. A reference guide for all things Solarpunk may be found at this link, and more content may also be found at r/solarpunk and on solarpunks.net. == History == In 2008, Solarpunk was coined in a blog called \"From Steampunk to Solarpunk\" by John RobertFrom Steampunk to Solarpunk., detailing Steampunks philosophy but with practicality and ethics. Matt Stagg's \"GreenPunk Manifesto\" continued this philosophy adding ethical use of technology with ecological progress. But the aesthetic fully gained traction in 2014 with user Olivia Louise creating a concept art relating to aesthetic. Later Adam Flyn contributed to the genre's rise with Project Hieroglyph, as well as ''A Solarpunk Manifesto'', a comprehensive list of elements in the genre which was published in 2019. In 2021, Chobani released an ad titled \"Dear Alice\" that further cemented the aesthetics' visuals, using motifs such as open fields, a connection with nature, renewable energy and advanced technology.What Is SolarPunk: How An Animated Ad Helped Define A Genre Aesthetic == Philosophy == Solarpunk imagines humans living in ecological balance through renewable energy, social justice, and mutual care. It blends a countercultural “punk” rejection of extractive capitalism with practical, community-level experiments in sustainable living. name=\":1\"> name=\":2\"> A few recurring principles are: * Environmental sustainability and regeneration rather than mere “less harm” * Community, cooperation, and mutual aid instead of extreme individualism * Decentralized, DIY solutions rather than top‑down control These position solarpunk as both an artistic vision and a guide for real-world practices like ecovillages, community gardens, and local energy systems. Rather than rejecting technology, solarpunk insists that tools and infrastructure must enhance ecosystems and human well‑being. This includes renewable energy, low-impact architecture, open‑source hardware, and low-tech methods such as permaculture, repair culture, and upcycling. name=\":1\" /> Another key philosophical move in solarpunk is refusing pessimism and climate doomerism, insisting on “radical hope” grounded in action. The “punk” element is expressed as opposition to systems of domination and consumerism, favoring egalitarianism, decolonial thinking, and experiments in self-governance. name=\":2\" /> Solarpunk generally embraces racial and gender equality, inclusivity, and attention to marginalized communities. It treats liberation as both human‑centric and eco‑centric, aiming to heal the split between people and nature while transforming how work, resources, and power are organized. ==Elements of Solarpunk== Everything from a positive imagining of our collective futures to actually creating it: 3D printing, Afrofuturism, art, cooperatives, DIY, ecological restoration, nature, engineering, fiction, futurism, gardening, geodesic domes, green architecture, green design, green energy, ingenuous indigenous practices, intentional community, maker spaces, materials science, music, permaculture, repair cafes, solar, solar power, sustainability, tree planting, urban planning, and volunteering (amongst other things). It can be argued that Hayao Miyazaki set the visual tone of Solarpunk's philosophy with his films emphasizing the connection between nature and man, ethical technology, and sprawling landscapes with distant cities. Such films like Castle in the Sky and Nausicaä of the Valley of the Wind are primal examples. Though, Hayao Miyazaki's films usually deviate from the aesthetics philosphy despite the visuals he portrays. === Other elements === The other visual motifs and aesthetics of Solarpunk are open and evolving. They include a mash-up of the following: *1800s age-of-sail/frontier living (but with more bicycles) *Creative reuse of existing infrastructure (sometimes post-apocalyptic, sometimes present-weird) *Art Nouveau *Jugaad-style innovation from the non-Western world *High-tech backends with simple, elegant outputs === Architecture === Solarpunk architecture usually looks like buildings wrapped in greenery, powered by visible renewables, and designed at a human, community-friendly scale. It tends to blend organic, nature-inspired forms with clean technology in a way that feels hopeful rather than high-tech or dystopian. name=\":6\"> name=\":7\"> name=\":1\" /> Buildings often feature green roofs and facades covered in plants, trees, and vertical gardens that cool the structure and provide habitat. There are also large windows, atriums, and skylights that maximize daylight and connect interiors with surrounding nature, as well as curved or irregular forms, timber or earthen finishes, and visible water features that soften the hard edges of conventional urban design. name=\":5\" /> Technology is usually on display rather than hidden. Solar panels, small wind turbines, rainwater catchment systems, and sometimes kinetic pavement or micro-grids are incorporated into the visible skin of the building. Materials and systems are chosen for low energy use and sometimes for self-sufficiency, such as Earthship-style structures using thermal mass, recycled components, and on-site water and sewage treatment. These buildings aim to feel like part of a living ecosystem rather than sealed boxes in a city. Public terraces, rooftop gardens, shared green courtyards, and edible landscapes are common, supporting urban agriculture and social gathering alongside biodiversity. name=\":8\" /> Several contemporary projects are frequently cited as “solarpunk-adjacent,” even if not labeled that way by their designers. One Central Park in Sydney uses large vertical gardens to shade the facade, reduce energy demand, and visually merge a tower with greenery. Earthship communities in New Mexico, urban farm offices like Pasona Urban Farm in Tokyo, and tree-filled residential projects such as 25 Verde in Turin all illustrate core solarpunk traits: integrated vegetation, on-site resource systems, and strong human–nature connection. === Fashion === When it comes to Solarpunk, fashion is less a fixed “look” and more a way of dressing that prioritizes sustainability. It emphasizes how clothes are made, used, and repaired as much as how they appear. name=\":10\"> Outfits are often described as light, airy, and practical, with silhouettes that allow for movement and outdoor work rather than rigid or hyper‑formal cuts. Common visuals include loose layers, cloaks, workwear pieces like overalls and aprons, and garments that could plausibly be mended and worn for many years. name=\":9\" /> Colors tend to draw from nature. Soft greens and browns, earthy neutrals, floral tones, and other muted shades sit comfortably with plants and natural light, though brighter accents are not excluded. Fabrics are imagined as primarily natural or low‑impact along with visible mending, patchwork, and upcycling rather than disposable fast fashion. name=\":11\" /> The core of solarpunk fashion is ethical production: local or small‑scale making, fair working conditions, and a strong culture of reusing, repairing, and thrifting clothing instead of constant new consumption. Many in the scene frame “the most solarpunk outfit” as simply the most sustainable one you already own or find secondhand, rather than anything bought for an aesthetic. Visually speaking, the fashion often mixes Art Nouveau inspiration (organic, flowing lines) with contemporary streetwear and historical garments suited to local climates. == Criticisms == A prominent criticism is that much visible “solarpunk” content is aesthetic-first and can easily slide into greenwashing. Commentators note that glossy images of towers with token rooftop gardens or scattered trees often resemble conventional luxury developments that displace poorer residents, while claiming ecological virtue. In this view, it simply decorates an unsustainable status quo with cityscapes that look green but leave extractive economies and unequal access to housing and energy unchanged. This extends to corporations and institutions that borrow solarpunk-like visuals for branding, without shifting supply chains, labor practices, or emissions, turning the movement’s hopeful imagery into a marketing language that obscures ongoing harm.​ Another line of critique focuses on the “punk” in solarpunk, arguing that many depictions underplay conflict and systemic struggle. Detractors say that some fiction and art imagine almost frictionless eco-utopias, where oppression has already been solved, leaving little space for resistance, dissent, or messy politics. Compared with genres where “punk” highlights marginal figures resisting powerful systems, solarpunk jumps too quickly to a harmonious collective future, glossing over the hard, often confrontational work of getting there (such as organizing, confronting fossil capital, and dealing with backlash from entrenched interests). Critics warn that if the genre focuses mainly on serene post-transition worlds, it risks becoming a form of escapism that celebrates the end state while neglecting the actual conflicts and power struggles that any transition requires.​​ name=\":12\"> Scholars and reviewers point out that the utopian imagery carries racial and class blind spots. Some essays argue that in certain works, inequality, policing, and colonial histories fade into the background or are treated as already resolved, leading to “misty” visions that downplay how race, class, and empire structure both climate vulnerability and access to green technology. This can result in settings where eco-architecture, communal gardens, and renewables exist, but the stories do not fully confront who owns the land, who controls the infrastructure, and whose labor maintains the systems. These are issues that determine whether a future is genuinely liberatory or simply a cleaner version of existing hierarchies. There are also concerns about the realism of solarpunk’s technological and economic visions. Analysts of energy systems observe that solar panels, batteries, and other hardware still rely on extractive mining, global supply chains, and labor conditions that can reproduce the very injustices solarpunk wants to escape. If the movement imagines abundant clean energy without rethinking ownership, production, and material limits, it risks offering “green modernity” that is more equitable in imagery than in practice, especially when energy infrastructure in poorer regions is built primarily to serve wealthier markets elsewhere. In addition, some critics highlight how policy barriers, grid constraints, financing models, and state resistance can make community-scale renewables far harder to implement than idealized stories suggest.​​ == Differences from Frutiger Eco == While Solarpunk and Frutiger Eco both use green, tech‑optimistic imagery, Solarpunk is a grassroots social and design movement with a political philosophy; Frutiger Eco is a largely corporate visual style derived from 2000s advertising and UI design. They differ in purpose, who uses them, and how deeply they engage with sustainability and social change.​ === Purpose and ideology === Solarpunk treats aesthetics as an expression of a broader philosophy: decentralization, mutual aid, climate justice, and living within ecological limits.​ Frutiger Eco, on the other hand, is an offshoot of the Frutiger Aero graphic style, mainly used in marketing to signal “green” modernity and environmental concern, without necessarily changing underlying systems.​ As a result, Solarpunk is often critical of capitalism and consumerism, whereas Frutiger Eco tends to appear on corporate branding, packaging, and stock imagery.​ === Visual style and medium === Solarpunk spans architecture, fashion, illustration, and fiction, with imagery of dense greenery, localized infrastructure, and people actively inhabiting eco‑friendly spaces.​ Frutiger Eco is primarily 2D graphic design, with its most iconic features including glossy blues and greens, Earth globes, solar panels, leaves, bubbles, and sleek “eco tech” icons layered over clean gradients.​ Solarpunk often looks hand‑touched, lived‑in, and somewhat DIY, while Frutiger Eco looks polished, corporate, and stock‑photo‑like.​ === Relationship to technology and nature === Solarpunk imagines small‑scale, accessible technologies integrated into everyday life, like community solar, low‑impact buildings, shared gardens, and visible maintenance or repair.​ Frutiger Eco tends to show technology abstractly floating in idealized landscapes, with little sense of how people actually live there.​ In Solarpunk, nature is coequal with humans and often partly “wild”; in Frutiger Eco, nature is more symbolic and carefully sanitized to communicate optimism and cleanliness.​ === Community vs corporate context === Solarpunk is driven by communities, artists, activists, and small projects; its imagery often emerges from subcultures, zines, indie games, and local experiments. Frutiger Eco rose through corporations, NGOs, and governmental campaigns, becoming a visual shorthand for “environmentally friendly” in the 2000s and early 2010s.​ Some Solarpunk creators explicitly distinguish their work from Frutiger Eco, seeing the latter as a “corporate utopian” veneer that can coexist with unsustainable practices. { !''Aspect'' !''Solarpunk'' !''Frutiger Eco''"
+      "era_of_origin": "Late 2000s-Present"
     },
     {
       "id": "aes_steampunk",
@@ -2355,14 +1908,6 @@
       "era_of_origin": "1980s"
     },
     {
-      "id": "aes_indie_sleaze",
-      "name": "Indie Sleaze",
-      "type": "visual_aesthetic",
-      "description": "Aesthetic that describes the hedonistic, global party scene that flourished from roughly 2005 to 2014.",
-      "key_motifs": "Amateur flash photography, smudged eyeliner, messy hair, ripped tights, deep V-necks, neon accents, band t-shirts, skinny jeans, metallic fabrics, American Apparel basics, cigarettes",
-      "era_of_origin": "Mid-to-late 2000s"
-    },
-    {
       "id": "aes_mid_century_modern",
       "name": "Mid-Century Modern",
       "type": "visual_aesthetic",
@@ -2459,14 +2004,6 @@
       "era_of_origin": "Late 2010s"
     },
     {
-      "id": "aes_outrun",
-      "name": "Outrun",
-      "type": "visual_aesthetic",
-      "description": "#REDIRECT Synthwave Category:Redirects.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "aes_raygun_gothic",
       "name": "Raygun Gothic",
       "type": "visual_aesthetic",
@@ -2491,14 +2028,6 @@
       "era_of_origin": "2010s"
     },
     {
-      "id": "aes_traumacore",
-      "name": "Traumacore",
-      "type": "visual_aesthetic",
-      "description": "Internet aesthetic or type of imagery that originated around the late 2010s as a way for people to process and express feelings related to trauma, particularly childhood abuse.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "aes_2000s_modern_baroque",
       "name": "2000s Modern Baroque",
       "type": "visual_aesthetic",
@@ -2513,38 +2042,6 @@
       "description": "The 2000s Preppy aesthetic refers to a mainstream fashion style that adapted earlier prep-school and Ivy League influences into a more casual, mall-driven look associated with the early to mid-2000s.",
       "key_motifs": "Wealth, popularity, femininity, elitism",
       "era_of_origin": "2000s"
-    },
-    {
-      "id": "aes_2000s_tuscan_mom",
-      "name": "2000s Tuscan Mom",
-      "type": "visual_aesthetic",
-      "description": "Is a Y2K-revival aesthetic that emerged on TikTok between 2025 and 2026 and gained popularity in April 2026.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "aes_2000s_yoga_mom",
-      "name": "2000s Yoga Mom",
-      "type": "visual_aesthetic",
-      "description": "Retrospective microtrend that emerged online through TikTok and Pinterest in early 2026, and reached peak popularity in the spring of the same year.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "aes_2010s_bright_kawaii",
-      "name": "2010s Bright Kawaii",
-      "type": "visual_aesthetic",
-      "description": "Wiki-given name for Kawaii trends common on Tumblr and Instagram blogs in the mid-2010s.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "aes_2010s_dark_fandom",
-      "name": "2010s Dark Fandom",
-      "type": "visual_aesthetic",
-      "description": "Retrospectively named internet aesthetic that peaked approximately between 2010 and 2016.",
-      "key_motifs": "Monochrome color palette (black-red-white), blood splatters, glowing eyes, kitchen knives, glitch/static, surgical masks, \"Desmotivaciones\" posters, red spider lilies, chains",
-      "era_of_origin": "2010s"
     },
     {
       "id": "aes_2_tone",
@@ -2569,14 +2066,6 @@
       "description": "Term referring to a society that has developed in the same aspects of Cyberpunk but towards an Utopian direction, with fair law and no world-controlling corporations.",
       "key_motifs": "CityscapesTechnologyCyberspaceRobotics",
       "era_of_origin": "1960s (core ideas) 2000s"
-    },
-    {
-      "id": "aes_gothic_lolita",
-      "name": "Gothic Lolita",
-      "type": "visual_aesthetic",
-      "description": "Gothic Lolita (ゴスロリ, gosurori) is a substyle of Lolita fashion that emerged in Japan during the late 1990s.",
-      "key_motifs": "Crosses, bats, religious iconography, chandeliers, castles, coffins, deep red roses",
-      "era_of_origin": "1990s"
     },
     {
       "id": "aes_hauntology",
@@ -2609,54 +2098,6 @@
       "description": "Aesthetic that was prevalent from the late 1980s to the early-mid 2000s, manifesting primarily in the visual identity and presentation of edutainment media such as children's books, early digital encyclopedias, nature/science/history.",
       "key_motifs": "",
       "era_of_origin": ""
-    },
-    {
-      "id": "aes_2010s_meme_maximalism",
-      "name": "2010s Meme Maximalism",
-      "type": "visual_aesthetic",
-      "description": "Revivalist internet aesthetic and art style that originated approximately in the early 2020s, characterized by a nostalgic celebration of the internet culture and memes from the late 2000s to mid 2010s.",
-      "key_motifs": "Rage comics (Trollface, etc.), Nyan Cat, Epic Face, image macros, Advice Animals, splatters, rainbow gradients, Sparkledogs, kaomoji",
-      "era_of_origin": "2020s (drawing from Late 2000s-Mid 2010s)"
-    },
-    {
-      "id": "aes_2010s_soft_kawaii",
-      "name": "2010s Soft Kawaii",
-      "type": "visual_aesthetic",
-      "description": "Offshoot of the Kawaii aesthetic based on trends in the 2010s, especially on the website Tumblr.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "aes_2010s_summer_nostalgia",
-      "name": "2010s Summer Nostalgia",
-      "type": "visual_aesthetic",
-      "description": "The 2010s Summer Nostalgia aesthetic is a style that romanticizes the cultural mood and imagery of summer experiences during the 2010s, especially between 2013 and 2018.",
-      "key_motifs": "Palm trees (especially silhouetted at sunset), ocean and pool scenes, beach bonfires, high-waisted shorts, floppy hats, large sunglasses, flamingo floaties, Arizona Iced Tea, fads like the Ice Bucket Challenge and Pokémon Go (2016), \"Keep Calm\" memes",
-      "era_of_origin": "Early-to-Mid 2010s"
-    },
-    {
-      "id": "aes_2014_girly",
-      "name": "2014 Girly",
-      "type": "visual_aesthetic",
-      "description": "2014 Girly Tumblr is an aesthetic seen in 2014 Tumblr. It centers itself around visuals that girly Tumblr bloggers found popular at the time.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
-      "id": "aes_2020_alt",
-      "name": "2020 Alt",
-      "type": "visual_aesthetic",
-      "description": "2020 Alt (variously called E-Kid, Alt Kid, or Bunny Hat Kid) is an internet-based youth subculture and fashion style that gained prominence during the COVID-19 pandemic in the early 2020s.",
-      "key_motifs": "Bunny/frog hats, layered shirts, fishnets, chains, arm warmers, anime, Sanrio characters, Monster Energy drinks",
-      "era_of_origin": "Early 2020s"
-    },
-    {
-      "id": "aes_2020s_preppy",
-      "name": "2020s Preppy",
-      "type": "visual_aesthetic",
-      "description": "2020s Preppy (also known as simply Preppy, Gen Alpha Preppy, TikTok Preppy, or the Sephora Kid aesthetic) is a fashion and lifestyle aesthetic that emerged on TikTok in the early 2020s.",
-      "key_motifs": "Smiley faces, lightning bolts, chenille patches, bows",
-      "era_of_origin": "2020s"
     },
     {
       "id": "aes_50s_suburbia",
@@ -2697,14 +2138,6 @@
       "description": "90s Cool (also known as The Matrix Effect or Bullet Time) is an aesthetic that was prevalent from the mid-1990s to mid-2000s, and emphasized martial arts-style fight choreography mixed with computer-generated (CGI) effects.",
       "key_motifs": "",
       "era_of_origin": ""
-    },
-    {
-      "id": "aes_92i",
-      "name": "92i",
-      "type": "visual_aesthetic",
-      "description": "Maximalist makeup and fashion trend that emerged in France in 2025, originating from the Hauts-de-Seine region (postal code 92) and influenced by the cultural legacy of the 92i hip-hop collective.",
-      "key_motifs": "High-coverage matte foundation, carved-out eyebrows, winged eyeliner, XXL lashes, sharp contour, bronzed skin",
-      "era_of_origin": "2020s"
     },
     {
       "id": "aes_abstract_tech",
@@ -2795,28 +2228,12 @@
       "era_of_origin": "2010s"
     },
     {
-      "id": "aes_agejo",
-      "name": "Agejo",
-      "type": "visual_aesthetic",
-      "description": "Agejo (age嬢), a term short for \"Ageha Lady,\" is a substyle of Japanese Gyaru fashion that emerged in the mid-2000s.",
-      "key_motifs": "Animal print (especially leopard and zebra), rhinestones, lace, roses, bows, ribbons, gold embellishments",
-      "era_of_origin": "Mid 2000s"
-    },
-    {
       "id": "aes_aggrotech",
       "name": "Aggrotech",
       "type": "visual_aesthetic",
       "description": "Aggrotech (also known as Hellektro in Europe) is a harsh derivative genre of dark electro and an evolution of Electronic Body Music (EBM) that emerged in the mid-to-late 1990s.",
       "key_motifs": "Gas masks, biohazard symbols, tactical gear, body horror, heavy machinery, aggressive synthesizers",
       "era_of_origin": "Late 1990s"
-    },
-    {
-      "id": "aes_ah_beng",
-      "name": "Ah Beng",
-      "type": "visual_aesthetic",
-      "description": "Ah Beng (阿明) and its feminine counterpart, Ah Lian (阿蓮), are Chinese-language pejorative terms used in Singapore and Malaysia to describe an anti-social, lower-class youth stereotype and subculture.",
-      "key_motifs": "Rebonded/dyed Hair (blonde/red), loud and flashy Accessories (chunky jewelry), motor enthusiasm/reckless driving, visible Western brands, Singlish/Hokkien language preference",
-      "era_of_origin": "1990s"
     },
     {
       "id": "aes_airbrush_surrealism",
@@ -2835,28 +2252,12 @@
       "era_of_origin": "Early 2000s"
     },
     {
-      "id": "aes_alay",
-      "name": "Alay",
-      "type": "visual_aesthetic",
-      "description": "Indonesian subculture that gained prevalence in the mid-2000s to early 2010s, related to a pop culture phenomenon often describing an excessive, tacky (norak) version of Harajuku, Emo, and Jejemon.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "aes_aliencore",
       "name": "Aliencore",
       "type": "visual_aesthetic",
       "description": "The Aliencore aesthetic is inspired by pop culture media relating to the concept of otherworldy extraterrestrial life, adventure, mystery, and conspiracy.",
       "key_motifs": "Aliens, outer space, UFOs",
       "era_of_origin": "1990s"
-    },
-    {
-      "id": "aes_aliyahcore",
-      "name": "Aliyahcore",
-      "type": "visual_aesthetic",
-      "description": "Fashion microtrend that originated on TikTok in the early 2020s, created and popularized by the Atlanta-based content creator Aliyah Bah (aliyahsinterlude).",
-      "key_motifs": "Earmuffs, fishnets (as sleeves and stockings), garter belts, fur-trimmed platform boots, miniskirts, layered belts",
-      "era_of_origin": "2020s"
     },
     {
       "id": "aes_alt_country_occult",
@@ -2889,22 +2290,6 @@
       "description": "Aesthetic style that was prevalent in the United States in magazine covers, movie posters, billboards, advertisements, and propaganda from the 1920s to the 1960s.",
       "key_motifs": "",
       "era_of_origin": ""
-    },
-    {
-      "id": "aes_american_pioneers",
-      "name": "American Pioneers",
-      "type": "visual_aesthetic",
-      "description": "Settlers that colonized the western portion what is now known as the United States of America in the 19th century.",
-      "key_motifs": "The American prairie, supplies used on the journey, danger",
-      "era_of_origin": ""
-    },
-    {
-      "id": "aes_american_thanksgiving",
-      "name": "American Thanksgiving",
-      "type": "visual_aesthetic",
-      "description": "American holiday that takes place every fourth Thursday of November. This holiday is incredibly noteworthy in American culture, and involves a large, home-cooked feast of foods traditionally associated with Thanksgiving eaten with.",
-      "key_motifs": "Fall harvest, turkeys, pie, family, cornucopia, pumpkins",
-      "era_of_origin": "November 1621"
     },
     {
       "id": "aes_analog_horror",
@@ -2979,30 +2364,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "aes_apr_s_ski",
-      "name": "Après-ski",
-      "type": "visual_aesthetic",
-      "description": "Après-ski, a French term meaning \"after ski,\" refers to the social activities, and the distinct fashion aesthetic associated with them, that take place after a day of skiing.",
-      "key_motifs": "Knit sweaters (especially Fair Isle), turtlenecks, puffer jackets, ski chalets, fireplaces, fondue, mulled wine, vintage ski posters",
-      "era_of_origin": "1950s"
-    },
-    {
-      "id": "aes_arabfunny",
-      "name": "Arabfunny",
-      "type": "visual_aesthetic",
-      "description": "Meme aesthetic that emerged around 2018, primarily originating from the subreddit r/Arabfunny.",
-      "key_motifs": "Arabic text, random viral videos, red clickbait circles and arrows, Peter Griffin, low quality .JPEG compression, Arabic music/ringtones, emojis, loud sirens, low quality 3D animations, \"FREE DOWNLOAD\" buttons",
-      "era_of_origin": "Late 2010s"
-    },
-    {
-      "id": "aes_arabian_driftcore",
-      "name": "Arabian Driftcore",
-      "type": "visual_aesthetic",
-      "description": "Meme aesthetic combining images of cars performing \"Saudi Drift\" with the layering of a woman (typically a hijabi)'s eyes.",
-      "key_motifs": "",
-      "era_of_origin": ""
-    },
-    {
       "id": "aes_arabian_nights",
       "name": "Arabian Nights",
       "type": "visual_aesthetic",
@@ -3043,14 +2404,6 @@
       "era_of_origin": ""
     },
     {
-      "id": "aes_art_hoe",
-      "name": "Art Hoe",
-      "type": "visual_aesthetic",
-      "description": "Internet aesthetic and movement that originated on Tumblr in the mid-2010s. It was created by and for young creatives of color, particularly Black artists, to provide a space for them to engage with art and self-expression outside of.",
-      "key_motifs": "Selfies collaged with famous art, nature imagery (plants, flowers), sketchbooks, paint palettes, Kånken backpacks",
-      "era_of_origin": "Mid-2010s"
-    },
-    {
       "id": "aes_art_nouveau",
       "name": "Art Nouveau",
       "type": "visual_aesthetic",
@@ -3067,14 +2420,6 @@
       "era_of_origin": "1970s"
     },
     {
-      "id": "aes_artcore",
-      "name": "Artcore",
-      "type": "visual_aesthetic",
-      "description": "Artcore (アートコア), also referred to as Renaissance Hardcore, is a Japanese electronic music genre that emerged from the dōjin scene during the early 2000s.",
-      "key_motifs": "Classical piano and strings, high-tempo breakbeats, anime-styled characters, fantasy elements (crystals, feathers), Gothic architecture",
-      "era_of_origin": "Early 2000s"
-    },
-    {
       "id": "aes_arte_povera",
       "name": "Arte Povera",
       "type": "visual_aesthetic",
@@ -3089,14 +2434,6 @@
       "description": "The Arts and Crafts movement was an international trend in the decorative and fine arts that began in Britain and flourished between approximately 1880 and 1920.",
       "key_motifs": "Stylized natural forms (flowers, vines, birds), medieval influences, simple and strong construction, visible joinery, handcrafted textures",
       "era_of_origin": "1880s - 1920s"
-    },
-    {
-      "id": "aes_asian_baby_girl",
-      "name": "Asian Baby Girl",
-      "type": "visual_aesthetic",
-      "description": "The Asian Baby Girl, commonly abbreviated as ABG, is a subculture and aesthetic associated with Asian American women.",
-      "key_motifs": "Raves, parties, boba, tattoos, dyed hair, nightlife",
-      "era_of_origin": "1990s"
     },
     {
       "id": "aes_athleisure",
@@ -3129,14 +2466,6 @@
       "description": "Contemporary aesthetic inspired by imagery and motifs of 20th-century Australian culture.",
       "key_motifs": "Australian wildlife, koalas, kangaroos, and galahs, native flora and fauna, Aboriginal art, low-set cream brick homes, Queenslanders, nostalgic kitsch, retro design elements, fairy bread",
       "era_of_origin": "1980s"
-    },
-    {
-      "id": "aes_austurbane",
-      "name": "Austurbane",
-      "type": "visual_aesthetic",
-      "description": "Style aesthetic and product photography design that emerged in the late 2010s. Coined as a term derived from \"austere\" and \"urbane,\" it mixes stark minimalism with earthy, upscale sophistication.",
-      "key_motifs": "",
-      "era_of_origin": ""
     },
     {
       "id": "aes_autumn_aesthetic",
