@@ -16,8 +16,8 @@ export function extractEmailDraft(text, author) {
   if (!text) return null;
   const clean = cleanAuthorName(author).toLowerCase();
   
-  // Search for Subject: or Тема: header in the text
-  const subjectMatch = text.match(/(?:^|\n)(?:```(?:text|markdown|email)?\s*\n)?(?:\*\*|\*|#+\s*)?(?:Subject|Тема)\s*:\s*([^\n]+)\n([\s\S]+)/i);
+  // Search for Subject: header in the text
+  const subjectMatch = text.match(/(?:^|\n)(?:```(?:text|markdown|email)?\s*\n)?(?:\*\*|\*|#+\s*)?Subject\s*:\s*([^\n]+)\n([\s\S]+)/i);
   if (!subjectMatch) return null;
 
   const fullMatchIndex = text.indexOf(subjectMatch[0]);
@@ -292,12 +292,12 @@ export function cleanTextForDocumentDisplay(text) {
       // Markdown links with documents or Google Docs
       trimmed.match(/^[-*•]?\s*(?:📄|📑|📊|💾|📁|📥)?\s*.*(?:\/results\/|https?:\/\/|file:\/\/)[^\s\)]+?\.(?:docx|xlsx|csv|pdf)/i) ||
       trimmed.match(/^[-*•]?\s*(?:📄|📑|📊|💾|📁|📥)?\s*.*https?:\/\/docs\.google\.com\/document\/d\/[^\s\)]+/i) ||
-      trimmed.match(/^\[(?:Download|View|Expense|Successfully|Open|Скачать|Открыть)[^\]]*\]\([^\)]+\)/i) ||
+      trimmed.match(/^\[(?:Download|View|Expense|Successfully|Open)[^\]]*\]\([^\)]+\)/i) ||
       trimmed.match(/^(?:https?:\/\/|\/results\/|file:\/\/)[^\s\)]+?\.(?:docx|xlsx|csv|pdf)$/i) ||
       trimmed.match(/^https?:\/\/docs\.google\.com\/document\/d\/[^\s]+$/i) ||
       // Redundant download sentences
-      trimmed.match(/^(?:Вы можете скачать|Скачать отчет|You can download the report|Download link|Generated Deliverables)/i) ||
-      trimmed.match(/^[-*•]?\s*(?:📁|📥)\s*(?:Скачать|Download)/i) ||
+      trimmed.match(/^(?:You can download the report|Download link|Generated Deliverables)/i) ||
+      trimmed.match(/^[-*•]?\s*(?:📁|📥)\s*Download/i) ||
       trimmed.match(/^###\s*(?:📂\s*)?Generated Deliverables/i)
     ) {
       return false;

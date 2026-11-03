@@ -9,15 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
-from pathlib import Path
 from typing import Any
 
 from google.adk.tools import ToolContext
 
 from agents.common import ui_payloads
 
-from .. import prompt_director
 from ..card_session import (
     CardSession,
     RenderRecord,
@@ -27,11 +24,15 @@ from ..card_session import (
     save_session,
     update_speaker_fields,
 )
-from ..video_card_service import _latest_user_upload, render_video_card
+from ..video_card_service import (
+    _latest_user_upload,
+    generate_scenarios,
+    offline_mode,
+    offline_render,
+    render_video_card,
+)
 from ..workflow_models import (
     CreativeScenario,
-    RenderedAsset,
-    RenderResult,
     ValidationFailure,
     VideoCardToolResult,
     VideoEditorDraft,
@@ -42,29 +43,6 @@ logger = logging.getLogger(__name__)
 
 RETRY_CODES = {"render_failed", "model_unavailable", "render_environment_unavailable"}
 MEDIA_CODES = {"media_not_found", "unsupported_media", "invalid_image", "invalid_video", "face_not_detected"}
-
-
-ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
-
-
-def offline_mode() -> bool:
-    """VIDEO_EDITOR_OFFLINE=true: no Gemini scenario calls, no Omni, no HyperFrames.
-
-    Scenarios come from the deterministic fallback set and renders return the bundled sample
-    video, so the whole chat + UI flow can be exercised locally and in evals for free.
-    """
-    return os.getenv("VIDEO_EDITOR_OFFLINE", "false").lower() in {"1", "true", "yes"}
-
-
-async def _offline_render(draft: VideoEditorDraft) -> RenderResult:
-    delay = float(os.getenv("VIDEO_EDITOR_OFFLINE_RENDER_SECONDS", "0") or 0)
-    if delay > 0:
-        await asyncio.sleep(delay)
-    assets = [
-        RenderedAsset(label="Video (offline sample)", url=(ASSETS_DIR / "Video_example.mp4").as_uri()),
-        RenderedAsset(label="Poster (offline sample)", url=(ASSETS_DIR / "portrait_outpainted.png").as_uri()),
-    ]
-    return RenderResult(status="completed", assets=assets, summary=f"Offline render for {draft.name}")
 
 
 # --------------------------------------------------------------------------- helpers
@@ -156,27 +134,15 @@ def _failure_to_result(session: CardSession, failure: ValidationFailure) -> dict
 
 
 async def _generate_scenarios(session: CardSession, guidance: str | None) -> list[CreativeScenario]:
-    scenarios = await _generate_raw_scenarios(session, guidance)
-    # Every scenario gets its switchable styles up front so the UI and render_video(style_id=...) agree.
-    return [prompt_director._ensure_scenario_styles(sc, idx) for idx, sc in enumerate(scenarios, start=1)]
-
-
-async def _generate_raw_scenarios(session: CardSession, guidance: str | None) -> list[CreativeScenario]:
     speaker = session.speaker
-    if offline_mode():
-        return prompt_director._build_fallback_scenarios(speaker.title or "", speaker.name or "")
-    try:
-        return await asyncio.to_thread(
-            prompt_director.generate_creative_scenarios,
-            talk_title=speaker.title or "",
-            speaker_name=speaker.name or "",
-            position_company=speaker.position_company,
-            speaker_bio=speaker.speaker_bio,
-            creative_guidance=guidance,
-        )
-    except Exception as error:  # quota / model issues -> deterministic fallback
-        logger.warning("Scenario generation failed (%s); using fallback scenarios.", error)
-        return prompt_director._build_fallback_scenarios(speaker.title or "", speaker.name or "")
+    return await asyncio.to_thread(
+        generate_scenarios,
+        talk_title=speaker.title or "",
+        speaker_name=speaker.name or "",
+        position_company=speaker.position_company,
+        speaker_bio=speaker.speaker_bio,
+        creative_guidance=guidance,
+    )
 
 
 # --------------------------------------------------------------------------- tools
@@ -391,7 +357,7 @@ async def render_video(
         suggested_scenarios=session.scenarios,
         selected_scenario_id=selected_id,
     )
-    rendered = await (_offline_render(draft) if offline_mode() else render_video_card(draft, ctx))
+    rendered = await (offline_render(draft) if offline_mode() else render_video_card(draft, ctx))
     if isinstance(rendered, ValidationFailure):
         save_session(ctx.state, session)
         return _failure_to_result(session, rendered)

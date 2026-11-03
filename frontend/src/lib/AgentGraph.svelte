@@ -8,6 +8,7 @@
     Calendar,
     Clock,
     Mail,
+    QrCode,
     Sparkles,
     ArrowRight,
     X,
@@ -49,7 +50,7 @@
       port: 8080,
       protocol: 'Dispatcher / SSE Hub',
       desc: 'Central dispatcher. Coordinates specialized agents and manages multi-agent workflows for community tasks.',
-      tools: ['transfer_to_agent (video_editor)', 'transfer_to_agent (receipt_scanner)', 'transfer_to_agent (linkedin_post_generator)', 'transfer_to_agent (registration_manager)', 'transfer_to_agent (event_planner)', 'transfer_to_agent (agenda_generator)', 'transfer_to_agent (office_secretary)'],
+      tools: ['transfer_to_agent (video_editor)', 'transfer_to_agent (receipt_scanner)', 'transfer_to_agent (linkedin_post_generator)', 'transfer_to_agent (registration_manager)', 'transfer_to_agent (event_planner)', 'transfer_to_agent (agenda_generator)', 'transfer_to_agent (office_secretary)', 'transfer_to_agent (qr_code_generator)'],
       x: 50,
       y: 50
     },
@@ -81,22 +82,22 @@
       port: 8080,
       protocol: 'A2A Protocol (JSON-RPC)',
       desc: 'Reads receipts and invoices, fetches live banking exchange rates, converts currencies, and creates Google Docs reports.',
-      tools: ['read_receipt_file', 'get_usd_pln_rate', 'export_summary_to_google_doc', 'scan_receipt_with_vision'],
+      tools: ['read_receipt_file', 'get_usd_pln_rate', 'show_receipt_summary', 'export_summary_to_google_doc'],
       x: 82,
       y: 20
     },
     {
       id: 'linkedin_post_generator',
-      name: 'LinkedIn Planner',
-      role: 'Announcements & Recaps',
+      name: 'Social Planner',
+      role: 'Announcements, Recaps & Countdown',
       model: 'gemini-3.8-flash',
       color: '#0A66C2',
       bg: 'rgba(10, 102, 194, 0.12)',
       icon: Share2,
       port: 8080,
       protocol: 'In-Process Sub-Agent',
-      desc: 'Generates engaging speaker announcements and multi-variant event recap posts with tailored hashtags.',
-      tools: ['generate_speaker_announcement', 'generate_recap_variants'],
+      desc: 'Speaker announcements, recaps, and a dated countdown plan across LinkedIn, Instagram and other networks; keeps the event details and social profiles set in chat.',
+      tools: ['update_event_profile', 'plan_countdown_posts', 'publish_post_plan'],
       x: 14,
       y: 56
     },
@@ -159,6 +160,21 @@
       tools: ['generate_office_email'],
       x: 76,
       y: 84
+    },
+    {
+      id: 'qr_code_generator',
+      name: 'QR Code Generator',
+      role: 'Rounded QR Codes',
+      model: 'gemini-3.8-flash',
+      color: '#A3E635',
+      bg: 'rgba(163, 230, 53, 0.12)',
+      icon: QrCode,
+      port: 8080,
+      protocol: 'In-Process Sub-Agent',
+      desc: 'Encodes links as rounded QR codes and saves a flat vector SVG plus a PNG.',
+      tools: ['generate_qr_code'],
+      x: 50,
+      y: 12
     }
   ];
 

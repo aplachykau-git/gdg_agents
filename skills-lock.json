@@ -169,6 +169,24 @@
       "skillPath": "skills/music-to-video/SKILL.md",
       "computedHash": "1e1f5797e4fd06d25d5f02417dcbe0c36e0fb525c02b6dfaf2f1818f9bfe2a32"
     },
+    "nodejs-backend-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/javascript-typescript/skills/nodejs-backend-patterns/SKILL.md",
+      "computedHash": "a339a9a33a19095fc7f4153daf13c0917b5c1ad94b069ab2296a98cdb0d7e9a9"
+    },
+    "nodejs-best-practices": {
+      "source": "sickn33/agentic-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nodejs-best-practices/SKILL.md",
+      "computedHash": "904a2f0bacb13fc8d6e1571a756e912648923d18aa5e942b2f3ecdcb36d38862"
+    },
+    "nodejs-core": {
+      "source": "mcollina/skills",
+      "sourceType": "github",
+      "skillPath": "skills/nodejs-core/SKILL.md",
+      "computedHash": "5b49f42919feddb2d1258338e7e84856ff941ca8f9fa92b009bce18d0cf504cf"
+    },
     "oversized-cursor": {
       "source": "heygen-com/hyperframes",
       "sourceType": "github",
@@ -204,6 +222,24 @@
       "sourceType": "github",
       "skillPath": "skills/slideshow/SKILL.md",
       "computedHash": "eb61318bf2ee083043b407620013eaa31d38480553434daf3d4693dab9727733"
+    },
+    "svelte-code-writer": {
+      "source": "sveltejs/ai-tools",
+      "sourceType": "github",
+      "skillPath": "tools/skills/svelte-code-writer/SKILL.md",
+      "computedHash": "abe888cce357ab0fa0104ff2266edaf9c3a8382320b303f920cd777762a6bc85"
+    },
+    "svelte-core-bestpractices": {
+      "source": "sveltejs/ai-tools",
+      "sourceType": "github",
+      "skillPath": "tools/skills/svelte-core-bestpractices/SKILL.md",
+      "computedHash": "3cd6c1f1a92b8bf52af8120e5cb3a93b5512f83b905fd902b895adafb7225456"
+    },
+    "svelte5-best-practices": {
+      "source": "ejirocodes/agent-skills",
+      "sourceType": "github",
+      "skillPath": "svelte/skills/svelte5-best-practices/SKILL.md",
+      "computedHash": "bfcbba3d355aede6f6be9720f195206d4dcaa7c152787ea00c06cb4a1ac44ba4"
     },
     "talking-head-recut": {
       "source": "heygen-com/hyperframes",

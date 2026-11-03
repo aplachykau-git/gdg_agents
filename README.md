@@ -1,12 +1,14 @@
 # Community AI Studio
 
-This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/), written in Python. It leverages the capabilities of Google AI and Vertex AI (Gemini models) to automate events operations, document templates compilation, receipt scanning, scheduling conflicts analysis, and social media posting.
+This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.13](https://adk.dev/), written in Python 3.12. It leverages the capabilities of Google AI and Vertex AI (Gemini models) to automate events operations, document templates compilation, receipt scanning, scheduling conflicts analysis, QR code generation, and social media planning.
 
 ---
 
 ---
 
 ## 🏛️ System Architecture
+
+The diagram source is [`docs/architecture.mmd`](docs/architecture.mmd); `make diagrams` renders it to [`docs/assets/`](docs/assets/architecture_diagram.png) (SVG, PNG, PDF). Edit the `.mmd` file, then re-render and paste it here.
 
 ```mermaid
 %%{init: {
@@ -30,82 +32,70 @@ This project is a multi-agent system built on the [Google Agent Development Kit 
 }}%%
 
 flowchart TB
-    subgraph CLIENT_LAYER["🖥️ 1. CLIENT & INTERACTION LAYER (A2UI)"]
+    subgraph CLIENT_LAYER["1. CLIENT: Svelte 5 studio (local Vite :5173 or Firebase Hosting)"]
         direction LR
-        UI["<b>Svelte 5 Workspace Dashboard</b><br/><i>Firebase Hosting / Dev :5173</i><br/>• Floating Prompt Bar & Stager<br/>• Firebase App Check Protected<br/>• Multi-variant Post Deck & Agendas"]
+        UI["<b>Chat workspace</b><br/>• Agent catalog, chat, live tool status<br/>• Settings: chapter name, video render, Google Drive<br/>• Browser storage: settings + saved event profile"]
+        CARDS["<b>Result cards (A2UI)</b><br/>rendered from the backend <code>ui</code> payload<br/>on the shared ResultCard shell<br/>• Video + scenario deck • Countdown post plan<br/>• Event details • Recognised receipts • QR code<br/>• Agenda • E-mail draft • Dates • Documents"]
+        PICKER["<b>Google Drive Picker</b><br/>pick folder / template / files<br/>Docs, Sheets, PDFs, images as attachments"]
     end
 
-    subgraph GATEWAY_LAYER["🌐 2. INGRESS & ADK ORCHESTRATION GATEWAY"]
+    subgraph GATEWAY_LAYER["2. ENTRY POINTS"]
         direction LR
-        GW["<b>ADK Headless API Server</b><br/><i>adk api_server (FastAPI Engine)</i><br/>• SSE Streaming: <code>/run_sse</code><br/>• App Hub: <code>/list-apps</code><br/>• Protected: No Public Debug UI"]
-        ROOT["<b>Root Orchestrator Agent</b><br/><i>gemini-3.8-flash</i><br/>• Intent Parsing & Routing<br/>• Service Account OIDC Auth Client"]
-        GW <-->|Bidirectional SSE / REST| ROOT
+        GW["<b>ADK API server</b><br/><i>local :8080 or Cloud Run community-root-agent</i><br/>• SSE streaming <code>/run_sse</code>, <code>/list-apps</code><br/>• Session state: settings + event_* keys on every message"]
+        ROOT["<b>Main (root_agent)</b><br/><i>gemini-3.8-flash</i><br/>• Intent routing to 8 specialists<br/>• OIDC client for private A2A"]
+        MCP["<b>MCP server (experiment)</b><br/><i>agents/mcp_server.py</i><br/>video scenarios + render, registrations,<br/>receipts, QR codes for Claude / Gemini CLI / IDEs"]
+        GW <-->|SSE / REST| ROOT
     end
 
-    subgraph AGENT_LAYER["🤖 3. SPECIALIZED WORKER AGENTS (Local & Private Remote A2A)"]
+    subgraph AGENT_LAYER["3. SPECIALIST AGENTS"]
         direction TB
-        
-        subgraph LOCAL_AGENTS["⚡ Local Sub-Agents (In-Process Delegation)"]
+        subgraph LOCAL_AGENTS["In-process sub-agents"]
             direction LR
-            A_LINKEDIN["📱 <b>LinkedIn Post Generator</b><br/><i>gemini-3.8-flash</i><br/>• 3 Style Post Variants<br/>• Anti-Hallucination Guard"]
-            A_REG["📋 <b>Registration Manager</b><br/><i>gemini-3.8-flash</i><br/>• CSV Parsing & Dedup<br/>• Privacy Guard & DOCX Exporter"]
-            A_PLANNER["📅 <b>Event Planner</b><br/><i>gemini-3.8-flash</i><br/>• Tech Calendar Conflicts<br/>• Nager.Date Polish Holidays"]
-            A_AGENDA["⏱️ <b>Agenda Formatter</b><br/><i>gemini-3.8-flash</i><br/>• Dynamic Slot Snapping<br/>• Interactive UI Timeline"]
-            A_OFFICE["🔑 <b>Office Secretary</b><br/><i>gemini-3.8-flash</i><br/>• Key Access Management<br/>• Event Hub Reservations"]
+            A_SOCIAL["<b>Social Planner</b><br/><i>linkedin_post_generator</i><br/>• Speaker announcements, recaps<br/>• Countdown plan: LinkedIn, Instagram,<br/>Facebook, X, Threads, Bluesky, Mastodon<br/>• Event profile card (date, site, socials)"]
+            A_QR["<b>QR Code Generator</b><br/><i>qr_code_generator</i><br/>• Rounded QR codes<br/>• Flat SVG + PNG"]
+            A_REG["<b>Registrations Manager</b><br/><i>registration_manager</i><br/>• Roster clean and dedup<br/>• PII guard, DOCX roster"]
+            A_PLANNER["<b>Event Scheduler</b><br/><i>event_planner</i><br/>• Polish holidays<br/>• Meetup conflicts"]
+            A_AGENDA["<b>Agenda Formatter</b><br/><i>agenda_generator</i><br/>• Minute-level timeline"]
+            A_OFFICE["<b>Office Secretary</b><br/><i>office_secretary</i><br/>• Key access and room e-mails"]
         end
-
-        subgraph REMOTE_A2A["🔒 Distributed Private A2A Microservices (IAM OIDC Auth)"]
+        subgraph REMOTE_A2A["Private A2A services (local :8081 / :8082, Cloud Run with IAM OIDC)"]
             direction LR
-            A_VIDEO["🎬 <b>Live Video Editor A2A</b><br/><i>gemini-3.8-flash + Gemini Omni</i><br/>• Face Landmark Verification<br/>• gemini-3.1-flash-lite-image Outpaint<br/>• Gemini Omni Flash Video<br/>• HyperFrames GSAP 4K Render"]
-            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>gemini-3.8-flash (Multimodal OCR)</i><br/>• Pekao & NBP FX Rate Fetcher<br/>• Google Docs Report Exporter"]
+            A_VIDEO["<b>Live Video Editor</b><br/><i>video_editor</i><br/>• Face check, 9:16 outpainting<br/>• Scenario deck, Gemini Omni Flash video<br/>• HyperFrames render with cover frame<br/>• MP4 1080p / 4K, GIF, poster"]
+            A_RECEIPT["<b>Receipt Scanner</b><br/><i>receipt_scanner</i><br/>• Multimodal OCR<br/>• Recognised-receipts card + CSV<br/>• NBP / Pekao FX, Google Docs report"]
         end
+        CORE["<b>Shared core: agents/common</b><br/>ui_payloads.py (card contract, mirrored in frontend/src/lib/ui/payloads.js)<br/>event_profile.py (event + social profiles) • runtime.py (SQLite sessions locally, optional Postgres)"]
     end
 
-    subgraph FOUNDATION_LAYER["☁️ 4. EXTERNAL AI FOUNDATION & ENTERPRISE SERVICES"]
+    subgraph INFRA_LAYER["4. STORAGE, AI AND EXTERNAL SERVICES"]
         direction LR
-        CLOUD_AI["<b>Google Vertex AI & GenAI</b><br/>• Gemini 3.8 Flash (Multimodal OCR & Vision)<br/>• Gemini 3.8 Flash Lite (Agent Reasoning)<br/>• Gemini Omni 1.1 Flash (Video Loops)<br/>• Gemini 3.1 Flash Lite Image (Outpainting)"]
-        G_SUITE["<b>Google Workspace APIs</b><br/>• Google Drive API<br/>• Google Docs Engine"]
-        FIN_APIS["<b>Public Financial & Calendar APIs</b><br/>• Pekao Bank FX Scraper<br/>• NBP Exchange Rate API<br/>• Nager.Date Holiday API"]
+        FILES["<b>Media and files</b><br/>local renders/ and results/ (dev default)<br/>or Cloud Storage (30-day lifecycle)"]
+        AI_BACKEND["<b>Gemini API / Vertex AI</b><br/>Gemini 3.8 Flash<br/>Gemini Omni Flash<br/>Flash Lite Image"]
+        WORKSPACE["<b>Google Workspace</b><br/>Docs, Drive, Sheets"]
+        EXTERNAL["<b>External APIs</b><br/>NBP / Pekao FX, Nager.Date holidays,<br/>Google Search (Luma, Meetup)"]
     end
 
-    subgraph STORAGE_LAYER["💾 5. STORAGE, ARTIFACTS & STATE STORE"]
-        direction LR
-        S_STATE["<b>ADK Session Memory</b><br/>• InMemory / LocalStorage<br/>• Per-Agent Session State"]
-        S_FILES["<b>GCS & Artifact Store</b><br/>• <code>renders/</code> (4K MP4, GIF)<br/>• <code>assets/</code> (Staged Media)<br/>• <code>results/</code> (Generated DOCX)"]
-    end
-
-    %% Flows & Connections
-    UI -->|1. User Prompt, Files & Commands| GW
-    GW -->|2. Stream Real-time Events & Shimmer| UI
-    
-    ROOT -->|3a. Direct Transfer| LOCAL_AGENTS
-    ROOT -->|3b. Authenticated OIDC A2A RPC| REMOTE_A2A
-
-    LOCAL_AGENTS -->|4a. Multimodal Prompt & Tools| CLOUD_AI
-    LOCAL_AGENTS -->|4b. Public APIs| FIN_APIS
-    LOCAL_AGENTS -->|4c. Save Documents| S_FILES
-
-    REMOTE_A2A -->|5a. Omni / OCR Inference| CLOUD_AI
-    REMOTE_A2A -->|5b. Auto-Export Expense Report| G_SUITE
-    REMOTE_A2A -->|5c. Real-time FX Rates| FIN_APIS
-    REMOTE_A2A -->|5d. Output 4K Video & Logs| S_FILES
-
-    ROOT -.->|Read / Write State| S_STATE
-
-    %% ByteByteGo Dark Mode Styling
-    classDef clientStyle fill:#0c2340,stroke:#38bdf8,stroke-width:2px,color:#f0f9ff,rx:8px,ry:8px;
-    classDef gwStyle fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fef3c7,rx:8px,ry:8px;
-    classDef localAgentStyle fill:#2e1065,stroke:#a855f7,stroke-width:2px,color:#faf5ff,rx:8px,ry:8px;
-    classDef a2aStyle fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#ecfdf5,rx:8px,ry:8px;
-    classDef cloudStyle fill:#4c0519,stroke:#f43f5e,stroke-width:2px,color:#fff1f2,rx:8px,ry:8px;
-    classDef storageStyle fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#f8fafc,rx:8px,ry:8px;
-
-    class UI clientStyle;
-    class GW,ROOT gwStyle;
-    class A_LINKEDIN,A_REG,A_PLANNER,A_AGENDA,A_OFFICE localAgentStyle;
-    class A_VIDEO,A_RECEIPT a2aStyle;
-    class CLOUD_AI,G_SUITE,FIN_APIS cloudStyle;
-    class S_STATE,S_FILES storageStyle;
+    UI --- CARDS
+    UI --- PICKER
+    UI -->|HTTPS / SSE| GW
+    ROOT -->|in-process transfer| A_SOCIAL
+    ROOT --> A_QR
+    ROOT --> A_REG
+    ROOT --> A_PLANNER
+    ROOT --> A_AGENDA
+    ROOT --> A_OFFICE
+    ROOT -->|A2A + OIDC| A_VIDEO
+    ROOT -->|A2A + OIDC| A_RECEIPT
+    MCP -.->|same tool cores| A_VIDEO
+    MCP -.-> A_QR
+    A_SOCIAL -->|inference| AI_BACKEND
+    A_VIDEO -->|video generation| AI_BACKEND
+    A_RECEIPT -->|OCR| AI_BACKEND
+    A_VIDEO <-->|renders| FILES
+    A_QR -->|SVG / PNG| FILES
+    A_RECEIPT -->|reports| WORKSPACE
+    A_RECEIPT -->|FX rates| EXTERNAL
+    A_PLANNER -->|holidays, events| EXTERNAL
+    PICKER -->|drive.file, exported in the browser| WORKSPACE
 ```
 
 ---
@@ -120,11 +110,14 @@ community_studio/
 │   ├── root_agent/               # Main coordinating Root Agent (gemini-3.8-flash)
 │   ├── receipt_scanner/          # Receipt OCR & Google Docs expense report agent (gemini-3.8-flash)
 │   ├── video_editor/             # Speaker outpainting & video generator (gemini-3.8-flash, Gemini Omni, GSAP)
-│   ├── linkedin_post_generator/  # LinkedIn announcement & recap post agent (gemini-3.8-flash)
+│   ├── linkedin_post_generator/  # Social Planner: announcements, recaps, countdown plans, event profile (gemini-3.8-flash)
 │   ├── registration_manager/     # Registration sorting, capacity & privacy agent (gemini-3.8-flash)
 │   ├── event_planner/            # Tech calendar & holiday clash analyzer agent (gemini-3.8-flash)
 │   ├── agenda_generator/         # Event timeline & speaker agenda formatting agent (gemini-3.8-flash)
-│   └── office_secretary/         # Office key access & Event Hub reservation agent (gemini-3.8-flash)
+│   ├── office_secretary/         # Office key access & Event Hub reservation agent (gemini-3.8-flash)
+│   ├── qr_code_generator/        # Rounded QR codes for links: flat SVG + PNG (gemini-3.8-flash)
+│   ├── common/                   # Shared core: ui_payloads (cards), event_profile, runtime (sessions), A2A auth
+│   └── mcp_server.py             # MCP server exposing the heavy tools (experiment)
 │
 ├── frontend/                     # Custom Svelte 5 + Vite single-page dashboard
 │   ├── src/
@@ -136,12 +129,12 @@ community_studio/
 │   └── organisers.txt.example
 │
 ├── docs/                         # Architecture, guides, and design specifications
+│   ├── architecture.mmd          # Architecture diagram source (make diagrams -> docs/assets/)
+│   ├── SOLUTION_ARCHITECTURE.md
 │   ├── setup_guide.md
 │   └── design.md
 │
-├── tests/                        # Evaluation datasets & test runners
-│   ├── eval/
-│   └── test_receipt_scanner.py
+├── tests/                        # Python unittest suite (no network, scripted model)
 │
 ├── pyproject.toml                # Python package and tool configuration
 ├── uv.lock                       # Locked Python dependencies
@@ -316,10 +309,27 @@ npm run video:render
 - `npm test --prefix frontend` — UI payload adapters, scenario decks and stream merging (`node --test`, no extra deps).
 
 ### Structured UI payloads
-Cards in the UI (video, scenarios, LinkedIn variants, agenda, e-mail draft, meetup dates, documents) are rendered from a
+Cards in the UI (video, scenarios, LinkedIn variants, countdown post plan, event details, recognised receipts, QR code,
+agenda, e-mail draft, meetup dates, documents) are rendered from a
 `ui` payload produced by the backend (`agents/common/ui_payloads.py`), not guessed from the model's wording:
 tool results carry `{"ui": {...}}`, text-only agents (LinkedIn, agenda) get it in `event.custom_metadata["ui"]`.
 The old regex parsers live in `frontend/src/lib/legacy/textParsers.js` and are used only for sessions recorded before this.
+New cards are built on `frontend/src/lib/ui/ResultCard.svelte` (header, body, actions) and routed in `StructuredCard.svelte`.
+
+### Event details and social networks
+Settings only hold the chapter name, video rendering and Google Drive. Everything about the event (date, website,
+venue, highlights, hashtags, social profiles with links, countdown sequence) is set in the chat: tell the Social
+Planner ("DevFest is on 10 October, our Instagram is instagram.com/gdgkrakow") or ask it to "show the event details".
+It saves them with `update_event_profile` (`agents/common/event_profile_tools.py`) and shows an editable card; the
+browser remembers the profile and sends it as `event_*` / `social_profiles` session state with every message
+(`agents/common/event_profile.py` reads it). The website defaults to https://devfestkrakow.pl/.
+
+### Countdown post plan
+"Plan the countdown posts" builds dated slots from the countdown sequence (`agents/linkedin_post_generator/countdown.py`),
+picks the networks per post (topic fit, max 3 LinkedIn posts a week, Instagram stories in the last days, short posts
+on X / Threads / Bluesky / Mastodon), writes them in the team's house style and checks them against each network's
+rules (length, hashtags, links vs "link in bio", wrong countdown numbers, `[LINK]` placeholders). The card exports
+CSV for Google Sheets and an .ics with posting reminders.
 
 ### Persistent sessions
 Locally nothing is needed: sessions are kept in SQLite files under `agents/<agent>/.adk/` and survive restarts.
@@ -327,6 +337,37 @@ In the cloud, `deploy/deploy_a2a_cloudrun.sh` reads a Postgres URI from the Secr
 if it exists. Any Postgres works: a free-tier external one (store e.g. `postgresql+asyncpg://user:pass@host/db` in the
 secret) or Cloud SQL via `deploy/setup_sessions_db.sh` / `terraform apply -var enable_persistent_sessions=true` (paid).
 Without the secret each Cloud Run service is pinned to one instance and sessions live until the container restarts.
+
+### MCP server (use the studio from Claude, Gemini CLI or an IDE)
+`agents/mcp_server.py` exposes the heavy tools over MCP, built on the same core as the ADK agents
+(`agents/video_editor/video_card_service.py`: `generate_scenarios`, `render_card`):
+
+| Tool | What it does |
+|---|---|
+| `propose_video_scenarios` | 5 cinematic scenarios (each with styles and a ready `creative_direction`) |
+| `start_speaker_card_render` / `get_render_status` | render as a background job (1-3 min), poll for the result links |
+| `process_registration_list` | clean/deduplicate an attendee CSV/XLSX, DOCX roster |
+| `scan_receipt` | extract a receipt or invoice |
+| `generate_qr_code` | rounded QR code for a link, saved as a flat SVG and a PNG |
+
+- Local (stdio, the client starts it): `make mcp` or `uv run python -m agents.mcp_server`. The repo's `.mcp.json`
+  registers it for Claude Code; other clients take the same `command`/`args` (run from the repo root).
+- Remote: `MCP_AUTH_TOKEN=... uv run python -m agents.mcp_server --http --port 8090` (streamable HTTP at `/mcp`,
+  every request needs `Authorization: Bearer <token>`; the server refuses to start without a token).
+- `VIDEO_EDITOR_OFFLINE=true` works here too. Render jobs live in memory: they are lost when the server restarts.
+
+### QR code generator
+`agents/qr_code_generator/` turns a link into a rounded ("liquid") QR code: round dots and pills, smooth concave
+corners, rounded corner eyes. Every code is saved as:
+- **SVG**: one flat `<path>` in one colour (two when the eyes get their own colour), no gradients or images, so it
+  scales for print and opens cleanly in Figma/Illustrator;
+- **PNG**: 1024 px by default, rendered from the same geometry.
+
+Options (just ask in chat): module colour, background colour or transparent background, eye colour.
+Error correction is M, raised automatically when the code stays the same size; the quiet zone is the standard 4
+modules. Files go to `agents/qr_code_generator/results/` (served at `/results/...` by the dev server) or to Cloud
+Storage when `GCS_BUCKET_NAME` is set. The renderer lives in `qr_render.py` (`build_qr`) and is shared with the MCP
+server; `tests/test_qr_code_generator.py` decodes the generated PNGs with zxing-cpp to make sure they scan.
 
 ### Models & logging
 - Models are configured in `agents/gemini_config.py`: `GEMINI_MODEL` for all text roles, or per role `MODEL_<ROLE>`

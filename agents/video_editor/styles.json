@@ -919,7 +919,7 @@
       "id": "art_constructivism_art",
       "name": "Constructivism (art)",
       "type": "art_movement",
-      "description": "Constructivism (Russian: конструктивизм, romanized: konstruktivizm) is an early twentieth-century art movement founded in 1915 by Vladimir Tatlin and Alexander Rodchenko.",
+      "description": "Constructivism (romanized: konstruktivizm) is an early twentieth-century art movement founded in 1915 by Vladimir Tatlin and Alexander Rodchenko.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -1023,7 +1023,7 @@
       "id": "art_suprematism",
       "name": "Suprematism",
       "type": "art_movement",
-      "description": "Suprematism (Russian: супремати́зм) is an early 20th-century art movement focused on the fundamentals of geometry (circles, squares, rectangles), painted in a limited range of colors.",
+      "description": "Suprematism (romanized: suprematizm) is an early 20th-century art movement focused on the fundamentals of geometry (circles, squares, rectangles), painted in a limited range of colors.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -1119,7 +1119,7 @@
       "id": "art_socialist_realism",
       "name": "Socialist realism",
       "type": "art_movement",
-      "description": "Socialist realism, also known as socrealism (from Russian соцреализм, sotsrealizm), is a style of idealized realistic art that was developed in the Soviet Union and was the official cultural doctrine in that country between 1932 and.",
+      "description": "Socialist realism, also known as socrealism (sotsrealizm), is a style of idealized realistic art that was developed in the Soviet Union and was the official cultural doctrine in that country between 1932 and.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -1511,7 +1511,7 @@
       "id": "cm_yugoslav_black_wave",
       "name": "Yugoslav Black Wave",
       "type": "cinematic_movement",
-      "description": "Yugoslav Black Wave (also referred to as Black Wave; Serbo-Croatian: Crni val / Црни вал or Crni talas / Црни талас) is a blanket term for a Yugoslav film and broader cultural movement starting from the early 1960s and ending in the.",
+      "description": "Yugoslav Black Wave (also referred to as Black Wave; Serbo-Croatian: Crni val or Crni talas) is a blanket term for a Yugoslav film and broader cultural movement starting from the early 1960s and ending in the.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -1639,7 +1639,7 @@
       "id": "cm_kinoks",
       "name": "Kinoks",
       "type": "cinematic_movement",
-      "description": "The Kinoks (Russian: Киноки, romanized: kino-oki, lit. 'cinema-eyes') were a collective of Soviet filmmakers in the 1920s, consisting of Dziga Vertov, Elizaveta Svilova and Mikhail Kaufman.",
+      "description": "The Kinoks (romanized: kino-oki, lit. 'cinema-eyes') were a collective of Soviet filmmakers in the 1920s, consisting of Dziga Vertov, Elizaveta Svilova and Mikhail Kaufman.",
       "key_motifs": "",
       "era_of_origin": ""
     },
@@ -2087,7 +2087,7 @@
       "id": "aes_sovietwave",
       "name": "Sovietwave",
       "type": "visual_aesthetic",
-      "description": "Sovietwave (Советвейв) is a subgenre of Synthwave music with a strong focus on Soviet aesthetics from the 1980s, dedicated more to the preservation of socialism as opposed to the hyper-capitalist utopia or dystopia often painted with.",
+      "description": "Sovietwave is a subgenre of Synthwave music with a strong focus on Soviet aesthetics from the 1980s, dedicated more to the preservation of socialism as opposed to the hyper-capitalist utopia or dystopia often painted with.",
       "key_motifs": "Hammers and sickles, Soviet Futurism, Soviet nostalgia, space, the Cold War, the Red Army, Cosmonauts, panel houses",
       "era_of_origin": "2010s"
     },

@@ -24,7 +24,10 @@ class TestLinkedInPostGeneratorAgent(unittest.TestCase):
     def test_linkedin_agent_structure(self):
         self.assertIsNotNone(linkedin_agent)
         self.assertEqual(linkedin_agent.name, "linkedin_post_generator")
-        self.assertEqual(linkedin_agent.tools, [])
+        self.assertEqual(
+            [t.__name__ for t in linkedin_agent.tools],
+            ["update_event_profile", "plan_countdown_posts", "publish_post_plan"],
+        )
 
     def test_community_name_environment_variable(self):
         with patch.dict(os.environ, {"COMMUNITY_NAME": "Berlin"}):
@@ -34,7 +37,7 @@ class TestLinkedInPostGeneratorAgent(unittest.TestCase):
 
             importlib.reload(li_mod)
 
-            self.assertIn("#GDGBerlin", li_mod.linkedin_agent.instruction)
+            self.assertIn("#GDGBerlin", li_mod.INSTRUCTION)
 
         # Restore default
         with patch.dict(os.environ, {"COMMUNITY_NAME": "Krakow"}):

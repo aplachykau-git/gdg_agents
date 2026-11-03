@@ -92,6 +92,51 @@ def media(assets: Sequence[dict[str, Any]], speaker: dict[str, Any] | None = Non
     return {"type": "media", "urls": by_kind, "assets": list(assets), "speaker": speaker or {}, "notice": notice}
 
 
+def qr_code(
+    link: str, *, svg_url: str, png_url: str, filename: str, color: str, background: str, transparent: bool
+) -> UiPayload:
+    """QR code with its flat SVG and PNG downloads."""
+    return {
+        "type": "qr_code",
+        "link": link,
+        "svg_url": svg_url,
+        "png_url": png_url,
+        "filename": filename,
+        "color": color,
+        "background": "transparent" if transparent else background,
+    }
+
+
+def receipt_summary(summary: dict[str, Any]) -> UiPayload:
+    """What the receipt scanner recognised: per-receipt line items, totals, conversion, budget.
+
+    ``summary`` comes from ``agents.receipt_scanner.summary.build_receipt_summary`` and carries a
+    plain-text version in ``summary["text"]`` for copying.
+    """
+    return {"type": "receipt_summary", **summary}
+
+
+def post_plan(plan: dict[str, Any]) -> UiPayload:
+    """Countdown post plan from ``agents.linkedin_post_generator.countdown.validate_posts``:
+    dated slots with the chosen networks, the written posts per network, and a CSV for Sheets."""
+    return {"type": "post_plan", **plan}
+
+
+def event_profile(
+    profile: dict[str, Any], *, missing: Sequence[str] = (), persist: bool = False, updated_at: str = ""
+) -> UiPayload:
+    """Editable event details card (name, date, website, venue, highlights, hashtags, social
+    profiles, countdown). ``persist``: the frontend stores ``profile`` for future sessions;
+    ``missing``: fields the user still has to fill in."""
+    return {
+        "type": "event_profile",
+        "profile": profile,
+        "missing": list(missing),
+        "persist": persist,
+        "updated_at": updated_at,
+    }
+
+
 # --------------------------------------------------------------------------- text parsers
 
 VARIANT_HEADER = re.compile(r"(?m)^###\s*Variant\s+([1-9]\d*)\s*:\s*([^\n]+?)\s*$")

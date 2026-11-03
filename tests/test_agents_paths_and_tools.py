@@ -36,6 +36,7 @@ expected = {
     'event_planner',
     'agenda_generator',
     'office_secretary',
+    'qr_code_generator',
 }
 assert expected.issubset(agents), (agents, expected)
 """
@@ -53,7 +54,7 @@ assert expected.issubset(agents), (agents, expected)
 
         self.assertIsNotNone(root_agent)
         self.assertEqual(root_agent.name, "root_agent")
-        self.assertEqual(len(root_agent.sub_agents), 7)
+        self.assertEqual(len(root_agent.sub_agents), 8)
 
     def test_video_editor_agent_import(self):
         from agents.video_editor.agent import video_editor_agent
@@ -114,7 +115,7 @@ loader = NestedAgentLoader('agents/root_agent')
 assert loader.list_agents() == ['root_agent']
 root_agent = loader.load_agent('root_agent')
 assert root_agent.name == 'root_agent'
-assert len(root_agent.sub_agents) == 7
+assert len(root_agent.sub_agents) == 8
 """
         result = subprocess.run(
             [sys.executable, "-c", script],

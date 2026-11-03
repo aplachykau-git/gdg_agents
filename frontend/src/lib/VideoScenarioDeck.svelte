@@ -89,7 +89,7 @@
       omniPrompt: sc.omniPrompt
     };
 
-    // Category A: Clean Modern Tech / Studio Commercial ("Попроще" / Grounded Realism)
+    // Category A: Clean Modern Tech / Studio Commercial (Grounded Realism)
     const groundedPresets = [
       {
         name: 'Clean Modern Tech',

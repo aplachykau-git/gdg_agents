@@ -23,6 +23,7 @@
     extractGoogleDocId,
     validateGoogleDocTemplateInput,
   } from './constants.js';
+  import { isDriveAvailable, pickFromDrive } from './google/drive.js';
 
   let {
     show = false,
@@ -38,7 +39,6 @@
   let templateError = $state('');
   let templateInputRaw = $state('');
   let isTemplateGuideOpen = $state(false);
-  let emailCopied = $state(false);
   let saveTimer = null;
 
   // Sync draft state whenever modal opens or external config changes
@@ -81,6 +81,36 @@
   function handleSelectTemplate(templateId) {
     draft.videoTemplate = templateId;
     triggerAutoSave({ videoTemplate: templateId });
+  }
+
+  const driveAvailable = isDriveAvailable();
+  let drivePicking = $state('');
+  let drivePickError = $state('');
+
+  async function chooseOnDrive(kind) {
+    drivePickError = '';
+    drivePicking = kind;
+    try {
+      const [file] = await pickFromDrive({ mode: kind === 'folder' ? 'folder' : 'doc' });
+      if (!file) return;
+      if (kind === 'folder') {
+        driveFolderInputRaw = file.id;
+        driveFolderError = '';
+        draft.googleDriveFolderId = file.id;
+        draft.googleDriveFolderName = file.name;
+        triggerAutoSave({ googleDriveFolderId: file.id, googleDriveFolderName: file.name });
+      } else {
+        templateInputRaw = file.id;
+        templateError = '';
+        draft.googleDocsTemplateId = file.id;
+        draft.googleDocsTemplateName = file.name;
+        triggerAutoSave({ googleDocsTemplateId: file.id, googleDocsTemplateName: file.name });
+      }
+    } catch (err) {
+      drivePickError = err?.message || 'Google Drive is not available right now.';
+    } finally {
+      drivePicking = '';
+    }
   }
 
   function handleDone() {
@@ -128,20 +158,6 @@
       triggerAutoSave({ [key]: rawVal });
     }
   }
-
-  async function copyServiceAccountEmail() {
-    if (draft.serviceAccountEmail) {
-      try {
-        await navigator.clipboard.writeText(draft.serviceAccountEmail);
-        emailCopied = true;
-        setTimeout(() => {
-          emailCopied = false;
-        }, 2000);
-      } catch (err) {
-        console.error('Failed to copy email:', err);
-      }
-    }
-  }
 </script>
 
 {#if show}
@@ -181,7 +197,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <label for="setting-community-name" class="setting-title">Community Chapter</label>
-              <p class="setting-desc">Primary chapter identifier used across generated posts, agendas, and reports.</p>
+              <p class="setting-desc">Chapter name, e.g. "GDG Krakow". The city part is used in posts (#GDGKrakow), agendas, date planning and the DevFest video pill.</p>
             </div>
             <div class="setting-control">
               <input
@@ -195,6 +211,10 @@
               />
             </div>
           </div>
+
+          <p class="setting-hint">
+            Event details (date, website, venue) and social networks are set in the chat: tell the Social Planner, or ask it to "show the event details".
+          </p>
         </section>
 
         <!-- Section: Video Generation Settings -->
@@ -206,8 +226,8 @@
 
           <div class="setting-row setting-row-stacked">
             <div class="setting-meta">
-              <label for="setting-video-template" class="setting-title">Card Composition Template</label>
-              <p class="setting-desc">Choose which HTML layout template to use for speaker video cards.</p>
+              <label for="setting-video-template" class="setting-title">Event Series Template</label>
+              <p class="setting-desc">Build with AI or DevFest: used for speaker video cards, LinkedIn posts and the agenda intro.</p>
             </div>
             <div class="template-selector" id="setting-video-template" role="radiogroup" aria-label="Video Composition Template">
               {#each VIDEO_TEMPLATES as tpl}
@@ -317,7 +337,7 @@
           <div class="setting-row">
             <div class="setting-meta">
               <label for="setting-drive-folder" class="setting-title">Target Folder URL / ID</label>
-              <p class="setting-desc">Folder on Google Drive where generated expense reports and docs are stored.</p>
+              <p class="setting-desc">Folder on Google Drive where generated expense reports and docs are stored. Pick it on Drive, or paste a link.</p>
             </div>
             <div class="setting-control setting-control-column">
               <input
@@ -329,6 +349,17 @@
                 class="ide-input ide-input-wide"
                 class:input-invalid={driveFolderError}
               />
+              {#if driveAvailable}
+                <button type="button" class="drive-pick-btn" onclick={() => chooseOnDrive('folder')} disabled={!!drivePicking}>
+                  <HardDrive size={13} />{drivePicking === 'folder' ? 'Opening Google Drive...' : 'Choose folder on Drive'}
+                </button>
+              {/if}
+              {#if draft.googleDriveFolderName && draft.googleDriveFolderId === driveFolderInputRaw}
+                <div class="input-success-msg">
+                  <Check size={12} />
+                  <span>Folder: <strong>{draft.googleDriveFolderName}</strong></span>
+                </div>
+              {/if}
               {#if driveFolderError}
                 <div class="input-error-msg">
                   <AlertCircle size={12} />
@@ -358,6 +389,23 @@
                 class="ide-input ide-input-wide"
                 class:input-invalid={templateError}
               />
+              {#if driveAvailable}
+                <button type="button" class="drive-pick-btn" onclick={() => chooseOnDrive('template')} disabled={!!drivePicking}>
+                  <HardDrive size={13} />{drivePicking === 'template' ? 'Opening Google Drive...' : 'Choose template on Drive'}
+                </button>
+              {/if}
+              {#if draft.googleDocsTemplateName && draft.googleDocsTemplateId === templateInputRaw}
+                <div class="input-success-msg">
+                  <Check size={12} />
+                  <span>Template: <strong>{draft.googleDocsTemplateName}</strong></span>
+                </div>
+              {/if}
+              {#if drivePickError}
+                <div class="input-error-msg">
+                  <AlertCircle size={12} />
+                  <span>{drivePickError}</span>
+                </div>
+              {/if}
               {#if templateError}
                 <div class="input-error-msg">
                   <AlertCircle size={12} />
@@ -695,6 +743,35 @@
     font-size: 12.5px;
     outline: none;
     transition: var(--transition-fast);
+  }
+
+  .drive-pick-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-medium);
+    background: var(--bg-surface-elevated);
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .drive-pick-btn:hover:not(:disabled) {
+    border-color: var(--primary-accent);
+  }
+
+  .drive-pick-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .setting-hint {
+    margin: 2px 10px 0;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--text-tertiary);
   }
 
   .ide-input-wide {

@@ -9,14 +9,19 @@ import shutil
 import tempfile
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 from google.adk.tools import ToolContext
 from google.genai import types
 
-from . import workflow
+from agents.common.event_series import city_from_state, default_city
+
+from . import prompt_director, workflow
 from .tools import composer_tools, media_tools
 from .workflow_models import (
     CreativeScenario,
@@ -191,9 +196,9 @@ def merge_draft(
         "selected_scenario_id": _normalise(selected_scenario_id),
     }
     changed = False
-    for field, value in changes.items():
-        if value is not None and value != getattr(updated, field):
-            setattr(updated, field, value)
+    for field_name, value in changes.items():
+        if value is not None and value != getattr(updated, field_name):
+            setattr(updated, field_name, value)
             changed = True
     if suggested_scenarios is not None and suggested_scenarios != updated.suggested_scenarios:
         updated.suggested_scenarios = suggested_scenarios
@@ -284,15 +289,6 @@ def _state_get(tool_context: object, key: str, default: object = None) -> object
         if isinstance(value, (bool, int, float, str, dict, list)):
             return value
     return default
-
-
-def _state_set(tool_context: object, key: str, value: object) -> None:
-    state = getattr(tool_context, "state", None)
-    if state is not None:
-        try:
-            state[key] = value
-        except Exception:
-            pass
 
 
 async def _review_metadata(metadata: ValidatedMetadata) -> ValidationFailure | None:
@@ -392,7 +388,123 @@ async def _review_face(resolved_media: ResolvedMedia) -> ValidationFailure | Non
     return None
 
 
-async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) -> RenderResult | ValidationFailure:
+# =============================================================================
+# Framework-independent core (used by the ADK tools and by the MCP server)
+# =============================================================================
+
+RENDER_SETTING_KEYS = (
+    "enable_video_generation",
+    "enableVideoGeneration",
+    "render_4k",
+    "render4k",
+    "render_gif",
+    "renderGif",
+    "render_ordinary",
+    "renderOrdinary",
+)
+
+# Async callable that copies the source photo/video into the active render workspace
+# (media_tools.BASE_DIR) and returns its path relative to that workspace.
+MediaStager = Callable[[], Awaitable[str]]
+
+
+@dataclass
+class RenderSettings:
+    """Everything the render pipeline needs besides the speaker and the media.
+
+    ``toggles`` holds generation/output switches (``enable_video_generation``, ``render_4k``,
+    ``render_gif``, ``render_ordinary``); missing keys fall back to environment defaults.
+    """
+
+    video_template: str = field(default_factory=lambda: os.getenv("VIDEO_TEMPLATE", "build_with_ai"))
+    theme_colors: dict[str, str] | None = None
+    toggles: dict[str, Any] = field(default_factory=dict)
+    city: str = field(default_factory=default_city)
+
+    @classmethod
+    def from_tool_context(cls, tool_context: object) -> "RenderSettings":
+        template = _state_get(tool_context, "video_template") or _state_get(tool_context, "videoTemplate")
+        theme = _state_get(tool_context, "theme_colors")
+        toggles = {key: value for key in RENDER_SETTING_KEYS if (value := _state_get(tool_context, key)) is not None}
+        return cls(
+            video_template=str(template or os.getenv("VIDEO_TEMPLATE", "build_with_ai")),
+            theme_colors=theme if isinstance(theme, dict) else None,
+            toggles=toggles,
+            city=city_from_state({"community_name": _state_get(tool_context, "community_name")}),
+        )
+
+
+def offline_mode() -> bool:
+    """VIDEO_EDITOR_OFFLINE=true: no Gemini scenario calls, no Omni, no HyperFrames.
+
+    Scenarios come from the deterministic fallback set and renders return the bundled sample
+    video, so chat, UI, MCP and evals can be exercised locally for free.
+    """
+    return os.getenv("VIDEO_EDITOR_OFFLINE", "false").lower() in {"1", "true", "yes"}
+
+
+async def offline_render(draft: VideoEditorDraft) -> RenderResult:
+    delay = float(os.getenv("VIDEO_EDITOR_OFFLINE_RENDER_SECONDS", "0") or 0)
+    if delay > 0:
+        await asyncio.sleep(delay)
+    assets = [
+        RenderedAsset(label="Video (offline sample)", url=(BASE_DIR / "assets" / "Video_example.mp4").as_uri()),
+        RenderedAsset(label="Poster (offline sample)", url=(BASE_DIR / "assets" / "portrait_outpainted.png").as_uri()),
+    ]
+    return RenderResult(status="completed", assets=assets, summary=f"Offline render for {draft.name}")
+
+
+def generate_scenarios(
+    talk_title: str,
+    speaker_name: str,
+    position_company: str | None = None,
+    speaker_bio: str | None = None,
+    creative_guidance: str | None = None,
+) -> list[CreativeScenario]:
+    """Five cinematic scenarios with their switchable styles (blocking; run in a thread from async code)."""
+    if offline_mode():
+        scenarios = prompt_director._build_fallback_scenarios(talk_title, speaker_name)
+    else:
+        try:
+            scenarios = prompt_director.generate_creative_scenarios(
+                talk_title=talk_title,
+                speaker_name=speaker_name,
+                position_company=position_company,
+                speaker_bio=speaker_bio,
+                creative_guidance=creative_guidance,
+            )
+        except Exception as error:  # quota / model issues -> deterministic fallback
+            logger.warning("Scenario generation failed (%s); using fallback scenarios.", error)
+            scenarios = prompt_director._build_fallback_scenarios(talk_title, speaker_name)
+    # Every scenario gets its styles up front so callers can address them by id.
+    return [prompt_director._ensure_scenario_styles(sc, idx) for idx, sc in enumerate(scenarios, start=1)]
+
+
+def stage_local_file(path: str | os.PathLike[str]) -> MediaStager:
+    """MediaStager for a file on disk (used by the MCP server)."""
+    source = Path(path).expanduser().resolve()
+
+    async def stage() -> str:
+        if not source.is_file():
+            raise FileNotFoundError(f"Media file not found: {source}")
+        is_video = source.suffix.lower() in {".mp4", ".mov", ".avi", ".mkv", ".webm"}
+        name = "staged_media.mp4" if is_video else f"staged_media{source.suffix.lower() or '.jpg'}"
+        target = Path(media_tools.BASE_DIR) / "assets" / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(shutil.copy2, source, target)
+        return f"assets/{name}"
+
+    return stage
+
+
+async def render_card(
+    draft: VideoEditorDraft,
+    settings: RenderSettings,
+    *,
+    stage_media: MediaStager,
+    workspace_label: str = "standalone",
+) -> RenderResult | ValidationFailure:
+    """Validate the speaker details and render the speaker-card video. No ADK objects involved."""
     metadata_result = workflow.validate_request_metadata_fields(draft)
     if isinstance(metadata_result, ValidationFailure):
         return metadata_result
@@ -403,19 +515,43 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
     environment_failure = workflow.validate_render_environment()
     if environment_failure:
         return environment_failure
+
+    # Wait for any other render (in any session) to finish without blocking the event loop.
+    await asyncio.to_thread(_RENDER_LOCK.acquire)
+    try:
+        return await _render_locked(draft, metadata, settings, stage_media, workspace_label)
+    finally:
+        _RENDER_LOCK.release()
+
+
+# =============================================================================
+# ADK adapter
+# =============================================================================
+
+
+async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) -> RenderResult | ValidationFailure:
+    """Render for an ADK session: media comes from the uploaded chat attachment, settings from state."""
     if draft.media is None:
         return ValidationFailure(
             code="media_not_found",
             message="Please upload a portrait photo or a speaker video.",
             requested_action="replace_media",
         )
+    media = draft.media
 
-    # Wait for any other render (in any session) to finish without blocking the event loop.
-    await asyncio.to_thread(_RENDER_LOCK.acquire)
-    try:
-        return await _render_locked(draft, metadata, tool_context)
-    finally:
-        _RENDER_LOCK.release()
+    async def stage_from_session() -> str:
+        return await media_tools.stage_uploaded_media(
+            event_id=media.event_id,
+            part_index=media.part_index,
+            tool_context=tool_context,
+        )
+
+    return await render_card(
+        draft,
+        RenderSettings.from_tool_context(tool_context),
+        stage_media=stage_from_session,
+        workspace_label=str(getattr(getattr(tool_context, "session", None), "id", "") or "session"),
+    )
 
 
 def _static_fallback_notice(failure_reason: str) -> str:
@@ -429,31 +565,31 @@ def _static_fallback_notice(failure_reason: str) -> str:
     else:
         reason = "API generation unavailable"
     return (
-        f"⚠️ **Обратите внимание:** Фоновое видео не удалось сгенерировать через Gemini Omni Flash ({reason}). "
-        "Карточка была сгенерирована с использованием расширенного портрета (статичное фото с анимированными титрами, скобками и бейджами DevFest). "
-        "Чтобы видео-фон был динамическим, можно повторить рендер позже или загрузить готовое видео спикера (.mp4)."
+        f"**Note:** Background video generation via Gemini Omni Flash was unavailable ({reason}). "
+        "The card was rendered using the outpainted portrait (static photo with animated titles, brackets, and DevFest badges). "
+        "To get a dynamic video background, retry the render later or upload an existing speaker video (.mp4)."
     )
 
 
 async def _render_locked(
-    draft: VideoEditorDraft, metadata: ValidatedMetadata, tool_context: ToolContext
+    draft: VideoEditorDraft,
+    metadata: ValidatedMetadata,
+    settings: RenderSettings,
+    stage_media: MediaStager,
+    workspace_label: str,
 ) -> RenderResult | ValidationFailure:
-    video_template = str(
-        _state_get(tool_context, "video_template")
-        or _state_get(tool_context, "videoTemplate")
-        or os.getenv("VIDEO_TEMPLATE", "build_with_ai")
-    )
-    theme_colors = _state_get(tool_context, "theme_colors")
-    # A failure from a previous render must not leak into this one.
-    _state_set(tool_context, "video_generation_failure", "")
+    # media_tools / composer_tools read toggles from `<ctx>.state` and animate_photo reports a
+    # generation failure there; a fresh per-render object means nothing leaks between renders.
+    tool_context = SimpleNamespace(state=dict(settings.toggles), session=None)
+    video_template = settings.video_template
+    theme_colors = settings.theme_colors
 
-    with isolated_workspace(tool_context.session.id, template_name=video_template) as workspace:
+    with isolated_workspace(workspace_label, template_name=video_template) as workspace:
         with _workspace_tool_paths(workspace):
-            staged_path = await media_tools.stage_uploaded_media(
-                event_id=draft.media.event_id,
-                part_index=draft.media.part_index,
-                tool_context=tool_context,
-            )
+            try:
+                staged_path = await stage_media()
+            except FileNotFoundError as missing:
+                return ValidationFailure(code="media_not_found", message=str(missing), requested_action="replace_media")
             resolved_media = ResolvedMedia(
                 source_path=staged_path,
                 media_type=workflow.classify_media_path(staged_path),
@@ -529,6 +665,7 @@ async def _render_locked(
                     position_company=metadata.position_company,
                     duration_seconds=prepared_media.duration_seconds,
                     theme_colors=theme_colors,
+                    city=settings.city,
                 )
                 summary = await asyncio.to_thread(composer_tools.render_composer, tool_context=tool_context)
             except Exception as render_err:

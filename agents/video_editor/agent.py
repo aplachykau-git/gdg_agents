@@ -12,7 +12,7 @@ except ModuleNotFoundError:
 
 initialise_agent_environment()
 
-from .tools import ALL_TOOLS
+from .tools.card_tools import ALL_TOOLS
 
 
 def typo_instruction() -> str:

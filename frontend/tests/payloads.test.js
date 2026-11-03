@@ -8,6 +8,7 @@ import {
   toEmailDraft,
   toEventDates,
   toMediaCard,
+  toQrCard,
   toVariants,
 } from '../src/lib/ui/payloads.js';
 import { computeScenarioDecks } from '../src/lib/scenarios.js';
@@ -93,4 +94,23 @@ test('stream merge appends partial text and replaces with the final event', asyn
   mergeStreamEvent(list, { id: 'e1', partial: false, content: { parts: [{ text: 'Hello!' }] }, customMetadata: { ui: { type: 'agenda' } } });
   assert.equal(list.length, 1);
   assert.equal(list[0].customMetadata.ui.type, 'agenda');
+});
+
+test('qr_code payload becomes a QR card and the agent is recognised', async () => {
+  const card = toQrCard({
+    type: 'qr_code',
+    link: 'https://gdg.dev',
+    svg_url: '/results/qr_gdg-dev_1234abcd.svg',
+    png_url: '/results/qr_gdg-dev_1234abcd.png',
+    filename: 'qr_gdg-dev_1234abcd',
+    color: '#1A73E8',
+    background: 'transparent',
+  });
+  assert.equal(card.svgUrl, '/results/qr_gdg-dev_1234abcd.svg');
+  assert.equal(card.transparent, true);
+  assert.equal(card.background, '');
+  const { getFriendlyToolCall, getAgentTheme, resolveAgentId } = await import('../src/lib/agents.js');
+  assert.equal(getAgentTheme('qr_code_generator').label, 'QR Codes');
+  assert.equal(resolveAgentId('qr_code_generator'), 'qr_code_generator');
+  assert.match(getFriendlyToolCall('generate_qr_code', { link: 'https://gdg.dev' }), /QR code for https:\/\/gdg.dev/);
 });

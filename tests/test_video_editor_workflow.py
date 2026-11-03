@@ -611,8 +611,8 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         self.assertIsNotNone(result.notice)
         self.assertIn("429", result.notice)
         self.assertIn("spend-based rate limit", result.notice)
-        self.assertIn("расширенного портрета", result.notice)
-        self.assertIn("статичное фото", result.notice)
+        self.assertIn("outpainted portrait", result.notice)
+        self.assertIn("static photo", result.notice)
 
     def test_render_video_card_sets_notice_when_content_blocked(self):
         draft = VideoEditorDraft(
@@ -666,8 +666,8 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         self.assertEqual(result.status, "completed")
         self.assertIsNotNone(result.notice)
         self.assertIn("prompt content blocked", result.notice)
-        self.assertIn("расширенного портрета", result.notice)
-        self.assertIn("статичное фото", result.notice)
+        self.assertIn("outpainted portrait", result.notice)
+        self.assertIn("static photo", result.notice)
 
     def test_read_video_duration_defaults_to_10_seconds(self):
         from agents.video_editor.workflow import _read_video_duration

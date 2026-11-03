@@ -9,7 +9,7 @@ from google.adk import Agent
 
 from agents.gemini_config import model_for
 
-from .tools import export_summary_to_google_doc, get_usd_pln_rate, read_receipt_file
+from .tools import export_summary_to_google_doc, get_usd_pln_rate, read_receipt_file, show_receipt_summary
 
 initialise_agent_environment()
 
@@ -39,7 +39,12 @@ In any of these cases, you MUST IMMEDIATELY ABORT execution:
 - DO NOT invoke the tool `export_summary_to_google_doc`.
 - Output a clear, user-friendly error message in English explaining exactly why the file was rejected (e.g., that Word files are not allowed, or that this is an already completed report).
 
-**Step 2.** Immediately after successful recognition and validation of all files, export the generated report into Google Docs by calling `export_summary_to_google_doc`.
+**Step 2. Show what you recognised.** Immediately after successful recognition and validation of all files, call `show_receipt_summary` ONCE with every receipt:
+- `receipts`: one dict per receipt with `merchant`, `desc` (English, 2-4 words), `date` (YYYY-MM-DD), `category` (same categories as below), `currency`, `total`, and when printed `tax`, `payment_method`, `document_number`, plus `items` = every printed line item as {{"name" (translated to English), "quantity", "unit_price", "total"}}. Copy numbers exactly as printed; leave out anything you cannot read and describe it in `notes` instead of guessing.
+- `target_currency` and `approved_budget`: the same values you will pass to the export.
+The user sees this as a table card with a copy-as-text button, so they can check the recognition before using the report.
+
+**Step 3.** Then export the report into Google Docs by calling `export_summary_to_google_doc`.
 You MUST automatically determine the title of the document using the following rules:
 1. Extract dates from all recognized receipts/invoices.
 2. Select the **latest date (closest to today)**.
@@ -64,17 +69,18 @@ You MUST automatically determine the title of the document using the following r
      - `"date"`: String. The date extracted from the receipt (e.g. `"{current_year}-05-17"`).
 6. Immediately invoke `export_summary_to_google_doc` with these parameters.
 
-**Step 3. Final Response to User (Strict Formatting Rules):**
+**Step 4. Final Response to User (Strict Formatting Rules):**
 - Output a clean, brief summary (1-2 sentences) mentioning:
   1. The count of analyzed receipts/invoices (e.g., "Analyzed 2 receipts: Uber Ride (Transport) and Hotel Lodging (Hotel).").
   2. The date of the receipts.
   3. Confirmation that the Google Docs expense reimbursement report has been generated.
-- **STRICT PROHIBITION ON PRICES & NUMBERS**: You MUST NOT include any monetary amounts, currency figures, converted sums, unit prices, or exchange rates in your response text (all financial amounts and calculations are formatted inside the generated Google Doc).
+  4. Anything the user must check: warnings from `show_receipt_summary` (unreadable totals, line items that do not add up) and whether the budget is exceeded.
+- Do not repeat the item list or the amounts in your text: the summary card already shows every line item, total and conversion, and the Google Doc holds the formal report.
 - Include the direct link to the Google Doc returned by `export_summary_to_google_doc`: `https://docs.google.com/document/d/...`.
 
 ## Rules:
 - Do not invent any numbers; use only what is visible on the documents.
-- If `export_summary_to_google_doc` returns a missing Google Drive folder notification (`MISSING_GOOGLE_DRIVE_FOLDER`), inform the user to configure their Google Drive folder in Settings (Target Folder URL / ID).
+- If `export_summary_to_google_doc` returns a missing Google Drive folder notification (`MISSING_GOOGLE_DRIVE_FOLDER`), say that the recognised receipts are shown above and ask the user to choose the Google Drive folder for reports in Settings (Google Drive section, "Choose folder").
 """
 
 receipt_agent = Agent(
@@ -82,11 +88,11 @@ receipt_agent = Agent(
     name="receipt_scanner",
     description=(
         "Agent for recognizing receipts and invoices. "
-        "Natively analyzes images and PDFs using gemini-3.8-flash, "
+        "Natively analyzes images and PDFs using gemini-3.8-flash, shows the recognised line items and totals as a table, "
         "converts currencies using live banking exchange rates, and exports professional Google Docs expense reports."
     ),
     instruction=INSTRUCTION,
-    tools=[get_usd_pln_rate, read_receipt_file, export_summary_to_google_doc],
+    tools=[get_usd_pln_rate, read_receipt_file, show_receipt_summary, export_summary_to_google_doc],
 )
 
 # ADK 2.0 requires the entry-point agent to be named `root_agent`

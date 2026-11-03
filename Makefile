@@ -13,7 +13,7 @@ RECEIPT_EVAL_MODEL ?= gemini-3.8-flash
 .PHONY: help tools linkedin-evals linkedin-judge-evals linkedin-evals-all \
 	receipt-eval-discover receipt-eval-fixtures receipt-extraction-evals \
 	receipt-conversion-evals receipt-evals-all video-editor-evals video-editor-evals-all \
-	run-all deploy deploy-frontend
+	run-all deploy deploy-frontend diagrams
 
 help: ## Show available commands.
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -68,6 +68,16 @@ video-editor-evals-all: ## Run video-editor unit tests, then live chat evaluatio
 	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
 	"$(UV_BIN)" run --locked --no-sync python -m unittest tests.test_video_editor_card_tools tests.test_video_editor_workflow tests.test_video_editor_prompt_director tests.test_video_editor_agent -v
 	@$(MAKE) video-editor-evals
+
+diagrams: ## Render docs/architecture.mmd to docs/assets/architecture_diagram.{svg,png,pdf}.
+	@for ext in svg png pdf; do \
+		npx --yes @mermaid-js/mermaid-cli@11.4.2 -i docs/architecture.mmd -o docs/assets/architecture_diagram.$$ext \
+			-b '#0f172a' -w 2400 $$( [ $$ext = pdf ] && echo --pdfFit ) || exit 1; \
+	done
+
+mcp: ## Run the MCP server over stdio (for MCP clients; see README).
+	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
+	"$(UV_BIN)" run --locked --no-sync python -m agents.mcp_server
 
 run-all: ## Start Video A2A, Receipt A2A, ADK web, and the frontend; Ctrl+C stops all.
 	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }

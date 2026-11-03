@@ -2,11 +2,12 @@ export const DEFAULT_APPS = [
   { name: 'root_agent', root_agent_name: 'Main' },
   { name: 'receipt_scanner', root_agent_name: 'Receipt Scanner' },
   { name: 'video_editor', root_agent_name: 'Live Video Editor' },
-  { name: 'linkedin_post_generator', root_agent_name: 'LinkedIn Planner' },
+  { name: 'linkedin_post_generator', root_agent_name: 'Social Planner' },
   { name: 'registration_manager', root_agent_name: 'Registrations Manager' },
   { name: 'event_planner', root_agent_name: 'Event Scheduler' },
   { name: 'agenda_generator', root_agent_name: 'Agenda Formatter' },
-  { name: 'office_secretary', root_agent_name: 'Office Secretary' }
+  { name: 'office_secretary', root_agent_name: 'Office Secretary' },
+  { name: 'qr_code_generator', root_agent_name: 'QR Code Generator' }
 ];
 
 export const DEFAULT_TEMPLATE_ID = '1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw';
@@ -24,8 +25,83 @@ export const DEFAULT_CONFIG = {
   generateAvatar: true,
   enableVideoGeneration: true,
   videoEngine: 'omni',
-  videoTemplate: 'build_with_ai'
+  videoTemplate: 'build_with_ai',
+  // Event & social posts (Settings -> Event). Sent to every agent as event_* session state.
+  eventName: '',
+  eventDate: '',
+  eventWebsite: 'https://devfestkrakow.pl/',
+  eventRegistrationUrl: '',
+  eventVenue: '',
+  eventHighlights: '',
+  eventHashtags: '',
+  // Settings -> Social networks: profile links; `post` = plan countdown posts there.
+  socialProfiles: [
+    { network: 'linkedin', url: '', post: true },
+    { network: 'instagram', url: '', post: true }
+  ],
+  countdownPlan: ''
 };
+
+// Default countdown sequence; keep in sync with DEFAULT_SEQUENCE in
+// agents/linkedin_post_generator/countdown.py (tests/test_countdown_planner.py checks it).
+export const DEFAULT_COUNTDOWN_PLAN = [
+  '30: Save the date',
+  '21: Why attend',
+  '14: Hands-on workshops',
+  '12: Agenda is live',
+  '10: Community spaces',
+  '7: One week to go',
+  '5: Mentoring and careers',
+  '3: Venue and getting there',
+  '2: Thank you, partners',
+  '1: See you tomorrow',
+  '0: It is today'
+].join('\n');
+
+// Keep in sync with NETWORKS in agents/common/event_profile.py. `plannable` networks get
+// countdown posts; the others are profile links only.
+export const SOCIAL_NETWORKS = [
+  { id: 'linkedin', name: 'LinkedIn', plannable: true, domains: ['linkedin.com'], placeholder: 'https://www.linkedin.com/company/your-community/' },
+  { id: 'instagram', name: 'Instagram', plannable: true, domains: ['instagram.com'], placeholder: 'https://www.instagram.com/your_handle/' },
+  { id: 'facebook', name: 'Facebook', plannable: true, domains: ['facebook.com', 'fb.com'], placeholder: 'https://www.facebook.com/your-page' },
+  { id: 'x', name: 'X', plannable: true, domains: ['x.com', 'twitter.com'], placeholder: 'https://x.com/your_handle' },
+  { id: 'threads', name: 'Threads', plannable: true, domains: ['threads.net', 'threads.com'], placeholder: 'https://www.threads.net/@your_handle' },
+  { id: 'bluesky', name: 'Bluesky', plannable: true, domains: ['bsky.app'], placeholder: 'https://bsky.app/profile/you.bsky.social' },
+  { id: 'mastodon', name: 'Mastodon', plannable: true, domains: [], placeholder: 'https://mastodon.social/@your_handle' },
+  { id: 'youtube', name: 'YouTube', plannable: false, domains: ['youtube.com', 'youtu.be'], placeholder: 'https://www.youtube.com/@YourChannel' },
+  { id: 'tiktok', name: 'TikTok', plannable: false, domains: ['tiktok.com'], placeholder: 'https://www.tiktok.com/@your_handle' },
+  { id: 'discord', name: 'Discord', plannable: false, domains: ['discord.gg', 'discord.com'], placeholder: 'https://discord.gg/invite-code' },
+  { id: 'telegram', name: 'Telegram', plannable: false, domains: ['t.me', 'telegram.me'], placeholder: 'https://t.me/your_channel' },
+  { id: 'gdg', name: 'GDG community page', plannable: false, domains: ['gdg.community.dev'], placeholder: 'https://gdg.community.dev/gdg-your-city/' }
+];
+
+export function socialNetwork(id) {
+  return SOCIAL_NETWORKS.find((n) => n.id === id) || { id, name: id, plannable: false, domains: [], placeholder: 'https://' };
+}
+
+/** Warning text when a profile link points to another site than its network, else ''. */
+export function profileUrlWarning(network, url) {
+  const value = (url || '').trim();
+  if (!value) return '';
+  let host = '';
+  try {
+    host = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return 'This does not look like a link.';
+  }
+  const { domains, name } = socialNetwork(network);
+  if (!domains.length || domains.some((d) => host === d || host.endsWith(`.${d}`))) return '';
+  return `This link goes to ${host}, not ${name}.`;
+}
+
+/** Profiles from settings; configs saved before profiles existed are migrated from socialChannels. */
+export function socialProfilesOf(cfg = {}) {
+  if (Array.isArray(cfg.socialProfiles)) return cfg.socialProfiles;
+  if (Array.isArray(cfg.socialChannels) && cfg.socialChannels.length) {
+    return cfg.socialChannels.map((network) => ({ network, url: '', post: true }));
+  }
+  return DEFAULT_CONFIG.socialProfiles;
+}
 
 export const VIDEO_TEMPLATES = [
   {
@@ -103,19 +179,21 @@ export const AGENT_CAPABILITIES_CATALOG = [
   },
   {
     id: 'linkedin_post_generator',
-    name: 'LinkedIn Planner',
+    name: 'Social Planner',
     tag: 'Social Media & Posts',
     accent: 'var(--agent-linkedin)',
     bg: 'var(--bg-linkedin)',
     icon: 'share',
-    summary: 'Writes high-impact LinkedIn posts for tech meetups. Crafts engaging speaker spotlight announcements with key talk takeaways, event invitations with registration links, and generates multiple recap post options with hashtags after the event.',
-    whatItDoes: 'Drafts ready-to-publish LinkedIn announcements, registration reminders, and post-event recaps with tailored hashtags.',
+    summary: 'Writes LinkedIn and Instagram posts for the community. Plans a dated countdown to the event (which teaser goes to LinkedIn, which to Instagram, and why), drafts speaker spotlight announcements and recap options with hashtags.',
+    whatItDoes: 'Drafts ready-to-publish countdown posts, LinkedIn announcements, Instagram captions and post-event recaps, and exports the plan as CSV for Google Sheets.',
     whenToUse: [
+      'Planning the "N days to go" countdown posts for LinkedIn and Instagram.',
       'Announcing a new speaker, presentation topic, and key learning points.',
       'Publishing last-chance registration reminders before seats run out.',
       'Sharing 3 variations of post-event summaries (short highlights, technical recap, community conversational).'
     ],
     starterPrompts: [
+      'Plan the countdown posts for LinkedIn and Instagram until the event',
       'Draft an exciting speaker announcement for Alex River on "Agentic Workflows" with registration link https://gdg.community.dev/events/...',
       'Generate 3 different recap post options with hashtags for our Cloud & AI meetup that finished yesterday with 65 attendees',
       'Write a last-chance registration reminder post: only 15 seats left for this Thursday\'s meetup at Google Krakow'
@@ -199,6 +277,26 @@ export const AGENT_CAPABILITIES_CATALOG = [
       'Draft a visitor keys access request email to building security for next Tuesday\'s meetup from 17:30 to 21:00 for 50 attendees',
       'Prepare an Event Hub room reservation email to facility management for October 24 (17:00 - 21:30)',
       'Draft a security access notification for 2 external guest speakers arriving at 17:00 this Thursday'
+    ]
+  },
+  {
+    id: 'qr_code_generator',
+    name: 'QR Code Generator',
+    tag: 'Links & Print',
+    accent: 'var(--agent-qr)',
+    bg: 'var(--bg-qr)',
+    icon: 'qr',
+    summary: 'Turns any link into a good-looking rounded QR code. Every code comes as one flat vector SVG (one path, scales for print, banners and slides) and a 1024px PNG, with optional brand colours, coloured corner eyes and a transparent background.',
+    whatItDoes: 'Creates rounded QR codes for links as a flat SVG and a PNG, ready to download.',
+    whenToUse: [
+      'Putting the registration or feedback link on slides, posters and roll-ups.',
+      'Sharing the Wi-Fi page, slides or a survey link at the venue.',
+      'Branded codes in Google colours or with a transparent background for designs.'
+    ],
+    starterPrompts: [
+      'Make a QR code for https://gdg.community.dev/gdg-krakow/',
+      'Blue QR code with red corner eyes for https://example.com/register',
+      'QR with a transparent background for our poster: https://example.com/feedback'
     ]
   }
 ];
@@ -292,6 +390,9 @@ export function getAppConfig() {
       if (!parsed.serviceAccountEmail || parsed.serviceAccountEmail.includes('receipt-docs-bot')) {
         parsed.serviceAccountEmail = DEFAULT_CONFIG.serviceAccountEmail;
       }
+      if (!Array.isArray(parsed.socialProfiles) && Array.isArray(parsed.socialChannels)) {
+        parsed.socialProfiles = socialProfilesOf(parsed);
+      }
       return { ...DEFAULT_CONFIG, ...parsed };
     }
   } catch (e) {
@@ -310,3 +411,66 @@ export function saveAppConfig(cfg) {
 }
 
 export const MAX_INPUT_TOKENS = 8192;
+
+/** Settings -> Event as session state keys read by agents/common/event_profile.py. */
+export function eventStatePayload(cfg = {}) {
+  const profiles = socialProfilesOf(cfg)
+    .filter((p) => p && SOCIAL_NETWORKS.some((n) => n.id === p.network))
+    .map((p) => ({ network: p.network, url: (p.url || '').trim(), post: Boolean(p.post) && socialNetwork(p.network).plannable }));
+  const channels = profiles.filter((p) => p.post).map((p) => p.network);
+  return {
+    event_name: cfg.eventName || '',
+    event_date: cfg.eventDate || '',
+    event_website: cfg.eventWebsite || DEFAULT_CONFIG.eventWebsite,
+    event_registration_url: cfg.eventRegistrationUrl || '',
+    event_venue: cfg.eventVenue || '',
+    event_highlights: cfg.eventHighlights || '',
+    event_hashtags: cfg.eventHashtags || '',
+    social_profiles: profiles,
+    social_channels: channels,
+    countdown_plan: cfg.countdownPlan || DEFAULT_COUNTDOWN_PLAN,
+  };
+}
+
+// --------------------------------------------------------------------------- event profile
+// Event details and social profiles are set in the chat (the Social Planner's event card), not
+// in Settings. They are stored with the studio config so every new session sends them.
+
+/** Event profile payload (agents/common/event_profile_tools.py profile_dict) -> config keys. */
+export function profileToConfig(profile = {}) {
+  return {
+    eventName: profile.name || '',
+    eventDate: profile.date || '',
+    eventWebsite: profile.website || DEFAULT_CONFIG.eventWebsite,
+    eventRegistrationUrl: profile.registration_url || '',
+    eventVenue: profile.venue || '',
+    eventHighlights: profile.highlights || '',
+    eventHashtags: (profile.hashtags || []).join(' '),
+    socialProfiles: Array.isArray(profile.social_profiles) ? profile.social_profiles : DEFAULT_CONFIG.socialProfiles,
+    countdownPlan: profile.countdown && profile.countdown !== DEFAULT_COUNTDOWN_PLAN ? profile.countdown : '',
+  };
+}
+
+/** Config keys -> the profile shape the event card edits. */
+export function configToProfile(cfg = {}) {
+  const state = eventStatePayload(cfg);
+  return {
+    name: state.event_name,
+    date: state.event_date,
+    website: state.event_website,
+    registration_url: state.event_registration_url,
+    venue: state.event_venue,
+    highlights: state.event_highlights,
+    hashtags: (state.event_hashtags || '').split(/[\s,;]+/).filter(Boolean),
+    social_profiles: state.social_profiles,
+    countdown: cfg.countdownPlan || '',
+  };
+}
+
+export const STUDIO_CONFIG_PATCH_EVENT = 'studio-config-patch';
+
+/** Ask App.svelte to merge `patch` into the studio config (and localStorage). */
+export function patchStudioConfig(patch) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(STUDIO_CONFIG_PATCH_EVENT, { detail: patch }));
+}

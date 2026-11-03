@@ -6,9 +6,13 @@
   import ReportDownloadCard from './ReportDownloadCard.svelte';
   import EmailDraftCard from './EmailDraftCard.svelte';
   import EventDateCard from './EventDateCard.svelte';
-  import { toDocumentCard, toEmailDraft, toEventDates, toMediaCard, toVariants } from './ui/payloads.js';
+  import QrCodeCard from './QrCodeCard.svelte';
+  import ReceiptSummaryCard from './ReceiptSummaryCard.svelte';
+  import PostPlanCard from './PostPlanCard.svelte';
+  import EventProfileCard from './EventProfileCard.svelte';
+  import { toDocumentCard, toEmailDraft, toEventDates, toMediaCard, toQrCard, toVariants } from './ui/payloads.js';
 
-  let { ui, author = '', onRefine = () => {} } = $props();
+  let { ui, author = '', onRefine = () => {}, onSend = () => {}, isBusy = false } = $props();
 </script>
 
 {#if ui?.type === 'post_variants'}
@@ -21,6 +25,14 @@
   <EventDateCard eventData={toEventDates(ui)} {onRefine} />
 {:else if ui?.type === 'document'}
   <ReportDownloadCard doc={toDocumentCard(ui)} />
+{:else if ui?.type === 'qr_code'}
+  <QrCodeCard qr={toQrCard(ui)} />
+{:else if ui?.type === 'event_profile'}
+  <EventProfileCard payload={ui} {isBusy} {onSend} />
+{:else if ui?.type === 'post_plan'}
+  <PostPlanCard plan={ui} />
+{:else if ui?.type === 'receipt_summary'}
+  <ReceiptSummaryCard summary={ui} />
 {:else if ui?.type === 'media'}
   <VideoPreviewCard media={toMediaCard(ui)} {onRefine} />
 {/if}

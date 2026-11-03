@@ -4,7 +4,8 @@
 * On Cloud Run (``K_SERVICE`` is set) or with ``LOG_FORMAT=json``: one JSON object per line with
   a ``severity`` field, which Cloud Logging turns into proper log levels and searchable fields.
 
-``LOG_LEVEL`` (default INFO) controls verbosity. Safe to call more than once.
+``LOG_LEVEL`` (default INFO) controls verbosity. ``LOG_STREAM=stderr`` sends logs to stderr (required
+for the stdio MCP server, where stdout carries the protocol). Safe to call more than once.
 """
 
 from __future__ import annotations
@@ -39,7 +40,8 @@ def configure_logging(level: str | None = None) -> None:
         return
     level_name = (level or os.getenv("LOG_LEVEL", "INFO")).upper()
     use_json = os.getenv("LOG_FORMAT", "").lower() == "json" or bool(os.getenv("K_SERVICE"))
-    handler = logging.StreamHandler(sys.stdout)
+    stream = sys.stderr if os.getenv("LOG_STREAM", "").lower() == "stderr" else sys.stdout
+    handler = logging.StreamHandler(stream)
     if use_json:
         handler.setFormatter(CloudJsonFormatter())
     else:

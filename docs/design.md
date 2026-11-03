@@ -157,16 +157,28 @@ A defining visual characteristic of Google AI Studio and Material 3 Expressive i
 
 Each specialized agent has an assigned visual signature composed of its Lucide icon, semantic accent token, and container background. These mappings are mandatory across all UI contexts:
 
-| Agent ID | Display Name | Lucide Icon | Color Token | Dark Background Token | Specialization Domain |
+| Agent ID | Display Name | Lucide Icon | Color Token (dark / light) | Background Token | Specialization Domain |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `root_agent` | **Main** | `Layers` | `--agent-root` (`#4285F4`) | `--bg-root` | Central Orchestrator & Router |
-| `receipt_scanner` | **Receipt Scanner** | `Receipt` | `--agent-receipt` (`#34A853`) | `--bg-receipt` | OCR, Multi-currency FX, Google Docs |
-| `video_editor` | **Live Video Editor** | `Video` | `--agent-video` (`#FBBC04`) | `--bg-video` | Face Landmarks, 9:16 Outpaint, Omni |
-| `linkedin_post_generator` | **LinkedIn Planner** | `Share2` | `--agent-linkedin` (`#0A66C2`) | `--bg-linkedin` | Social Copy, Recaps, Hashtags |
-| `registration_manager` | **Registrations Manager** | `Users` | `--agent-registration` (`#A142F4`) | `--bg-registration` | Roster Clean, Deduplication, DOCX |
-| `event_planner` | **Event Scheduler** | `Calendar` | `--agent-planner` (`#EA4335`) | `--bg-planner` | Polish Holidays, Meetup Calendars |
-| `agenda_generator` | **Agenda Formatter** | `Clock` | `--agent-agenda` (`#24C1E0`) | `--bg-agenda` | Minute Schedules, Break Calculations |
-| `office_secretary` | **Office Secretary** | `Mail` | `--agent-office` (`#FA7B17`) | `--bg-office` | Key Access & Room Reservation Drafts |
+| `root_agent` | **Main** | `Layers` | `--agent-root` (`#38bdf8`) | `--bg-root` | Central Orchestrator & Router |
+| `receipt_scanner` | **Receipt Scanner** | `Receipt` | `--agent-receipt` (`#2dd4bf`) | `--bg-receipt` | OCR, recognised-receipts card, FX, Google Docs |
+| `video_editor` | **Live Video Editor** | `Video` | `--agent-video` (`#a855f7`) | `--bg-video` | Face Landmarks, 9:16 Outpaint, Omni, cover frame |
+| `linkedin_post_generator` | **Social Planner** | `Share2` | `--agent-linkedin` (`#60a5fa`) | `--bg-linkedin` | Posts, Recaps, Countdown Plans, Event Profile |
+| `registration_manager` | **Registrations Manager** | `Users` | `--agent-registration` (`#fbbf24`) | `--bg-registration` | Roster Clean, Deduplication, DOCX |
+| `event_planner` | **Event Scheduler** | `Calendar` | `--agent-planner` (`#f43f5e`) | `--bg-planner` | Polish Holidays, Meetup Calendars |
+| `agenda_generator` | **Agenda Formatter** | `Clock` | `--agent-agenda` (`#34d399`) | `--bg-agenda` | Minute Schedules, Break Calculations |
+| `office_secretary` | **Office Secretary** | `Mail` | `--agent-office` (`#ec4899`) | `--bg-office` | Key Access & Room Reservation Drafts |
+| `qr_code_generator` | **QR Code Generator** | `QrCode` | `--agent-qr` (`#a3e635` / `#4d7c0f`) | `--bg-qr` | Rounded QR Codes, SVG + PNG |
+
+The values mirror `frontend/src/app.css`, which is the source of truth.
+
+**Accent contrast rule:** an accent must stay readable as text on both canvases. Light accents (like the QR lime)
+get a darker override in the light theme block of `app.css` (`--agent-qr: #4d7c0f`) instead of a different hue.
+
+### 1.4.1 Social network colours
+
+Used only as small dots/underlines next to network names (post plan tabs, social profiles list), never as fills:
+LinkedIn `#0a66c2`, Instagram `#e1306c`, Facebook `#1877f2`, X and Threads `var(--text-primary)`, Bluesky `#1185fe`,
+Mastodon `#6364ff`, YouTube `#ff0000`, TikTok `#25f4ee`, Discord `#5865f2`, Telegram `#26a5e4`, GDG `#34a853`.
 
 ---
 
@@ -198,7 +210,7 @@ The interface implements a responsive two-column workstation layout:
 +-------------------+-----------------------------------------------------------------------------------+
 ```
 
-> **Note on Model Configuration:** Hyperparameters (Temperature, Top-P, Top-K, and Output Encodings) are pre-calibrated and managed server-side by each specialized agent according to its specific task constraints (e.g., deterministic regex and JSON schema enforcement for OCR/Calendar, high-creative parameters for LinkedIn copy and video prompts).
+> **Note on Model Configuration:** Hyperparameters (temperature, top-p) are set server-side per agent; the UI has no model parameter controls.
 
 ### 2.1 CSS Grid Specification
 
@@ -233,7 +245,8 @@ The interface implements a responsive two-column workstation layout:
 
 ### 3.1 Floating Prompt Input Box
 
-The central interactive element of Google AI Studio:
+The central interactive element of Google AI Studio. The top strip holds two chips: **Add files** (local upload) and
+**Google Drive** (Picker; Docs, Sheets, PDFs and images become attachments, marked with a small Drive badge).
 
 ```html
 <div class="prompt-box-container">
@@ -377,56 +390,58 @@ The central interactive element of Google AI Studio:
 
 ---
 
-### 3.3 Right Panel Configuration Controls
+### 3.3 Settings Modal
 
-The parameters panel provides:
+Settings hold only app-wide options; everything about a specific event is set in the chat (see 3.5).
 
-1. **Model Selector (Dropdown)**: Styled dropdown card with token context limit chips.
-2. **Range Sliders (Temperature, Top-K, Top-P)**: Smooth custom sliders with real-time numeric indicator.
-3. **Toggle Switches**: Switches for Structured Outputs (JSON Schema) and Safety thresholds.
+1. **General**: community chapter name (e.g. "GDG Krakow"; the city feeds hashtags, agendas and the DevFest video pill),
+   plus a hint that event details and social networks are set in the chat.
+2. **Video Generation**: event series template (Build with AI / DevFest), 4K, GIF, Omni video toggles.
+3. **Google Drive & Docs**: report folder and template, each with **Choose on Drive** (Google Picker) and a paste field
+   as fallback.
 
-```css
-/* M3 Range Slider */
-.slider-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 20px;
-}
+Rows use `.setting-row` (label + description left, control right) or `.setting-row-stacked` for wide controls.
+Changes autosave; there is no Save button.
 
-.slider-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: var(--font-size-body-md);
-  color: var(--text-secondary);
-}
+---
 
-.slider-input {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 4px;
-  background: var(--border-subtle);
-  border-radius: var(--radius-pill);
-  outline: none;
-}
+### 3.4 Result Cards (`ResultCard.svelte`)
 
-.slider-input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--primary-accent);
-  cursor: pointer;
-  box-shadow: 0 0 8px rgba(138, 180, 248, 0.4);
-  transition: transform 0.15s ease;
-}
+Every agent deliverable in the chat (QR code, recognised receipts, countdown plan, event details, and new cards)
+uses one shell so cards read as one system:
 
-.slider-input::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-}
 ```
++--------------------------------------------------------------+
+| [icon]  Title                                     • Status   |  header: --bg-surface-elevated, icon tile in the
+|         subtitle (ellipsis)                                  |  agent accent (--agent-x on --bg-x)
++--------------------------------------------------------------+
+| [media]  body: rc-facts / tables / lists / forms             |  body: 14px padding, 12px gaps; media column
+|                                                              |  stacks above the body under 520px (container query)
++--------------------------------------------------------------+
+| [Primary] [Secondary]                       [ghost] [ghost]  |  footer: actions left, tools right
++--------------------------------------------------------------+
+```
+
+- **Status** (`statusTone`): `ok` (Ready / Saved), `warn` (N to check, missing field), `danger` (over budget),
+  `neutral`. Hidden on narrow cards.
+- **Buttons**: `rc-btn` (secondary), `rc-btn primary` (one per card), `rc-btn ghost` (copy, open). Lucide icons at 14px.
+- **Building blocks**: `rc-facts` (two-column `<dl>`), `rc-chip` (`neutral` / `ok` / `warn` / `danger`), `rc-label`
+  (11px uppercase), `rc-muted` (12px tertiary).
+- **Collapsible rows** (receipts, post plan slots): `<details>` with a rotating `ChevronRight`; open the first rows and
+  any row with warnings.
+- **Copy and export**: every card that produces text offers "Copy" (plain text) and, for tabular data, CSV;
+  calendars get an `.ics`.
+- Check every new card in dark and light themes and at ~400px width.
+
+### 3.5 Interactive Cards (A2UI)
+
+Cards can collect input instead of the agent asking question by question. The event details card is the pattern:
+
+- The agent calls a tool that returns the card with the current values and `missing` fields highlighted
+  (warning colour on the label and border).
+- The user edits inline and presses **Save**; the card stores what must persist (via `patchStudioConfig`) and replies
+  with `onSend("Saved the event details.", stateDelta)` so the agent continues the task.
+- After saving the card collapses to a read-only `rc-facts` summary with an **Edit** button.
 
 ---
 
@@ -521,5 +536,6 @@ All interface icons are sourced from `@lucide/svelte` with consistent line weigh
 - [ ] Run / Generate CTA utilizes signature Gemini gradient with smooth hover expansion.
 - [ ] Icons imported strictly from `@lucide/svelte` with 18-20px sizing and 1.75 stroke-width.
 - [ ] Prompt Input box is floating, auto-expanding with 24px-32px radius.
-- [ ] Right parameters drawer collapses into an overlay panel on viewport widths < 1200px.
+- [ ] New agent deliverables use `ResultCard` (3.4) and are checked in dark, light and ~400px width.
+- [ ] Light accents have a darker light-theme override (1.4 accent contrast rule).
 - [ ] Streaming markdown output is augmented with the animated gradient cursor.

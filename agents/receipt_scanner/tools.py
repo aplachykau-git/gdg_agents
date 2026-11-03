@@ -28,6 +28,11 @@ except ImportError:
     MediaIoBaseUpload = None
 
 from agents.common import ui_payloads
+
+try:
+    from .summary import build_receipt_summary
+except ImportError:
+    from agents.receipt_scanner.summary import build_receipt_summary
 from agents.gemini_config import get_gemini_client, model_for
 
 logger = logging.getLogger(__name__)
@@ -349,6 +354,56 @@ def calculate_receipt_totals(
 
     source_total = ", ".join(f"{amount:.2f} {currency}" for currency, amount in sums_by_currency.items())
     return source_total, f"{target_total:.2f} {target_currency}"
+
+
+# ---------------------------------------------------------------------------
+# Tool: show_receipt_summary
+# ---------------------------------------------------------------------------
+
+
+def show_receipt_summary(
+    receipts: List[dict],
+    target_currency: str = "",
+    approved_budget: str = "",
+) -> dict:
+    """Show the user exactly what was recognised on the receipts, as a table card with totals.
+
+    Call it ONCE after reading all receipts and BEFORE `export_summary_to_google_doc`. The card
+    shows every receipt with its line items, the totals per category and currency, the
+    conversion to the report currency and the remaining budget, plus a copy-as-text button.
+
+    Args:
+        receipts: One dict per receipt, values copied from the document (never invented):
+            "merchant": shop / company name as printed, e.g. "Kaufland".
+            "desc": 2-4 word English description, e.g. "Kaufland Grocery".
+            "date": "YYYY-MM-DD" when readable, else "".
+            "category": one of Transport, Hotel, Food & drinks, Swag, Prizes, Venue.
+            "currency": ISO code, e.g. "PLN".
+            "total": total amount paid as a number, e.g. 124.5.
+            "tax": VAT / tax amount if printed, else omit.
+            "payment_method": e.g. "card", "cash", if printed.
+            "document_number": receipt / invoice number, if printed.
+            "items": list of {"name": English item name, "quantity": number, "unit_price": number,
+                "total": number} for every printed line item (omit unreadable values).
+            "notes": list of short English remarks about unreadable or doubtful parts.
+        target_currency: Report currency (e.g. "USD"); empty = the budget currency or the most
+            common receipt currency.
+        approved_budget: Approved budget from the user's message, e.g. "500 EUR", or "".
+    """
+    try:
+        summary = build_receipt_summary(receipts, target_currency, approved_budget, rate_to_pln=get_nbp_rate)
+    except Exception as exc:
+        logger.exception("Receipt summary failed")
+        return {"success": False, "error": f"Could not build the receipt summary: {exc}"}
+    return {
+        "success": True,
+        "receipts_count": len(summary["receipts"]),
+        "grand_total": summary["grand_total"],
+        "target_currency": summary["target_currency"],
+        "warnings_count": summary["warnings_count"],
+        "message": "The recognised receipts are shown to the user as a table card with a text copy.",
+        "ui": ui_payloads.receipt_summary(summary),
+    }
 
 
 # ---------------------------------------------------------------------------

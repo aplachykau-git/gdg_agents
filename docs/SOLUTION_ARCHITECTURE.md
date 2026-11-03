@@ -1,7 +1,7 @@
 # Solution Architecture Document
 ## Community AI Studio — GDG & Community Multi-Agent Workspace
 
-> **Document Version:** 1.0.0
+> **Document Version:** 1.2.0 (November 2026: ADK 2.13, GenAI 2.34, A2A SDK 1.3, FastAPI 0.162, Svelte 5.57 / Vite 8.3 / Firebase 13.2, HyperFrames 0.9.8, QR codes, Social Planner countdown plans, event profile in chat, result cards, Drive Picker)
 > **Architecture Baseline:** Approved
 > **Classification:** B2C Community Platform
 > **Source Requirements:** `SOLUTION_ARCHITECTURE_REQUIREMENTS.md` v1.0.0
@@ -10,7 +10,9 @@
 
 ## 1. Executive Summary
 
-Community AI Studio is a multi-agent orchestration platform for community leaders and event organizers. It automates end-to-end event operations: agenda calculation, speaker announcement posters and cinematic video intros, participant roster deduplication, holiday clash detection, and receipt OCR with expense reporting.
+Community AI Studio is a multi-agent orchestration platform for community leaders and event organizers. It automates end-to-end event operations: agenda calculation, speaker announcement posters and cinematic video intros, social posts and countdown plans across LinkedIn, Instagram and other networks, QR codes, participant roster deduplication, holiday clash detection, and receipt OCR with expense reporting.
+
+The studio runs mostly locally (ADK API server, two A2A services and the Vite frontend via `make run-all`); the Cloud Run deployment below is optional.
 
 **Operating model:**
 - ~20,000 registered users, 12,000–36,000 sessions/year
@@ -23,7 +25,7 @@ Community AI Studio is a multi-agent orchestration platform for community leader
 
 ## 2. Architecture Overview
 
-> **Visual Assets**: [🖼️ PNG Diagram](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/assets/architecture_diagram.png) • [📄 PDF Document](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/assets/architecture_diagram.pdf) • [📐 SVG Vector](file:///Users/aplachykau/Experiments/gdg_krakow_tool/docs/assets/architecture_diagram.svg)
+> **Full diagram**: [PNG](assets/architecture_diagram.png) • [PDF](assets/architecture_diagram.pdf) • [SVG](assets/architecture_diagram.svg), rendered from [`architecture.mmd`](architecture.mmd) with `make diagrams`. The overview below is the deployment view.
 
 ```mermaid
 flowchart TD
@@ -46,7 +48,8 @@ flowchart TD
 
 
         subgraph INPROCESS["In-Process Agents"]
-            LinkedIn["LinkedIn Planner"]
+            LinkedIn["Social Planner\nposts, countdown plan,\nevent profile"]
+            QR["QR Code Generator\nSVG + PNG"]
             RegManager["Registrations Manager"]
             Planner["Event Scheduler"]
             Agenda["Agenda Formatter"]
@@ -65,11 +68,13 @@ flowchart TD
     end
 
     subgraph STORAGE["Storage & AI Foundation Layer"]
-        GCS["Google Cloud Storage\ngs://project-storage\n(60-day auto-delete)"]
+        GCS["Google Cloud Storage\ngs://project-storage\n(30-day auto-delete)"]
         VertexAI["Vertex AI / Gemini API\nGemini Flash · Flash Lite\nGemini Omni Flash"]
         GSuite["Google Drive & Docs APIs"]
 
         RootAgent --> VertexAI
+        QR --> GCS
+        Browser -->|Drive Picker, drive.file| GSuite
         VideoAgent <--> GCS
         VideoAgent --> VertexAI
         ReceiptAgent <--> GCS
@@ -87,8 +92,8 @@ flowchart TD
 | Service | CPU | RAM | Ingress | Auth | Purpose |
 |:---|:---:|:---:|:---|:---|:---|
 | `community-root-agent` | 4 vCPU | 8 GiB | All (Firebase proxy) | `--allow-unauthenticated` | Root orchestrator, in-process agents |
-| `video-editor-a2a` | 4 vCPU | 8 GiB | All | `--no-allow-unauthenticated` | Face detection, outpainting, 4K render |
-| `receipt-scanner-a2a` | 2 vCPU | 4 GiB | All | `--no-allow-unauthenticated` | OCR, FX conversion, Drive export |
+| `video-editor-a2a` | 4 vCPU | 8 GiB | All | `--no-allow-unauthenticated` | `video_editor` agent: face detection, outpainting, scenario deck, render with cover frame |
+| `receipt-scanner-a2a` | 2 vCPU | 4 GiB | All | `--no-allow-unauthenticated` | `receipt_scanner` agent: OCR, recognised-receipts card, FX conversion, Drive export |
 
 All services run as `community-studio-runtime` Service Account (`studio_sa`) defined in `terraform/iam.tf`.
 
@@ -97,13 +102,26 @@ All services run as `community-studio-runtime` Service Account (`studio_sa`) def
 | Agent | Module | Responsibility |
 |:---|:---|:---|
 | `root_agent` | `agents/root_agent/` | Intent routing and orchestration |
-| `linkedin_post_generator` | `agents/linkedin_post_generator/` | Social copy, recaps, hashtags |
+| `linkedin_post_generator` | `agents/linkedin_post_generator/` | Social Planner: speaker announcements, recaps, Instagram captions, countdown plan for LinkedIn / Instagram / Facebook / X / Threads / Bluesky / Mastodon (`countdown.py`), event profile card |
+| `qr_code_generator` | `agents/qr_code_generator/` | Rounded QR codes as a flat SVG + PNG (`qr_render.py`) |
 | `registration_manager` | `agents/registration_manager/` | Roster dedup, CSV partitioning, PII redaction |
 | `event_planner` | `agents/event_planner/` | Polish/EU holiday detection, meetup conflict check |
 | `agenda_generator` | `agents/agenda_generator/` | Minute-level slot snapping, timeline format |
 | `office_secretary` | `agents/office_secretary/` | Key access and venue reservation email drafts |
 
-### 3.3 Infrastructure (Terraform)
+### 3.3 Shared Core and Entry Points
+
+| Module | Responsibility |
+|:---|:---|
+| `agents/common/ui_payloads.py` | Card contract (`ui` payloads) mirrored by `frontend/src/lib/ui/payloads.js`; cards render through `StructuredCard.svelte` on the `ResultCard` shell |
+| `agents/common/event_profile.py` | Event and social profiles read from session state (`event_*`, `social_profiles`); network catalog |
+| `agents/common/event_profile_tools.py` | `update_event_profile`: saves event details given in chat, returns the editable event card |
+| `agents/common/event_series.py` | Build with AI / DevFest series and the community city |
+| `agents/common/runtime.py` | Sessions: SQLite per service locally, Postgres via `SESSION_SERVICE_URI` in the cloud |
+| `agents/common/a2a_auth.py`, `a2a_patches.py` | OIDC for private A2A, robust SSE parsing |
+| `agents/mcp_server.py` | MCP server (experiment): video scenarios and render, registrations, receipts, QR codes for MCP clients |
+
+### 3.4 Infrastructure (Terraform)
 
 | Resource | File | Description |
 |:---|:---|:---|
@@ -112,6 +130,21 @@ All services run as `community-studio-runtime` Service Account (`studio_sa`) def
 | GCS Bucket | `terraform/storage.tf` | Asset storage + Artifact Registry |
 | Outputs | `terraform/outputs.tf` | Exposes `service_account_email` for deploy scripts |
 | APIs | `terraform/apis.tf` | Enables required GCP service APIs |
+
+### 3.5 Runtime & Dependency Baseline
+
+| Layer | Package | Version | Purpose |
+|:---|:---|:---:|:---|
+| Agent Framework | `google-adk[eval]` | `2.13.0` | Multi-agent orchestration, Runner, SSE API server, evaluation harness |
+| Gemini SDK | `google-genai` | `2.34.0` | Gemini 3.8 Flash, Flash Lite Image, Gemini Omni 1.1 Flash client |
+| A2A Protocol | `a2a-sdk` | `1.3.0` | Agent-to-Agent protocol server & client (`video_editor`, `receipt_scanner`) |
+| MCP Server | `mcp` | `2.3.0` | Model Context Protocol server (`agents/mcp_server.py`) |
+| Web / API | `fastapi` / `uvicorn` / `sse-starlette` | `0.162.0` / `0.54.0` / `3.6.0` | Async HTTP & W3C Server-Sent Events streaming |
+| Persistence | `sqlalchemy[asyncio]` / `asyncpg` | `2.1.6` / `0.32.0` | SQLite local session storage and optional PostgreSQL in Cloud Run |
+| Media & Docs | `pillow` / `pypdfium2` / `python-docx` / `segno` | `13.0.0` / `5.14.0` / `1.2.0` / `1.6.6` | Image processing, PDF rendering, DOCX rosters, QR matrix generation |
+| Video Engine | `hyperframes` | `0.9.8` | Deterministic HTML/GSAP composition rendering and frame snapshots |
+| Frontend UI | `svelte` / `vite` / `@lucide/svelte` | `5.57.3` / `8.3.5` / `1.67.0` | Svelte 5 runes SPA, Vite 8 bundler, Lucide vector iconography |
+| Auth & Markdown | `firebase` / `marked` | `13.2.0` / `18.1.3` | Google Sign-In, Firebase App Check, and chat Markdown rendering |
 
 ---
 
@@ -223,6 +256,7 @@ sequenceDiagram
     Root->>Receipt: OIDC-authenticated A2A call
     Receipt->>Gemini: OCR extraction
     Gemini-->>Receipt: Line items, tax IDs, dates
+    Receipt-->>SPA: Recognised-receipts card (items, totals, FX, budget, copy as text / CSV)
     Receipt->>FX: EUR/USD → PLN conversion
     FX-->>Receipt: Live exchange rates
     Receipt->>Drive: Create Google Doc from template
@@ -250,14 +284,45 @@ sequenceDiagram
     Gemini-->>Video: Face verified
     Video->>Gemini: 9:16 outpainting
     Gemini-->>Video: Vertical speaker portrait
-    Video->>Omni: Generate 8s animated background
+    Video->>Omni: Generate 10s animated background
     Omni-->>Video: Background video clip
-    Video->>FFmpeg: Composite name + title + branding
-    FFmpeg-->>Video: 4K MP4 + 1080p MP4 + GIF
+    Video->>FFmpeg: HyperFrames composite of name + title + branding
+    Video->>FFmpeg: Snapshot of the finished card (title + speaker photo)
+    Video->>FFmpeg: Prepend it as the cover frame (thumbnail on LinkedIn)
+    FFmpeg-->>Video: 1080p MP4 + 4K MP4 + GIF + PNG poster
     Video->>GCS: Store rendered artifacts
     Video-->>Root: Download links
     Root-->>User: SSE stream with download cards
 ```
+
+### 5.4 Social Planner: Event Profile and Countdown Plan
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant SPA as Svelte SPA
+    participant Root as root_agent
+    participant Social as Social Planner
+    participant AI as Gemini
+
+    User->>SPA: "Plan the countdown posts"
+    SPA->>Root: message + event_* / social_profiles state (saved profile)
+    Root->>Social: transfer
+    Social->>Social: plan_countdown_posts
+    alt date or networks missing
+        Social-->>SPA: event details card (update_event_profile, ask=[date])
+        User->>SPA: fills the card, Save
+        SPA->>SPA: stores the profile for future sessions
+        SPA->>Root: "Saved the event details." + updated state
+        Root->>Social: transfer, plan_countdown_posts
+    end
+    Social->>Social: dated slots, network per slot (topic fit, cadence, stories)
+    Social->>AI: write posts in the house style
+    Social->>Social: publish_post_plan: platform rules, auto-fixes, warnings
+    Social-->>SPA: countdown plan card (copy, CSV for Sheets, .ics reminders)
+```
+
+Event details given in a message ("our Instagram is ...", "the event is on 9 October") go through `update_event_profile` the same way; the card is shown as saved and the browser stores it.
 
 ---
 
@@ -279,6 +344,8 @@ flowchart TD
 
     U --> S --> D --> C --> LS --> SS --> LLM --> RS --> T
 ```
+
+**Google Drive Picker (Settings and chat):** users pick the report folder and the template with Google's Picker ("Choose folder on Drive", "Choose template on Drive") instead of pasting links, and attach Docs, Sheets (all tabs), PDFs and images from Drive in the chat. Files are exported in the browser with the user's token (`frontend/src/lib/google/drive.js`) and sent as attachments, so every agent can read them. With `VITE_GOOGLE_OAUTH_CLIENT_ID` set the token has only the `drive.file` scope (files the user picked); otherwise the Google sign-in token is reused. Requires the Google Picker API enabled for the project.
 
 **Auth chain:** `studio_sa` → ADC workload identity (`GOOGLE_AUTH_METHOD=adc` env var) → `google.auth.default()` in `agents/receipt_scanner/google_auth.py`
 
@@ -311,28 +378,16 @@ Baseline: ~25 sessions/day average; 5× peak burst = 125 sessions/day → ~15 co
 
 The following requirements from `SOLUTION_ARCHITECTURE_REQUIREMENTS.md` are **not yet fully implemented** in the current codebase. Each is a known gap that requires action before the system can be considered fully conformant with the approved architecture baseline.
 
-### GAP-01: GCS Lifecycle Rule Missing (NFR-04.1)
+### GAP-01: GCS Lifecycle Rule (NFR-04.1) — resolved
 
-| | |
-|:---|:---|
-| **Requirement** | GCS bucket auto-deletes objects older than 60 days |
-| **Current state** | `terraform/storage.tf` defines the bucket with no `lifecycle_rule` block |
-| **Impact** | Storage grows unbounded; no data retention enforcement |
-| **Action** | Add `lifecycle_rule` to `google_storage_bucket.assets_bucket` in `storage.tf` |
-
-```hcl
-lifecycle_rule {
-  condition { age = 60 }
-  action    { type = "Delete" }
-}
-```
+`terraform/storage.tf` deletes objects after **30 days** (stricter than the 60 days required).
 
 ### GAP-02: Cloud Run Concurrency & Autoscaling Not Configured (NFR-01.2)
 
 | | |
 |:---|:---|
 | **Requirement** | Each service must have explicit `max_concurrency`, `min_instance_count`, `max_instance_count` |
-| **Current state** | `terraform/cloudrun.tf` sets no scaling annotations; Cloud Run uses defaults |
+| **Current state** | `terraform/cloudrun.tf` sets `max_instance_count` (1 without a session database, `var.max_instances` with one); request concurrency is still the default |
 | **Impact** | Under peak load (500 concurrent), root agent may accept > 80 requests/instance causing latency; video renderer may spawn too many instances |
 | **Action** | Add scaling config to each service's `template` block in `cloudrun.tf` |
 
@@ -346,15 +401,12 @@ lifecycle_rule {
 | **Note** | LLM turn limits (100/day) are not implemented and are intentionally deferred — BYOK means the user's own API key absorbs LLM costs. Only platform-cost features (Cloud Run compute for video rendering) warrant quota enforcement. |
 | **Action** | See `FUTURE_DEVELOPMENT.md` §1.3 for implementation plan |
 
-### GAP-04: No Persistent Session State / Redis (NFR-04.2)
+### GAP-04: Persistent Session State (NFR-04.2) — resolved locally, optional in the cloud
 
 | | |
 |:---|:---|
-| **Requirement** | Session memory backed by Serverless Redis (Upstash) or GCS objects with 60-day TTL |
-| **Current state** | ADK uses in-memory session state; no external store configured |
-| **Impact** | Session state lost on instance restart or scale-to-zero; with 2 root agent instances users may land on the wrong instance mid-conversation and lose context |
-| **Accepted risk** | Tolerable at current scale (max 2 instances, ~15 concurrent sessions). Cloud Run best-effort routing reduces frequency of cross-instance misses. |
-| **Action** | Implement before scaling root agent beyond 2 instances. See `FUTURE_DEVELOPMENT.md` §1.4 — marked Critical. |
+| **Current state** | `agents/common/runtime.py`: SQLite per service locally (survives restarts); in the cloud a Postgres URI from the `session-service-uri` secret (external free tier or Cloud SQL via `enable_persistent_sessions`). Without it each Cloud Run service is pinned to one instance. |
+| **Decision** | Cloud SQL (~10 USD/month) is not used for now; the studio runs mostly locally. |
 
 ### GAP-05: Drive Auth Model vs. Requirements (FR-03.3)
 
@@ -362,8 +414,8 @@ lifecycle_rule {
 |:---|:---|
 | **Requirement** | Incremental Google OAuth delegation with `drive.file` scope at sign-in |
 | **Current state** | Users share Drive folder with SA email; SA uses ADC workload identity (`GOOGLE_AUTH_METHOD=adc`) |
-| **Decision** | SA-sharing model is live and functionally equivalent for Phase 1. OAuth `drive.file` scope cannot write to arbitrary folders by ID — correct implementation requires Google Drive Picker integration plus per-user token management. Deferred to Phase 2. |
-| **Action** | See `FUTURE_DEVELOPMENT.md` §2.2 — Low priority. |
+| **Decision** | SA-sharing model stays as the fallback. The Google Drive Picker is now integrated in the frontend (folder, template and file picking; `drive.file` when `VITE_GOOGLE_OAUTH_CLIENT_ID` is set). |
+| **Remaining** | Per-user token refresh on the backend; OAuth tokens and secrets are passed strictly via session state (never embedded in delegation text). |
 
 ---
 
@@ -426,11 +478,14 @@ Steps performed:
 | FR-02.4 | 4K MP4 + GIF composite | `agents/video_editor/tools/composer_tools.py` | Implemented |
 | FR-03.1 | Receipt OCR (Gemini 3.8) | `agents/receipt_scanner/tools.py` | Implemented |
 | FR-03.2 | NBP / Pekao FX rates | `agents/receipt_scanner/tools.py` | Implemented |
-| FR-03.3 | Drive export / DOCX download | `agents/receipt_scanner/tools.py` (SA model) | Partial — see GAP-05 |
+| FR-03.3 | Drive export / DOCX download, Drive Picker | `agents/receipt_scanner/tools.py`, `frontend/src/lib/google/drive.js` | Partial — see GAP-05 |
 | FR-04.1 | Roster dedup + PII redaction | `agents/registration_manager/` | Implemented |
 | FR-04.2 | Holiday conflict detection | `agents/event_planner/` | Implemented |
 | FR-04.3 | Agenda formatting | `agents/agenda_generator/` | Implemented |
 | FR-04.4 | Venue email drafting | `agents/office_secretary/` | Implemented |
+| FR-04.5 | QR codes (SVG + PNG) | `agents/qr_code_generator/` | Implemented |
+| FR-04.6 | Social countdown plan and event profile in chat | `agents/linkedin_post_generator/countdown.py`, `agents/common/event_profile_tools.py` | Implemented |
+| FR-04.7 | Recognised-receipts card | `agents/receipt_scanner/summary.py` | Implemented |
 | FR-05.1 | Svelte 5 SPA | `frontend/` | Implemented |
 | FR-05.2 | SSE streaming `/run_sse` | `frontend/src/App.svelte` | Implemented |
 | FR-05.3 | BYOK onboarding modal | `frontend/src/lib/SettingsModal.svelte` | Implemented |
@@ -442,6 +497,6 @@ Steps performed:
 | NFR-03.3 | Least-privilege IAM | `terraform/iam.tf` | Implemented |
 | NFR-03.4 | App Check + headless API | `firebase.js` + `adk api_server` | Implemented |
 | NFR-03.5 | PII redaction | `agents/registration_manager/` | Implemented |
-| NFR-04.1 | 60-day GCS lifecycle TTL | `terraform/storage.tf` | **GAP-01** |
-| NFR-04.2 | Serverless Redis session store | — | **GAP-04** |
+| NFR-04.1 | GCS lifecycle TTL (30 days) | `terraform/storage.tf` | Implemented |
+| NFR-04.2 | Persistent sessions | `agents/common/runtime.py` (SQLite / Postgres) | Implemented (cloud DB optional) |
 | NFR-06.1 | Europe region deployment | `terraform/variables.tf` (`europe-central2`) | Implemented |

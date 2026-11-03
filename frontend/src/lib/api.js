@@ -13,11 +13,12 @@ export async function fetchApps() {
         root_agent: 'Main',
         receipt_scanner: 'Receipt Scanner',
         video_editor: 'Live Video Editor',
-        linkedin_post_generator: 'LinkedIn Planner',
+        linkedin_post_generator: 'Social Planner',
         registration_manager: 'Registrations Manager',
         event_planner: 'Event Scheduler',
         agenda_generator: 'Agenda Formatter',
-        office_secretary: 'Office Secretary'
+        office_secretary: 'Office Secretary',
+        qr_code_generator: 'QR Code Generator'
       };
       return data
         .filter(name => !nonAgents.includes(name) && !name.includes('.evaluation'))
@@ -81,13 +82,20 @@ export async function deleteSessionRequest(appName, userId, sessionId) {
 }
 
 export async function runSSEStream({ appName, userId, sessionId, parts, state, onEvent, onError, signal }) {
+  const sanitizedParts = (parts || []).map((p) => {
+    if (p && typeof p.text === 'string') {
+      return { ...p, text: p.text.replace(/\u2028/g, '\n').replace(/\u2029/g, '\n\n') };
+    }
+    return p;
+  });
+
   const payload = {
     app_name: appName,
     user_id: userId,
     session_id: sessionId,
     new_message: {
       role: 'user',
-      parts: parts
+      parts: sanitizedParts
     },
     ...(state && Object.keys(state).length > 0 ? { state_delta: state } : {}),
     streaming: true

@@ -88,7 +88,9 @@ class CardSession(BaseModel):
 
 
 def _clean(value: str | None) -> str | None:
-    value = (value or "").strip()
+    if value is None:
+        return None
+    value = value.replace("\u2028", "\n").replace("\u2029", "\n\n").strip()
     return value or None
 
 

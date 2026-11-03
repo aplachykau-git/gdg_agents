@@ -45,10 +45,8 @@ def resolve_selected_scenario_prompt(
         sel_clean = selected_scenario_id.strip()
         sel_lower = sel_clean.lower()
 
-        # 1. Option number matching: e.g. "option 2", "вариант 3", "scenario 1", "5", "option_2"
-        opt_match = re.search(r"(?:option|вариант|сценарий|scenario)[_\s]*(\d+)", sel_lower) or re.match(
-            r"^(\d+)$", sel_lower
-        )
+        # 1. Option number matching: e.g. "option 2", "scenario 1", "5", "option_2"
+        opt_match = re.search(r"(?:option|scenario)[_\s]*(\d+)", sel_lower) or re.match(r"^(\d+)$", sel_lower)
         if opt_match:
             idx = int(opt_match.group(1)) - 1
             if 0 <= idx < len(scenarios):

@@ -1,5 +1,6 @@
 import datetime
 import glob
+import html
 import json
 import logging
 import os
@@ -100,6 +101,37 @@ def build_card_config(title: str, name: str, position_company: str, year: int) -
     }};"""
 
 
+_CANONICAL_DEVFEST_CITIES = {"krakow", "kraków", "cracow"}
+_DEVFEST_CITY_PATH = re.compile(r'<path\s+id="krakow_text"[^>]*?/>', flags=re.DOTALL)
+_DEVFEST_CITY_TEXT = re.compile(r'<text\s+id="krakow_text".*?</text>', flags=re.DOTALL)
+# Centre and baseline of the city pill (rect x=926.7, width=428, y=241, height=57).
+_PILL_CENTER_X = 1140.7
+_PILL_BASELINE_Y = 280.5
+_PILL_TEXT_WIDTH = 380
+
+
+def apply_devfest_city(content: str, city: str | None) -> str:
+    """Put the community city into the DevFest pill ("DevFest <city>").
+
+    The template ships "Kraków" as vector glyphs; for any other city the path is replaced by an
+    SVG text element in Google Sans with the same id, so the header animation keeps working.
+    """
+    city = (city or "").strip()
+    if not city or city.lower() in _CANONICAL_DEVFEST_CITIES:
+        return content
+    font_size = min(32.0, round(_PILL_TEXT_WIDTH / (0.56 * max(len(city), 1)), 1))
+    text = (
+        f'<text id="krakow_text" x="{_PILL_CENTER_X}" y="{_PILL_BASELINE_Y}" text-anchor="middle" '
+        f'font-family="Google Sans, sans-serif" font-weight="500" font-size="{font_size}" '
+        f'fill="#1E1E1E">{html.escape(city)}</text>'
+    )
+    content, count = _DEVFEST_CITY_PATH.subn(lambda _: text, content, count=1)
+    if not count:
+        content, count = _DEVFEST_CITY_TEXT.subn(lambda _: text, content, count=1)
+    logger.info("   └─ DevFest city pill: %s (%s)", city, "updated" if count else "pill not found")
+    return content
+
+
 def update_composer(
     video_path: str,
     title: str,
@@ -107,6 +139,7 @@ def update_composer(
     position_company: str,
     duration_seconds: int | None = None,
     theme_colors: dict[str, str] | None = None,
+    city: str | None = None,
 ) -> str:
     """Updates index.html with the new video path, title, speaker name, position/company texts, and sets timeline duration (10s standard)."""
     # Ensure video_path is a relative path inside index.html for correct HTTP serving in headless Chrome
@@ -266,7 +299,7 @@ def update_composer(
         logger.info("🎨 [Color Randomizer] DevFest template: Selected random Google palette colors:")
         logger.info(f"   ├─ breaks: {break_color}")
         logger.info(f"   ├─ dots: {dots_color}")
-        logger.info("   └─ krakow pill: #FFFFFF (preserved canonical)")
+        logger.info("   └─ city pill: #FFFFFF (preserved canonical)")
 
         # Replace fill attributes for brackets (break_1, break_2) and dots (dot_1, dot_2, dot_3)
         break_1_pattern = r'(<path\s+id="break_1"[^>]*?fill=")(#[0-9a-fA-F]{6})(")'
@@ -288,6 +321,7 @@ def update_composer(
             f"   └─ Updated DevFest elements: break_1 ({count1}), break_2 ({count2}), dot_1 ({count_d1}), dot_2 ({count_d2}), dot_3 ({count_d3}), duration: {target_duration}s"
         )
         color_details = f"breaks: {break_color}, dots: {dots_color}"
+        content = apply_devfest_city(content, city)
 
     # Write the updated composition
     with open(target_file, "w", encoding="utf-8") as f:
@@ -296,6 +330,241 @@ def update_composer(
     return (
         f"Successfully updated index.html with duration ({target_duration}s), colors ({color_details}) and video asset."
     )
+
+
+def cover_frame_enabled() -> bool:
+    """Cover frame on by default; VIDEO_COVER_FRAME=false turns it off."""
+    return os.getenv("VIDEO_COVER_FRAME", "true").strip().lower() not in ("false", "0", "no", "off")
+
+
+def cover_frame_seconds() -> float:
+    """How long the cover is held. Default: one frame (shortest possible, enough for the thumbnail)."""
+    try:
+        return max(0.0, float(os.getenv("VIDEO_COVER_SECONDS", "0")))
+    except ValueError:
+        return 0.0
+
+
+def _probe_video(video_path: str) -> tuple[int, int, float]:
+    """(width, height, fps) of the first video stream."""
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height,r_frame_rate",
+        "-of",
+        "json",
+        video_path,
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    stream = (json.loads(res.stdout or "{}").get("streams") or [{}])[0]
+    num, _, den = str(stream.get("r_frame_rate") or "30/1").partition("/")
+    fps = float(num) / float(den or 1) if float(den or 1) else 30.0
+    return int(stream["width"]), int(stream["height"]), fps or 30.0
+
+
+def prepend_cover_frame(video_path: str, image_path: str, seconds: float | None = None) -> bool:
+    """Prepend a still cover (the finished card) to ``video_path`` in place.
+
+    The image is fitted to the video size; the hold is at least one frame. Returns True when the
+    file was replaced; on any ffmpeg problem the original video is left untouched.
+    """
+    if not (os.path.exists(video_path) and os.path.exists(image_path) and shutil.which("ffmpeg")):
+        return False
+    width, height, fps = _probe_video(video_path)
+    hold = max(seconds if seconds is not None else cover_frame_seconds(), 1.0 / fps)
+    fps_str = f"{fps:.3f}".rstrip("0").rstrip(".")
+    temp_out = video_path.rsplit(".", 1)[0] + "_cover.mp4"
+    filter_graph = (
+        f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
+        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=#F0F0F0,setsar=1,fps={fps_str},format=yuv420p[cover];"
+        f"[1:v]setsar=1,fps={fps_str},format=yuv420p[main];"
+        "[cover][main]concat=n=2:v=1:a=0[out]"
+    )
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-loop",
+        "1",
+        "-framerate",
+        fps_str,
+        "-t",
+        f"{hold:.4f}",
+        "-i",
+        image_path,
+        "-i",
+        video_path,
+        "-filter_complex",
+        filter_graph,
+        "-map",
+        "[out]",
+        "-an",
+        "-c:v",
+        "libx264",
+        "-crf",
+        "18",
+        "-preset",
+        "medium",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        temp_out,
+    ]
+    logger.info(f"[Cover] Prepending cover frame ({hold:.3f}s) from '{image_path}' to '{video_path}'...")
+    res = subprocess.run(cmd, capture_output=True, text=True, cwd=BASE_DIR, timeout=300)
+    if res.returncode != 0 or not os.path.exists(temp_out):
+        logger.warning(f"[Cover] ffmpeg failed, keeping the video without cover: {res.stderr[-800:]}")
+        if os.path.exists(temp_out):
+            os.remove(temp_out)
+        return False
+    os.replace(temp_out, video_path)
+    logger.info("[Cover] Cover frame added.")
+    return True
+
+
+def _capture_card_snapshot(target_index_html: str, render_env: dict, ffmpeg_installed: bool) -> Optional[str]:
+    """PNG snapshot of the finished card (full title, speaker name, real speaker photo).
+
+    Used both as the high-resolution poster and as the cover frame prepended to the video, so
+    the first frame (the thumbnail LinkedIn shows before playback) is never an empty canvas.
+    Returns the path inside ``snapshots/`` or None; the caller cleans ``snapshots/`` up.
+    """
+    # Read index.html backup
+    with open(target_index_html, "r", encoding="utf-8") as f:
+        html_backup = f.read()
+
+    # Find current video src
+    video_pattern = r'id="card-video"\s+src="(.*?)"'
+    match = re.search(video_pattern, html_backup)
+    original_video_src = match.group(1) if match else ""
+
+    # Check if original_video_src is a video or image
+    is_video_src = original_video_src and not any(
+        original_video_src.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]
+    )
+
+    # The user explicitly requires the poster to be created from the speaker's real portrait photo,
+    # never from an AI video frame.
+    speaker_photo_candidates = [
+        "assets/portrait_outpainted.png",
+        "assets/staged_media.png",
+        "assets/staged_media.jpg",
+        "assets/staged_media.jpeg",
+        "assets/staged_media.webp",
+    ]
+    temp_image_src = ""
+    for cand in speaker_photo_candidates:
+        cand_abs = resolve_path(cand)
+        if os.path.exists(cand_abs) and os.path.isfile(cand_abs):
+            temp_image_src = cand
+            logger.info(f"📸 [Poster] Using authentic speaker portrait '{cand}' for high-resolution card poster.")
+            break
+
+    # If original_video_src was already a static image, use it
+    if not temp_image_src and not is_video_src and original_video_src:
+        temp_image_src = original_video_src
+
+    # Fallback to extracting video frame only if absolutely no speaker photo exists anywhere
+    if not temp_image_src and is_video_src and ffmpeg_installed:
+        video_abs = resolve_path(original_video_src)
+        if os.path.exists(video_abs):
+            frame_out_path = os.path.join(BASE_DIR, "assets", "temp_video_frame.png")
+            logger.info(f"🎥 [Poster] Fallback: Extracting first frame of video '{original_video_src}' for snapshot...")
+            try:
+                extract_cmd = ["ffmpeg", "-y", "-i", video_abs, "-ss", "00:00:00", "-vframes", "1", frame_out_path]
+                extract_res = subprocess.run(extract_cmd, capture_output=True, text=True, cwd=BASE_DIR)
+                if extract_res.returncode == 0 and os.path.exists(frame_out_path):
+                    temp_image_src = "assets/temp_video_frame.png"
+                    logger.info("✅ [Poster] First frame extracted successfully!")
+                else:
+                    logger.warning(f"⚠️ [Poster] Failed to extract first frame from video: {extract_res.stderr}")
+            except Exception as frame_err:
+                logger.warning(f"⚠️ [Poster] Error extracting first frame: {frame_err}")
+
+    # Fallback to portrait_outpainted if temp_image_src is not resolved or not found
+    if not temp_image_src or not os.path.exists(resolve_path(temp_image_src)):
+        temp_image_src = "assets/portrait_outpainted.png"
+
+    if temp_image_src and os.path.exists(resolve_path(temp_image_src)):
+        # Determine snapshot timestamp based on composition duration (7.8s for 8s duration, 9.7s for 10s duration)
+        current_duration = 10
+        dur_match = re.search(r'data-duration="(\d+)"', html_backup)
+        if dur_match:
+            current_duration = int(dur_match.group(1))
+        snapshot_time = "7.8" if current_duration <= 8 else "9.7"
+
+        snapshot_result = None
+        try:
+            logger.info(
+                f"🖼️  [Poster] Swapping video for placeholder and setting card-image to '{temp_image_src}' in index.html..."
+            )
+            # Set card-video src to placeholder Video_example.mp4 (valid fallback for static guard and chrome video tag)
+            temp_content = re.sub(
+                r'id="card-video"\s+src=".*?"',
+                lambda _: 'id="card-video" src="assets/Video_example.mp4"',
+                html_backup,
+            )
+            # Set card-image src to the static outpainted/staged photo path
+            temp_content = re.sub(
+                r'id="card-image"\s+src=".*?"', lambda _: f'id="card-image" src="{temp_image_src}"', temp_content
+            )
+
+            # Ensure cursor/caret icon is completely invisible on the poster snapshot,
+            # and card-image is forced visible while card-video is hidden
+            poster_styles = (
+                "    #cursor, .cursor-span { display: none !important; opacity: 0 !important; visibility: hidden !important; }\n"
+                "    #card-image { display: block !important; opacity: 1 !important; visibility: visible !important; }\n"
+                "    #card-video { display: none !important; opacity: 0 !important; visibility: hidden !important; }\n"
+                "  </style>"
+            )
+            if "</style>" in temp_content:
+                temp_content = temp_content.replace("</style>", poster_styles, 1)
+            temp_content = re.sub(
+                r'<span\s+id="cursor"[^>]*?>.*?</span>',
+                lambda _: (
+                    '<span id="cursor" class="cursor-span" style="display:none !important; opacity:0 !important; visibility:hidden !important;"></span>'
+                ),
+                temp_content,
+            )
+
+            with open(target_index_html, "w", encoding="utf-8") as f:
+                f.write(temp_content)
+
+            logger.info(
+                f"📸 [Poster] Taking high-resolution PNG snapshot of the final card state at T={snapshot_time}s..."
+            )
+            snapshot_result = subprocess.run(
+                ["npx", "--yes", "hyperframes@0.9.8", "snapshot", f"--at={snapshot_time}"],
+                capture_output=True,
+                text=True,
+                cwd=BASE_DIR,
+                env=render_env,
+                timeout=60,
+            )
+        finally:
+            # Unconditionally restore index.html backup immediately
+            with open(target_index_html, "w", encoding="utf-8") as f:
+                f.write(html_backup)
+            logger.info("✅ [Poster] Restored original index.html sources.")
+
+        if snapshot_result and snapshot_result.returncode == 0:
+            snapshot_file = resolve_path(f"snapshots/frame-00-at-{snapshot_time}s.png")
+            if not os.path.exists(snapshot_file):
+                found_snaps = glob.glob(os.path.join(BASE_DIR, "snapshots", "*.png"))
+                if found_snaps:
+                    snapshot_file = max(found_snaps, key=os.path.getmtime)
+            if os.path.exists(snapshot_file):
+                return snapshot_file
+            logger.warning("⚠️ [Poster] Snapshot file was not found after execution.")
+        elif snapshot_result:
+            logger.warning(f"⚠️ [Poster] Snapshot rendering failed: {snapshot_result.stderr}")
+        return None
+    logger.warning("⚠️ [Poster] No processed outpainted portrait found, skipping card snapshot.")
+    return None
 
 
 def render_composer(tool_context: Optional[Any] = None) -> str:
@@ -385,6 +654,8 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
     # Referenced by the poster step even when the base render failed; must always exist.
     target_4k_name = None
     gif_file = ""
+    # Finished-card snapshot: cover frame of the video and source of the PNG poster.
+    cover_snapshot: Optional[str] = None
 
     # ============================================================================
     # PIPELINE 1: BASE COMPOSITION RENDERING (1080p)
@@ -454,6 +725,17 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                 ordinary_file = target_ordinary_path
             except Exception as e:
                 logger.warning(f"⚠️ [Rename] Failed to rename render: {e}")
+
+            # Cover frame: the very first frame shows the finished card (full talk title and the
+            # speaker photo) instead of the empty canvas the intro animation starts from, so the
+            # LinkedIn/Instagram thumbnail is informative. GIF and 4K are derived from this file.
+            if cover_frame_enabled():
+                try:
+                    cover_snapshot = _capture_card_snapshot(target_index_html, render_env, ffmpeg_installed)
+                    if cover_snapshot and ffmpeg_installed:
+                        prepend_cover_frame(local_ordinary_file, cover_snapshot)
+                except Exception as cover_err:
+                    logger.warning(f"⚠️ [Cover] Failed to add the cover frame: {cover_err}")
 
             # Optional GIF conversion
             if render_gif:
@@ -559,209 +841,76 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
     # ============================================================================
     logger.info("📸 [Poster Step] Preparing high-resolution static card poster (PNG)...")
     try:
-        # Read index.html backup
-        with open(target_index_html, "r", encoding="utf-8") as f:
-            html_backup = f.read()
-
-        # Find current video src
-        video_pattern = r'id="card-video"\s+src="(.*?)"'
-        match = re.search(video_pattern, html_backup)
-        original_video_src = match.group(1) if match else ""
-
-        # Check if original_video_src is a video or image
-        is_video_src = original_video_src and not any(
-            original_video_src.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp"]
-        )
-
-        # The user explicitly requires the poster to be created from the speaker's real portrait photo,
-        # never from an AI video frame.
-        speaker_photo_candidates = [
-            "assets/portrait_outpainted.png",
-            "assets/staged_media.png",
-            "assets/staged_media.jpg",
-            "assets/staged_media.jpeg",
-            "assets/staged_media.webp",
-        ]
-        temp_image_src = ""
-        for cand in speaker_photo_candidates:
-            cand_abs = resolve_path(cand)
-            if os.path.exists(cand_abs) and os.path.isfile(cand_abs):
-                temp_image_src = cand
-                logger.info(f"📸 [Poster] Using authentic speaker portrait '{cand}' for high-resolution card poster.")
-                break
-
-        # If original_video_src was already a static image, use it
-        if not temp_image_src and not is_video_src and original_video_src:
-            temp_image_src = original_video_src
-
-        # Fallback to extracting video frame only if absolutely no speaker photo exists anywhere
-        if not temp_image_src and is_video_src and ffmpeg_installed:
-            video_abs = resolve_path(original_video_src)
-            if os.path.exists(video_abs):
-                frame_out_path = os.path.join(BASE_DIR, "assets", "temp_video_frame.png")
-                logger.info(
-                    f"🎥 [Poster] Fallback: Extracting first frame of video '{original_video_src}' for snapshot..."
-                )
-                try:
-                    extract_cmd = ["ffmpeg", "-y", "-i", video_abs, "-ss", "00:00:00", "-vframes", "1", frame_out_path]
-                    extract_res = subprocess.run(extract_cmd, capture_output=True, text=True, cwd=BASE_DIR)
-                    if extract_res.returncode == 0 and os.path.exists(frame_out_path):
-                        temp_image_src = "assets/temp_video_frame.png"
-                        logger.info("✅ [Poster] First frame extracted successfully!")
-                    else:
-                        logger.warning(f"⚠️ [Poster] Failed to extract first frame from video: {extract_res.stderr}")
-                except Exception as frame_err:
-                    logger.warning(f"⚠️ [Poster] Error extracting first frame: {frame_err}")
-
-        # Fallback to portrait_outpainted if temp_image_src is not resolved or not found
-        if not temp_image_src or not os.path.exists(resolve_path(temp_image_src)):
-            temp_image_src = "assets/portrait_outpainted.png"
-
-        if temp_image_src and os.path.exists(resolve_path(temp_image_src)):
-            # Determine snapshot timestamp based on composition duration (7.8s for 8s duration, 9.7s for 10s duration)
-            current_duration = 10
-            dur_match = re.search(r'data-duration="(\d+)"', html_backup)
-            if dur_match:
-                current_duration = int(dur_match.group(1))
-            snapshot_time = "7.8" if current_duration <= 8 else "9.7"
-
-            snapshot_result = None
+        snapshot_file = cover_snapshot or _capture_card_snapshot(target_index_html, render_env, ffmpeg_installed)
+        if snapshot_file and os.path.exists(snapshot_file):
+            renders_folder = resolve_path("renders")
+            os.makedirs(renders_folder, exist_ok=True)
+            video_stem = ""
+            if ordinary_file and os.path.exists(ordinary_file):
+                video_stem = os.path.splitext(os.path.basename(ordinary_file))[0]
+            elif render_4k and target_4k_name and os.path.exists(target_4k_name):
+                video_stem = os.path.splitext(os.path.basename(target_4k_name))[0]
+            if not video_stem:
+                video_stem = f"{speaker_name_clean}_{timestamp}"
+            target_poster_name = os.path.join(renders_folder, f"{video_stem}.png")
+            target_poster_path = os.path.abspath(target_poster_name)
+            logger.info(f"🏷️ [Poster] Saving high-resolution card poster to '{target_poster_path}'...")
             try:
-                logger.info(
-                    f"🖼️  [Poster] Swapping video for placeholder and setting card-image to '{temp_image_src}' in index.html..."
-                )
-                # Set card-video src to placeholder Video_example.mp4 (valid fallback for static guard and chrome video tag)
-                temp_content = re.sub(
-                    r'id="card-video"\s+src=".*?"',
-                    lambda _: 'id="card-video" src="assets/Video_example.mp4"',
-                    html_backup,
-                )
-                # Set card-image src to the static outpainted/staged photo path
-                temp_content = re.sub(
-                    r'id="card-image"\s+src=".*?"', lambda _: f'id="card-image" src="{temp_image_src}"', temp_content
-                )
-
-                # Ensure cursor/caret icon is completely invisible on the poster snapshot,
-                # and card-image is forced visible while card-video is hidden
-                poster_styles = (
-                    "    #cursor, .cursor-span { display: none !important; opacity: 0 !important; visibility: hidden !important; }\n"
-                    "    #card-image { display: block !important; opacity: 1 !important; visibility: visible !important; }\n"
-                    "    #card-video { display: none !important; opacity: 0 !important; visibility: hidden !important; }\n"
-                    "  </style>"
-                )
-                if "</style>" in temp_content:
-                    temp_content = temp_content.replace("</style>", poster_styles, 1)
-                temp_content = re.sub(
-                    r'<span\s+id="cursor"[^>]*?>.*?</span>',
-                    lambda _: (
-                        '<span id="cursor" class="cursor-span" style="display:none !important; opacity:0 !important; visibility:hidden !important;"></span>'
-                    ),
-                    temp_content,
-                )
-
-                with open(target_index_html, "w", encoding="utf-8") as f:
-                    f.write(temp_content)
-
-                logger.info(
-                    f"📸 [Poster] Taking high-resolution PNG snapshot of the final card state at T={snapshot_time}s..."
-                )
-                snapshot_result = subprocess.run(
-                    ["npx", "--yes", "hyperframes@0.8.4", "snapshot", f"--at={snapshot_time}"],
-                    capture_output=True,
-                    text=True,
-                    cwd=BASE_DIR,
-                    env=render_env,
-                    timeout=60,
-                )
-            finally:
-                # Unconditionally restore index.html backup immediately
-                with open(target_index_html, "w", encoding="utf-8") as f:
-                    f.write(html_backup)
-                logger.info("✅ [Poster] Restored original index.html sources.")
-
-            if snapshot_result and snapshot_result.returncode == 0:
-                snapshot_file = resolve_path(f"snapshots/frame-00-at-{snapshot_time}s.png")
-                if not os.path.exists(snapshot_file):
-                    found_snaps = glob.glob(os.path.join(BASE_DIR, "snapshots", "*.png"))
-                    if found_snaps:
-                        snapshot_file = max(found_snaps, key=os.path.getmtime)
-                if os.path.exists(snapshot_file):
-                    renders_folder = resolve_path("renders")
-                    os.makedirs(renders_folder, exist_ok=True)
-                    video_stem = ""
-                    if ordinary_file and os.path.exists(ordinary_file):
-                        video_stem = os.path.splitext(os.path.basename(ordinary_file))[0]
-                    elif render_4k and target_4k_name and os.path.exists(target_4k_name):
-                        video_stem = os.path.splitext(os.path.basename(target_4k_name))[0]
-                    if not video_stem:
-                        video_stem = f"{speaker_name_clean}_{timestamp}"
-                    target_poster_name = os.path.join(renders_folder, f"{video_stem}.png")
-                    target_poster_path = os.path.abspath(target_poster_name)
-                    logger.info(f"🏷️ [Poster] Saving high-resolution card poster to '{target_poster_path}'...")
+                if render_4k and ffmpeg_installed:
+                    logger.info(
+                        f"🎬 [Poster 4K] Generating high-resolution 4K card poster using Lanczos: '{target_poster_path}'..."
+                    )
                     try:
-                        if render_4k and ffmpeg_installed:
-                            logger.info(
-                                f"🎬 [Poster 4K] Generating high-resolution 4K card poster using Lanczos: '{target_poster_path}'..."
+                        upscale_cmd = [
+                            "ffmpeg",
+                            "-y",
+                            "-i",
+                            snapshot_file,
+                            "-vf",
+                            "scale=3840:2160:flags=lanczos",
+                            "-update",
+                            "1",
+                            target_poster_path,
+                        ]
+                        upscale_result = subprocess.run(upscale_cmd, capture_output=True, text=True, cwd=BASE_DIR)
+                        if upscale_result.returncode == 0 and os.path.exists(target_poster_path):
+                            cloud_url = upload_file_to_storage(
+                                target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
                             )
-                            try:
-                                upscale_cmd = [
-                                    "ffmpeg",
-                                    "-y",
-                                    "-i",
-                                    snapshot_file,
-                                    "-vf",
-                                    "scale=3840:2160:flags=lanczos",
-                                    "-update",
-                                    "1",
-                                    target_poster_path,
-                                ]
-                                upscale_result = subprocess.run(
-                                    upscale_cmd, capture_output=True, text=True, cwd=BASE_DIR
-                                )
-                                if upscale_result.returncode == 0 and os.path.exists(target_poster_path):
-                                    cloud_url = upload_file_to_storage(
-                                        target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
-                                    )
-                                    file_link = cloud_url if cloud_url else target_poster_path
-                                    rendered_files.append(f"• High-Resolution Card Poster (4K PNG): {file_link}")
-                                    logger.info("✅ [Poster 4K] 4K poster successfully created!")
-                                else:
-                                    logger.warning(
-                                        f"⚠️ [Poster 4K] ffmpeg failed to upscale, falling back to 1080p copy: {upscale_result.stderr}"
-                                    )
-                                    shutil.copy2(snapshot_file, target_poster_path)
-                                    cloud_url = upload_file_to_storage(
-                                        target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
-                                    )
-                                    file_link = cloud_url if cloud_url else target_poster_path
-                                    rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
-                            except Exception as upscale_err:
-                                logger.warning(
-                                    f"⚠️ [Poster 4K] Failed to generate 4K poster, falling back to 1080p copy: {upscale_err}"
-                                )
-                                shutil.copy2(snapshot_file, target_poster_path)
-                                cloud_url = upload_file_to_storage(
-                                    target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
-                                )
-                                file_link = cloud_url if cloud_url else target_poster_path
-                                rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
+                            file_link = cloud_url if cloud_url else target_poster_path
+                            rendered_files.append(f"• High-Resolution Card Poster (4K PNG): {file_link}")
+                            logger.info("✅ [Poster 4K] 4K poster successfully created!")
                         else:
+                            logger.warning(
+                                f"⚠️ [Poster 4K] ffmpeg failed to upscale, falling back to 1080p copy: {upscale_result.stderr}"
+                            )
                             shutil.copy2(snapshot_file, target_poster_path)
                             cloud_url = upload_file_to_storage(
                                 target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
                             )
                             file_link = cloud_url if cloud_url else target_poster_path
                             rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
-                    except Exception as e:
-                        logger.warning(f"⚠️ [Poster] Failed to save poster: {e}")
+                    except Exception as upscale_err:
+                        logger.warning(
+                            f"⚠️ [Poster 4K] Failed to generate 4K poster, falling back to 1080p copy: {upscale_err}"
+                        )
+                        shutil.copy2(snapshot_file, target_poster_path)
+                        cloud_url = upload_file_to_storage(
+                            target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
+                        )
+                        file_link = cloud_url if cloud_url else target_poster_path
+                        rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
                 else:
-                    logger.warning("⚠️ [Poster] Snapshot file was not found after execution.")
-            elif snapshot_result:
-                logger.warning(f"⚠️ [Poster] Snapshot rendering failed: {snapshot_result.stderr}")
+                    shutil.copy2(snapshot_file, target_poster_path)
+                    cloud_url = upload_file_to_storage(
+                        target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
+                    )
+                    file_link = cloud_url if cloud_url else target_poster_path
+                    rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
+            except Exception as e:
+                logger.warning(f"⚠️ [Poster] Failed to save poster: {e}")
         else:
-            logger.warning(
-                "⚠️ [Poster] No processed outpainted portrait found, skipping high-resolution poster generation."
-            )
+            logger.warning("⚠️ [Poster] No card snapshot available, skipping high-resolution poster generation.")
     except Exception as poster_err:
         logger.warning(f"⚠️ [Poster] Unexpected error during poster generation: {poster_err}")
     finally:

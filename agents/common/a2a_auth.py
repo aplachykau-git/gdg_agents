@@ -9,6 +9,7 @@ import logging
 from urllib.parse import urlparse
 
 from a2a.types import Message as A2AMessage
+from google.adk.a2a.agent._remote_a2a_agent import _add_request_headers
 from google.adk.a2a.agent.config import (
     A2aCardRequestConfig,
     A2aRemoteAgentConfig,
@@ -17,8 +18,11 @@ from google.adk.a2a.agent.config import (
     RequestInterceptor,
 )
 from google.adk.agents.invocation_context import InvocationContext
-from google.adk.agents.remote_a2a_agent import _add_request_headers
 from google.adk.events.event import Event
+
+from .a2a_patches import apply_a2a_patches
+
+apply_a2a_patches()
 
 logger = logging.getLogger(__name__)
 

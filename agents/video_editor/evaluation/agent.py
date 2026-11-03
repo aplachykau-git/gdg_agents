@@ -12,7 +12,7 @@ os.environ.setdefault("VIDEO_EDITOR_OFFLINE", "true")
 from google.adk import Agent  # noqa: E402
 
 from agents.video_editor.agent import INSTRUCTION, video_editor_agent  # noqa: E402
-from agents.video_editor.tools import ALL_TOOLS  # noqa: E402
+from agents.video_editor.tools.card_tools import ALL_TOOLS  # noqa: E402
 
 EVALUATION_MODEL = os.getenv("VIDEO_EDITOR_EVAL_MODEL", str(video_editor_agent.model))
 

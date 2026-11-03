@@ -27,6 +27,7 @@
     allEvents = [], 
     deck = null,
     ui = null,
+    uiList = null,
     structuredTurn = false,
     isBusy = false,
     onRefine = () => {},
@@ -52,13 +53,14 @@
 
   // Text-born payloads (LinkedIn variants, agenda) replace the text they were parsed from.
   const TEXT_PAYLOADS = new Set(['post_variants', 'agenda']);
-  const uiReplacesText = $derived(Boolean(ui && TEXT_PAYLOADS.has(ui.type)));
+  const payloads = $derived(uiList?.length ? uiList : ui ? [ui] : []);
+  const uiReplacesText = $derived(payloads.some((p) => TEXT_PAYLOADS.has(p.type)));
   // Regex heuristics only for old sessions: never while streaming (the final event carries the
   // payload) and never in a turn that already has a structured payload.
-  const useLegacyParsing = $derived(!ui && !structuredTurn && event?.partial !== true);
+  const useLegacyParsing = $derived(!payloads.length && !structuredTurn && event?.partial !== true);
   const hasScenarios = $derived(Boolean(activeScenarios && activeScenarios.length > 0));
   const isWide = $derived(
-    Boolean(ui || hasScenarios || (useLegacyParsing && messageParts.some((p) => p.text && looksLikeLegacyCard(p.text, event.author))))
+    Boolean(payloads.length || hasScenarios || (useLegacyParsing && messageParts.some((p) => p.text && looksLikeLegacyCard(p.text, event.author))))
   );
 
   function plainText(text) {
@@ -156,9 +158,9 @@
           <ToolCallCard {part} />
         {/each}
 
-        {#if ui}
-          <StructuredCard {ui} author={event.author} {onRefine} />
-        {/if}
+        {#each payloads as payload}
+          <StructuredCard ui={payload} author={event.author} {onRefine} {onSend} {isBusy} />
+        {/each}
 
         {#if activeScenarios && activeScenarios.length > 0}
           {#if areScenariosComplete(activeScenarios)}

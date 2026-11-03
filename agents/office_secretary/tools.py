@@ -19,7 +19,7 @@ def present_email_draft(subject: str, body: str) -> dict:
         subject: E-mail subject line without the "Subject:" prefix.
         body: Full e-mail body, from the greeting to the signature.
     """
-    subject = re.sub(r"^\s*(subject|тема)\s*:\s*", "", subject or "", flags=re.IGNORECASE).strip()
+    subject = re.sub(r"^\s*subject\s*:\s*", "", subject or "", flags=re.IGNORECASE).strip()
     body = (body or "").strip()
     if not subject or not body:
         return {"status": "error", "message": "Both subject and body are required."}

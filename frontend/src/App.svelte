@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import {
     Sparkles,
     Paperclip,
@@ -11,6 +11,7 @@
     Calendar,
     Clock,
     Mail,
+    QrCode,
     Layers,
     AlertCircle,
     Settings,
@@ -47,6 +48,10 @@
     computeScenarioDecks,
     getAppConfig,
     saveAppConfig,
+    eventStatePayload,
+    profileToConfig,
+    STUDIO_CONFIG_PATCH_EVENT,
+    DEFAULT_CONFIG,
     resolveAgentId,
     getActiveAgentFromEvents,
     getEventAgent,
@@ -60,6 +65,7 @@
     calendar: Calendar,
     clock: Clock,
     mail: Mail,
+    qr: QrCode,
     layers: Layers,
     megaphone: Megaphone,
     "file-text": FileText,
@@ -104,9 +110,9 @@
     },
     {
       id: "linkedin_post_generator",
-      name: "LinkedIn Planner",
+      name: "Social Planner",
       tag: "Social Media & Posts",
-      desc: "Writes engaging speaker announcements, event invitations, and post-event recaps with hashtags.",
+      desc: "Writes speaker announcements, recaps and a LinkedIn + Instagram countdown plan for the event.",
       actionText: "Draft post",
       icon: Share2,
       accent: "var(--agent-linkedin)",
@@ -152,6 +158,16 @@
       accent: "var(--agent-office)",
       bg: "var(--bg-office)",
     },
+    {
+      id: "qr_code_generator",
+      name: "QR Code Generator",
+      tag: "Links & Print",
+      desc: "Turns links into rounded QR codes: a flat SVG for print and design and a PNG for slides.",
+      actionText: "Make QR code",
+      icon: QrCode,
+      accent: "var(--agent-qr)",
+      bg: "var(--bg-qr)",
+    },
   ];
 
   function getAgentIcon(agentId) {
@@ -168,6 +184,7 @@
     if (clean.includes("planner")) return Calendar;
     if (clean.includes("agenda")) return Clock;
     if (clean.includes("office") || clean.includes("secretary")) return Mail;
+    if (clean.includes("qr")) return QrCode;
     return Layers;
   }
 
@@ -330,6 +347,7 @@
       enableVideoGeneration: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? DEFAULT_CONFIG.enableVideoGeneration ?? true,
       video_template: studioConfig?.videoTemplate || localSaved.videoTemplate || "build_with_ai",
       videoTemplate: studioConfig?.videoTemplate || localSaved.videoTemplate || "build_with_ai",
+      ...eventStatePayload({ ...DEFAULT_CONFIG, ...localSaved, ...studioConfig }),
     };
   }
 
@@ -646,8 +664,9 @@
           },
         });
       });
-      if (text.trim()) {
-        parts.push({ text });
+      const cleanText = (text || "").replace(/\u2028/g, "\n").replace(/\u2029/g, "\n\n");
+      if (cleanText.trim()) {
+        parts.push({ text: cleanText });
       }
 
       // Add user message to events list
@@ -740,6 +759,34 @@
     saveAppConfig(newConfig);
   }
 
+  // Event details and social profiles are set in the chat (event_profile cards), not in Settings.
+  function patchConfig(patch) {
+    updateConfig({ ...studioConfig, ...patch });
+  }
+
+  $effect(() => {
+    const onPatch = (e) => patchConfig(e.detail || {});
+    window.addEventListener(STUDIO_CONFIG_PATCH_EVENT, onPatch);
+    return () => window.removeEventListener(STUDIO_CONFIG_PATCH_EVENT, onPatch);
+  });
+
+  // A profile the agent saved from the conversation (persist: true) is remembered for future
+  // sessions, unless what we already have is newer (e.g. when an old session is reopened).
+  $effect(() => {
+    let latest = null;
+    for (const list of uiCards.lists.values()) {
+      for (const payload of list) {
+        if (payload?.type !== "event_profile" || !payload.persist || !payload.updated_at) continue;
+        if (!latest || Date.parse(payload.updated_at) > Date.parse(latest.updated_at)) latest = payload;
+      }
+    }
+    if (!latest) return;
+    const known = untrack(() => Date.parse(studioConfig.eventProfileUpdatedAt || "") || 0);
+    if (Date.parse(latest.updated_at) > known) {
+      untrack(() => patchConfig({ ...profileToConfig(latest.profile), eventProfileUpdatedAt: latest.updated_at }));
+    }
+  });
+
   async function handleGoogleLogin() {
     isLoggingIn = true;
     authError = "";
@@ -776,7 +823,7 @@
 
     // Local development / e2e only: `VITE_DEV_AUTH_BYPASS=true npm run dev` skips Google sign-in.
     // import.meta.env.DEV is false in production builds, so this branch is compiled out there.
-    if (import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_BYPASS === "true") {
+    if ((import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_BYPASS === "true") || !auth) {
       currentUser = { uid: "local-dev", displayName: "Local developer", email: "dev@localhost" };
       userId = "user_local-dev";
       isAuthLoading = false;
@@ -959,6 +1006,7 @@
                 allEvents={filteredEvents}
                 deck={scenarioDecks.get(idx) || null}
                 ui={uiCards.cards.get(idx) || null}
+                uiList={uiCards.lists.get(idx) || null}
                 structuredTurn={uiCards.structuredTurnEvents.has(idx)}
                 isBusy={isLoading}
                 onRefine={refineVariant}

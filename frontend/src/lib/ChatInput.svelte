@@ -4,9 +4,12 @@
     Square, 
     ArrowRight, 
     FileText,
-    AlertCircle
+    AlertCircle,
+    HardDrive,
+    Loader2
   } from '@lucide/svelte';
   import { MAX_INPUT_TOKENS } from './constants.js';
+  import { driveFileToAttachment, isDriveAvailable, pickFromDrive } from './google/drive.js';
 
   let {
     queryText = $bindable(''),
@@ -67,6 +70,28 @@
     reader.readAsDataURL(file);
   }
 
+  const driveAvailable = isDriveAvailable();
+  let driveBusy = $state(false);
+  let driveError = $state('');
+
+  async function attachFromDrive() {
+    if (driveBusy) return;
+    driveError = '';
+    driveBusy = true;
+    try {
+      const picked = await pickFromDrive({ mode: 'files' });
+      const results = await Promise.allSettled(picked.map((file) => driveFileToAttachment(file)));
+      const ok = results.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+      const failed = results.filter((r) => r.status === 'rejected').map((r) => r.reason?.message || String(r.reason));
+      if (ok.length) stagedFiles = [...stagedFiles, ...ok];
+      if (failed.length) driveError = failed.join(' ');
+    } catch (err) {
+      driveError = err?.message || 'Google Drive is not available right now.';
+    } finally {
+      driveBusy = false;
+    }
+  }
+
   function removeStagedFile(index) {
     stagedFiles = stagedFiles.filter((_, i) => i !== index);
   }
@@ -76,11 +101,22 @@
   <div class="floating-prompt-box">
     <!-- Top Attachment & Context Strip -->
     <div class="prompt-meta-top">
-      <label class="chip-action-btn" title="Add Multimodal Attachments">
+      <div class="attach-actions">
+      <label class="chip-action-btn chip-rotate" title="Add Multimodal Attachments">
         <Plus size={15} strokeWidth={2} class="chip-icon" />
         <span>Add files</span>
         <input type="file" multiple onchange={handleFileSelect} style="display: none;" />
       </label>
+      {#if driveAvailable}
+        <button type="button" class="chip-action-btn" onclick={attachFromDrive} disabled={driveBusy} title="Pick Docs, Sheets, PDFs or images from Google Drive">
+          {#if driveBusy}<Loader2 size={15} class="chip-icon spin-icon" />{:else}<HardDrive size={15} strokeWidth={2} class="chip-icon" />{/if}
+          <span>Google Drive</span>
+        </button>
+      {/if}
+      {#if driveError}
+        <span class="drive-error" role="alert"><AlertCircle size={12} />{driveError}</span>
+      {/if}
+      </div>
 
       <div class="token-telemetry" class:token-limit-warning={isTokenLimitExceeded}>
         <span class="token-val" class:token-val-exceeded={isTokenLimitExceeded}>{currentTokens.toLocaleString()}</span>
@@ -96,6 +132,9 @@
       <div class="staged-media-row">
         {#each stagedFiles as file, index}
           <div class="staged-card">
+            {#if file.source === 'drive'}
+              <span class="drive-badge" title="From Google Drive"><HardDrive size={10} /></span>
+            {/if}
             {#if file.preview}
               <img class="staged-img" src={file.preview} alt="staged upload" />
             {:else}
@@ -230,8 +269,40 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   }
 
-  .chip-action-btn:hover :global(.chip-icon) {
+  .chip-rotate:hover :global(.chip-icon) {
     transform: rotate(90deg);
+  }
+
+  .chip-action-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .attach-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .drive-error {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    color: var(--status-error);
+  }
+
+  .drive-badge {
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 50%;
+    background: var(--primary-accent);
+    color: #ffffff;
   }
 
   .chip-action-btn:active {

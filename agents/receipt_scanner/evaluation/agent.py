@@ -6,6 +6,7 @@ from google.adk import Agent
 from google.adk.tools import ToolContext
 
 from agents.receipt_scanner.agent import INSTRUCTION, receipt_agent
+from agents.receipt_scanner.summary import build_receipt_summary
 from agents.receipt_scanner.tools import read_receipt_file
 
 PRODUCTION_MODEL = str(receipt_agent.model)
@@ -19,6 +20,24 @@ def get_usd_pln_rate() -> dict:
         "rate": 4.0,
         "source": "Receipt evaluation fixture",
         "url": "",
+    }
+
+
+FIXTURE_RATES_TO_PLN = {"PLN": 1.0, "USD": 4.0, "EUR": 4.3, "GBP": 5.1}
+
+
+def show_receipt_summary(receipts: list, target_currency: str = "", approved_budget: str = "") -> dict:
+    """Production-shaped recognition summary with fixed fixture exchange rates."""
+    summary = build_receipt_summary(
+        receipts, target_currency, approved_budget, rate_to_pln=lambda code: FIXTURE_RATES_TO_PLN.get(code, 1.0)
+    )
+    return {
+        "success": True,
+        "receipts_count": len(summary["receipts"]),
+        "grand_total": summary["grand_total"],
+        "target_currency": summary["target_currency"],
+        "warnings_count": summary["warnings_count"],
+        "message": "Receipt evaluation summary captured.",
     }
 
 
@@ -48,5 +67,5 @@ root_agent = Agent(
     name="receipt_scanner",
     description="Evaluation-only receipt scanner.",
     instruction=INSTRUCTION.replace(str(receipt_agent.model), EVALUATION_MODEL),
-    tools=[get_usd_pln_rate, read_receipt_file, export_summary_to_google_doc],
+    tools=[get_usd_pln_rate, read_receipt_file, show_receipt_summary, export_summary_to_google_doc],
 )

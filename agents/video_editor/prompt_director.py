@@ -59,7 +59,7 @@ CRITICAL RULES:
    For each scenario, define the core narrative plot (concept) with its 5 shots.
    Then provide 3 switchable 'styles' variations of this exact plot:
    - Style 1: Signature Vision (the bold, highly stylized aesthetic matching the scenario's primary creative genre)
-   - Style 2: Clean Modern Tech / Studio Commercial ("Попроще" / Grounded Realism — sleek, approachable, high-end tech commercial or modern studio look with clean lighting, natural skin tones, and professional elegance, avoiding surreal fantasy)
+   - Style 2: Clean Modern Tech / Studio Commercial (Grounded Realism — sleek, approachable, high-end tech commercial or modern studio look with clean lighting, natural skin tones, and professional elegance, avoiding surreal fantasy)
    - Style 3: Dynamic Cinematic Realism / Contrasting Movement (a distinct cinematic aesthetic such as 35mm film grain, high-energy kinetic camera, or moody atmospheric chiaroscuro)
    CRITICAL REQUIREMENT: The 5 shots MUST retain their core narrative actions across all 3 styles, but each style provides a distinct visual atmosphere, camera lenses, color grade, and omni_prompt.
    NEVER use generic placeholder names like "Style 1" or repeat the same presets across scenarios! Give each style an evocative, descriptive name.
@@ -871,7 +871,7 @@ def _ensure_scenario_styles(sc: CreativeScenario, idx: int = 1) -> CreativeScena
         omni_prompt=sc.omni_prompt,
     )
 
-    # Category A: Clean Modern Tech / Studio Commercial ("Попроще" / Grounded Realism)
+    # Category A: Clean Modern Tech / Studio Commercial (Grounded Realism)
     grounded_styles = [
         {
             "name": "Clean Modern Tech",
@@ -1042,7 +1042,7 @@ CRITICAL REQUIREMENTS:
 6. THREE DISTINCT BALANCED STYLES PER SCENARIO:
    For each scenario, provide 3 switchable 'styles' variations of the exact same 5 narrative actions:
    - Style 1: Signature Vision (the bold, stylized aesthetic matching the scenario's primary creative genre)
-   - Style 2: Clean Modern Tech / Studio Commercial ("Попроще" / Grounded Realism — sleek, approachable, high-end commercial or modern studio look with clean lighting, natural skin tones, professional elegance, avoiding surreal fantasy)
+   - Style 2: Clean Modern Tech / Studio Commercial (Grounded Realism — sleek, approachable, high-end commercial or modern studio look with clean lighting, natural skin tones, professional elegance, avoiding surreal fantasy)
    - Style 3: Dynamic Cinematic Realism / Contrasting Movement (distinct cinematic color grade, lens, and pacing)
    Give each style an evocative, descriptive name (do NOT name them "Style 1" or "Style 2").
 7. OMNI PROMPT:
@@ -1220,7 +1220,7 @@ def direct_single_scenario(
         "- 'concept': A vivid 2-sentence storyline plot synopsis describing what happens to the protagonist across these 5 shots in this mini-film.\n"
         "- Provide 3 switchable 'styles' variations with UNIQUE names tailored specifically to this world and story (NEVER reuse generic labels like 'Clean Modern Tech' across options):\n"
         "  * Style 1: Primary Aesthetic (the core bold signature aesthetic of this world)\n"
-        "  * Style 2: Grounded / Commercial Alternative ('Попроще' - clean studio/natural commercial lighting and elegant realism, tailored to this universe)\n"
+        "  * Style 2: Grounded / Commercial Alternative (clean studio/natural commercial lighting and elegant realism, tailored to this universe)\n"
         "  * Style 3: Radical / Contrasting Movement (high-contrast, distinct lens, kinetic camera, or moody color grade tailored to this universe)\n"
         "- 'shots': A list of exactly 5 shot objects, each with 'shot_number' (1..5), 'time_range' ('00:00 - 00:02', '00:02 - 00:04', etc.), 'action', 'camera', and 'lighting_atmosphere'.\n"
         "- 'omni_prompt' MUST explicitly incorporate all 5 shots with their exact timestamps (00:00 - 00:02, 00:02 - 00:04, 00:04 - 00:06, 00:06 - 00:08, 00:08 - 00:10).\n"

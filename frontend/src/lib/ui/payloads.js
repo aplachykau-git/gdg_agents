@@ -15,21 +15,30 @@ function functionResponses(event) {
     .filter(Boolean);
 }
 
-export function getEventUiPayload(event) {
+/** All payloads of one event: the text payload first, then one per tool result (in call order). */
+export function getEventUiPayloads(event) {
+  const payloads = [];
   const meta = event?.customMetadata || event?.custom_metadata;
-  if (meta?.ui?.type) return meta.ui;
+  if (meta?.ui?.type) payloads.push(meta.ui);
   for (const response of functionResponses(event)) {
-    if (response?.ui?.type) return response.ui;
+    if (response?.ui?.type) payloads.push(response.ui);
   }
-  return null;
+  return payloads;
+}
+
+export function getEventUiPayload(event) {
+  return getEventUiPayloads(event)[0] || null;
 }
 
 /**
- * Map<eventIndex, payload> plus the set of event indices whose turn already has a structured
- * payload (legacy text parsing is skipped there, so the same deliverable is not rendered twice).
+ * Map<eventIndex, payload> (first payload), Map<eventIndex, payload[]> (all payloads, e.g. a
+ * receipt summary and its Google Doc returned by parallel tool calls in one event) plus the set
+ * of event indices whose turn already has a structured payload (legacy text parsing is skipped
+ * there, so the same deliverable is not rendered twice).
  */
 export function computeUiCards(events) {
   const cards = new Map();
+  const lists = new Map();
   const structuredTurnEvents = new Set();
   let turn = [];
   let turnHasPayload = false;
@@ -45,14 +54,15 @@ export function computeUiCards(events) {
       return;
     }
     turn.push(idx);
-    const payload = getEventUiPayload(event);
-    if (payload) {
-      cards.set(idx, payload);
+    const payloads = getEventUiPayloads(event);
+    if (payloads.length) {
+      cards.set(idx, payloads[0]);
+      lists.set(idx, payloads);
       turnHasPayload = true;
     }
   });
   closeTurn();
-  return { cards, structuredTurnEvents };
+  return { cards, lists, structuredTurnEvents };
 }
 
 // --------------------------------------------------------------------------- adapters
@@ -109,6 +119,19 @@ export function toDocumentCard(ui) {
         : 'Word & Google Docs Compatible',
     title: ui.title || 'Document',
     allUrls: [url, ...Object.values(ui.extra_urls || {})].filter(Boolean),
+  };
+}
+
+export function toQrCard(ui) {
+  const transparent = ui.background === 'transparent';
+  return {
+    link: ui.link || '',
+    svgUrl: playableUrl(ui.svg_url),
+    pngUrl: playableUrl(ui.png_url),
+    filename: ui.filename || 'qr_code',
+    color: ui.color || '#000000',
+    background: transparent ? '' : ui.background || '#FFFFFF',
+    transparent,
   };
 }
 
@@ -180,4 +203,97 @@ export function toEventDates(ui) {
   const description = title ? `Community Technical Meetup: ${title}.` : 'Community Technical Meetup.';
   const dates = (ui.dates || []).map((option, idx) => calendarOption(option, idx, title, location, description));
   return { eventTitle: title, location, dates, primaryDate: dates[0], totalOptions: dates.length };
+}
+
+// --------------------------------------------------------------------------- receipts
+
+export function formatMoney(amount, currency = '') {
+  if (amount === null || amount === undefined || Number.isNaN(Number(amount))) return '—';
+  const text = Number(amount)
+    .toFixed(2)
+    .replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009');
+  return currency ? `${text} ${currency}` : text;
+}
+
+function csvCell(value) {
+  const text = value === null || value === undefined ? '' : String(value);
+  return /[",;\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/** One row per line item (or per receipt without items), ready for Google Sheets / Excel. */
+export function receiptSummaryCsv(summary) {
+  const target = summary?.target_currency || '';
+  const header = ['Receipt', 'Merchant', 'Date', 'Category', 'Item', 'Quantity', 'Unit price', 'Item total', 'Receipt total', 'Currency', `Receipt total (${target})`];
+  const rows = [header];
+  for (const r of summary?.receipts || []) {
+    const base = [r.index, r.merchant, r.date, r.category];
+    const tail = [r.total ?? '', r.currency, r.total_target ?? ''];
+    if (r.items?.length) {
+      for (const item of r.items) rows.push([...base, item.name, item.quantity ?? '', item.unit_price ?? '', item.total ?? '', ...tail]);
+    } else {
+      rows.push([...base, '', '', '', '', ...tail]);
+    }
+  }
+  return rows.map((row) => row.map(csvCell).join(',')).join('\n') + '\n';
+}
+
+// --------------------------------------------------------------------------- post plan
+
+export const PLATFORM_LABELS = {
+  linkedin: 'LinkedIn',
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  x: 'X',
+  threads: 'Threads',
+  bluesky: 'Bluesky',
+  mastodon: 'Mastodon',
+};
+
+/** All written posts as plain text, grouped by date, for pasting into a doc or a chat. */
+export function postPlanText(plan) {
+  const out = [];
+  for (const slot of plan?.slots || []) {
+    out.push(`${slot.date} (${slot.weekday}) - ${slot.label}: ${slot.theme}`);
+    for (const channel of slot.channels || []) {
+      const post = slot.posts?.[channel.platform];
+      out.push(`\n[${PLATFORM_LABELS[channel.platform] || channel.platform} · ${channel.format}]`);
+      out.push(post?.text || '(not written yet)');
+      if (post?.visual) out.push(`Visual: ${post.visual}`);
+    }
+    out.push('\n---\n');
+  }
+  return out.join('\n').trim();
+}
+
+function icsEscape(text) {
+  return String(text || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
+/** Posting reminders (10:00 Europe/Warsaw on each slot date) with the post texts inside. */
+export function postPlanIcs(plan, hour = 10) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Community AI Studio//Post plan//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+  for (const slot of plan?.slots || []) {
+    const stamp = slot.date.replace(/-/g, '');
+    const networks = (slot.channels || []).map((c) => PLATFORM_LABELS[c.platform] || c.platform).join(' + ');
+    const body = (slot.channels || [])
+      .map((c) => `${PLATFORM_LABELS[c.platform] || c.platform} (${c.format}):\n${slot.posts?.[c.platform]?.text || '(not written yet)'}`)
+      .join('\n\n');
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:post-${stamp}-${slot.id}@community-studio`,
+      `DTSTAMP:${stamp}T000000Z`,
+      `DTSTART;TZID=Europe/Warsaw:${stamp}T${pad(hour)}0000`,
+      `DTEND;TZID=Europe/Warsaw:${stamp}T${pad(hour)}1500`,
+      `SUMMARY:${icsEscape(`Post ${networks}: ${slot.label} - ${slot.theme}`)}`,
+      `DESCRIPTION:${icsEscape(body)}`,
+      'END:VEVENT'
+    );
+  }
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
 }

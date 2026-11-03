@@ -12,12 +12,13 @@ export function getAgentTheme(author) {
   if (lower.includes('root') || lower === 'main' || lower.includes('orchestrator')) return { color: 'var(--agent-root)', bg: 'var(--bg-root)', label: 'Main', icon: 'layers' };
   if (lower.includes('receipt')) return { color: 'var(--agent-receipt)', bg: 'var(--bg-receipt)', label: 'Receipt Scanner', icon: 'receipt' };
   if (lower.includes('video') || lower.includes('avatar')) return { color: 'var(--agent-video)', bg: 'var(--bg-video)', label: 'Live Video Editor', icon: 'video' };
-  if (lower.includes('linkedin')) return { color: 'var(--agent-linkedin)', bg: 'var(--bg-linkedin)', label: 'LinkedIn Planner', icon: 'share' };
+  if (lower.includes('linkedin')) return { color: 'var(--agent-linkedin)', bg: 'var(--bg-linkedin)', label: 'Social Planner', icon: 'share' };
   if (lower.includes('registration')) return { color: 'var(--agent-registration)', bg: 'var(--bg-registration)', label: 'Registrations Manager', icon: 'users' };
   if (lower.includes('planner')) return { color: 'var(--agent-planner)', bg: 'var(--bg-planner)', label: 'Event Scheduler', icon: 'calendar' };
   if (lower.includes('agenda')) return { color: 'var(--agent-agenda)', bg: 'var(--bg-agenda)', label: 'Agenda Formatter', icon: 'clock' };
   if (lower.includes('office') || lower.includes('secretary')) return { color: 'var(--agent-office)', bg: 'var(--bg-office)', label: 'Office Secretary', icon: 'mail' };
-  
+  if (lower.includes('qr_code') || lower.includes('qr code')) return { color: 'var(--agent-qr)', bg: 'var(--bg-qr)', label: 'QR Codes', icon: 'qr' };
+
   const formatted = clean.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   return { color: 'var(--primary-accent)', bg: 'var(--primary-accent-container)', label: formatted, icon: 'layers' };
 }
@@ -32,11 +33,12 @@ export function getAgentHeading(agentId) {
   if (clean.includes('root') || clean === 'main' || clean.includes('orchestrator')) return 'Main Coordinator';
   if (clean.includes('receipt')) return 'Receipt Scanner & OCR';
   if (clean.includes('video') || clean.includes('avatar')) return 'Live Video Editor';
-  if (clean.includes('linkedin')) return 'LinkedIn Planner';
+  if (clean.includes('linkedin')) return 'Social Planner';
   if (clean.includes('registration')) return 'Registrations Manager';
   if (clean.includes('planner')) return 'Event Scheduler';
   if (clean.includes('agenda')) return 'Agenda Formatter';
   if (clean.includes('office') || clean.includes('secretary')) return 'Office Secretary';
+  if (clean.includes('qr')) return 'QR Code Generator';
   return 'Specialized Agent';
 }
 
@@ -53,7 +55,7 @@ export function getAgentDescription(agentId) {
     return 'Turns speaker portrait photos into animated video intros and speaker cards.';
   }
   if (clean.includes('linkedin')) {
-    return 'Writes engaging speaker announcements, event invitations, and post-event recaps with hashtags.';
+    return 'Writes speaker announcements, recaps and a LinkedIn + Instagram countdown plan for the event.';
   }
   if (clean.includes('registration')) {
     return 'Cleans attendee lists, removes duplicates, and organizes confirmed and waitlisted guests.';
@@ -66,6 +68,9 @@ export function getAgentDescription(agentId) {
   }
   if (clean.includes('office') || clean.includes('secretary')) {
     return 'Prepares building visitor access requests and meeting room reservation emails.';
+  }
+  if (clean.includes('qr')) {
+    return 'Turns links into rounded QR codes: a flat SVG for print and design and a PNG for slides.';
   }
   return 'Ready to assist with your community tasks.';
 }
@@ -81,7 +86,8 @@ export function getAgentStarterPrompts(agentId) {
       { icon: 'calendar', text: 'Find optimal meetup date next month without collisions', prompt: 'Find optimal meetup date next month without collisions' },
       { icon: 'users', text: 'Clean registration CSV and partition attendees by capacity', prompt: 'Clean registration CSV and partition attendees by capacity' },
       { icon: 'clock', text: 'Format event agenda with 2 speaker talks and networking', prompt: 'Format event agenda with 2 speaker talks and networking' },
-      { icon: 'mail', text: 'Draft office keys access and Event Hub reservation email', prompt: 'Draft office keys access and Event Hub reservation email' }
+      { icon: 'mail', text: 'Draft office keys access and Event Hub reservation email', prompt: 'Draft office keys access and Event Hub reservation email' },
+      { icon: 'qr', text: 'Make a QR code for the event registration link', prompt: 'Make a QR code for the event registration link' }
     ];
   }
   if (clean.includes('receipt')) {
@@ -98,6 +104,7 @@ export function getAgentStarterPrompts(agentId) {
   }
   if (clean.includes('linkedin')) {
     return [
+      { icon: 'calendar', text: 'Plan countdown posts for LinkedIn and Instagram', prompt: 'Plan the countdown posts for LinkedIn and Instagram until the event' },
       { icon: 'megaphone', text: 'Draft speaker announcement post with registration link', prompt: 'Draft speaker announcement post with registration link' },
       { icon: 'file-pen-line', text: 'Generate 3 event recap post options with hashtags', prompt: 'Generate 3 event recap post options with hashtags' }
     ];
@@ -125,6 +132,12 @@ export function getAgentStarterPrompts(agentId) {
       { icon: 'building', text: 'Draft Event Hub room reservation request email', prompt: 'Draft Event Hub room reservation request email' }
     ];
   }
+  if (clean.includes('qr')) {
+    return [
+      { icon: 'qr', text: 'QR code for https://gdg.community.dev/gdg-krakow/', prompt: 'Make a QR code for https://gdg.community.dev/gdg-krakow/' },
+      { icon: 'qr', text: 'Blue QR with transparent background for a poster', prompt: 'Make a blue QR code with a transparent background for a poster, link: ' }
+    ];
+  }
   return [];
 }
 
@@ -142,6 +155,11 @@ export function getAgentFromToolName(name) {
     if (sub.includes('planner') || sub.includes('event')) return 'event_planner';
     if (sub.includes('agenda')) return 'agenda_generator';
     if (sub.includes('office') || sub.includes('secretary')) return 'office_secretary';
+    if (sub.includes('qr')) return 'qr_code_generator';
+  }
+
+  if (lower.includes('qr_code')) {
+    return 'qr_code_generator';
   }
 
   // 2. Specific known tools
@@ -209,7 +227,7 @@ export function getAgentFromToolName(name) {
 
 export function getEventAgent(ev, appsList = DEFAULT_APPS) {
   if (!ev) return null;
-  
+
   // 1. Check direct actions transfer
   const actionTarget = ev.actions?.transfer_to_agent || ev.actions?.transferToAgent;
   if (actionTarget) {
@@ -285,6 +303,7 @@ export function resolveAgentId(author, appsList = DEFAULT_APPS) {
   if (clean.includes('planner') || clean.includes('event')) return 'event_planner';
   if (clean.includes('agenda')) return 'agenda_generator';
   if (clean.includes('office') || clean.includes('secretary')) return 'office_secretary';
+  if (clean.includes('qr')) return 'qr_code_generator';
 
   // 3. Fallback partial match with appsList
   for (const app of appsList) {
@@ -300,13 +319,13 @@ export function getActiveAgentFromEvents(eventsList, fallback = 'root_agent', ap
   for (let i = eventsList.length - 1; i >= 0; i--) {
     const ev = eventsList[i];
     if (!ev || ev.author === 'user') continue;
-    
+
     // Check if event has a specific sub-agent identity or delegation
     const evAgent = getEventAgent(ev, appsList);
     if (evAgent && evAgent !== 'root_agent') {
       return evAgent;
     }
-    
+
     // If the event is explicitly from a sub-agent author
     if (ev.author) {
       const resolved = resolveAgentId(ev.author, appsList);
@@ -363,6 +382,11 @@ export const STATUS_TICKERS = {
     'Validating event details...',
     'Composing visitor access request...',
     'Drafting room reservation email...'
+  ],
+  qr_code_generator: [
+    'Encoding the link...',
+    'Drawing rounded modules...',
+    'Saving SVG and PNG...'
   ]
 };
 
@@ -376,11 +400,17 @@ export function getFriendlyToolCall(name, args) {
   const mappings = {
     transfer_to_video_editor: () => "Delegating task to Live Video Editor (A2A)...",
     transfer_to_receipt_scanner: () => "Delegating task to Receipt Scanner (A2A)...",
-    transfer_to_linkedin_post_generator: () => "Delegating task to LinkedIn Planner...",
+    transfer_to_linkedin_post_generator: () => "Delegating task to Social Planner...",
     transfer_to_event_planner: () => "Delegating task to Event Scheduler...",
     transfer_to_registration_manager: () => "Delegating task to Registrations Manager...",
     transfer_to_agenda_generator: () => "Delegating task to Agenda Formatter...",
     transfer_to_office_secretary: () => "Delegating task to Office Secretary...",
+    transfer_to_qr_code_generator: () => "Delegating task to QR Code Generator...",
+    generate_qr_code: (a) => a?.link ? `Creating QR code for ${a.link}...` : "Creating QR code...",
+    plan_countdown_posts: () => "Planning the countdown schedule...",
+    update_event_profile: (a) => (a && Object.keys(a).some((k) => k !== "ask" && a[k] && (!Array.isArray(a[k]) || a[k].length))) ? "Saving the event details..." : "Opening the event details...",
+    publish_post_plan: (a) => Array.isArray(a?.posts) ? `Checking ${a.posts.length} posts against platform rules...` : "Checking posts against platform rules...",
+    show_receipt_summary: (a) => Array.isArray(a?.receipts) ? `Summarising ${a.receipts.length} recognised receipts...` : "Summarising recognised receipts...",
 
     update_speaker: (a) => a?.new_speaker ? "Starting a card for a new speaker..." : "Saving speaker details...",
     propose_scenarios: (a) => a?.creative_guidance ? `Inventing new scenarios (${a.creative_guidance})...` : "Inventing 5 cinematic scenarios...",
@@ -397,7 +427,7 @@ export function getFriendlyToolCall(name, args) {
     render_composer: () => "HyperFrames pipeline rendering 1080p MP4, GIF & Poster...",
 
     get_usd_pln_rate: () => "Fetching live banking exchange rates (USD/PLN)...",
-    read_receipt_file: () => "Analyzing receipt image via Gemini 3.7 Flash Vision OCR...",
+    read_receipt_file: () => "Analyzing receipt image via Gemini 3.8 Flash Vision OCR...",
     export_summary_to_google_doc: () => "Exporting approved expense report to Google Docs...",
     scan_receipt_with_vision: () => "Extracting items and taxes via Vision OCR...",
     convert_currency: () => "Converting currencies to PLN using exchange rates...",
@@ -461,11 +491,17 @@ export function getFriendlyToolResponse(name, response, args) {
   const mappings = {
     transfer_to_video_editor: () => "Workflow handed off to Live Video Editor.",
     transfer_to_receipt_scanner: () => "Workflow handed off to Receipt Scanner.",
-    transfer_to_linkedin_post_generator: () => "Workflow handed off to LinkedIn Planner.",
+    transfer_to_linkedin_post_generator: () => "Workflow handed off to Social Planner.",
     transfer_to_event_planner: () => "Workflow handed off to Event Scheduler.",
     transfer_to_registration_manager: () => "Workflow handed off to Registrations Manager.",
     transfer_to_agenda_generator: () => "Workflow handed off to Agenda Formatter.",
     transfer_to_office_secretary: () => "Workflow handed off to Office Secretary.",
+    transfer_to_qr_code_generator: () => "Workflow handed off to QR Code Generator.",
+    generate_qr_code: (r) => r?.status === 'success' ? "QR code ready (SVG + PNG)." : (r?.message || "QR code step finished."),
+    update_event_profile: (r) => r?.changed?.length ? `Event details saved (${r.changed.join(", ").replace(/_/g, " ")}).` : "Event details shown.",
+    plan_countdown_posts: (r) => r?.slots?.length ? `${r.slots.length} countdown slots planned.` : (r?.message || "Countdown planning finished."),
+    publish_post_plan: (r) => r?.status === 'success' ? `Post plan ready (${r.posts} posts).` : (r?.message || "Post plan step finished."),
+    show_receipt_summary: (r) => r?.success ? `${r.receipts_count} receipts recognised.` : (r?.error || "Receipt summary finished."),
 
     update_speaker: (r) => r?.missing_fields?.length ? `Details saved. Missing: ${r.missing_fields.join(', ')}` : "Speaker details saved.",
     propose_scenarios: (r) => r?.scenarios?.length ? `${r.scenarios.length} scenarios ready.` : (r?.message || "Scenarios step finished."),
@@ -549,7 +585,7 @@ export function shouldShowDelegationHandoff(event, idx, allEvents) {
   if (!event || event.author === 'user') return false;
   const currentAuthor = cleanAuthorName(event.author).toLowerCase();
   if (!currentAuthor || currentAuthor === 'root_agent' || currentAuthor === 'root') return false;
-  
+
   for (let i = idx - 1; i >= 0; i--) {
     const prev = allEvents[i];
     if (prev && prev.author !== 'user') {

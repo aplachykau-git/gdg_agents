@@ -8,7 +8,7 @@
     "ocr_tool_model_environment_override": "RECEIPT_SCANNER_MODEL",
     "temperature": null,
     "required_case_score": 100.0,
-    "production_prompt_sha256": "70985dc1b912778813724eb01babc9fbb02f08ed1d110180da216ed6d8c9d6a6"
+    "production_prompt_sha256": "0a19dd475c973328d30fff50e9b0335bce321bd44b4b4db518259ef45b618642"
   },
   "conversion": {
     "formula": "source_amount * source_rate_to_pln / target_rate_to_pln",

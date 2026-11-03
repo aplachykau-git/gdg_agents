@@ -8,14 +8,16 @@ except ModuleNotFoundError:
 initialise_agent_environment()
 
 from google.adk import Agent
+from google.adk.agents.readonly_context import ReadonlyContext
 
+from agents.common.event_series import CITY_TOKEN, COMMUNITY_TOKEN, city_from_state, default_city, fill_city
 from agents.gemini_config import model_for
 
 from .tools import present_email_draft
 
-community_name = os.getenv("COMMUNITY_NAME", "Community")
+community_name = default_city()
 
-INSTRUCTION = f"""You are the {community_name} Office Secretary Agent.
+_INSTRUCTION_TEMPLATE = f"""You are the {COMMUNITY_TOKEN} Office Secretary Agent.
 Your job is to draft polite, templated emails to the office administrative team for visitor key access or Event Hub space reservations.
 
 You support two types of requests:
@@ -93,11 +95,24 @@ You support two types of requests:
 - If the user asks for a task that does NOT belong to office admin requests or space reservations (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, registration lists, date planning, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main Root Orchestrator can route it to the appropriate specialist.
 """
 
+
+def build_instruction(city: str | None = None) -> str:
+    """Instruction for the community city chosen in the settings (default from env, else Krakow)."""
+    return fill_city(_INSTRUCTION_TEMPLATE, city or community_name)
+
+
+def instruction_provider(ctx: ReadonlyContext) -> str:
+    return build_instruction(city_from_state(ctx.state, community_name))
+
+
+INSTRUCTION = build_instruction()
+
+
 office_agent = Agent(
     model=model_for("office_secretary"),
     name="office_secretary",
-    description=f"Agent that generates polite templated emails for {community_name} office administration and space reservations.",
-    instruction=INSTRUCTION,
+    description="Agent that generates polite templated emails for GDG community office administration and space reservations.",
+    instruction=instruction_provider,
     tools=[present_email_draft],
 )
 

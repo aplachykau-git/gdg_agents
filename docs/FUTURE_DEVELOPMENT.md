@@ -329,13 +329,13 @@ flowchart LR
 
 | ID | Area | Description | Priority |
 |:---|:---|:---|:---:|
-| TD-01 | `storage.tf` | Missing 60-day GCS lifecycle rule | Critical |
+| TD-01 | `storage.tf` | ~~Missing GCS lifecycle rule~~ Done: 30-day rule | Done |
 | TD-02 | `cloudrun.tf` | Missing concurrency and autoscaling config | High |
 | TD-03 | Root agent | No video render quota (max 5/session); LLM turns intentionally unlimited (BYOK) | High |
-| TD-04 | Session state | In-memory only; lost on restart or wrong-instance routing | Critical |
+| TD-04 | Session state | ~~In-memory only~~ Done: SQLite locally, optional Postgres in the cloud (`runtime.py`) | Done |
 | TD-05 | Guardrails | PII redaction enforced by prompt only | High |
 | TD-06 | App Check | Backend does not validate App Check tokens | Medium |
-| TD-07 | Drive auth | Migrate to OAuth `drive.file` + Google Drive Picker (Phase 2, requires per-user token infra) | Low |
+| TD-07 | Drive auth | Google Drive Picker done in the frontend (`drive.file` with `VITE_GOOGLE_OAUTH_CLIENT_ID`); left: backend token refresh, stop passing the Drive token in delegation text | Low |
 | TD-08 | IAM | Remove project-level `sa_run_invoker` from `iam.tf`; service-level bindings in `cloudrun.tf` already exist and are correctly scoped | High |
 | TD-09 | Docs | `setup_guide.md` §5 references stale `receipt-docs-bot` SA | Low |
 | TD-10 | Docs | `DEPLOYMENT_GUIDE.md` §6 references stale SA setup | Low |

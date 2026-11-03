@@ -10,8 +10,10 @@ try:
 except ModuleNotFoundError:
     from bootstrap import initialise_agent_environment
 from google.adk import Agent
+from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools.google_search_tool import GoogleSearchTool
 
+from agents.common.event_series import CITY_TOKEN, COMMUNITY_TOKEN, city_from_state, default_city, fill_city
 from agents.gemini_config import model_for
 
 from .presentation import present_meetup_dates
@@ -19,11 +21,11 @@ from .tools import get_public_holidays
 
 initialise_agent_environment()
 
-community_name = os.getenv("COMMUNITY_NAME", "Community")
+community_name = default_city()
 current_year = datetime.date.today().year
 
-INSTRUCTION = f"""You are the {community_name} Event Planner Agent.
-Your mission is to help organizers find the absolute best, most optimal date for an upcoming technical AI meetup in {community_name}.
+_INSTRUCTION_TEMPLATE = f"""You are the {COMMUNITY_TOKEN} Event Planner Agent.
+Your mission is to help organizers find the absolute best, most optimal date for an upcoming technical AI meetup in {CITY_TOKEN}.
 You MUST analyze calendar parameters, public holidays for the country where the community is located, and existing local tech meetups to avoid scheduling conflicts.
 
 ## 📅 Target Timeframe:
@@ -42,12 +44,12 @@ You MUST analyze calendar parameters, public holidays for the country where the 
 1. **Clarify Target Period**:
    - Ask the user for their preferred target month(s) (e.g. June or July {current_year}).
    - If the user doesn't specify a timeframe, assume the next 30 to 60 days.
-2. **Scan Existing {community_name} Events (Anti-conflict)**:
-   - Use your built-in Google Search capability (`google_search`) to find upcoming AI and technical events in {community_name} on platforms like Luma and Meetup.com.
-   - Run search queries like `"{community_name} AI meetups luma {current_year}"`, `"{community_name} tech meetups meetup.com {current_year}"`, or `"{community_name} tech event"`.
+2. **Scan Existing {CITY_TOKEN} Events (Anti-conflict)**:
+   - Use your built-in Google Search capability (`google_search`) to find upcoming AI and technical events in {CITY_TOKEN} on platforms like Luma and Meetup.com.
+   - Run search queries like `"{CITY_TOKEN} AI meetups luma {current_year}"`, `"{CITY_TOKEN} tech meetups meetup.com {current_year}"`, or `"{CITY_TOKEN} tech event"`.
    - Identify existing technical events or AI meetups to ensure we do not schedule our event on the exact same evening as another major local tech meetup.
 3. **Check Holidays**:
-   - Resolve the country and the ISO-2 country code dynamically for the city of {community_name} (for example, if {community_name} is 'Krakow', the country is Poland, so the country code is 'PL'; if 'Berlin', the country is Germany, code is 'DE'; if 'London', country is United Kingdom, code is 'GB').
+   - Resolve the country and the ISO-2 country code dynamically for the city of {CITY_TOKEN} (for example, if {CITY_TOKEN} is 'Krakow', the country is Poland, so the country code is 'PL'; if 'Berlin', the country is Germany, code is 'DE'; if 'London', country is United Kingdom, code is 'GB').
    - Call the `get_public_holidays` tool passing `year`={current_year} and the resolved `country_code` to retrieve all official public holidays.
 4. **Determine & Propose the Optimal Date**:
      - Filter out all excluded dates (weekends, Fridays, holidays, long-weekend bridge days, late December vacation peaks, and days of conflicting meetups).
@@ -64,11 +66,24 @@ You MUST analyze calendar parameters, public holidays for the country where the 
 - If the user asks for a task that does NOT belong to event date planning (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, agenda formatting, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main Root Orchestrator can route it to the appropriate specialist.
 """
 
+
+def build_instruction(city: str | None = None) -> str:
+    """Instruction for the community city chosen in the settings (default from env, else Krakow)."""
+    return fill_city(_INSTRUCTION_TEMPLATE, city or community_name)
+
+
+def instruction_provider(ctx: ReadonlyContext) -> str:
+    return build_instruction(city_from_state(ctx.state, community_name))
+
+
+INSTRUCTION = build_instruction()
+
+
 planner_agent = Agent(
     model=model_for("event_planner"),
     name="event_planner",
-    description=f"Agent that analyzes local tech calendars and holidays to recommend the optimal date for {community_name} meetups.",
-    instruction=INSTRUCTION,
+    description="Agent that analyzes local tech calendars and holidays to recommend the optimal date for GDG community meetups.",
+    instruction=instruction_provider,
     tools=[get_public_holidays, present_meetup_dates, GoogleSearchTool(bypass_multi_tools_limit=True)],
 )
 
