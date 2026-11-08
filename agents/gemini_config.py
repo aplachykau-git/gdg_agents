@@ -7,6 +7,7 @@ from google import genai
 
 DEFAULT_MODEL = "gemini-3.8-flash"
 DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-lite-image"
+DEFAULT_VIDEO_MODEL = "gemini-omni-1.2-flash"
 
 
 def model_for(role: str, default: str = DEFAULT_MODEL, legacy_env: str | None = None) -> str:

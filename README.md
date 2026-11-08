@@ -1,6 +1,6 @@
 # Community AI Studio
 
-This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.13](https://adk.dev/), written in Python 3.12. It leverages the capabilities of Google AI and Vertex AI (Gemini models) to automate events operations, document templates compilation, receipt scanning, scheduling conflicts analysis, QR code generation, and social media planning.
+This project is a multi-agent system built on the [Google Agent Development Kit (ADK) 2.14](https://adk.dev/), written in Python 3.12. It leverages the capabilities of Google AI and Vertex AI (Gemini models) to automate events operations, document templates compilation, receipt scanning, scheduling conflicts analysis, QR code generation, and social media planning.
 
 ---
 
@@ -150,7 +150,7 @@ The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 pri
 1. **Model Tiering Strategy**:
    - **`gemini-3.8-flash`**: High-precision reasoning, multimodal document OCR (`receipt_scanner`), creative genre scouting and conversational editing (`video_editor`), structured tool-calling across all worker agents, and LLM-as-a-judge evaluation scoring.
    - **`gemini-3.1-flash-lite-image`**: 9:16 portrait outpainting and background synthesis for video frames.
-   - **`gemini-omni-1.1-flash`**: Cinematic AI video animation and camera movement generation.
+   - **`gemini-omni-1.2-flash`**: Cinematic AI video animation and camera movement generation.
 2. **Session State & Data Passing (`session.state`)**:
    - Rather than bloating prompt contexts with raw binary payloads or giant text tables across sub-agent transfers, agents communicate via workspace files and structured session state.
    - Staged media files (`assets/staged_media.mp4`, CSVs, generated posters) are managed per-agent and referenced through local storage paths.
@@ -252,7 +252,7 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
 ### 🌟 Key Capabilities & Latest Features
 
 1. **Multimodal Video Generation**:
-   - **Gemini Omni Flash (`gemini-omni-1.1-flash`)**: Fast multimodal Image-to-Video generation via the Google AI Interactions API with unbroken single-shot camera dynamics, cinematic lighting, and realistic depth.
+   - **Gemini Omni Flash (`gemini-omni-1.2-flash`)**: Fast multimodal Image-to-Video generation via the Google AI Interactions API with unbroken single-shot camera dynamics, cinematic lighting, and realistic depth.
 
 2. **Speaker Portrait 9:16 Outpainting**:
    - Outpaints static photos into vertical 9:16 aspect ratio using Gemini/Imagen, preserving face identity while expanding background context for seamless vertical video framing.
@@ -275,7 +275,7 @@ The **Video Editor sub-agent** automates the creation of high-quality, cinematic
 | `GOOGLE_GENAI_USE_VERTEXAI` | `1` (default) \| `0` | Uses Vertex AI credentials for Gemini calls when `1`; uses an API key when `0`. |
 | `GOOGLE_API_KEY` | API key | Preferred API key when `GOOGLE_GENAI_USE_VERTEXAI=0`; also supported by the Omni video engine. |
 | `GEMINI_API_KEY` | API key | Backwards-compatible fallback when `GOOGLE_API_KEY` is not set. |
-| `VIDEO_ENGINE` | `omni` (default) | Selects the video generation model (`gemini-omni-1.1-flash`). |
+| `VIDEO_ENGINE` | `omni` (default) | Selects the video generation model (`gemini-omni-1.2-flash`). |
 | `ENABLE_VIDEO_GENERATION` | `true` \| `false` | Set to `false` for instant layout/text dry-runs using local placeholder assets without consuming video tokens. |
 | `RENDER_4K` | `true` (default) \| `false` | Toggles rendering of the 4K Ultra HD MP4 video file. |
 | `RENDER_ORDINARY` | `true` \| `false` (default) | Toggles rendering of the 1080p Full HD MP4 video file. |

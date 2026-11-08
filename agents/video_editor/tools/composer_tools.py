@@ -538,7 +538,7 @@ def _capture_card_snapshot(target_index_html: str, render_env: dict, ffmpeg_inst
                 f"📸 [Poster] Taking high-resolution PNG snapshot of the final card state at T={snapshot_time}s..."
             )
             snapshot_result = subprocess.run(
-                ["npx", "--yes", "hyperframes@0.9.8", "snapshot", f"--at={snapshot_time}"],
+                ["npx", "--yes", "hyperframes@0.9.23", "snapshot", f"--at={snapshot_time}"],
                 capture_output=True,
                 text=True,
                 cwd=BASE_DIR,

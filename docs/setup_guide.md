@@ -1,6 +1,6 @@
 # 🚀 Community AI Studio - Setup & Operations Guide
 
-Welcome to the comprehensive setup and operations guide for **Community AI Studio**. This project is a multi-agent orchestration workspace built using the [Google Agent Development Kit (ADK) 2.13](https://adk.dev/) in Python 3.12 (powered by Vertex AI and Gemini models) paired with a high-performance, responsive **Svelte 5 + Vite 8** custom frontend.
+Welcome to the comprehensive setup and operations guide for **Community AI Studio**. This project is a multi-agent orchestration workspace built using the [Google Agent Development Kit (ADK) 2.14](https://adk.dev/) in Python 3.12 (powered by Vertex AI and Gemini models) paired with a high-performance, responsive **Svelte 5 + Vite 8** custom frontend.
 
 ---
 

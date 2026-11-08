@@ -1,7 +1,7 @@
 # Solution Architecture Document
 ## Community AI Studio — GDG & Community Multi-Agent Workspace
 
-> **Document Version:** 1.2.0 (November 2026: ADK 2.13, GenAI 2.34, A2A SDK 1.3, FastAPI 0.162, Svelte 5.57 / Vite 8.3 / Firebase 13.2, HyperFrames 0.9.8, QR codes, Social Planner countdown plans, event profile in chat, result cards, Drive Picker)
+> **Document Version:** 1.2.0 (November 2026: ADK 2.14, GenAI 2.34, A2A SDK 1.3, FastAPI 0.162.2, Svelte 5.57 / Vite 8.3.6 / Firebase 13.2, HyperFrames 0.9.23, Gemini Omni 1.2 Flash, QR codes, Social Planner countdown plans, event profile in chat, result cards, Drive Picker)
 > **Architecture Baseline:** Approved
 > **Classification:** B2C Community Platform
 > **Source Requirements:** `SOLUTION_ARCHITECTURE_REQUIREMENTS.md` v1.0.0
@@ -135,15 +135,15 @@ All services run as `community-studio-runtime` Service Account (`studio_sa`) def
 
 | Layer | Package | Version | Purpose |
 |:---|:---|:---:|:---|
-| Agent Framework | `google-adk[eval]` | `2.13.0` | Multi-agent orchestration, Runner, SSE API server, evaluation harness |
-| Gemini SDK | `google-genai` | `2.34.0` | Gemini 3.8 Flash, Flash Lite Image, Gemini Omni 1.1 Flash client |
+| Agent Framework | `google-adk[eval]` | `2.14.0` | Multi-agent orchestration, Runner, SSE API server, evaluation harness |
+| Gemini SDK | `google-genai` | `2.34.0` | Gemini 3.8 Flash, Flash Lite Image, Gemini Omni 1.2 Flash client |
 | A2A Protocol | `a2a-sdk` | `1.3.0` | Agent-to-Agent protocol server & client (`video_editor`, `receipt_scanner`) |
 | MCP Server | `mcp` | `2.3.0` | Model Context Protocol server (`agents/mcp_server.py`) |
-| Web / API | `fastapi` / `uvicorn` / `sse-starlette` | `0.162.0` / `0.54.0` / `3.6.0` | Async HTTP & W3C Server-Sent Events streaming |
-| Persistence | `sqlalchemy[asyncio]` / `asyncpg` | `2.1.6` / `0.32.0` | SQLite local session storage and optional PostgreSQL in Cloud Run |
-| Media & Docs | `pillow` / `pypdfium2` / `python-docx` / `segno` | `13.0.0` / `5.14.0` / `1.2.0` / `1.6.6` | Image processing, PDF rendering, DOCX rosters, QR matrix generation |
-| Video Engine | `hyperframes` | `0.9.8` | Deterministic HTML/GSAP composition rendering and frame snapshots |
-| Frontend UI | `svelte` / `vite` / `@lucide/svelte` | `5.57.3` / `8.3.5` / `1.67.0` | Svelte 5 runes SPA, Vite 8 bundler, Lucide vector iconography |
+| Web / API | `fastapi` / `uvicorn` / `sse-starlette` | `0.162.2` / `0.54.0` / `3.7.0` | Async HTTP & W3C Server-Sent Events streaming |
+| Persistence | `sqlalchemy[asyncio]` / `asyncpg` | `2.1.8` / `0.32.0` | SQLite local session storage and optional PostgreSQL in Cloud Run |
+| Media & Docs | `pillow` / `pypdfium2` / `python-docx` / `segno` | `13.0.0` / `5.15.1` / `1.2.0` / `1.6.6` | Image processing, PDF rendering, DOCX rosters, QR matrix generation |
+| Video Engine | `hyperframes` | `0.9.23` | Deterministic HTML/GSAP composition rendering and frame snapshots |
+| Frontend UI | `svelte` / `vite` / `@lucide/svelte` | `5.57.3` / `8.3.6` / `1.70.0` | Svelte 5 runes SPA, Vite 8 bundler, Lucide vector iconography |
 | Auth & Markdown | `firebase` / `marked` | `13.2.0` / `18.1.3` | Google Sign-In, Firebase App Check, and chat Markdown rendering |
 
 ---

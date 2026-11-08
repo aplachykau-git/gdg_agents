@@ -18,6 +18,7 @@ from google.genai import types
 from agents.common.storage import upload_bytes_to_storage, upload_file_to_storage
 from agents.gemini_config import (
     DEFAULT_IMAGE_MODEL,
+    DEFAULT_VIDEO_MODEL,
     GeminiConfigurationError,
     get_gemini_api_key,
     get_gemini_client,
@@ -477,8 +478,9 @@ FINAL_INSTRUCTION = (
 
 
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
-    """Generates a 10s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-1.1-flash) via Interactions API."""
+    """Generates a 10s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-1.2-flash) via Interactions API."""
     api_key = get_gemini_api_key()
+    omni_model = model_for("video_omni", default=DEFAULT_VIDEO_MODEL)
 
     with open(photo_path, "rb") as f:
         frame_bytes = f.read()
@@ -520,7 +522,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
             raise RuntimeError("No valid GEMINI_API_KEY or ADC credentials available for Omni Flash.")
 
     payload = {
-        "model": "gemini-omni-1.1-flash",
+        "model": omni_model,
         "input": [
             {"type": "text", "text": omni_payload_prompt},
             {"type": "image", "data": b64_img, "mime_type": mime_type},
@@ -557,7 +559,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
                 f"{PHOTO_EXCLUSION_DIRECTIVE}\n\nSCENARIO DIRECTION:\n{safe_scenario}\n\n{FINAL_INSTRUCTION}"
             )
             retry_payload = {
-                "model": "gemini-omni-1.1-flash",
+                "model": omni_model,
                 "input": [
                     {"type": "text", "text": safe_payload_prompt},
                     {"type": "image", "data": b64_img, "mime_type": mime_type},
