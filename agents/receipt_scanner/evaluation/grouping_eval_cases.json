@@ -1,0 +1,202 @@
+{
+  "dataset_id": "receipt_grouping_and_proof_alignment_v1",
+  "cases": [
+    {
+      "case_id": "printing_and_trains_scattered",
+      "receipts": [
+        {
+          "category": "Venue",
+          "desc": "DevFest Printing Services",
+          "original_amount": 100.0,
+          "currency": "PLN",
+          "date": "2026-10-12"
+        },
+        {
+          "category": "Transport",
+          "desc": "Train Warsaw-Krakow",
+          "original_amount": 169.0,
+          "currency": "PLN",
+          "date": "2026-10-10"
+        },
+        {
+          "category": "Venue",
+          "desc": "Cardboard Shape Cutting",
+          "original_amount": 80.0,
+          "currency": "PLN",
+          "date": "2026-10-11"
+        },
+        {
+          "category": "Transport",
+          "desc": "Train Krakow-Warsaw",
+          "original_amount": 169.0,
+          "currency": "PLN",
+          "date": "2026-10-13"
+        },
+        {
+          "category": "Venue",
+          "desc": "DevFest Printing Services",
+          "original_amount": 250.0,
+          "currency": "PLN",
+          "date": "2026-10-14"
+        },
+        {
+          "category": "Venue",
+          "desc": "Adwall Production",
+          "original_amount": 1360.0,
+          "currency": "PLN",
+          "date": "2026-10-09"
+        }
+      ],
+      "proof_labels": [
+        "proof_1_print_100",
+        "proof_2_train_waw_krk",
+        "proof_3_cardboard",
+        "proof_4_train_krk_waw",
+        "proof_5_print_250",
+        "proof_6_adwall"
+      ],
+      "expected_descriptions": [
+        "Train Krakow-Warsaw",
+        "Train Warsaw-Krakow",
+        "Adwall Production",
+        "Cardboard Shape Cutting",
+        "DevFest Printing Services",
+        "DevFest Printing Services"
+      ],
+      "expected_proof_labels": [
+        "proof_4_train_krk_waw",
+        "proof_2_train_waw_krk",
+        "proof_6_adwall",
+        "proof_3_cardboard",
+        "proof_1_print_100",
+        "proof_5_print_250"
+      ]
+    },
+    {
+      "case_id": "devfest_multi_cluster_mix",
+      "receipts": [
+        {
+          "category": "Venue",
+          "desc": "AI Video Subscription",
+          "original_amount": 99.0,
+          "currency": "PLN"
+        },
+        {
+          "category": "Venue",
+          "desc": "HDMI USB-C Cables",
+          "original_amount": 55.0,
+          "currency": "PLN"
+        },
+        {
+          "category": "Food & drinks",
+          "desc": "Restaurant Dinner DevFest",
+          "original_amount": 420.0,
+          "currency": "PLN"
+        },
+        {
+          "category": "Venue",
+          "desc": "Google Cloud Hosting",
+          "original_amount": 35.0,
+          "currency": "PLN"
+        },
+        {
+          "category": "Venue",
+          "desc": "Audio Microphone Cables",
+          "original_amount": 90.0,
+          "currency": "PLN"
+        },
+        {
+          "category": "Food & drinks",
+          "desc": "DevFest Catering Service",
+          "original_amount": 1800.0,
+          "currency": "PLN"
+        },
+        {
+          "category": "Venue",
+          "desc": "Domain & Hosting Services",
+          "original_amount": 120.0,
+          "currency": "PLN"
+        }
+      ],
+      "proof_labels": [
+        "proof_ai_video",
+        "proof_hdmi_cables",
+        "proof_dinner",
+        "proof_gcloud",
+        "proof_mic_cables",
+        "proof_catering",
+        "proof_domain"
+      ],
+      "expected_descriptions": [
+        "DevFest Catering Service",
+        "Restaurant Dinner DevFest",
+        "AI Video Subscription",
+        "Domain & Hosting Services",
+        "Google Cloud Hosting",
+        "Audio Microphone Cables",
+        "HDMI USB-C Cables"
+      ],
+      "expected_proof_labels": [
+        "proof_catering",
+        "proof_dinner",
+        "proof_ai_video",
+        "proof_domain",
+        "proof_gcloud",
+        "proof_mic_cables",
+        "proof_hdmi_cables"
+      ]
+    },
+    {
+      "case_id": "explicit_attachment_index_out_of_order",
+      "receipts": [
+        {
+          "category": "Venue",
+          "desc": "MicroSD Memory Card",
+          "original_amount": 75.0,
+          "currency": "PLN",
+          "attachment_index": 3
+        },
+        {
+          "category": "Venue",
+          "desc": "LED Lighting Lamp",
+          "original_amount": 210.0,
+          "currency": "PLN",
+          "attachment_index": 1
+        },
+        {
+          "category": "Venue",
+          "desc": "Samsung External SSD",
+          "original_amount": 450.0,
+          "currency": "PLN",
+          "attachment_index": 4
+        },
+        {
+          "category": "Venue",
+          "desc": "RGB Tube Light",
+          "original_amount": 190.0,
+          "currency": "PLN",
+          "attachment_index": 2
+        }
+      ],
+      "proof_labels": [
+        "att_1_led_lamp",
+        "att_2_rgb_tube",
+        "att_3_microsd",
+        "att_4_samsung_ssd"
+      ],
+      "expected_descriptions": [
+        "MicroSD Memory Card",
+        "Samsung External SSD",
+        "LED Lighting Lamp",
+        "RGB Tube Light"
+      ],
+      "expected_proof_labels": [
+        "att_3_microsd",
+        "att_4_samsung_ssd",
+        "att_1_led_lamp",
+        "att_2_rgb_tube"
+      ]
+    }
+  ]
+}
+

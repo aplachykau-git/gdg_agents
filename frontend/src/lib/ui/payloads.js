@@ -223,11 +223,31 @@ function csvCell(value) {
 /** One row per line item (or per receipt without items), ready for Google Sheets / Excel. */
 export function receiptSummaryCsv(summary) {
   const target = summary?.target_currency || '';
-  const header = ['Receipt', 'Merchant', 'Date', 'Category', 'Item', 'Quantity', 'Unit price', 'Item total', 'Receipt total', 'Currency', `Receipt total (${target})`];
+  const comm = summary?.community_currency || '';
+  const includeComm = Boolean(comm && comm !== target);
+  const header = [
+    'Receipt',
+    'Merchant',
+    'Date',
+    'Category',
+    'Item',
+    'Quantity',
+    'Unit price',
+    'Item total',
+    'Receipt total',
+    'Currency',
+    `Receipt total (${target})`,
+    ...(includeComm ? [`Receipt total (${comm})`] : []),
+  ];
   const rows = [header];
   for (const r of summary?.receipts || []) {
     const base = [r.index, r.merchant, r.date, r.category];
-    const tail = [r.total ?? '', r.currency, r.total_target ?? ''];
+    const tail = [
+      r.total ?? '',
+      r.currency,
+      r.total_target ?? '',
+      ...(includeComm ? [r.total_community ?? ''] : []),
+    ];
     if (r.items?.length) {
       for (const item of r.items) rows.push([...base, item.name, item.quantity ?? '', item.unit_price ?? '', item.total ?? '', ...tail]);
     } else {

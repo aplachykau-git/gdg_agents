@@ -9,6 +9,7 @@
 
   let copied = $state(false);
   const target = $derived(summary.target_currency || '');
+  const communityCurrency = $derived(summary.community_currency || target);
   const receipts = $derived(summary.receipts || []);
   const budget = $derived(summary.budget || null);
   const maxCategory = $derived(Math.max(1, ...(summary.totals_by_category || []).map((c) => c.amount)));
@@ -59,8 +60,13 @@
     <div class="kpi">
       <span class="rc-label">Total</span>
       <span class="kpi-value">{summary.grand_total != null ? formatMoney(summary.grand_total, target) : '—'}</span>
-      {#if (summary.totals_by_currency || []).length > 1 || (summary.totals_by_currency?.[0] && summary.totals_by_currency[0].currency !== target)}
+      {#if communityCurrency && communityCurrency !== target && summary.community_total != null}
+        <span class="rc-muted">≈ {formatMoney(summary.community_total, communityCurrency)}</span>
+      {/if}
+      {#if (summary.totals_by_currency || []).length > 1 || (summary.totals_by_currency?.[0] && summary.totals_by_currency[0].currency !== target && summary.totals_by_currency[0].currency !== communityCurrency)}
         <span class="rc-muted">{(summary.totals_by_currency || []).map((c) => formatMoney(c.amount, c.currency)).join(' + ')}</span>
+      {:else if (summary.totals_by_currency || []).length === 1 && summary.totals_by_currency[0].currency !== target && communityCurrency === target}
+        <span class="rc-muted">{formatMoney(summary.totals_by_currency[0].amount, summary.totals_by_currency[0].currency)}</span>
       {/if}
     </div>
     {#if budget}
@@ -106,6 +112,9 @@
               <span>{formatMoney(row.total, row.currency)}</span>
               {#if row.total_target != null && row.currency !== target}
                 <span class="rc-muted">≈ {formatMoney(row.total_target, target)}</span>
+              {/if}
+              {#if communityCurrency && communityCurrency !== target && row.total_community != null && row.currency !== communityCurrency}
+                <span class="rc-muted">≈ {formatMoney(row.total_community, communityCurrency)}</span>
               {/if}
             </span>
           </summary>

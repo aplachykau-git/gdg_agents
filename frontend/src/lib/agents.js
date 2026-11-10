@@ -180,6 +180,7 @@ export function getAgentFromToolName(name) {
   if (
     lower.includes('receipt') ||
     lower.includes('usd_pln') ||
+    lower.includes('exchange_rate') ||
     lower.includes('convert_currency') ||
     lower.includes('google_doc') ||
     lower.includes('expense')
@@ -427,6 +428,7 @@ export function getFriendlyToolCall(name, args) {
     render_composer: () => "HyperFrames pipeline rendering 1080p MP4, GIF & Poster...",
 
     get_usd_pln_rate: () => "Fetching live banking exchange rates (USD/PLN)...",
+    get_exchange_rate: (a) => a?.currency ? `Fetching public exchange rate (${a.currency}/${a.target_currency || 'PLN'})...` : "Fetching public exchange rate...",
     read_receipt_file: () => "Analyzing receipt image via Gemini 3.8 Flash Vision OCR...",
     export_summary_to_google_doc: () => "Exporting approved expense report to Google Docs...",
     scan_receipt_with_vision: () => "Extracting items and taxes via Vision OCR...",
@@ -518,6 +520,7 @@ export function getFriendlyToolResponse(name, response, args) {
     render_composer: () => "Animated video card rendered.",
 
     get_usd_pln_rate: (r) => r?.rate ? `Rate fetched: 1 USD = ${r.rate} PLN` : "Exchange rate fetched.",
+    get_exchange_rate: (r) => r?.rate && r?.currency ? `Rate fetched: 1 ${r.currency} = ${r.rate} ${r.target_currency || 'PLN'}` : "Public exchange rate fetched.",
     read_receipt_file: () => "Receipt extracted.",
     export_summary_to_google_doc: (r) => r?.document_url ? `Expense report ready: ${r.document_url}` : "Document exported.",
     scan_receipt_with_vision: () => "Receipt parsed.",

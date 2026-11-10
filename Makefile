@@ -12,7 +12,7 @@ RECEIPT_EVAL_MODEL ?= gemini-3.8-flash
 
 .PHONY: help tools linkedin-evals linkedin-judge-evals linkedin-evals-all \
 	receipt-eval-discover receipt-eval-fixtures receipt-extraction-evals \
-	receipt-conversion-evals receipt-evals-all video-editor-evals video-editor-evals-all \
+	receipt-conversion-evals receipt-grouping-evals receipt-evals-all video-editor-evals video-editor-evals-all \
 	run-all deploy deploy-frontend diagrams
 
 help: ## Show available commands.
@@ -54,9 +54,14 @@ receipt-conversion-evals: ## Run deterministic receipt currency conversion evalu
 	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
 	"$(UV_BIN)" run --locked --no-sync python -m agents.receipt_scanner.evaluation.run_conversion_eval
 
-receipt-evals-all: ## Prepare fixtures, then run conversion and extraction evaluations.
+receipt-grouping-evals: ## Run deterministic receipt grouping and proof-alignment evaluations.
+	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
+	"$(UV_BIN)" run --locked --no-sync python -m agents.receipt_scanner.evaluation.run_grouping_eval
+
+receipt-evals-all: ## Prepare fixtures, then run conversion, grouping, and extraction evaluations.
 	@$(MAKE) receipt-eval-fixtures
 	@$(MAKE) receipt-conversion-evals
+	@$(MAKE) receipt-grouping-evals
 	@$(MAKE) receipt-extraction-evals
 
 video-editor-evals: ## Run live ADK video-editor chat evaluations.

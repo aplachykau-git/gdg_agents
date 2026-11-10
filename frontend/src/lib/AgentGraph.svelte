@@ -82,7 +82,7 @@
       port: 8080,
       protocol: 'A2A Protocol (JSON-RPC)',
       desc: 'Reads receipts and invoices, fetches live banking exchange rates, converts currencies, and creates Google Docs reports.',
-      tools: ['read_receipt_file', 'get_usd_pln_rate', 'show_receipt_summary', 'export_summary_to_google_doc'],
+      tools: ['read_receipt_file', 'get_usd_pln_rate', 'get_exchange_rate', 'show_receipt_summary', 'export_summary_to_google_doc'],
       x: 82,
       y: 20
     },

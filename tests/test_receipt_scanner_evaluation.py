@@ -11,6 +11,11 @@ from agents.receipt_scanner.evaluation import evaluator
 from agents.receipt_scanner.evaluation.prepare_fixtures import _verify_image
 from agents.receipt_scanner.evaluation.run_conversion_eval import evaluate_case
 from agents.receipt_scanner.evaluation.run_extraction_eval import run as run_extraction_eval
+from agents.receipt_scanner.evaluation.run_grouping_eval import (
+    _clusters_are_contiguous,
+    evaluate_grouping_case,
+    load_grouping_cases,
+)
 from agents.receipt_scanner.tools import calculate_receipt_totals, normalise_receipts
 
 
@@ -213,6 +218,116 @@ class ReceiptExtractionRunnerTests(unittest.TestCase):
             )
             latest_result.return_value = result
             self.assertEqual(run_extraction_eval("adk"), 0)
+
+
+class ReceiptGroupingAndWorkflowEvaluationTests(unittest.TestCase):
+    def test_all_locked_grouping_cases_pass(self):
+        cases = load_grouping_cases()["cases"]
+        self.assertGreaterEqual(len(cases), 3)
+        for case in cases:
+            result = evaluate_grouping_case(case)
+            self.assertTrue(result["passed"], f"Case {case['case_id']} failed: {result['failures']}")
+            self.assertTrue(result["cluster_contiguity"])
+
+    def test_detects_non_contiguous_clusters(self):
+        interleaved = [
+            {"category": "Venue", "desc": "DevFest Printing Services"},
+            {"category": "Venue", "desc": "HDMI USB-C Cables"},
+            {"category": "Venue", "desc": "Adwall Production"},
+        ]
+        self.assertFalse(_clusters_are_contiguous(interleaved))
+
+    def test_batch_workflow_contract_passes_when_rate_summary_export_aligned(self):
+        calls = [
+            types.FunctionCall(name="get_usd_pln_rate", args={}),
+            types.FunctionCall(
+                name="show_receipt_summary",
+                args={
+                    "receipts": [
+                        {
+                            "category": "Transport",
+                            "desc": "Train Warsaw-Krakow",
+                            "total": 169.0,
+                            "currency": "PLN",
+                            "attachment_index": 2,
+                        },
+                        {
+                            "category": "Venue",
+                            "desc": "DevFest Printing Services",
+                            "total": 100.0,
+                            "currency": "PLN",
+                            "attachment_index": 1,
+                        },
+                    ],
+                    "target_currency": "USD",
+                },
+            ),
+            types.FunctionCall(
+                name="export_summary_to_google_doc",
+                args={
+                    "receipts_data": [
+                        {
+                            "category": "Transport",
+                            "desc": "Train Warsaw-Krakow",
+                            "original_amount": 169.0,
+                            "currency": "PLN",
+                            "attachment_index": 2,
+                        },
+                        {
+                            "category": "Venue",
+                            "desc": "DevFest Printing Services",
+                            "original_amount": 100.0,
+                            "currency": "PLN",
+                            "attachment_index": 1,
+                        },
+                    ],
+                    "target_currency": "USD",
+                },
+            ),
+        ]
+        rules = evaluator.evaluate_batch_workflow_contract(calls, require_rate_first=True)
+        self.assertTrue(all(r.passed for r in rules), [r for r in rules if not r.passed])
+
+    def test_batch_workflow_contract_fails_when_rate_not_called_first(self):
+        calls = [
+            types.FunctionCall(
+                name="show_receipt_summary",
+                args={"receipts": [{"category": "Venue", "desc": "Adwall Production"}]},
+            ),
+            types.FunctionCall(
+                name="export_summary_to_google_doc",
+                args={"receipts_data": [{"category": "Venue", "desc": "Adwall Production"}]},
+            ),
+        ]
+        rules = evaluator.evaluate_batch_workflow_contract(calls, require_rate_first=True)
+        rate_rule = next(r for r in rules if r.rule_id == "rate_fetched_first")
+        self.assertFalse(rate_rule.passed)
+
+    def test_batch_workflow_contract_fails_when_summary_and_export_order_differ(self):
+        calls = [
+            types.FunctionCall(name="get_exchange_rate", args={"currency": "PLN", "target_currency": "USD"}),
+            types.FunctionCall(
+                name="show_receipt_summary",
+                args={
+                    "receipts": [
+                        {"category": "Venue", "desc": "Adwall Production", "attachment_index": 1},
+                        {"category": "Transport", "desc": "Train Warsaw-Krakow", "attachment_index": 2},
+                    ]
+                },
+            ),
+            types.FunctionCall(
+                name="export_summary_to_google_doc",
+                args={
+                    "receipts_data": [
+                        {"category": "Transport", "desc": "Train Warsaw-Krakow", "attachment_index": 2},
+                        {"category": "Venue", "desc": "Adwall Production", "attachment_index": 1},
+                    ]
+                },
+            ),
+        ]
+        rules = evaluator.evaluate_batch_workflow_contract(calls, require_rate_first=True)
+        seq_rule = next(r for r in rules if r.rule_id == "summary_export_sequence_match")
+        self.assertFalse(seq_rule.passed)
 
 
 if __name__ == "__main__":
