@@ -6,7 +6,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 from agents.video_editor.tools import media_tools
-from agents.video_editor.tools.composer_tools import render_composer, update_composer
+from agents.video_editor.tools.composer_tools import (
+    BRAND_COLORS,
+    generate_random_brand_colors,
+    render_composer,
+    update_composer,
+)
 from agents.video_editor.tools.media_tools import _safe_b64decode, animate_photo
 from agents.video_editor.tools.video_card_tool import format_render_success_message
 from agents.video_editor.video_card_service import (
@@ -369,6 +374,52 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             self.assertIn(
                 'id="krakow_pill" x="926.7" y="241" width="428" height="57" rx="28.5" fill="#FFFFFF"', content
             )
+
+    def test_generate_random_brand_colors_produces_varied_non_pastel_colors(self):
+        import colorsys
+
+        pale_pastels = {"#C3ECF6", "#CCF6C5", "#FFE7A5", "#F8D8D8"}
+        for hex_color in BRAND_COLORS:
+            self.assertNotIn(hex_color.upper(), pale_pastels)
+
+        samples = [generate_random_brand_colors(4) for _ in range(10)]
+        self.assertEqual(len({tuple(sample) for sample in samples}), len(samples))
+
+        for sample in samples:
+            self.assertEqual(len(sample), 4)
+            self.assertEqual(len(set(sample)), 4)
+            for hex_color in sample:
+                self.assertRegex(hex_color, r"^#[0-9A-F]{6}$")
+                r, g, b = (int(hex_color[i : i + 2], 16) / 255.0 for i in (1, 3, 5))
+                _, light, sat = colorsys.rgb_to_hls(r, g, b)
+                self.assertGreaterEqual(sat, 0.65)
+                self.assertLessEqual(light, 0.72)
+
+    def test_update_composer_devfest_varies_colors_without_ai_or_pastels(self):
+        import re
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            devfest_template_path = (
+                Path(__file__).resolve().parent.parent / "agents" / "video_editor" / "templates" / "devfest.html"
+            )
+            seen_pairs = set()
+            for idx in range(4):
+                target_index = Path(tmp_dir) / f"index_{idx}.html"
+                target_index.write_text(devfest_template_path.read_text(encoding="utf-8"), encoding="utf-8")
+                with patch("agents.video_editor.tools.composer_tools.resolve_path", return_value=str(target_index)):
+                    update_composer(
+                        video_path="assets/Video_example.mp4",
+                        title="Testing Color Variance",
+                        name="Jane Doe",
+                        position_company="Tech Lead, ACME",
+                        duration_seconds=8,
+                    )
+                content = target_index.read_text(encoding="utf-8")
+                b1 = re.search(r'<path\s+id="break_1"[^>]*?fill="(#[0-9a-fA-F]{6})"', content).group(1)
+                d1 = re.search(r'<circle\s+id="dot_1"[^>]*?fill="(#[0-9a-fA-F]{6})"', content).group(1)
+                self.assertNotEqual(b1, d1)
+                seen_pairs.add((b1, d1))
+            self.assertEqual(len(seen_pairs), 4)
 
     def test_update_composer_handles_unicode_escapes_and_special_chars(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

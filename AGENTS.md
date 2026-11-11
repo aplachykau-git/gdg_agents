@@ -14,7 +14,7 @@
 ## Build, Test, and Development Commands
 
 - `make help` — list supported workspace commands.
-- `make run-all` — start A2A services, ADK web on port 8080, and the frontend.
+- `make run-all` — start A2A services, ADK web on port 8180, and the frontend.
 - `npm run build --prefix frontend` — build the Svelte frontend.
 - `uv run --locked python -m unittest discover tests -v` — run the Python suite.
 - `make linkedin-judge-evals` / `make linkedin-evals` — current LinkedIn examples; add analogous targets as other agents gain evaluation suites.

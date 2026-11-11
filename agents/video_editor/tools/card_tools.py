@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
 
 from google.adk.tools import ToolContext
@@ -20,6 +21,7 @@ from ..card_session import (
     RenderRecord,
     attach_latest_upload,
     load_session,
+    media_key_for,
     pop_ui_selection,
     save_session,
     update_speaker_fields,
@@ -29,6 +31,8 @@ from ..video_card_service import (
     generate_scenarios,
     offline_mode,
     offline_render,
+    prepare_portrait_card,
+    render_cover_card,
     render_video_card,
 )
 from ..workflow_models import (
@@ -103,11 +107,24 @@ def _next_step_for(session: CardSession) -> str:
     missing = session.speaker.missing_fields()
     if missing:
         return f"Ask the user for: {', '.join(missing)}."
+    if not session.scenarios and not session.renders:
+        video_action = (
+            "confirm and call render_video" if session.speaker.media_kind == "video" else "call propose_scenarios"
+        )
+        return (
+            "All speaker details and media are saved. "
+            "If the user ALREADY explicitly asked for ONLY a static cover / 4K poster (without video) or cover-first, "
+            "call render_cover right away. "
+            f"If the user ALREADY explicitly asked for an animated video, video scenarios, or gave a video style, {video_action}. "
+            "Otherwise, DO NOT call propose_scenarios or render_video yet — stop and ask whether the user wants "
+            "to create ONLY a static 4K cover photo (no video step) or proceed to creating an animated video."
+        )
     if session.speaker.media_kind == "video":
-        return "Everything is ready. Call render_video."
-    if not session.scenarios:
-        return "Everything is ready. Call propose_scenarios."
-    return "Scenarios already exist. The user can pick one (render_video) or ask for new ones (propose_scenarios)."
+        return (
+            "Everything is ready. Call render_cover if the user asked for the 4K cover photo, "
+            "or get explicit approval before calling render_video."
+        )
+    return "Scenarios already exist. The user can request render_cover, approve a scenario for render_video, or ask for new ones (propose_scenarios)."
 
 
 def _failure_to_result(session: CardSession, failure: ValidationFailure) -> dict:
@@ -118,7 +135,7 @@ def _failure_to_result(session: CardSession, failure: ValidationFailure) -> dict
     elif failure.retryable or failure.code in RETRY_CODES:
         action, hint = (
             "retry",
-            "Nothing is lost. Offer to try the same render again (call render_video with the same option).",
+            "Nothing is lost. Offer to try the same render again.",
         )
     else:
         action, hint = failure.requested_action if failure.requested_action != "retry_render" else "retry", ""
@@ -190,12 +207,50 @@ async def update_speaker(
     note = ""
     if session.scenarios and {"title", "speaker_bio"} & set(changed):
         note = " Existing scenarios were written for the previous details; offer to regenerate them."
+
+    prepared_now = False
+    if not missing and session.speaker.media_kind == "image":
+        current_key = media_key_for(session.speaker.media)
+        has_local = bool(session.prepared_avatar_path and os.path.isfile(session.prepared_avatar_path))
+        needs_prepare = (
+            session.prepared_avatar_media_key != current_key
+            or not session.prepared_avatar_url
+            or (not offline_mode() and not has_local and session.prepared_avatar_path is not None)
+        )
+        if needs_prepare:
+            prepared = await prepare_portrait_card(VideoEditorDraft(media=session.speaker.media), ctx)
+            if isinstance(prepared, ValidationFailure):
+                save_session(ctx.state, session)
+                return _failure_to_result(session, prepared)
+            if prepared is not None:
+                session.prepared_avatar_path = prepared.local_path
+                session.prepared_avatar_url = prepared.preview_url
+                session.prepared_avatar_media_key = prepared.media_key
+                prepared_now = True
+                save_session(ctx.state, session)
+
+    choice_ui = (
+        ui_payloads.video_output_choice(
+            speaker=session.speaker.summary(),
+            media_kind=session.speaker.media_kind or "image",
+            avatar_url=session.prepared_avatar_url,
+        )
+        if not missing and not session.scenarios and not session.renders
+        else None
+    )
+    status_parts = []
+    if changed:
+        status_parts.append(f"Saved: {', '.join(changed)}.")
+    if prepared_now:
+        status_parts.append("Prepared 9:16 portrait outpainting.")
+    base_msg = " ".join(status_parts) if status_parts else "No changes."
     return _result(
         session,
         status="ok",
-        message=(f"Saved: {', '.join(changed)}." if changed else "No changes.") + note,
+        message=base_msg + note,
         missing_fields=missing,
         requested_action="provide_details" if missing else None,
+        ui=choice_ui,
         next_step=_next_step_for(session),
     )
 
@@ -264,6 +319,83 @@ async def show_scenarios(tool_context: ToolContext | None = None) -> dict:
         message="Showing the saved scenarios again:\n" + _scenario_index(session),
         requested_action="select_scenario",
         scenarios=session.scenarios,
+    )
+
+
+def _record_render_success(
+    ctx: ToolContext,
+    session: CardSession,
+    *,
+    label: str,
+    scenario_id: str | None,
+    creative_direction: str | None,
+    rendered: Any,
+    next_step: str,
+) -> dict:
+    notice = rendered.notice if isinstance(rendered.notice, str) else ""
+    session.renders.append(
+        RenderRecord(
+            label=label,
+            scenario_id=scenario_id,
+            creative_direction=creative_direction,
+            assets=rendered.assets,
+            notice=notice or None,
+        )
+    )
+    save_session(ctx.state, session)
+    return _result(
+        session,
+        status="success",
+        message=format_render_success_message(rendered.assets, notice=notice),
+        assets=rendered.assets,
+        ui=ui_payloads.media(
+            [asset.model_dump(mode="json") for asset in rendered.assets],
+            speaker=session.speaker.summary(),
+            notice=notice,
+        ),
+        next_step=next_step,
+    )
+
+
+async def render_cover(tool_context: ToolContext | None = None) -> dict:
+    """Render ONLY a standalone 4K (3840x2160 PNG) speaker-card cover photo without rendering a video.
+
+    Includes the talk title, speaker name, position/company, template layout, and speaker portrait
+    (outpainted to 9:16 for photos), and waits for explicit user approval before any video render.
+    """
+    ctx = _require_context(tool_context)
+    session = _open(ctx)
+    missing = session.speaker.missing_fields()
+    if missing:
+        save_session(ctx.state, session)
+        return _missing_result(session, missing)
+
+    speaker = session.speaker
+    draft = VideoEditorDraft(
+        title=speaker.title,
+        name=speaker.name,
+        position_company=speaker.position_company,
+        speaker_bio=speaker.speaker_bio,
+        media=speaker.media,
+        prepared_avatar_path=session.prepared_avatar_path,
+        suggested_scenarios=session.scenarios,
+    )
+    rendered = await (offline_render(draft, cover_only=True) if offline_mode() else render_cover_card(draft, ctx))
+    if isinstance(rendered, ValidationFailure):
+        save_session(ctx.state, session)
+        return _failure_to_result(session, rendered)
+
+    return _record_render_success(
+        ctx,
+        session,
+        label="4K Cover Photo",
+        scenario_id=None,
+        creative_direction=None,
+        rendered=rendered,
+        next_step=(
+            "Share the 4K cover photo link and ask if it looks good. Do NOT call render_video until "
+            "the user explicitly approves starting the video render (and for a photo, after proposing or choosing a scenario)."
+        ),
     )
 
 
@@ -354,6 +486,7 @@ async def render_video(
         speaker_bio=speaker.speaker_bio,
         creative_direction=direction,
         media=speaker.media,
+        prepared_avatar_path=session.prepared_avatar_path,
         suggested_scenarios=session.scenarios,
         selected_scenario_id=selected_id,
     )
@@ -362,30 +495,16 @@ async def render_video(
         save_session(ctx.state, session)
         return _failure_to_result(session, rendered)
 
-    notice = rendered.notice if isinstance(rendered.notice, str) else ""
-    session.renders.append(
-        RenderRecord(
-            label=label,
-            scenario_id=selected_id,
-            creative_direction=direction,
-            assets=rendered.assets,
-            notice=notice or None,
-        )
-    )
-    save_session(ctx.state, session)
-    return _result(
+    return _record_render_success(
+        ctx,
         session,
-        status="success",
-        message=format_render_success_message(rendered.assets, notice=notice),
-        assets=rendered.assets,
-        ui=ui_payloads.media(
-            [asset.model_dump(mode="json") for asset in rendered.assets],
-            speaker=session.speaker.summary(),
-            notice=notice,
-        ),
+        label=label,
+        scenario_id=selected_id,
+        creative_direction=direction,
+        rendered=rendered,
         next_step=(
             "Share the links. The speaker, photo and scenarios are still saved: the user can render another "
-            "option or style, ask for new scenarios, or change any text."
+            "option or style, render a 4K cover photo, ask for new scenarios, or change any text."
         ),
     )
 
@@ -407,4 +526,4 @@ async def get_card_status(tool_context: ToolContext | None = None) -> dict:
     ) | {"renders": renders}
 
 
-ALL_TOOLS = [update_speaker, propose_scenarios, show_scenarios, render_video, get_card_status]
+ALL_TOOLS = [update_speaker, propose_scenarios, show_scenarios, render_cover, render_video, get_card_status]

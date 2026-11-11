@@ -312,10 +312,22 @@ def extract_video_frame(video_path: str, output_image_path: str | None = None, t
     return ""
 
 
+def _is_already_9_16(image_path: str) -> bool:
+    """Return True when ``image_path`` already has a ~9:16 vertical aspect ratio."""
+    try:
+        from PIL import Image
+
+        with Image.open(image_path) as img:
+            w, h = img.size
+        return h > w > 0 and abs((w / h) - (9 / 16)) <= 0.03
+    except Exception:
+        return False
+
+
 def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
     """Uses Gemini image generation to intelligently extend/outpaint a photo to 9:16 aspect ratio.
-    Instead of adding black bars, it generates realistic content (background, environment)
-    to fill the missing areas while preserving the original subject perfectly.
+    Preserves the subject's original scale and tight portrait framing instead of zooming out,
+    extending only the missing top/bottom clothing and background cleanly to reach 9:16.
 
     Returns the file path to the outpainted image."""
     logger.info("🎨 [Outpaint] Extending image to 9:16 via intelligent outpainting...")
@@ -323,6 +335,13 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
     photo_path = resolve_path(photo_path)
     if not os.path.exists(photo_path):
         return photo_path
+
+    outpainted_path = os.path.join(os.path.dirname(photo_path), "portrait_outpainted.png")
+    if _is_already_9_16(photo_path):
+        logger.info("✅ [Outpaint] Source image is already 9:16 vertical; preserving original framing without zooming.")
+        if os.path.abspath(photo_path) != os.path.abspath(outpainted_path):
+            shutil.copy2(photo_path, outpainted_path)
+        return os.path.relpath(outpainted_path, BASE_DIR)
 
     try:
         with open(photo_path, "rb") as f:
@@ -338,11 +357,12 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
                 types.Part.from_text(
                     text=(
                         "High-resolution professional portrait photography. "
-                        "Extend this portrait photo seamlessly to a vertical 9:16 aspect ratio. "
-                        "Crucially, extend the person's torso, shoulders, and clothing (matching the exact pattern, color, and fabric of their shirt/outfit) "
-                        "all the way down to the bottom edge of the frame so that their body naturally and realistically fills the lower portion of the photo. "
-                        "There must be NO blank bars, empty table tops, horizontal lines, or cutoffs beneath the person. "
-                        "Seamlessly expand the background environment upwards and outwards to fill the frame, while keeping the person's face, hair, and likeness identical."
+                        "Adapt this portrait photo to a vertical 9:16 aspect ratio while strictly preserving the subject's original scale and close framing. "
+                        "CRITICAL SCALE & FRAMING RULES:\n"
+                        "1. DO NOT zoom out or shrink the person in the frame. Keep the person's head, shoulders, and upper body large and filling roughly the same horizontal proportion of the frame as in the input photo.\n"
+                        "2. Keep tight, natural headroom near the top edge (do NOT add large empty wall, ceiling, or sky above the person's head).\n"
+                        "3. DO NOT invent legs, knees, feet, shoes, or distant floor if they are not already visible in the input photo. Only extend the existing chest, arms, and clothing naturally to the bottom edge (and minimally continue the immediate background above/around if needed) so there are NO blank bars or horizontal cutoff lines.\n"
+                        "4. Keep the person's face, expression, hair, clothing, lighting, and likeness identical."
                     )
                 ),
             ],
@@ -355,7 +375,6 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
         if response and response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
             for p in response.candidates[0].content.parts:
                 if p.inline_data and p.inline_data.data:
-                    outpainted_path = os.path.join(os.path.dirname(photo_path), "portrait_outpainted.png")
                     img_data = (
                         _safe_b64decode(p.inline_data.data)
                         if isinstance(p.inline_data.data, str)
@@ -601,7 +620,13 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     return "assets/Video_example.mp4"
 
 
-def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context: Optional[Any] = None) -> str:
+def animate_photo(
+    photo_path: str = "",
+    creative_prompt: str = "",
+    tool_context: Optional[Any] = None,
+    *,
+    skip_outpaint: bool = False,
+) -> str:
     """Animates a static portrait photo into a 9:16 cinematic video using Google Gemini Omni Flash.
 
     Args:
@@ -635,11 +660,12 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
         logger.warning(f"🚫 [Cost Protection] {msg}")
         return f"Error: {msg}"
 
-    # Gemini client for outpainting
-    gemini_client = get_gemini_client()
-    # Outpaint to 9:16 vertical canvas
-    photo_path = outpaint_to_9_16(photo_path, gemini_client)
-    photo_path = resolve_path(photo_path)
+    if not skip_outpaint:
+        # Gemini client for outpainting
+        gemini_client = get_gemini_client()
+        # Outpaint to 9:16 vertical canvas
+        photo_path = outpaint_to_9_16(photo_path, gemini_client)
+        photo_path = resolve_path(photo_path)
 
     get_video_engine()  # validates VIDEO_ENGINE early
     try:

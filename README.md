@@ -30,7 +30,7 @@ The diagram source is [`docs/architecture.mmd`](docs/architecture.mmd); `make di
 }}%%
 
 flowchart TB
-    subgraph CLIENT_LAYER["1. CLIENT: Svelte 5 studio (local Vite :5173 or Firebase Hosting)"]
+    subgraph CLIENT_LAYER["1. CLIENT: Svelte 5 studio (local Vite :5180 or Firebase Hosting)"]
         direction LR
         UI["<b>Chat workspace</b><br/>• Agent catalog, chat, live tool status<br/>• Settings: chapter name, video render, Google Drive<br/>• Browser storage: settings + saved event profile"]
         CARDS["<b>Result cards (A2UI)</b><br/>rendered from the backend <code>ui</code> payload<br/>on the shared ResultCard shell<br/>• Video + scenario deck • Countdown post plan<br/>• Event details • Recognised receipts • QR code<br/>• Agenda • E-mail draft • Dates • Documents"]
@@ -39,7 +39,7 @@ flowchart TB
 
     subgraph GATEWAY_LAYER["2. ENTRY POINTS"]
         direction LR
-        GW["<b>ADK API server</b><br/><i>local :8080 or Cloud Run community-root-agent</i><br/>• SSE streaming <code>/run_sse</code>, <code>/list-apps</code><br/>• Session state: settings + event_* keys on every message"]
+        GW["<b>ADK API server</b><br/><i>local :8180 or Cloud Run community-root-agent</i><br/>• SSE streaming <code>/run_sse</code>, <code>/list-apps</code><br/>• Session state: settings + event_* keys on every message"]
         ROOT["<b>Main (root_agent)</b><br/><i>gemini-3.8-flash</i><br/>• Intent routing to 8 specialists<br/>• OIDC client for private A2A"]
         MCP["<b>MCP server (experiment)</b><br/><i>agents/mcp_server.py</i><br/>video scenarios + render, registrations,<br/>receipts, QR codes for Claude / Gemini CLI / IDEs"]
         GW <-->|SSE / REST| ROOT
@@ -56,7 +56,7 @@ flowchart TB
             A_AGENDA["<b>Agenda Formatter</b><br/><i>agenda_generator</i><br/>• Minute-level timeline"]
             A_OFFICE["<b>Office Secretary</b><br/><i>office_secretary</i><br/>• Key access and room e-mails"]
         end
-        subgraph REMOTE_A2A["Private A2A services (local :8081 / :8082, Cloud Run with IAM OIDC)"]
+        subgraph REMOTE_A2A["Private A2A services (local :8181 / :8182, Cloud Run with IAM OIDC)"]
             direction LR
             A_VIDEO["<b>Live Video Editor</b><br/><i>video_editor</i><br/>• Face check, 9:16 outpainting<br/>• Scenario deck, Gemini Omni Flash video<br/>• HyperFrames render with cover frame<br/>• MP4 1080p / 4K, GIF, poster"]
             A_RECEIPT["<b>Receipt Scanner</b><br/><i>receipt_scanner</i><br/>• Multimodal OCR, multi-page PDF stitching<br/>• Community FX, manual rate fallback<br/>• Grouped rows & synced 2-per-row proofs<br/>• Recognised-receipts card + CSV, Google Docs"]
@@ -179,7 +179,7 @@ npm install
 
 ### 2. Launch All Services (Local Development)
 
-To spin up the complete distributed multi-agent system (Video Editor A2A on port 8081, Receipt Scanner A2A on port 8082, Root Orchestrator on port 8080, and the Svelte 5 frontend on port 5173), run **a single command**:
+To spin up the complete distributed multi-agent system (Video Editor A2A on port 8181, Receipt Scanner A2A on port 8182, Root Orchestrator on port 8180, and the Svelte 5 frontend on port 5180), run **a single command**:
 
 ```bash
 # Recommended: start all A2A services, ADK web and frontend concurrently
@@ -193,10 +193,10 @@ npm start
 
 ### 🌐 Running Services
 
-* **Frontend UI Dashboard**: [http://localhost:5173](http://localhost:5173)
-* **Root Orchestrator Agent**: [http://localhost:8080](http://localhost:8080)
-* **Video Editor A2A Service**: [http://localhost:8081/.well-known/agent-card.json](http://localhost:8081/.well-known/agent-card.json)
-* **Receipt Scanner A2A Service**: [http://localhost:8082/.well-known/agent-card.json](http://localhost:8082/.well-known/agent-card.json)
+* **Frontend UI Dashboard**: [http://localhost:5180](http://localhost:5180)
+* **Root Orchestrator Agent**: [http://localhost:8180](http://localhost:8180)
+* **Video Editor A2A Service**: [http://localhost:8181/.well-known/agent-card.json](http://localhost:8181/.well-known/agent-card.json)
+* **Receipt Scanner A2A Service**: [http://localhost:8182/.well-known/agent-card.json](http://localhost:8182/.well-known/agent-card.json)
 
 ---
 
@@ -220,16 +220,16 @@ make deploy-frontend
 ### Individual Service Commands (Optional)
 
 ```bash
-# 1. Video Editor A2A Server (Port 8081)
+# 1. Video Editor A2A Server (Port 8181)
 npm run a2a:video
 
-# 2. Receipt Scanner A2A Server (Port 8082)
+# 2. Receipt Scanner A2A Server (Port 8182)
 npm run a2a:receipt
 
-# 3. ADK workspace server with direct access to all agents (Port 8080)
+# 3. ADK workspace server with direct access to all agents (Port 8180)
 npm run a2a:root
 
-# 4. Svelte Frontend (Port 5173)
+# 4. Svelte Frontend (Port 5180)
 npm run dev
 ```
 

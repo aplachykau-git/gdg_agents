@@ -10,11 +10,11 @@ The project consists of three main layers:
 
 ```mermaid
 graph TD
-    A[Custom Svelte Frontend <br> port 5173] -->|API Proxy| B[Root Orchestrator Agent <br> port 8080]
+    A[Custom Svelte Frontend <br> port 5180] -->|API Proxy| B[Root Orchestrator Agent <br> port 8180]
     
     subgraph "A2A Distributed Network"
-        B -->|A2A RemoteA2aAgent <br> port 8081| E[Live Video Editor <br> agents/video_editor]
-        B -->|A2A RemoteA2aAgent <br> port 8082| D[Receipt Scanner <br> agents/receipt_scanner]
+        B -->|A2A RemoteA2aAgent <br> port 8181| E[Live Video Editor <br> agents/video_editor]
+        B -->|A2A RemoteA2aAgent <br> port 8182| D[Receipt Scanner <br> agents/receipt_scanner]
     end
     
     subgraph "Local In-Process Sub-Agents"
@@ -158,7 +158,7 @@ gcloud iam service-accounts keys create configs/service_account.json \
 
 ### Recommended: Single Command (`make run-all`)
 
-The easiest way to start all background A2A services (Video Editor on 8081, Receipt Scanner on 8082), the ADK Web Orchestrator on 8080, and the Svelte frontend dev server on 5173 is:
+The easiest way to start all background A2A services (Video Editor on 8181, Receipt Scanner on 8182), the ADK Web Orchestrator on 8180, and the Svelte frontend dev server on 5180 is:
 
 ```bash
 make run-all
@@ -172,23 +172,23 @@ make run-all
 
 If you prefer to start components individually in separate terminal sessions:
 
-#### Terminal 1: Video Editor A2A Service (Port 8081)
+#### Terminal 1: Video Editor A2A Service (Port 8181)
 
 ```bash
-uv run --locked uvicorn agents.video_editor.a2a_server:a2a_app --host 0.0.0.0 --port 8081
+uv run --locked uvicorn agents.video_editor.a2a_server:a2a_app --host 0.0.0.0 --port 8181
 ```
 
-#### Terminal 2: Receipt Scanner A2A Service (Port 8082)
+#### Terminal 2: Receipt Scanner A2A Service (Port 8182)
 
 ```bash
-uv run --locked uvicorn agents.receipt_scanner.a2a_server:a2a_app --host 0.0.0.0 --port 8082
+uv run --locked uvicorn agents.receipt_scanner.a2a_server:a2a_app --host 0.0.0.0 --port 8182
 ```
 
-#### Terminal 3: Root Orchestrator (Port 8080)
+#### Terminal 3: Root Orchestrator (Port 8180)
 
 ```bash
-VIDEO_AGENT_A2A_URL=http://localhost:8081 RECEIPT_AGENT_A2A_URL=http://localhost:8082 \
-  uv run --locked adk web --port 8080 agents
+VIDEO_AGENT_A2A_URL=http://localhost:8181 RECEIPT_AGENT_A2A_URL=http://localhost:8182 \
+  uv run --locked adk web --port 8180 agents
 ```
 
 #### Terminal 4: Launch Frontend (Svelte Dev Server)
@@ -201,7 +201,7 @@ npm run dev
 ### Open the Application
 
 Now, open your browser and navigate to:
-👉 **[http://localhost:5173](http://localhost:5173)**
+👉 **[http://localhost:5180](http://localhost:5180)**
 
 Here you will find the **Community AI Studio** workspace where you can select the active agent, start new chat sessions, type requests, and drag-and-drop receipts or participant rosters directly.
 

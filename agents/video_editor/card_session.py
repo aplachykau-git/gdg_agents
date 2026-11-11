@@ -83,14 +83,29 @@ class CardSession(BaseModel):
     creative_guidance: str | None = None
     scenarios: list[CreativeScenario] = Field(default_factory=list)
     renders: list[RenderRecord] = Field(default_factory=list)
+    prepared_avatar_path: str | None = None
+    prepared_avatar_url: str | None = None
+    prepared_avatar_media_key: str | None = None
     # Upload that must not be re-attached automatically (set when the user starts a new speaker).
     ignored_upload: UploadedMedia | None = None
+
+
+def media_key_for(media: UploadedMedia | None) -> str | None:
+    if not media:
+        return None
+    return f"{media.event_id}:{media.part_index}:{media.mime_type}"
+
+
+def clear_prepared_avatar(session: CardSession) -> None:
+    session.prepared_avatar_path = None
+    session.prepared_avatar_url = None
+    session.prepared_avatar_media_key = None
 
 
 def _clean(value: str | None) -> str | None:
     if value is None:
         return None
-    value = value.replace("\u2028", "\n").replace("\u2029", "\n\n").strip()
+    value = value.replace("\u2028", "\n").replace("\u2029", "\n\n").strip(" \t\r\n")
     return value or None
 
 
@@ -152,6 +167,7 @@ def attach_latest_upload(session: CardSession, latest: UploadedMedia | None) -> 
         return False
     session.speaker.media = latest
     session.ignored_upload = None
+    clear_prepared_avatar(session)
     return True
 
 
@@ -177,6 +193,8 @@ def update_speaker_fields(
         session.speaker = SpeakerProfile(media=previous_media if keep_media else None)
         session.scenarios = []
         session.creative_guidance = None
+        if not keep_media:
+            clear_prepared_avatar(session)
         session.ignored_upload = None if keep_media else previous_media
         changed.append("new_speaker")
     for field, value in (

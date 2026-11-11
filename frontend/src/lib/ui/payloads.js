@@ -30,6 +30,10 @@ export function getEventUiPayload(event) {
   return getEventUiPayloads(event)[0] || null;
 }
 
+function turnHasScenarios(event) {
+  return functionResponses(event).some((response) => Array.isArray(response?.scenarios) && response.scenarios.length > 0);
+}
+
 /**
  * Map<eventIndex, payload> (first payload), Map<eventIndex, payload[]> (all payloads, e.g. a
  * receipt summary and its Google Doc returned by parallel tool calls in one event) plus the set
@@ -41,39 +45,80 @@ export function computeUiCards(events) {
   const lists = new Map();
   const structuredTurnEvents = new Set();
   let turn = [];
-  let turnHasPayload = false;
-  const closeTurn = () => {
-    if (turnHasPayload) turn.forEach((idx) => structuredTurnEvents.add(idx));
+  let turnPayloads = [];
+  let turnHasVideoOutcome = false;
+
+  const isChoice = (p) => p?.type === 'video_output_choice';
+  const resolvesChoice = (p) => p?.type === 'media' || isChoice(p);
+
+  const flushTurn = () => {
+    const visibleEntries = [];
+    for (const [idx, payloads] of turnPayloads) {
+      const kept = turnHasVideoOutcome ? payloads.filter((p) => !isChoice(p)) : payloads;
+      if (kept.length) visibleEntries.push([idx, kept]);
+    }
+    if (visibleEntries.length) {
+      for (const [idx, kept] of visibleEntries) {
+        cards.set(idx, kept[0]);
+        lists.set(idx, kept);
+      }
+      turn.forEach((idx) => structuredTurnEvents.add(idx));
+    }
     turn = [];
-    turnHasPayload = false;
+    turnPayloads = [];
+    turnHasVideoOutcome = false;
   };
+
+  let lastOutcomeIdx = -1;
   (events || []).forEach((event, idx) => {
     if (!event) return;
     if (event.author === 'user') {
-      closeTurn();
+      flushTurn();
       return;
     }
     turn.push(idx);
     const payloads = getEventUiPayloads(event);
+    const hasScenarios = turnHasScenarios(event);
+    if (hasScenarios || payloads.some((p) => p?.type === 'media')) {
+      turnHasVideoOutcome = true;
+      lastOutcomeIdx = idx;
+    } else if (payloads.some(resolvesChoice)) {
+      lastOutcomeIdx = idx;
+    }
     if (payloads.length) {
-      cards.set(idx, payloads[0]);
-      lists.set(idx, payloads);
-      turnHasPayload = true;
+      turnPayloads.push([idx, payloads]);
     }
   });
-  closeTurn();
+  flushTurn();
+
+  if (lastOutcomeIdx >= 0) {
+    for (const [idx, payloads] of lists.entries()) {
+      if (idx >= lastOutcomeIdx) continue;
+      if (!payloads.some(isChoice)) continue;
+      const updated = payloads.map((p) => (isChoice(p) ? { ...p, resolved: true } : p));
+      lists.set(idx, updated);
+      cards.set(idx, updated[0]);
+    }
+  }
   return { cards, lists, structuredTurnEvents };
 }
 
 // --------------------------------------------------------------------------- adapters
 
-function playableUrl(rawUrl) {
+export function playableUrl(rawUrl) {
   if (!rawUrl) return '';
   if (rawUrl.startsWith('file://')) {
     const filename = rawUrl.split('/').pop()?.split('?')[0];
     return filename ? `/renders/${filename}` : rawUrl;
   }
   return rawUrl;
+}
+
+export function toVideoOutputChoice(ui) {
+  return {
+    ...(ui || {}),
+    avatarUrl: playableUrl(ui?.avatar_url),
+  };
 }
 
 export function toMediaCard(ui) {

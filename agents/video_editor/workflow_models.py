@@ -99,9 +99,16 @@ class CreativeScenario(BaseModel):
 
 class VideoEditorDraft(VideoEditorRequest):
     media: UploadedMedia | None = None
+    prepared_avatar_path: str | None = None
     confirmed_fingerprint: str | None = None
     suggested_scenarios: list[CreativeScenario] = Field(default_factory=list)
     selected_scenario_id: str | None = None
+
+
+class PreparedPortrait(BaseModel):
+    local_path: str
+    preview_url: str
+    media_key: str
 
 
 class PreparedMedia(BaseModel):
