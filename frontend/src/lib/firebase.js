@@ -6,29 +6,33 @@ import {
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { rememberToken } from './google/drive.js';
 
-const firebaseConfig = {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "gdg-agents-6b59a",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:876483189679:web:52342a7d29ca11da416d5a",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "gdg-agents-6b59a.firebasestorage.app",
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCvRFAKcjlJu_LI7K0aRHmI3OYAmWWrngI",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "gdg-agents-6b59a.firebaseapp.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "876483189679",
-  projectNumber: import.meta.env.VITE_FIREBASE_PROJECT_NUMBER || "876483189679"
+const env = (typeof import.meta !== 'undefined' && import.meta.env) || {};
+
+export const firebaseConfig = {
+  projectId: env.VITE_FIREBASE_PROJECT_ID || '',
+  appId: env.VITE_FIREBASE_APP_ID || '',
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || '',
+  apiKey: env.VITE_FIREBASE_API_KEY || '',
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || '',
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
+  projectNumber: env.VITE_FIREBASE_PROJECT_NUMBER || ''
 };
 
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-export const auth = getAuth(app);
+const app = firebaseConfig.apiKey
+  ? (getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0])
+  : null;
+export const auth = app ? getAuth(app) : null;
 
 // Initialize Firebase App Check to protect against abuse and automated scrapers
 let appCheck = null;
-if (typeof window !== 'undefined') {
-  const recaptchaKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || import.meta.env.VITE_FIREBASE_APP_CHECK_KEY;
+if (typeof window !== 'undefined' && app) {
+  const recaptchaKey = env.VITE_RECAPTCHA_SITE_KEY || env.VITE_FIREBASE_APP_CHECK_KEY;
   if (recaptchaKey) {
     try {
-      if (import.meta.env.DEV) {
+      if (env.DEV) {
         // @ts-ignore
         self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
       }
@@ -36,9 +40,9 @@ if (typeof window !== 'undefined') {
         provider: new ReCaptchaV3Provider(recaptchaKey),
         isTokenAutoRefreshEnabled: true
       });
-      console.log('🛡️ [App Check] Initialized with reCAPTCHA v3 provider.');
+      console.log('[App Check] Initialized with reCAPTCHA v3 provider.');
     } catch (err) {
-      console.warn('⚠️ [App Check] Initialization notice:', err);
+      console.warn('[App Check] Initialization notice:', err);
     }
   }
 }
@@ -53,13 +57,15 @@ googleProvider.setCustomParameters({
 });
 
 export async function loginWithGoogle() {
+  if (!auth) {
+    throw new Error('Firebase is not configured. Set VITE_FIREBASE_API_KEY in frontend/.env.');
+  }
   try {
     const result = await signInWithPopup(auth, googleProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const token = credential?.accessToken;
-    if (token && typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem('google_drive_token', token);
-    }
+    // Google access tokens live about an hour; the expiry lets the Drive picker refresh in time.
+    if (token) rememberToken(token);
     return {
       user: result.user,
       accessToken: token
@@ -71,6 +77,7 @@ export async function loginWithGoogle() {
 }
 
 export async function logoutUser() {
+  if (!auth) return;
   try {
     await signOut(auth);
   } catch (error) {

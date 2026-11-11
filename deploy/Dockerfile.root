@@ -53,5 +53,7 @@ RUN cd /app/agents/video_editor && npm install
 
 EXPOSE 8080
 
-# Launch headless ADK API server on $PORT with CORS and progressive SSE streaming enabled (no /web/ debug UI)
-CMD ["sh", "-c", "adk api_server --host 0.0.0.0 --port ${PORT:-8080} --allow_origins '*' --enable_features PROGRESSIVE_SSE_STREAMING agents"]
+# Launch headless ADK API server on $PORT with CORS and progressive SSE streaming enabled (no /web/ debug UI).
+# SESSION_SERVICE_URI (Cloud SQL Postgres in production) keeps sessions across restarts and instances;
+# without it ADK falls back to a SQLite file inside the container (lost on restart).
+CMD ["sh", "-c", "exec adk api_server --host 0.0.0.0 --port ${PORT:-8080} --allow_origins '*' --enable_features PROGRESSIVE_SSE_STREAMING ${SESSION_SERVICE_URI:+--session_service_uri \"$SESSION_SERVICE_URI\"} agents"]

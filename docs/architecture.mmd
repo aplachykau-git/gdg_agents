@@ -19,49 +19,67 @@
 }}%%
 
 flowchart TB
-    subgraph CLIENT_LAYER["🖥️ 1. CLIENT & INTERACTION LAYER (A2UI)"]
+    subgraph CLIENT_LAYER["1. CLIENT: Svelte 5 studio (local Vite :5173 or Firebase Hosting)"]
         direction LR
-        UI["<b>Svelte 5 Workspace Dashboard</b><br/><i>Firebase Hosting CDN</i><br/>• Floating Dynamic Stager & Cards<br/>• BYOK Settings & Prompt Bar<br/>• Multi-agent UI & Action Badges"]
+        UI["<b>Chat workspace</b><br/>• Agent catalog, chat, live tool status<br/>• Settings: chapter name, video render, Google Drive<br/>• Browser storage: settings + saved event profile"]
+        CARDS["<b>Result cards (A2UI)</b><br/>rendered from the backend <code>ui</code> payload<br/>on the shared ResultCard shell<br/>• Video + scenario deck • Countdown post plan<br/>• Event details • Recognised receipts • QR code<br/>• Agenda • E-mail draft • Dates • Documents"]
+        PICKER["<b>Google Drive Picker</b><br/>pick folder / template / files<br/>Docs, Sheets, PDFs, images as attachments"]
     end
 
-    subgraph GATEWAY_LAYER["🌐 2. INGRESS & ADK ORCHESTRATION GATEWAY"]
+    subgraph GATEWAY_LAYER["2. ENTRY POINTS"]
         direction LR
-        GW["<b>ADK Headless API Server</b><br/><i>adk api_server (Cloud Run)</i><br/>• Direct SSE Streaming: <code>/run_sse</code><br/>• Multi-app Registry: <code>/list-apps</code><br/>• Extended 10-minute Connection Timeout"]
-        ROOT["<b>Root Orchestrator Agent</b><br/><i>gemini-3.5-flash-lite</i><br/>• Intent Parsing & Dynamic Router<br/>• Service Account OIDC Auth Client"]
-        GW <-->|Bidirectional SSE / REST| ROOT
+        GW["<b>ADK API server</b><br/><i>local :8080 or Cloud Run community-root-agent</i><br/>• SSE streaming <code>/run_sse</code>, <code>/list-apps</code><br/>• Session state: settings + event_* keys on every message"]
+        ROOT["<b>Main (root_agent)</b><br/><i>gemini-3.8-flash</i><br/>• Intent routing to 8 specialists<br/>• OIDC client for private A2A"]
+        MCP["<b>MCP server (experiment)</b><br/><i>agents/mcp_server.py</i><br/>video scenarios + render, registrations,<br/>receipts, QR codes for Claude / Gemini CLI / IDEs"]
+        GW <-->|SSE / REST| ROOT
     end
 
-    subgraph AGENT_LAYER["🤖 3. SPECIALIZED WORKER AGENTS (Local & Private Remote A2A)"]
+    subgraph AGENT_LAYER["3. SPECIALIST AGENTS"]
         direction TB
-        
-        subgraph LOCAL_AGENTS["⚡ In-Process Sub-Agents"]
+        subgraph LOCAL_AGENTS["In-process sub-agents"]
             direction LR
-            A_LINKEDIN["📱 <b>LinkedIn Post Generator</b><br/><i>gemini-3.5-flash-lite</i><br/>• 3 Style Post Variants<br/>• Anti-Hallucination Guard"]
-            A_REG["👥 <b>Registration Manager</b><br/><i>gemini-3.5-flash-lite</i><br/>• CSV Roster Clean & Dedup<br/>• Privacy Guard & DOCX Exporter"]
-            A_PLANNER["📅 <b>Event Planner</b><br/><i>gemini-3.5-flash-lite</i><br/>• Tech Calendar Conflicts<br/>• Polish Holidays (Nager.Date)"]
-            A_AGENDA["⏱️ <b>Agenda Formatter</b><br/><i>gemini-3.5-flash-lite</i><br/>• Minute-level Slot Snapping<br/>• Dynamic Interactive Timeline"]
-            A_OFFICE["✉️ <b>Office Secretary</b><br/><i>gemini-3.5-flash-lite</i><br/>• Visitor Key Access<br/>• Room Reservation Emails"]
+            A_SOCIAL["<b>Social Planner</b><br/><i>linkedin_post_generator</i><br/>• Speaker announcements, recaps<br/>• Countdown plan: LinkedIn, Instagram,<br/>Facebook, X, Threads, Bluesky, Mastodon<br/>• Event profile card (date, site, socials)"]
+            A_QR["<b>QR Code Generator</b><br/><i>qr_code_generator</i><br/>• Rounded QR codes<br/>• Flat SVG + PNG"]
+            A_REG["<b>Registrations Manager</b><br/><i>registration_manager</i><br/>• Roster clean and dedup<br/>• PII guard, DOCX roster"]
+            A_PLANNER["<b>Event Scheduler</b><br/><i>event_planner</i><br/>• Polish holidays<br/>• Meetup conflicts"]
+            A_AGENDA["<b>Agenda Formatter</b><br/><i>agenda_generator</i><br/>• Minute-level timeline"]
+            A_OFFICE["<b>Office Secretary</b><br/><i>office_secretary</i><br/>• Key access and room e-mails"]
         end
-
-        subgraph REMOTE_A2A["🔒 Distributed Private A2A Microservices (IAM OIDC Auth)"]
+        subgraph REMOTE_A2A["Private A2A services (local :8081 / :8082, Cloud Run with IAM OIDC)"]
             direction LR
-            A_VIDEO["🎬 <b>Live Video Editor A2A</b><br/><i>gemini-3.5-flash-lite + Gemini Omni</i><br/>• Face Landmark Verification<br/>• 9:16 Outpainting (Flash Lite Image)<br/>• Gemini Omni Flash Video<br/>• HyperFrames 1080p / 4K Fast Render"]
-            A_RECEIPT["🧾 <b>Receipt Scanner A2A</b><br/><i>gemini-3.7-flash (Multimodal OCR)</i><br/>• Pekao & NBP Banking FX Rates<br/>• Google Docs Report Exporter"]
+            A_VIDEO["<b>Live Video Editor</b><br/><i>video_editor</i><br/>• Face check, 9:16 outpainting<br/>• Scenario deck, Gemini Omni Flash video<br/>• HyperFrames render with cover frame<br/>• MP4 1080p / 4K, GIF, poster"]
+            A_RECEIPT["<b>Receipt Scanner</b><br/><i>receipt_scanner</i><br/>• Multimodal OCR, multi-page PDF stitching<br/>• Community FX, manual rate fallback<br/>• Grouped rows & synced 2-per-row proofs<br/>• Recognised-receipts card + CSV, Google Docs"]
         end
+        CORE["<b>Shared core: agents/common</b><br/>ui_payloads.py (card contract, mirrored in frontend/src/lib/ui/payloads.js)<br/>event_profile.py (event + social profiles) • runtime.py (SQLite sessions locally, optional Postgres)"]
     end
 
-    subgraph INFRA_LAYER["☁️ 4. STORAGE & FOUNDATIONAL AI BACKENDS"]
+    subgraph INFRA_LAYER["4. STORAGE, AI AND EXTERNAL SERVICES"]
         direction LR
-        GCS["🗄️ <b>Google Cloud Storage</b><br/><i>gs://gdg-agents-6b59a-storage</i><br/>• Rendered MP4s & Posters<br/>• Staged Media & Reports"]
-        AI_BACKEND["🧠 <b>Google AI & Vertex AI</b><br/>• Gemini 3.5 Flash / Flash Lite<br/>• Gemini Omni Flash (Interactions API)<br/>• Gemini 3.1 Flash Lite Image"]
-        WORKSPACE["📄 <b>Google Workspace</b><br/>• Google Docs API<br/>• Google Drive Reports"]
+        FILES["<b>Media and files</b><br/>local renders/ and results/ (dev default)<br/>or Cloud Storage (30-day lifecycle)"]
+        AI_BACKEND["<b>Gemini API / Vertex AI</b><br/>Gemini 3.8 Flash<br/>Gemini Omni Flash<br/>Flash Lite Image"]
+        WORKSPACE["<b>Google Workspace</b><br/>Docs, Drive, Sheets"]
+        EXTERNAL["<b>External APIs</b><br/>NBP / Pekao / Frankfurter / Open ER FX,<br/>Nager.Date holidays, Google Search"]
     end
 
-    UI -->|Direct HTTPS / SSE Streaming| GW
-    ROOT -->|Local Execution| LOCAL_AGENTS
-    ROOT -->|IAM Bearer OIDC Token| REMOTE_A2A
-    REMOTE_A2A <-->|Upload / Download| GCS
-    LOCAL_AGENTS -->|API Calls| WORKSPACE
-    LOCAL_AGENTS -->|Inference| AI_BACKEND
-    REMOTE_A2A -->|Inference & Video Gen| AI_BACKEND
-    ROOT -->|Routing Decision| AI_BACKEND
+    UI --- CARDS
+    UI --- PICKER
+    UI -->|HTTPS / SSE| GW
+    ROOT -->|in-process transfer| A_SOCIAL
+    ROOT --> A_QR
+    ROOT --> A_REG
+    ROOT --> A_PLANNER
+    ROOT --> A_AGENDA
+    ROOT --> A_OFFICE
+    ROOT -->|A2A + OIDC| A_VIDEO
+    ROOT -->|A2A + OIDC| A_RECEIPT
+    MCP -.->|same tool cores| A_VIDEO
+    MCP -.-> A_QR
+    A_SOCIAL -->|inference| AI_BACKEND
+    A_VIDEO -->|video generation| AI_BACKEND
+    A_RECEIPT -->|OCR| AI_BACKEND
+    A_VIDEO <-->|renders| FILES
+    A_QR -->|SVG / PNG| FILES
+    A_RECEIPT -->|reports| WORKSPACE
+    A_RECEIPT -->|FX rates| EXTERNAL
+    A_PLANNER -->|holidays, events| EXTERNAL
+    PICKER -->|drive.file, exported in the browser| WORKSPACE

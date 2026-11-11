@@ -5,12 +5,24 @@ try:
 except ModuleNotFoundError:
     from bootstrap import initialise_agent_environment
 from google.adk import Agent
+from google.adk.agents.readonly_context import ReadonlyContext
+
+from agents.common.event_series import (
+    COMMUNITY_TOKEN,
+    EventSeries,
+    city_from_state,
+    default_city,
+    fill_city,
+    series_from_state,
+)
+from agents.common.ui_payloads import parse_agenda, text_ui_callback
+from agents.gemini_config import model_for
 
 initialise_agent_environment()
 
-community_name = os.getenv("COMMUNITY_NAME", "Community")
+community_name = default_city()
 
-INSTRUCTION = f"""You are the {community_name} Agenda Generator Agent.
+_INSTRUCTION_TEMPLATE = f"""You are the {COMMUNITY_TOKEN} Agenda Generator Agent.
 Your sole job is to receive speaker inputs and draft a beautifully structured, highly readable, and copy-pasteable event agenda.
 You must strictly adhere to formatting, indentation, emojis, visual spacing, and dynamically compute event timelines.
 
@@ -46,7 +58,7 @@ You must strictly adhere to formatting, indentation, emojis, visual spacing, and
 - Follow this exact template structure with exact spacing, line breaks, indentation, and emojis. Note that times must be dynamically recalculated:
 
 ```text
-Build with AI is a community-led event series in {community_name} where people of all backgrounds come together to explore and build with AI. This edition focuses [write a highly engaging, custom generative summary of the details of the speakers' talks in 2 to 3 short, punchy sentences].
+__SERIES_INTRO__ This edition focuses [write a highly engaging, custom generative summary of the details of the speakers' talks in 2 to 3 short, punchy sentences].
 
 AGENDA
 
@@ -80,11 +92,29 @@ Please register on this page (RSVP), and bring your ID with you.
 - If the user asks for a task that does NOT belong to agenda generation (e.g. video speaker cards/avatars, receipts/expenses, LinkedIn posts, event date planning, registration lists, office access, or general queries), you MUST immediately call `transfer_to_agent(agent_name="root_agent")` so the main Root Orchestrator can route it to the appropriate specialist.
 """
 
+
+def build_instruction(series: EventSeries, city: str | None = None) -> str:
+    """Agenda instruction for the event series selected in the settings (Build with AI / DevFest)."""
+    city = city or community_name
+    intro = series.agenda_intro.format(city=city)
+    return fill_city(_INSTRUCTION_TEMPLATE, city).replace("__SERIES_INTRO__", intro) + (
+        f"\n## Event series\n- This meetup is part of {series.name}. Keep the first sentence of the "
+        f"introductory paragraph exactly as in the template above and never mention another event series.\n"
+    )
+
+
+def instruction_provider(ctx: ReadonlyContext) -> str:
+    return build_instruction(series_from_state(ctx.state), city_from_state(ctx.state, community_name))
+
+
+INSTRUCTION = build_instruction(series_from_state({}))
+
 agenda_agent = Agent(
-    model="gemini-3.5-flash-lite",
+    model=model_for("agenda_generator"),
     name="agenda_generator",
-    description=f"Agent that drafts beautifully formatted, copy-pasteable {community_name} meetups agendas with exact visual structure and emojis.",
-    instruction=INSTRUCTION,
+    description="Agent that drafts beautifully formatted, copy-pasteable GDG community meetups agendas with exact visual structure and emojis.",
+    instruction=instruction_provider,
+    after_model_callback=text_ui_callback(parse_agenda),
     tools=[],
 )
 

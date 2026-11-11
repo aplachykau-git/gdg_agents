@@ -2,15 +2,15 @@ import base64
 import datetime
 import io
 import json
+import logging
 import mimetypes
 import os
 import re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Callable, List, Optional
 
 import requests
-from google import genai
 from google.adk.tools import ToolContext
 from google.genai import types
 
@@ -27,11 +27,25 @@ except ImportError:
     MediaFileUpload = None
     MediaIoBaseUpload = None
 
-from agents.common.storage import upload_bytes_to_storage
-from agents.gemini_config import get_gemini_client
+from agents.common import ui_payloads
+from agents.common.event_series import community_currency_from_state
 
-from .docx_generator import generate_expense_report_docx
-from .utils import _auto_rotate_image, _pdf_to_png_screenshot
+try:
+    from .docx_generator import deduplicate_and_compress_proofs, reorder_proofs_for_grouped_receipts
+    from .summary import build_receipt_summary, group_and_sort_receipts, normalize_currency_code
+except ImportError:
+    from agents.receipt_scanner.docx_generator import (
+        deduplicate_and_compress_proofs,
+        reorder_proofs_for_grouped_receipts,
+    )
+    from agents.receipt_scanner.summary import (
+        build_receipt_summary,
+        group_and_sort_receipts,
+        normalize_currency_code,
+    )
+from agents.gemini_config import get_gemini_client, model_for
+
+logger = logging.getLogger(__name__)
 
 
 def extract_google_drive_folder_id(raw_input: Optional[str]) -> Optional[str]:
@@ -121,24 +135,268 @@ REQUIRED_TEMPLATE_TAGS = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Tool: get_usd_pln_rate
-# ---------------------------------------------------------------------------
+def _find_expenses_table_in_gdoc(doc_struct: dict) -> tuple[Optional[int], list[dict]]:
+    """Locate the main Expenses Table in a Google Docs document structure."""
+    body_content = ((doc_struct or {}).get("body") or {}).get("content") or []
+    fallback_match: tuple[Optional[int], list[dict]] = (None, [])
+    for element in body_content:
+        if not isinstance(element, dict) or "table" not in element:
+            continue
+        table = element.get("table") or {}
+        rows = table.get("tableRows") or []
+        table_start = element.get("startIndex")
+        table_text = _extract_text_from_gdoc({"body": {"content": [element]}})
+        if "Description of Expense" in table_text or "Total Spent" in table_text or "Original Cost" in table_text:
+            return table_start, rows
+        if fallback_match[0] is None and len(rows) >= 3 and len((rows[0].get("tableCells") or [])) >= 4:
+            fallback_match = (table_start, rows)
+    return fallback_match
 
 
-def get_usd_pln_rate() -> dict:
+def _diagnose_gdoc_template(doc_struct: dict) -> list[str]:
+    """Check a Google Docs template for legacy/missing placeholders and return human-readable notes."""
+    text = _extract_text_from_gdoc(doc_struct)
+    notes: list[str] = []
+    if not text.strip():
+        return notes
+    if "{{TITLE}}" not in text:
+        notes.append("Template is missing '{{TITLE}}' at the top of the document.")
+    if "{{Category}}" not in text:
+        notes.append(
+            "Template 'Category' column uses a Google Docs dropdown ('Choose') instead of '{{Category}}' "
+            "(handled automatically by inserting separate table rows)."
+        )
+    if "{{SUM PL}}" in text or "{{SUM USD}}" in text:
+        notes.append(
+            "Template uses legacy '{{SUM PL}}' / '{{SUM USD}}' tags instead of '{{SUM CURR}}' / '{{SUM EUR/USD}}' "
+            "(handled automatically)."
+        )
+    if "{{TOTAL SUM PL}}" in text or "{{TOTAL SUM USD}}" in text:
+        notes.append(
+            "Template uses legacy '{{TOTAL SUM PL}}' / '{{TOTAL SUM USD}}' tags instead of "
+            "'{{TOTAL SUM CURR}}' / '{{TOTAL SUM EUR/USD}}' (handled automatically)."
+        )
+    if "{{APPROVED}}" not in text and "Approved Budget" in text:
+        notes.append(
+            "Template 'My Approved Budget Limit' row is missing the '{{APPROVED}}' placeholder (handled automatically)."
+        )
+    return notes
+
+
+def _cell_has_dropdown(cell: dict) -> bool:
+    """Return True if a Google Docs tableCell contains a dropdown smart chip."""
+    for content_item in cell.get("content") or []:
+        if not isinstance(content_item, dict):
+            continue
+        para = content_item.get("paragraph") or {}
+        for elem in para.get("elements") or []:
+            if isinstance(elem, dict) and "dropdown" in elem:
+                return True
+    return False
+
+
+def _cell_range(cell: dict) -> Optional[tuple[int, int]]:
+    """Return (cell_start, cell_end) character indices for a Google Docs tableCell."""
+    content = cell.get("content") or []
+    if not content or not isinstance(content[0], dict):
+        return None
+    start_idx = content[0].get("startIndex")
+    end_idx = cell.get("endIndex")
+    if start_idx is None or end_idx is None:
+        return None
+    return int(start_idx), max(int(start_idx), int(end_idx) - 1)
+
+
+def _populate_gdoc_expenses_table(
+    docs_service,
+    google_doc_id: str,
+    initial_doc: dict,
+    receipts_data: list[dict],
+    total_curr_str: str,
+    total_target_str: str,
+    approved_budget: str,
+) -> bool:
     """
-    Fetches the current USD/PLN 'Bank kupuje' (bank buy) exchange rate
+    Populate the Google Docs Expenses Table with one dedicated row per receipt,
+    plus the Total Spent row and Approved Budget Limit row.
+    Preserves any existing template rows (and any dropdown smart chips in the Category column)
+    and only inserts additional rows if receipts_data has more items than template placeholder rows.
+    """
+    table_start, rows = _find_expenses_table_in_gdoc(initial_doc)
+    n_items = len(receipts_data or [])
+    if table_start is None or len(rows) < 3 or n_items == 0:
+        return False
+
+    # Count how many item rows already exist in the template between Row 0 (header)
+    # and the Total Spent / Approved Budget footer rows at the bottom.
+    footer_start_idx = len(rows)
+    for r_i in range(1, len(rows)):
+        row_txt = _extract_text_from_gdoc({"body": {"content": [rows[r_i]]}})
+        if "Total Spent" in row_txt or "Approved Budget" in row_txt or "Budget Limit" in row_txt:
+            footer_start_idx = r_i
+            break
+    existing_item_rows = max(1, footer_start_idx - 1)
+    extra_rows_needed = max(0, n_items - existing_item_rows)
+
+    # 1. Insert only the extra rows needed below the last template item row, never deleting
+    #    template rows so dropdown smart chips ('Choose ▾') in the Category column stay intact.
+    if extra_rows_needed > 0:
+        anchor_row_idx = existing_item_rows
+        struct_requests = [
+            {
+                "insertTableRow": {
+                    "tableCellLocation": {
+                        "tableStartLocation": {"index": table_start},
+                        "rowIndex": anchor_row_idx,
+                        "columnIndex": 0,
+                    },
+                    "insertBelow": True,
+                }
+            }
+            for _ in range(extra_rows_needed)
+        ]
+        docs_service.documents().batchUpdate(
+            documentId=google_doc_id,
+            body={"requests": struct_requests},
+        ).execute()
+        updated_doc = docs_service.documents().get(documentId=google_doc_id).execute()
+    else:
+        updated_doc = initial_doc
+
+    # 2. Populate rows 1 .. n_items (preserving dropdown smart chips in the Category cell when present)
+    _, updated_rows = _find_expenses_table_in_gdoc(updated_doc)
+    if len(updated_rows) < n_items + 1:
+        return False
+
+    cell_edits: list[tuple[int, int, str]] = []
+
+    for idx, item in enumerate(receipts_data):
+        r_idx = idx + 1
+        if r_idx >= len(updated_rows):
+            break
+        cells = updated_rows[r_idx].get("tableCells") or []
+        row_values = [
+            str(idx + 1),
+            str(item.get("category") or ""),
+            str(item.get("desc") or "Expense"),
+            str(item.get("sum_curr") or ""),
+            str(item.get("sum_target") or ""),
+        ]
+        for c_idx, val in enumerate(row_values):
+            if c_idx >= len(cells):
+                continue
+            # If the Category cell (column 1) already has a Google Docs dropdown chip, keep the chip intact!
+            if c_idx == 1 and _cell_has_dropdown(cells[c_idx]):
+                continue
+            rng = _cell_range(cells[c_idx])
+            if rng is not None:
+                cell_edits.append((rng[0], rng[1], val))
+
+    # Locate Total Spent row and Approved Budget row at the bottom of the table
+    total_row_idx = None
+    budget_row_idx = None
+    for r_idx in range(n_items + 1, len(updated_rows)):
+        row_txt = _extract_text_from_gdoc({"body": {"content": [updated_rows[r_idx]]}})
+        if "Total Spent" in row_txt and total_row_idx is None:
+            total_row_idx = r_idx
+        elif ("Approved Budget" in row_txt or "Budget Limit" in row_txt) and budget_row_idx is None:
+            budget_row_idx = r_idx
+
+    if total_row_idx is None and len(updated_rows) >= n_items + 2:
+        total_row_idx = len(updated_rows) - 2
+    if budget_row_idx is None and len(updated_rows) >= n_items + 3:
+        budget_row_idx = len(updated_rows) - 1
+
+    if total_row_idx is not None and total_row_idx < len(updated_rows):
+        t_cells = updated_rows[total_row_idx].get("tableCells") or []
+        if len(t_cells) >= 5:
+            rng_curr = _cell_range(t_cells[3])
+            rng_targ = _cell_range(t_cells[4])
+            if rng_curr is not None:
+                cell_edits.append((rng_curr[0], rng_curr[1], total_curr_str))
+            if rng_targ is not None:
+                cell_edits.append((rng_targ[0], rng_targ[1], total_target_str))
+
+    if budget_row_idx is not None and budget_row_idx < len(updated_rows) and approved_budget:
+        b_cells = updated_rows[budget_row_idx].get("tableCells") or []
+        if len(b_cells) >= 5:
+            rng_bud = _cell_range(b_cells[4])
+            if rng_bud is not None:
+                cell_edits.append((rng_bud[0], rng_bud[1], str(approved_budget)))
+
+    # Sort descending by cell_start so index mutations never shift earlier cells
+    cell_edits.sort(key=lambda x: x[0], reverse=True)
+    cell_requests: list[dict] = []
+    for c_start, c_end, new_text in cell_edits:
+        if c_end > c_start:
+            cell_requests.append({"deleteContentRange": {"range": {"startIndex": c_start, "endIndex": c_end}}})
+        if new_text:
+            cell_requests.append(
+                {
+                    "insertText": {
+                        "location": {"index": c_start},
+                        "text": new_text,
+                    }
+                }
+            )
+
+    if cell_requests:
+        docs_service.documents().batchUpdate(
+            documentId=google_doc_id,
+            body={"requests": cell_requests},
+        ).execute()
+    return True
+
+
+def _compute_proof_image_size_pt(
+    img_bytes: bytes,
+    max_w_pt: float = 210.0,
+    max_h_pt: float = 300.0,
+) -> tuple[float, float]:
+    """
+    Compute (width_pt, height_pt) preserving image aspect ratio for a 2-per-row layout.
+    If the image is a stitched multi-page document (very tall aspect ratio where height > 1.85 * width),
+    scales primarily by width (capped at 640 pt height so it always fits on a Google Docs page)
+    so every stitched page remains legible instead of shrinking to a narrow strip.
+    """
+    try:
+        from PIL import Image
+
+        with Image.open(io.BytesIO(img_bytes)) as im:
+            px_w, px_h = im.size
+        if px_w > 0 and px_h > 0:
+            aspect = px_h / px_w
+            effective_max_h = max(max_h_pt, min(640.0, max_w_pt * aspect)) if aspect > 1.85 else max_h_pt
+            scale = min(max_w_pt / px_w, effective_max_h / px_h)
+            return round(px_w * scale, 1), round(px_h * scale, 1)
+    except Exception:
+        pass
+    return 205.0, 270.0
+
+
+# ---------------------------------------------------------------------------
+# Helper: _fetch_pekao_pln_rate (shared by get_usd_pln_rate / get_eur_pln_rate)
+# ---------------------------------------------------------------------------
+
+
+def _fetch_pekao_pln_rate(currency: str) -> dict:
+    """
+    Fetches the current <currency>/PLN 'Bank kupuje' (bank buy) exchange rate
     from Pekao bank website (https://www.pekao.com.pl/kursy-walut.html).
-    If Pekao website is down or layout changed, automatically falls back to
-    the official NBP (National Bank of Poland) Exchange API.
+    If the Pekao website is down or its layout changed, automatically falls
+    back to the official NBP (National Bank of Poland) Exchange API (Table C).
+
+    Args:
+        currency: Three-letter ISO currency code, e.g. "USD" or "EUR".
 
     Returns:
-        dict with keys: 'success', 'rate' (float), 'source', 'error'
+        dict with keys: 'success', 'rate' (float), 'source', 'url', and
+        'error' when the fetch failed.
     """
+    currency = currency.upper().strip()
     pekao_url = "https://www.pekao.com.pl/kursy-walut.html"
     try:
-        print("[DEBUG] Attempting to fetch USD/PLN rate from Pekao bank...")
+        logger.debug(f"[DEBUG] Attempting to fetch {currency}/PLN rate from Pekao bank...")
         resp = requests.get(
             pekao_url,
             headers={"User-Agent": "Mozilla/5.0"},
@@ -147,15 +405,15 @@ def get_usd_pln_rate() -> dict:
         resp.raise_for_status()
         html = resp.text
 
-        # Find USD section, then extract the first cr-buy value
-        usd_idx = html.find('alt="USD"')
-        if usd_idx == -1:
-            usd_idx = html.find(">USD / PLN")
-        if usd_idx == -1:
-            raise ValueError("USD block not found on Pekao page")
+        # Find the currency section, then extract the first cr-buy value
+        idx = html.find(f'alt="{currency}"')
+        if idx == -1:
+            idx = html.find(f">{currency} / PLN")
+        if idx == -1:
+            raise ValueError(f"{currency} block not found on Pekao page")
 
-        # Search for cr-buy rate after the USD section
-        snippet = html[usd_idx : usd_idx + 1200]
+        # Search for cr-buy rate after the currency section
+        snippet = html[idx : idx + 1200]
         match = re.search(r"cr-buy[^>]*>.*?<span[^>]*>\s*([\d,\.]+)\s*</span>", snippet, re.S)
         if not match:
             raise ValueError("Could not parse rate from Pekao page snippet")
@@ -166,20 +424,21 @@ def get_usd_pln_rate() -> dict:
         return {
             "success": True,
             "rate": rate,
-            "source": "Pekao Bank kupuje USD/PLN",
+            "source": f"Pekao Bank kupuje {currency}/PLN",
             "url": pekao_url,
         }
 
     except Exception as pekao_err:
-        print(f"[WARNING] Pekao rate fetch failed: {pekao_err}. Falling back to NBP API...")
+        logger.warning(f"[WARNING] Pekao {currency} rate fetch failed: {pekao_err}. Falling back to NBP API...")
 
         # Fallback: Official NBP API (Table C contains buy/sell rates)
-        nbp_url = "http://api.nbp.pl/api/exchangerates/rates/c/usd/today/?format=json"
+        currency_lower = currency.lower()
+        nbp_url = f"http://api.nbp.pl/api/exchangerates/rates/c/{currency_lower}/today/?format=json"
         try:
             resp = requests.get(nbp_url, timeout=5)
             # If today's rates aren't published yet (e.g. weekend), get the last 5 rates
             if resp.status_code == 404:
-                nbp_url = "http://api.nbp.pl/api/exchangerates/rates/c/usd/last/5/?format=json"
+                nbp_url = f"http://api.nbp.pl/api/exchangerates/rates/c/{currency_lower}/last/5/?format=json"
                 resp = requests.get(nbp_url, timeout=5)
 
             resp.raise_for_status()
@@ -202,6 +461,24 @@ def get_usd_pln_rate() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Tool: get_usd_pln_rate
+# ---------------------------------------------------------------------------
+
+
+def get_usd_pln_rate() -> dict:
+    """
+    Fetches the current USD/PLN 'Bank kupuje' (bank buy) exchange rate
+    from Pekao bank website (https://www.pekao.com.pl/kursy-walut.html).
+    If Pekao website is down or layout changed, automatically falls back to
+    the official NBP (National Bank of Poland) Exchange API.
+
+    Returns:
+        dict with keys: 'success', 'rate' (float), 'source', 'error'
+    """
+    return _fetch_pekao_pln_rate("USD")
+
+
+# ---------------------------------------------------------------------------
 # Helper: get_eur_pln_rate
 # ---------------------------------------------------------------------------
 
@@ -212,104 +489,162 @@ def get_eur_pln_rate() -> dict:
     from Pekao bank website (https://www.pekao.com.pl/kursy-walut.html).
     Falls back to NBP Exchange API (Table C).
     """
-    pekao_url = "https://www.pekao.com.pl/kursy-walut.html"
-    try:
-        print("[DEBUG] Attempting to fetch EUR/PLN rate from Pekao bank...")
-        resp = requests.get(
-            pekao_url,
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        html = resp.text
+    return _fetch_pekao_pln_rate("EUR")
 
-        # Find EUR section, then extract the first cr-buy value
-        eur_idx = html.find('alt="EUR"')
-        if eur_idx == -1:
-            eur_idx = html.find(">EUR / PLN")
-        if eur_idx == -1:
-            raise ValueError("EUR block not found on Pekao page")
 
-        snippet = html[eur_idx : eur_idx + 1200]
-        match = re.search(r"cr-buy[^>]*>.*?<span[^>]*>\s*([\d,\.]+)\s*</span>", snippet, re.S)
-        if not match:
-            raise ValueError("Could not parse rate from Pekao page snippet")
+# ---------------------------------------------------------------------------
+# Helper: get_nbp_rate / fetch_public_rate_to_pln / get_exchange_rate
+# ---------------------------------------------------------------------------
 
-        rate_str = match.group(1).replace(",", ".")
-        rate = float(rate_str)
 
-        return {
-            "success": True,
-            "rate": rate,
-            "source": "Pekao Bank kupuje EUR/PLN",
-            "url": pekao_url,
-        }
+def fetch_public_rate_to_pln(currency: str) -> dict:
+    """
+    Fetches the live public exchange rate for the given currency code to PLN.
+    Queries NBP Table A, NBP Table B, ECB / Frankfurter public API, and
+    Open Exchange Rates public API. Does NOT use hardcoded fallback rates.
+    """
+    code = normalize_currency_code(currency, default="PLN")
+    if code == "PLN":
+        return {"success": True, "rate": 1.0, "source": "Base Currency (PLN)", "url": "https://nbp.pl"}
 
-    except Exception as pekao_err:
-        print(f"[WARNING] Pekao EUR rate fetch failed: {pekao_err}. Falling back to NBP API...")
+    code_lower = code.lower()
 
-        nbp_url = "http://api.nbp.pl/api/exchangerates/rates/c/eur/today/?format=json"
-        try:
-            resp = requests.get(nbp_url, timeout=5)
-            if resp.status_code == 404:
-                nbp_url = "http://api.nbp.pl/api/exchangerates/rates/c/eur/last/5/?format=json"
+    # 1. NBP API Table A and Table B (official average rates)
+    for table in ("a", "b"):
+        for suffix in ("today", "last/5"):
+            nbp_url = f"https://api.nbp.pl/api/exchangerates/rates/{table}/{code_lower}/{suffix}/?format=json"
+            try:
                 resp = requests.get(nbp_url, timeout=5)
+                if resp.status_code == 404:
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+                latest = data["rates"][-1]
+                rate = float(latest["mid"])
+                eff_date = latest.get("effectiveDate", "recent")
+                return {
+                    "success": True,
+                    "rate": rate,
+                    "source": f"NBP Table {table.upper()} ({eff_date})",
+                    "url": nbp_url,
+                }
+            except Exception as err:
+                logger.debug(f"[DEBUG] NBP Table {table.upper()} ({suffix}) lookup for {code} failed: {err}")
 
-            resp.raise_for_status()
+    # 2. ECB / Frankfurter public exchange rate API
+    frankfurter_url = f"https://api.frankfurter.dev/v1/latest?from={code}&to=PLN"
+    try:
+        resp = requests.get(frankfurter_url, timeout=5)
+        if resp.status_code == 200:
             data = resp.json()
-            latest_rate = data["rates"][-1]
-            rate = float(latest_rate["bid"])
+            pln_rate = (data.get("rates") or {}).get("PLN")
+            if pln_rate:
+                eff_date = data.get("date", "recent")
+                return {
+                    "success": True,
+                    "rate": float(pln_rate),
+                    "source": f"ECB / Frankfurter Public API ({eff_date})",
+                    "url": frankfurter_url,
+                }
+    except Exception as err:
+        logger.debug(f"[DEBUG] Frankfurter public API lookup for {code} failed: {err}")
 
-            return {
-                "success": True,
-                "rate": rate,
-                "source": f"NBP Bid rate ({latest_rate['effectiveDate']})",
-                "url": nbp_url,
-            }
-        except Exception as nbp_err:
-            return {
-                "success": False,
-                "error": f"Both Pekao and NBP EUR rate fetches failed. Pekao: {pekao_err}. NBP: {nbp_err}",
-            }
+    # 3. Open Exchange Rates public API (covers 160+ world currencies)
+    open_er_url = f"https://open.er-api.com/v6/latest/{code}"
+    try:
+        resp = requests.get(open_er_url, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            pln_rate = (data.get("rates") or {}).get("PLN")
+            if pln_rate:
+                return {
+                    "success": True,
+                    "rate": float(pln_rate),
+                    "source": "Open Exchange Rates Public API",
+                    "url": open_er_url,
+                }
+    except Exception as err:
+        logger.debug(f"[DEBUG] Open ER public API lookup for {code} failed: {err}")
 
-
-# ---------------------------------------------------------------------------
-# Helper: get_nbp_rate
-# ---------------------------------------------------------------------------
+    err_msg = (
+        f"Could not fetch a live exchange rate for {code}/PLN from public sources. "
+        f"Please enter the exchange rate manually in a text message (for example: '1 {code} = ... PLN')."
+    )
+    logger.warning(f"[WARNING] {err_msg}")
+    return {
+        "success": False,
+        "error": err_msg,
+    }
 
 
 def get_nbp_rate(currency: str) -> float:
     """
-    Fetches the average exchange rate for the given currency code to PLN
-    from the Narodowy Bank Polski (NBP) API (Table A).
-    Returns 1.0 if the currency is PLN.
+    Fetches the live public average exchange rate for the given currency code to PLN
+    (NBP Table A/B, ECB Frankfurter, or Open Exchange Rates).
+    Raises RuntimeError if no live rate can be fetched.
     """
-    currency = currency.upper().strip()
-    if currency == "PLN":
-        return 1.0
+    info = fetch_public_rate_to_pln(currency)
+    if not info.get("success") or info.get("rate") is None:
+        raise RuntimeError(info.get("error") or f"Could not fetch live exchange rate for {currency}")
+    return float(info["rate"])
 
-    # NBP API for A table (middle exchange rates)
-    nbp_url = f"http://api.nbp.pl/api/exchangerates/rates/a/{currency.lower()}/today/?format=json"
-    try:
-        resp = requests.get(nbp_url, timeout=5)
-        # If today's rates are not published (e.g. weekend or early morning)
-        if resp.status_code == 404:
-            nbp_url = f"http://api.nbp.pl/api/exchangerates/rates/a/{currency.lower()}/last/5/?format=json"
-            resp = requests.get(nbp_url, timeout=5)
-        resp.raise_for_status()
-        data = resp.json()
-        return float(data["rates"][-1]["mid"])
-    except Exception as err:
-        print(
-            f"[WARNING] Failed to fetch {currency}/PLN rate from NBP Table A: {err}. Falling back to default/cached values."
-        )
-        # Common defaults in case NBP is entirely offline (rough estimates)
-        defaults = {
-            "EUR": 4.30,
-            "USD": 4.00,
-            "GBP": 5.10,
+
+def get_exchange_rate(currency: str, target_currency: str = "PLN") -> dict:
+    """
+    Fetches the live public exchange rate from any currency (e.g. GBP, CHF, CZK, EUR, USD, UAH)
+    into the target/community currency (defaults to PLN).
+    Does NOT use fallback rates; if the live rate is unavailable, returns success=False with an error
+    asking the user to provide the exchange rate in a text message.
+
+    Args:
+        currency: Source ISO currency code or symbol (e.g. "GBP", "EUR", "USD", "CHF", "CZK").
+        target_currency: Target ISO currency code (e.g. "PLN" for GDG Krakow, or "USD", "EUR").
+
+    Returns:
+        dict with 'success', 'currency', 'target_currency', 'rate', 'rate_to_pln', 'source', 'url', or 'error'.
+    """
+    src = normalize_currency_code(currency, default="PLN")
+    dst = normalize_currency_code(target_currency, default="PLN")
+    if src == dst:
+        return {
+            "success": True,
+            "currency": src,
+            "target_currency": dst,
+            "rate": 1.0,
+            "rate_to_pln": 1.0 if src == "PLN" else None,
+            "source": f"Same Currency ({src})",
+            "url": "",
         }
-        return defaults.get(currency, 1.0)
+    src_info = fetch_public_rate_to_pln(src)
+    if not src_info.get("success") or src_info.get("rate") is None:
+        return {
+            "success": False,
+            "currency": src,
+            "target_currency": dst,
+            "error": src_info.get("error")
+            or f"Could not fetch live exchange rate for {src}. Please provide the rate in a text message.",
+        }
+    dst_info = fetch_public_rate_to_pln(dst)
+    if not dst_info.get("success") or dst_info.get("rate") is None:
+        return {
+            "success": False,
+            "currency": src,
+            "target_currency": dst,
+            "error": dst_info.get("error")
+            or f"Could not fetch live exchange rate for {dst}. Please provide the rate in a text message.",
+        }
+    src_pln = float(src_info["rate"])
+    dst_pln = float(dst_info["rate"]) or 1.0
+    rate = round(src_pln / dst_pln, 6)
+    return {
+        "success": True,
+        "currency": src,
+        "target_currency": dst,
+        "rate": rate,
+        "rate_to_pln": round(src_pln, 4),
+        "source": src_info.get("source", "Public Exchange Rate"),
+        "url": src_info.get("url", "https://nbp.pl"),
+    }
 
 
 def normalise_receipts(
@@ -387,6 +722,115 @@ def calculate_receipt_totals(
 
 
 # ---------------------------------------------------------------------------
+# Tool: show_receipt_summary
+# ---------------------------------------------------------------------------
+
+
+def _build_rate_resolver(
+    target_currency: str = "",
+    exchange_rate: Optional[float] = None,
+    custom_rates: Optional[dict] = None,
+) -> Callable[[str], float]:
+    """Build a rate_to_pln resolver that honours user-supplied rates before querying public APIs."""
+    overrides: dict[str, float] = {"PLN": 1.0}
+    if isinstance(custom_rates, dict):
+        for raw_k, raw_v in custom_rates.items():
+            code = normalize_currency_code(raw_k)
+            if code:
+                try:
+                    val = float(raw_v)
+                    if val > 0:
+                        overrides[code] = val
+                except (TypeError, ValueError):
+                    pass
+    if exchange_rate is not None and target_currency:
+        t_code = normalize_currency_code(target_currency)
+        if t_code and t_code != "PLN":
+            try:
+                val = float(exchange_rate)
+                if val > 0:
+                    overrides[t_code] = val
+            except (TypeError, ValueError):
+                pass
+
+    def _resolve(code: str) -> float:
+        norm = normalize_currency_code(code, default="PLN")
+        if norm in overrides:
+            return overrides[norm]
+        return get_nbp_rate(norm)
+
+    return _resolve
+
+
+def show_receipt_summary(
+    receipts: List[dict],
+    target_currency: str = "",
+    approved_budget: str = "",
+    exchange_rate: Optional[float] = None,
+    custom_rates: Optional[dict] = None,
+    tool_context: Optional[ToolContext] = None,
+) -> dict:
+    """Show the user exactly what was recognised on the receipts, as a table card with totals.
+
+    Call it ONCE after reading all receipts and BEFORE `export_summary_to_google_doc`. The card
+    shows every receipt with its line items, the totals per category and currency, the
+    conversion to the community currency and report currency, and the remaining budget.
+
+    Args:
+        receipts: One dict per receipt, values copied from the document (never invented):
+            "merchant": shop / company name as printed, e.g. "Kaufland".
+            "desc": 2-4 word English description, e.g. "Kaufland Grocery".
+            "date": "YYYY-MM-DD" when readable, else "".
+            "category": one of Transport, Hotel, Food & drinks, Swag, Prizes, Venue.
+            "currency": ISO code, e.g. "PLN", "GBP", "EUR", "USD".
+            "total": total amount paid as a number, e.g. 124.5.
+            "tax": VAT / tax amount if printed, else omit.
+            "payment_method": e.g. "card", "cash", if printed.
+            "document_number": receipt / invoice number, if printed.
+            "items": list of {"name": English item name, "quantity": number, "unit_price": number,
+                "total": number} for every printed line item (omit unreadable values).
+            "notes": list of short English remarks about unreadable or doubtful parts.
+        target_currency: Report currency (e.g. "PLN", "USD", "EUR"); empty = the budget currency
+            or the current community currency.
+        approved_budget: Approved budget from the user's message, e.g. "500 EUR", or "".
+        exchange_rate: Optional user-provided exchange rate to PLN for target_currency (e.g. 3.95).
+        custom_rates: Optional dict of user-provided rates to PLN (e.g. {"GBP": 5.08, "USD": 3.95}).
+    """
+    state = getattr(getattr(tool_context, "session", None), "state", None) or {}
+    community_currency = community_currency_from_state(state)
+    resolver = _build_rate_resolver(target_currency, exchange_rate, custom_rates)
+    grouped_receipts = group_and_sort_receipts(receipts)
+    try:
+        summary = build_receipt_summary(
+            grouped_receipts,
+            target_currency,
+            approved_budget,
+            rate_to_pln=resolver,
+            community_currency=community_currency,
+        )
+    except Exception as exc:
+        logger.exception("Receipt summary failed")
+        return {"success": False, "error": f"Could not build the receipt summary: {exc}"}
+    result = {
+        "success": True,
+        "receipts_count": len(summary["receipts"]),
+        "grand_total": summary["grand_total"],
+        "target_currency": summary["target_currency"],
+        "community_currency": summary["community_currency"],
+        "community_total": summary["community_total"],
+        "warnings_count": summary["warnings_count"],
+        "message": "The recognised receipts are shown to the user as a table card with a text copy.",
+        "ui": ui_payloads.receipt_summary(summary),
+    }
+    if "Could not get exchange rates" in (summary.get("conversion_note") or ""):
+        result["rate_error"] = (
+            "Could not fetch live exchange rates from public sources. "
+            "Please ask the user to enter their own exchange rate in a text message."
+        )
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Tool: read_receipt_file
 # ---------------------------------------------------------------------------
 
@@ -394,7 +838,7 @@ def calculate_receipt_totals(
 def read_receipt_file(file_path: str) -> dict:
     """
     Reads a receipt or invoice file (image or PDF) from the local filesystem
-    and natively processes it using gemini-3.7-flash multimodal capability.
+    and natively processes it using gemini-3.8-flash multimodal capability.
 
     Args:
         file_path: Absolute or relative path to the file (jpg, png, pdf, etc.)
@@ -405,8 +849,8 @@ def read_receipt_file(file_path: str) -> dict:
     path = Path(file_path).expanduser().resolve()
 
     if not path.exists():
-        print(f"[DEBUG] File not found at resolved path: {path}")
-        print(f"[DEBUG] Current working directory: {os.getcwd()}")
+        logger.debug(f"[DEBUG] File not found at resolved path: {path}")
+        logger.debug(f"[DEBUG] Current working directory: {os.getcwd()}")
 
         # Self-healing search across the workspace and parent directories
         found_path = None
@@ -417,18 +861,18 @@ def read_receipt_file(file_path: str) -> dict:
         target_name = Path(file_path).name
 
         for sd in search_dirs:
-            print(f"[DEBUG] Searching for '{target_name}' in {sd}...")
+            logger.debug(f"[DEBUG] Searching for '{target_name}' in {sd}...")
             try:
                 matches = list(sd.rglob(target_name))
                 if matches:
                     # Sort matches by modification time descending
                     matches.sort(key=lambda p: p.stat().st_mtime if p.exists() else 0, reverse=True)
                     found_path = matches[0]
-                    print(f"[DEBUG] Self-healing path resolution! Located at: {found_path}")
+                    logger.debug(f"[DEBUG] Self-healing path resolution! Located at: {found_path}")
                     path = found_path
                     break
             except Exception as search_err:
-                print(f"[DEBUG] Search error in {sd}: {search_err}")
+                logger.debug(f"[DEBUG] Search error in {sd}: {search_err}")
 
         if not path.exists():
             # Gather nearby files up to depth 2 for diagnostic feedback
@@ -483,7 +927,7 @@ def read_receipt_file(file_path: str) -> dict:
         # Initialize a client for the workspace-selected Gemini backend.
         client = get_gemini_client()
 
-        # Perform native multimodal OCR and data extraction using gemini-3.7-flash
+        # Perform native multimodal OCR and data extraction using gemini-3.8-flash
         prompt = (
             "You are a professional OCR assistant. Recognize and extract all text and structured data "
             "from this document (receipt/invoice). List all itemized positions, quantities, unit prices, "
@@ -491,7 +935,7 @@ def read_receipt_file(file_path: str) -> dict:
             "Perform this extraction with maximum accuracy and detail."
         )
 
-        model = os.getenv("RECEIPT_SCANNER_MODEL", "gemini-3.7-flash")
+        model = model_for("receipt_ocr", legacy_env="RECEIPT_SCANNER_MODEL")
         response = client.models.generate_content(
             model=model,
             contents=[
@@ -532,6 +976,7 @@ def export_summary_to_google_doc(
     receipts_data: Optional[List[dict]] = None,
     target_currency: str = "USD",
     approved_budget: str = "",
+    custom_rates: Optional[dict] = None,
     tool_context: Optional[ToolContext] = None,
 ) -> dict:
     """
@@ -542,10 +987,11 @@ def export_summary_to_google_doc(
         title: Title of the expense report document.
         folder_id: Optional Drive Folder ID (maintained for signature backwards compatibility).
         template_id: Optional template ID (maintained for signature backwards compatibility).
-        exchange_rate: Optional banking exchange rate.
+        exchange_rate: Optional user-provided exchange rate to PLN for target_currency.
         receipts_data: Optional structured list of dicts with keys: category, desc, sum_curr, sum_target, image_path.
-        target_currency: Target approved currency for the report ("USD", "EUR", "PLN").
+        target_currency: Target approved currency for the report ("USD", "EUR", "PLN", "GBP", etc.).
         approved_budget: Optional approved budget annotation.
+        custom_rates: Optional dict of user-provided rates to PLN (e.g. {"GBP": 5.08, "USD": 3.95}).
         tool_context: ADK tool context for accessing session event attachments.
 
     Returns:
@@ -554,58 +1000,95 @@ def export_summary_to_google_doc(
     try:
         agent_dir = Path(__file__).resolve().parent
 
-        target_currency = (target_currency or "USD").upper().strip()
+        state = getattr(getattr(tool_context, "session", None), "state", None) or {}
+        community_currency = community_currency_from_state(state)
+        target_currency = normalize_currency_code(target_currency, default=community_currency or "USD")
 
         # Check if conversion is required (if any receipt is in a different currency)
         conversion_required = False
-        local_curr_code = ""
+        local_curr_code = community_currency or "PLN"
         if receipts_data:
             for item in receipts_data:
-                item_curr = str(item.get("currency", "USD")).upper().strip()
+                item_curr = normalize_currency_code(item.get("currency"), default=local_curr_code)
                 if item_curr != target_currency:
                     conversion_required = True
-                    local_curr_code = item_curr
                     break
-        if not local_curr_code:
-            local_curr_code = "PLN"
 
+        rate_resolver = _build_rate_resolver(target_currency, exchange_rate, custom_rates)
         rate_val = exchange_rate
-        rate_source_name = "Manual / Provided"
-        rate_url = ""
+        if not rate_val and isinstance(custom_rates, dict):
+            for raw_k, raw_v in custom_rates.items():
+                if normalize_currency_code(raw_k) == target_currency:
+                    try:
+                        rate_val = float(raw_v)
+                    except (TypeError, ValueError):
+                        pass
+
+        rate_source_name = "Pekao Bank / NBP"
+        rate_url = (
+            "https://www.pekao.com.pl/kursy-walut.html"
+            if target_currency in ("USD", "EUR")
+            else ("https://nbp.pl" if conversion_required else "")
+        )
         if not rate_val:
             if conversion_required:
                 if target_currency == "USD":
                     rate_info = get_usd_pln_rate()
-                    if rate_info.get("success"):
-                        rate_val = rate_info["rate"]
+                    if rate_info.get("success") and rate_info.get("rate"):
+                        rate_val = float(rate_info["rate"])
                         rate_source_name = rate_info["source"]
                         rate_url = rate_info.get("url", "https://www.pekao.com.pl/kursy-walut.html")
                     else:
-                        rate_val = 4.00
-                        rate_source_name = "Fallback (4.00)"
-                        rate_url = "https://www.pekao.com.pl/kursy-walut.html"
+                        return {
+                            "success": False,
+                            "error": "EXCHANGE_RATE_UNAVAILABLE",
+                            "message": (
+                                f"Could not fetch live exchange rate for {target_currency}/PLN. "
+                                f"Please enter the exchange rate manually in a text message (for example: '1 {target_currency} = 3.95 PLN')."
+                            ),
+                        }
                 elif target_currency == "EUR":
                     rate_info = get_eur_pln_rate()
-                    if rate_info.get("success"):
-                        rate_val = rate_info["rate"]
+                    if rate_info.get("success") and rate_info.get("rate"):
+                        rate_val = float(rate_info["rate"])
                         rate_source_name = rate_info["source"]
                         rate_url = rate_info.get("url", "https://www.pekao.com.pl/kursy-walut.html")
                     else:
-                        rate_val = 4.30
-                        rate_source_name = "Fallback (4.30)"
-                        rate_url = "https://www.pekao.com.pl/kursy-walut.html"
+                        return {
+                            "success": False,
+                            "error": "EXCHANGE_RATE_UNAVAILABLE",
+                            "message": (
+                                f"Could not fetch live exchange rate for {target_currency}/PLN. "
+                                f"Please enter the exchange rate manually in a text message (for example: '1 {target_currency} = 4.30 PLN')."
+                            ),
+                        }
                 elif target_currency == "PLN":
                     rate_val = 1.0
                     rate_source_name = "N/A"
                     rate_url = ""
                 else:
-                    rate_val = get_nbp_rate(target_currency)
-                    rate_source_name = "NBP Table A"
-                    rate_url = f"http://api.nbp.pl/api/exchangerates/rates/a/{target_currency.lower()}/"
+                    pub_info = fetch_public_rate_to_pln(target_currency)
+                    if pub_info.get("success") and pub_info.get("rate"):
+                        rate_val = float(pub_info["rate"])
+                        rate_source_name = pub_info.get("source", "Public Exchange Rate")
+                        rate_url = pub_info.get("url", "")
+                    else:
+                        return {
+                            "success": False,
+                            "error": "EXCHANGE_RATE_UNAVAILABLE",
+                            "message": pub_info.get("error")
+                            or (
+                                f"Could not fetch live exchange rate for {target_currency}/PLN. "
+                                f"Please enter the exchange rate manually in a text message (for example: '1 {target_currency} = ... PLN')."
+                            ),
+                        }
             else:
                 rate_val = 1.0
                 rate_source_name = "N/A"
                 rate_url = ""
+
+        # Group related receipts first so the table and proof images share the exact same order
+        receipts_data = group_and_sort_receipts(receipts_data or [])
 
         # Normalize and calculate amounts
         normalized_receipts = []
@@ -624,31 +1107,41 @@ def export_summary_to_google_doc(
                     except (ValueError, TypeError):
                         amount_val = 0.0
 
-                    curr_code = str(currency).upper().strip()
+                    curr_code = normalize_currency_code(currency, default=local_curr_code)
 
                     # Convert original currency to target currency
                     if curr_code == target_currency:
                         amount_in_target = amount_val
                     else:
-                        pln_rate = get_nbp_rate(curr_code)
+                        try:
+                            pln_rate = rate_resolver(curr_code)
+                        except RuntimeError as rate_err:
+                            return {
+                                "success": False,
+                                "error": "EXCHANGE_RATE_UNAVAILABLE",
+                                "message": str(rate_err),
+                            }
                         amount_in_pln = amount_val * pln_rate
                         amount_in_target = amount_in_pln / (rate_val or 1.0)
 
                     sum_curr_str = f"{amount_val:.2f} {curr_code}"
                     sum_target_str = f"{amount_in_target:.2f} {target_currency}"
                 else:
-                    sum_curr_str = item.get("sum_curr") or item.get("sum_pln") or "0.00 PLN"
+                    sum_curr_str = item.get("sum_curr") or item.get("sum_pln") or f"0.00 {local_curr_code}"
                     sum_target_str = item.get("sum_target") or item.get("sum_usd") or f"0.00 {target_currency}"
 
-                normalized_receipts.append(
-                    {
-                        "category": category,
-                        "desc": desc,
-                        "sum_curr": sum_curr_str,
-                        "sum_target": sum_target_str,
-                        "image_path": image_path,
-                    }
-                )
+                normalized_item = {
+                    "category": category,
+                    "desc": desc,
+                    "sum_curr": sum_curr_str,
+                    "sum_target": sum_target_str,
+                    "image_path": image_path,
+                }
+                if "_orig_idx" in item:
+                    normalized_item["_orig_idx"] = item["_orig_idx"]
+                if "attachment_index" in item:
+                    normalized_item["attachment_index"] = item["attachment_index"]
+                normalized_receipts.append(normalized_item)
 
         receipts_data = normalized_receipts
 
@@ -723,9 +1216,9 @@ def export_summary_to_google_doc(
                     from google.oauth2.credentials import Credentials
 
                     credentials = Credentials(token=user_token)
-                    print("🔑 [Google Drive Auth] Successfully loaded user's personal Google OAuth access token!")
+                    logger.info("🔑 [Google Drive Auth] Successfully loaded user's personal Google OAuth access token!")
                 except Exception as oauth_err:
-                    print(f"⚠️ [Google Drive Auth] Failed to initialize user OAuth credentials: {oauth_err}")
+                    logger.warning(f"⚠️ [Google Drive Auth] Failed to initialize user OAuth credentials: {oauth_err}")
 
             if not credentials:
                 credentials = get_google_credentials()
@@ -758,7 +1251,9 @@ def export_summary_to_google_doc(
                     active_template = "1nkT3N6ovmmBJYDK9S9oRRaOZ6sCQkAwve58y7sS2eOw"
 
                 active_template = extract_google_doc_id(active_template) or active_template
-                print(f"📁 [Google Docs Export] Target Drive Folder: {target_folder}, Template ID: {active_template}")
+                logger.info(
+                    f"📁 [Google Docs Export] Target Drive Folder: {target_folder}, Template ID: {active_template}"
+                )
 
                 copy_body = {"name": doc_title}
                 if target_folder:
@@ -771,20 +1266,23 @@ def export_summary_to_google_doc(
                 google_doc_url = f"https://docs.google.com/document/d/{google_doc_id}/edit"
 
                 # Validate required placeholders in the copied document
+                initial_doc: dict = {}
+                template_warnings: list[str] = []
                 try:
                     initial_doc = docs_service.documents().get(documentId=google_doc_id).execute()
                     initial_text = _extract_text_from_gdoc(initial_doc)
+                    template_warnings = _diagnose_gdoc_template(initial_doc)
                     missing_tags = [tag for tag in REQUIRED_TEMPLATE_TAGS if tag not in initial_text]
                     if missing_tags:
-                        print(
+                        logger.warning(
                             f"⚠️ [Template Validation Warning] Template {active_template} is missing required tags: {', '.join(missing_tags)}"
                         )
                     else:
-                        print(
+                        logger.info(
                             f"✅ [Template Validation] All required template tags verified in template {active_template}"
                         )
                 except Exception as val_err:
-                    print(f"Notice: Template tag pre-check: {val_err}")
+                    logger.warning(f"Notice: Template tag pre-check: {val_err}")
 
                 try:
                     drive_service.permissions().create(
@@ -794,32 +1292,20 @@ def export_summary_to_google_doc(
                         supportsAllDrives=True,
                     ).execute()
                 except Exception as perm_err:
-                    print(f"Notice: Public link permission creation: {perm_err}")
+                    logger.warning(f"Notice: Public link permission creation: {perm_err}")
 
                 today_str = datetime.date.today().strftime("%d.%m.%Y")
                 total_curr_str, total_target_str = calculate_receipt_totals(receipts_data, target_currency)
 
-                # Upload receipt proof images to Google Drive alongside the doc and embed into Google Doc
-                uploaded_proof_ids = []
-                for idx, raw_img in enumerate(session_images):
-                    try:
-                        img_b = raw_img
-                        if isinstance(img_b, str):
-                            if os.path.exists(img_b):
-                                with open(img_b, "rb") as f:
-                                    img_b = f.read()
-                            elif img_b.startswith("data:") and "," in img_b:
-                                img_b = base64.b64decode(img_b.split(",", 1)[1])
-                            else:
-                                img_b = base64.b64decode(img_b)
+                # Reorder proof images to match the grouped table rows 1-to-1, then auto-orient and compress
+                raw_proof_candidates = reorder_proofs_for_grouped_receipts(receipts_data, session_images)
+                compressed_proofs = deduplicate_and_compress_proofs(raw_proof_candidates)
 
-                        if (
-                            img_b
-                            and isinstance(img_b, (bytes, bytearray))
-                            and len(img_b) > 10
-                            and drive_service
-                            and MediaIoBaseUpload
-                        ):
+                uploaded_proofs: list[tuple[str, float, float]] = []
+                for idx, img_b in enumerate(compressed_proofs):
+                    try:
+                        if img_b and len(img_b) > 10 and drive_service and MediaIoBaseUpload:
+                            img_w_pt, img_h_pt = _compute_proof_image_size_pt(img_b, max_w_pt=210.0, max_h_pt=300.0)
                             media_img = MediaIoBaseUpload(io.BytesIO(img_b), mimetype="image/jpeg", resumable=True)
                             img_drive_body = {"name": f"Receipt_{idx + 1}.jpg"}
                             if target_folder:
@@ -842,79 +1328,134 @@ def export_summary_to_google_doc(
                                         body={"type": "anyone", "role": "reader"},
                                         supportsAllDrives=True,
                                     ).execute()
-                                except Exception:
-                                    pass
-                                uploaded_proof_ids.append(proof_id)
+                                except Exception as perm_err:
+                                    logger.warning(
+                                        f"⚠️ [Google Drive Proof Upload Notice] Could not make proof image "
+                                        f"'{proof_id}' publicly viewable: {perm_err}"
+                                    )
+                                uploaded_proofs.append((proof_id, img_w_pt, img_h_pt))
                     except Exception as upload_err:
-                        print(f"⚠️ [Google Drive Proof Upload Notice] {upload_err}")
+                        logger.warning(f"⚠️ [Google Drive Proof Upload Notice] {upload_err}")
+
+                # Populate the Expenses Table row-by-row (one row per receipt + Total Spent + Approved Budget)
+                table_populated = False
+                if receipts_data and initial_doc:
+                    try:
+                        table_populated = _populate_gdoc_expenses_table(
+                            docs_service=docs_service,
+                            google_doc_id=google_doc_id,
+                            initial_doc=initial_doc,
+                            receipts_data=receipts_data,
+                            total_curr_str=total_curr_str,
+                            total_target_str=total_target_str,
+                            approved_budget=approved_budget or "",
+                        )
+                    except Exception as tbl_err:
+                        logger.warning(f"⚠️ [Google Docs Table Population Notice] Falling back to text tags: {tbl_err}")
 
                 global_replaces = [
                     ("{{TITLE}}", title),
                     ("{{Current date}}", today_str),
+                    ("\x0b{{EUR/USD}}", f"\x0b1 {target_currency}"),
                     ("{{EUR/USD}}", target_currency),
                     ("{{Current exchange rate}}", f"{rate_val:.4f}"),
                     ("{{Local Currency Code}}", local_curr_code),
                     ("{{TOTAL SUM CURR}}", total_curr_str),
+                    ("{{TOTAL SUM PL}}", total_curr_str),
+                    ("{{TOTAL SUM PLN}}", total_curr_str),
                     ("{{TOTAL SUM EUR/USD}}", total_target_str),
+                    ("{{TOTAL SUM USD}}", total_target_str),
+                    ("{{TOTAL SUM EUR}}", total_target_str),
                     ("{{APPROVED}}", approved_budget or ""),
                     ("{{Bank link}}", rate_url or (f"({rate_source_name})" if rate_source_name != "N/A" else "")),
                     ("{{PROOFS}}", ""),
                 ]
-                if receipts_data:
+                if receipts_data and not table_populated:
+                    sum_curr_joined = "\n".join(str(r.get("sum_curr", "")) for r in receipts_data)
+                    sum_target_joined = "\n".join(str(r.get("sum_target", "")) for r in receipts_data)
                     global_replaces.extend(
                         [
-                            ("{{Category}}", receipts_data[0].get("category", "")),
-                            ("{{Desc}}", receipts_data[0].get("desc", "Expense")),
-                            ("{{SUM CURR}}", receipts_data[0].get("sum_curr", "")),
-                            ("{{SUM EUR/USD}}", receipts_data[0].get("sum_target", "")),
+                            ("{{Category}}", "\n".join(str(r.get("category", "")) for r in receipts_data)),
+                            ("{{Desc}}", "\n".join(str(r.get("desc", "Expense")) for r in receipts_data)),
+                            ("{{SUM CURR}}", sum_curr_joined),
+                            ("{{SUM PL}}", sum_curr_joined),
+                            ("{{SUM PLN}}", sum_curr_joined),
+                            ("{{SUM EUR/USD}}", sum_target_joined),
+                            ("{{SUM USD}}", sum_target_joined),
+                            ("{{SUM EUR}}", sum_target_joined),
                         ]
                     )
 
                 gdoc_requests = [
-                    {"replaceAllText": {"containsText": {"text": k, "matchCase": True}, "replaceText": v}}
+                    {"replaceAllText": {"containsText": {"text": k, "matchCase": False}, "replaceText": v}}
                     for k, v in global_replaces
                 ]
                 docs_service.documents().batchUpdate(
                     documentId=google_doc_id, body={"requests": gdoc_requests}
                 ).execute()
-                print(f"✅ [Google Docs API] Successfully populated template text: {google_doc_url}")
+                logger.info(f"✅ [Google Docs API] Successfully populated template text: {google_doc_url}")
 
-                # Directly embed inline images into the Google Doc
-                for idx, proof_id in enumerate(uploaded_proof_ids):
+                # Embed proof images strictly 2 per row, preserving each image's aspect ratio
+                for idx, (proof_id, img_w_pt, img_h_pt) in enumerate(uploaded_proofs):
+                    separator = "    " if (idx % 2 == 0 and idx + 1 < len(uploaded_proofs)) else "\n"
                     try:
-                        # Direct Google Drive CDN thumbnail / content URI
                         image_uri = f"https://lh3.googleusercontent.com/d/{proof_id}"
-                        image_req = {
-                            "insertInlineImage": {
-                                "endOfSegmentLocation": {},
-                                "uri": image_uri,
-                                "objectSize": {
-                                    "width": {"magnitude": 450, "unit": "PT"},
-                                    "height": {"magnitude": 300, "unit": "PT"},
-                                },
-                            }
-                        }
+                        image_reqs = [
+                            {
+                                "insertInlineImage": {
+                                    "endOfSegmentLocation": {},
+                                    "uri": image_uri,
+                                    "objectSize": {
+                                        "width": {"magnitude": img_w_pt, "unit": "PT"},
+                                        "height": {"magnitude": img_h_pt, "unit": "PT"},
+                                    },
+                                }
+                            },
+                            {
+                                "insertText": {
+                                    "endOfSegmentLocation": {},
+                                    "text": separator,
+                                }
+                            },
+                        ]
                         docs_service.documents().batchUpdate(
-                            documentId=google_doc_id, body={"requests": [image_req]}
+                            documentId=google_doc_id, body={"requests": image_reqs}
                         ).execute()
-                        print(f"✅ [Google Docs API] Embedded inline proof image #{idx + 1} directly into doc.")
+                        logger.info(f"✅ [Google Docs API] Embedded inline proof image #{idx + 1} (2-per-row).")
                     except Exception as embed_err:
-                        print(f"⚠️ [Google Docs Image Embed Notice] {embed_err}")
+                        logger.warning(f"⚠️ [Google Docs Image Embed Notice] {embed_err}")
                         try:
                             fallback_uri = f"https://drive.google.com/uc?export=download&id={proof_id}"
                             docs_service.documents().batchUpdate(
                                 documentId=google_doc_id,
                                 body={
                                     "requests": [
-                                        {"insertInlineImage": {"endOfSegmentLocation": {}, "uri": fallback_uri}}
+                                        {
+                                            "insertInlineImage": {
+                                                "endOfSegmentLocation": {},
+                                                "uri": fallback_uri,
+                                                "objectSize": {
+                                                    "width": {"magnitude": img_w_pt, "unit": "PT"},
+                                                    "height": {"magnitude": img_h_pt, "unit": "PT"},
+                                                },
+                                            }
+                                        },
+                                        {
+                                            "insertText": {
+                                                "endOfSegmentLocation": {},
+                                                "text": separator,
+                                            }
+                                        },
                                     ]
                                 },
                             ).execute()
-                            print(f"✅ [Google Docs API] Embedded inline proof image #{idx + 1} using fallback URI.")
+                            logger.info(
+                                f"✅ [Google Docs API] Embedded inline proof image #{idx + 1} using fallback URI."
+                            )
                         except Exception as fb_err:
-                            print(f"⚠️ [Google Docs Image Fallback Notice] {fb_err}")
+                            logger.warning(f"⚠️ [Google Docs Image Fallback Notice] {fb_err}")
         except Exception as gdoc_err:
-            print(f"⚠️ [Google Docs API Error] {gdoc_err}")
+            logger.warning(f"⚠️ [Google Docs API Error] {gdoc_err}")
             return {
                 "success": False,
                 "error": "GOOGLE_DOCS_ACCESS_ERROR",
@@ -943,7 +1484,15 @@ def export_summary_to_google_doc(
             "target_currency": target_currency,
             "exchange_rate": rate_val,
             "receipts_count": len(receipts_data or []),
+            "template_warnings": template_warnings,
             "message": f"Successfully generated Expense Reimbursement report in Google Docs: [{title}]({google_doc_url})",
+            "ui": ui_payloads.document(
+                google_doc_url,
+                title=title,
+                kind="expense_report",
+                file_type="Google Docs",
+                filename=title,
+            ),
         }
 
     except Exception as e:

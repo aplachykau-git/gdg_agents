@@ -1,0 +1,3579 @@
+{
+  "metadata": {
+    "title": "Omni Model Clean High-Density Cinematic Taxonomy",
+    "description": "Zero-URL, dense cinematic taxonomy engineered specifically as modular style ingredients for Gemini Omni video generation.",
+    "target_model": "Gemini Omni / Multimodal Video Generation",
+    "counts": {
+      "genres_and_narratives": 108,
+      "visual_styles_and_aesthetics": 214,
+      "camera_movement_and_framing": 153,
+      "lighting_and_atmosphere": 12,
+      "optics_and_color_stocks": 16,
+      "total_items": 503
+    }
+  },
+  "genres": [
+    {
+      "id": "wuxia_martial_arts",
+      "name": "Wuxia Swordplay Fantasy",
+      "format": "feature_film",
+      "culture_era": "China / East Asia Classical",
+      "description": "Mythic martial artists defying gravity across bamboo groves and mist-shrouded temple rooftops, embodying philosophical chivalry and fluid swordplay."
+    },
+    {
+      "id": "french_new_wave_narrative",
+      "name": "French New Wave Realism",
+      "format": "feature_film",
+      "culture_era": "France 1960s",
+      "description": "Existential youth wandering Parisian streets, breaking the fourth wall, utilizing jump cuts, conversational spontaneity, and breezy café banter."
+    },
+    {
+      "id": "italian_neorealist_struggle",
+      "name": "Italian Neorealism",
+      "format": "feature_film",
+      "culture_era": "Italy Post-WWII",
+      "description": "Working-class moral struggle set against raw bombed-out ruins, non-professional actors, natural light, and profound human dignity."
+    },
+    {
+      "id": "spaghetti_western_standoff",
+      "name": "Spaghetti Western",
+      "format": "feature_film",
+      "culture_era": "Italy / Almería 1960s",
+      "description": "Cynical antiheroes in dust-blown frontier towns, extreme wide desert vistas cutting to sweaty eye close-ups before lethal gun draws."
+    },
+    {
+      "id": "german_expressionist_nightmare",
+      "name": "German Expressionism",
+      "format": "feature_film",
+      "culture_era": "Germany 1920s",
+      "description": "Psychological madness projected onto external reality with jagged architectural angles, deep painted shadows, and theatrical physical distress."
+    },
+    {
+      "id": "korean_revenge_thriller",
+      "name": "Korean New Wave Revenge Thriller",
+      "format": "feature_film",
+      "culture_era": "South Korea Modern",
+      "description": "Visceral morality tales driven by relentless physical retribution, dingy tiled hallways, blunt-force combat, and crushing emotional tragedy."
+    },
+    {
+      "id": "bollywood_masala_spectacle",
+      "name": "Bollywood Masala Spectacle",
+      "format": "feature_film",
+      "culture_era": "India Modern",
+      "description": "Multi-genre cinematic celebration blending dramatic romantic melodrama, larger-than-life hero entrances, explosive kinetic action, and grand emotional catharsis."
+    },
+    {
+      "id": "tollywood_hyper_action",
+      "name": "Tollywood Mythic Hyper-Action",
+      "format": "feature_film",
+      "culture_era": "India Modern",
+      "description": "Mythological superhuman heroism, physics-defying combat sequences, dramatic slow-motion dust impacts, and roaring crowd celebrations."
+    },
+    {
+      "id": "nordic_noir_investigation",
+      "name": "Nordic Noir Procedural",
+      "format": "feature_film",
+      "culture_era": "Scandinavia Modern",
+      "description": "Brooding detectives investigating mysterious rural cases beneath desolate overcast skies, freezing coastal fjords, and atmospheric minimalist architecture."
+    },
+    {
+      "id": "latin_american_magic_realism",
+      "name": "Latin American Magic Realism",
+      "format": "feature_film",
+      "culture_era": "Latin America",
+      "description": "Everyday village life seamlessly intertwined with the supernatural, glowing ancestral spirits, impossible folklore, and vibrant tactile passions."
+    },
+    {
+      "id": "nollywood_urban_melodrama",
+      "name": "Nollywood Urban Melodrama",
+      "format": "feature_film",
+      "culture_era": "Nigeria Modern",
+      "description": "High-stakes familial power struggles, spiritual conflicts between tradition and mega-city modernity, flamboyant wealth, and intense emotional confrontations."
+    },
+    {
+      "id": "japanese_yakuza_eiga",
+      "name": "Japanese Yakuza Honor Code",
+      "format": "feature_film",
+      "culture_era": "Japan 1970s",
+      "description": "Brutal clan betrayals inside tatami mat rooms, stoic code of duty (giri-ninjo), flashing katana blades, and blood-splattered raincoats."
+    },
+    {
+      "id": "j_horror_dread",
+      "name": "J-Horror Atmospheric Dread",
+      "format": "feature_film",
+      "culture_era": "Japan 1990s-2000s",
+      "description": "Creeping psychological terror born from technology and damp urban isolation, pale water-logged ghosts with black hair, and deafening silence."
+    },
+    {
+      "id": "british_kitchen_sink_realism",
+      "name": "British Kitchen Sink Realism",
+      "format": "feature_film",
+      "culture_era": "United Kingdom 1960s-Modern",
+      "description": "Gritty working-class industrial city life, factory smoke, cramped terraced brick housing, colloquial banter, and generational disillusionment."
+    },
+    {
+      "id": "american_film_noir",
+      "name": "Classic American Film Noir",
+      "format": "feature_film",
+      "culture_era": "USA 1940s-50s",
+      "description": "Cynical private investigators, lethal femme fatales, venetian blind shadow slats, cigarette smoke haze, and corrupt rain-slicked midnight avenues."
+    },
+    {
+      "id": "neo_noir_tech_thriller",
+      "name": "Tech-Noir & Cyber-Thriller",
+      "format": "feature_film",
+      "culture_era": "USA / Global Modern",
+      "description": "Underground hackers and corporate enforcers navigating holographic billboards, wet pavement reflections, synthetic narcotics, and digital paranoia."
+    },
+    {
+      "id": "folk_horror_ritual",
+      "name": "Folk Horror Pagan Ritual",
+      "format": "feature_film",
+      "culture_era": "Rural Europe / Appalachia",
+      "description": "Sun-drenched pastoral meadows concealing ancient agrarian cult rituals, pagan flower crowns, unsettling community silence, and sacrificial terror."
+    },
+    {
+      "id": "cosmic_horror_abyss",
+      "name": "Cosmic Horror & Eldritch Dread",
+      "format": "feature_film",
+      "culture_era": "Global Speculative",
+      "description": "Scholars confronting incomprehensible geometries, sanity-eroding celestial voids, gelatinous non-Euclidean relics, and paralyzing human insignificance."
+    },
+    {
+      "id": "soviet_montage_revolution",
+      "name": "Soviet Montage Epic",
+      "format": "feature_film",
+      "culture_era": "USSR 1920s",
+      "description": "Collision of dynamic intellectual imagery, rhythmic cutting, heroic collective worker gestures, monumental machinery, and stark angular framing."
+    },
+    {
+      "id": "sb_action_genre",
+      "name": "Action Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "Movies in theaction genreare defined by risk and stakes. While many movies may feature anaction sequence, to be appropriately categorized inside the action genre, the bulk of the content must be action-oriented, includingfight scenes,."
+    },
+    {
+      "id": "sb_animation_genre",
+      "name": "Animation Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "Theanimationgenre is defined by inanimate objects being manipulated to appear as though they are living."
+    },
+    {
+      "id": "sb_comedy_genre",
+      "name": "Comedy Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "The comedy genreis defined by events that are intended to make someone laugh, no matter if the story is macabre, droll, or zany."
+    },
+    {
+      "id": "sb_crime_genre",
+      "name": "Crime Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "The crime genre deals with both sides of the criminal justice system but does not focus on legislative matters or civil suits and legal actions."
+    },
+    {
+      "id": "sb_drama_genre",
+      "name": "Drama Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "Thedramagenre is defined by conflict and often looks to reality rather than sensationalism."
+    },
+    {
+      "id": "sb_experimental_genre",
+      "name": "Experimental Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "Theexperimental genreis often defined by the idea that the work of art and entertainment does not fit into a particular genre or sub-genre, and is intended as such."
+    },
+    {
+      "id": "sb_fantasy_genre",
+      "name": "Fantasy Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "The fantasy genre is defined by both circumstance and setting inside a fictional universe with an unrealistic set of natural laws."
+    },
+    {
+      "id": "sb_historical_genre",
+      "name": "Historical Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "The historical genre can be split into two sections. One deals with accurate representations of historical accounts which can include biographies, autobiographies, and memoirs."
+    },
+    {
+      "id": "sb_horror_genre",
+      "name": "Horror Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "Thehorror genreis centered upon depicting terrifying or macabre events for the sake of entertainment."
+    },
+    {
+      "id": "sb_romance_genre",
+      "name": "Romance Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "The romance genre is defined by intimate relationships. Sometimes these movies can have a darker twist, but the idea is to lean on the naturalconflictderived from the pursuit of intimacy and love."
+    },
+    {
+      "id": "sb_science_fiction_genre",
+      "name": "Science Fiction Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "Science fiction moviesare defined by a mixture of speculation and science. While fantasy will explain through or make use of magic and mysticism, science fiction will use the changes and trajectory of technology and science."
+    },
+    {
+      "id": "sb_thriller_genre",
+      "name": "Thriller Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "A thriller story is mostly about the emotional purpose, which is to elicit strong emotions, mostly dealing with generating suspense and anxiety."
+    },
+    {
+      "id": "sb_western_genre",
+      "name": "Western Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "Westerns are defined by their setting and time period. The story needs to take place in the American West, which begins as far east as Missouri and extends to the Pacific ocean."
+    },
+    {
+      "id": "sb_musical_genre",
+      "name": "Musical Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "Musicals originated as stage plays, but they soon became a favorite for manyfilm directorsand have even made their way into television."
+    },
+    {
+      "id": "sb_war_genre",
+      "name": "War Genre",
+      "format": "feature_film",
+      "culture_era": "Hollywood / Industry Standard",
+      "description": "The war genre has a few debatable definitions, but we’re going to try to be as straightforward and impartial as humanly possible."
+    },
+    {
+      "id": "film_action_film",
+      "name": "Action film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Film genre that predominantly features chase sequences, fights, shootouts, explosions, and stunt work."
+    },
+    {
+      "id": "film_adventure_film",
+      "name": "Adventure film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "The adventure film is a broad genre of film. Some early genre studies found it no different from the Western film or argued that adventure could encompass all Hollywood genres."
+    },
+    {
+      "id": "film_comedy_film",
+      "name": "Comedy film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "The comedy film is a film genre that emphasizes humor. These films are designed to amuse audiences and make them laugh."
+    },
+    {
+      "id": "film_coming_of_age_story",
+      "name": "Coming-of-age story",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "In genre studies, a coming-of-age story is a genre of literature, theatre, film, and video game that focuses on the growth of a protagonist from childhood to adulthood, or \"coming of age\"."
+    },
+    {
+      "id": "film_crime_film",
+      "name": "Crime film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "The crime film is a genre where the element of crime is key the films plot. Researchers of the genre, such as Nicole Hahn Rafter and Thomas Leitch noted the difficulty in defining the genre, saying it would be impractical to call every."
+    },
+    {
+      "id": "film_drama_film_and_television",
+      "name": "Drama (film and television)",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Category or genre of narrative fiction (or semi-fiction) intended to be more serious than humorous in tone."
+    },
+    {
+      "id": "film_folk_horror",
+      "name": "Folk horror",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Subgenre of horror film and horror fiction that uses elements of folklore to invoke fear and foreboding."
+    },
+    {
+      "id": "film_gangster_film",
+      "name": "Gangster film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A gangster film or gangster movie is a film belonging to a genre that focuses on gangs and organized crime."
+    },
+    {
+      "id": "film_heist_film",
+      "name": "Heist film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "The heist film or caper film is a subgenre of crime films and the caper story, focused on the planning, execution, and aftermath of a significant robbery."
+    },
+    {
+      "id": "film_horror_film",
+      "name": "Horror film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Horror is a film genre that seeks to elicit physical or psychological fear in its viewers."
+    },
+    {
+      "id": "film_melodrama",
+      "name": "Melodrama",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A melodrama is a dramatic work in which plot, typically sensationalized for a strong emotional appeal, takes precedence over detailed characterization."
+    },
+    {
+      "id": "film_psychological_thriller",
+      "name": "Psychological thriller",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Genre combining the thriller and psychological fiction genres. It is commonly used to describe literature or films that deal with psychological narratives in a thriller or thrilling setting."
+    },
+    {
+      "id": "film_romantic_comedy",
+      "name": "Romantic comedy",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Romantic comedy (commonly shortened to romcom or rom-com) is a sub-genre of comedy and romance fiction, focusing on lighthearted, humorous plot lines centered on romantic ideas, such as how love is able to surmount all obstacles."
+    },
+    {
+      "id": "film_screwball_comedy",
+      "name": "Screwball comedy",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Film subgenre of the romantic comedy genre that became popular during the Great Depression, beginning in the early 1930s and thriving until the early 1950s, that satirizes the traditional love story."
+    },
+    {
+      "id": "film_slapstick",
+      "name": "Slapstick",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Style of humor involving exaggerated physical activity that exceeds the boundaries of normal physical comedy, which may involve both intentional violence and violence by mishap, often resulting from physical abuse or inept use of props."
+    },
+    {
+      "id": "film_supernatural_horror_film",
+      "name": "Supernatural horror film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Genre that combines aspects of supernatural and horror film. Supernatural occurrences in such films often include ghosts and demons, and many supernatural horror films have elements of religion."
+    },
+    {
+      "id": "film_dark_humor",
+      "name": "Dark humor",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Dark humor, also known as black comedy, black humor, bleak comedy, dark comedy, gallows humor or morbid humor is a style of comedy that makes light of subject matter that is generally considered taboo, particularly subjects that are."
+    },
+    {
+      "id": "film_acid_western",
+      "name": "Acid Western",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Subgenre of the Western film that emerged in the 1960s and 1970s that combines the metaphorical ambitions of critically acclaimed Westerns, such as Shane and The Searchers, with the excesses of the spaghetti Westerns."
+    },
+    {
+      "id": "film_biopunk",
+      "name": "Biopunk",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Biopunk (a portmanteau of \"biotechnology\" or \"biology\" and \"punk\") is a subgenre of science fiction that focuses on biotechnology."
+    },
+    {
+      "id": "film_cyberpunk",
+      "name": "Cyberpunk",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Subgenre of science fiction set in a dystopian future. It is characterized by its focus on a combination of \"lowlife and high tech\"."
+    },
+    {
+      "id": "film_dark_fantasy",
+      "name": "Dark fantasy",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Dark fantasy or fantasy horror is a subgenre of literary, artistic, and cinematic fantasy works that incorporates elements of horror fiction."
+    },
+    {
+      "id": "film_dieselpunk",
+      "name": "Dieselpunk",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Retrofuturistic subgenre of science fiction similar to steampunk or cyberpunk that combines the aesthetics of the diesel-based technology of the interwar period through to the 1950s with retro-futuristic technology and postmodern."
+    },
+    {
+      "id": "film_disaster_film",
+      "name": "Disaster film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A disaster film or disaster movie is a film genre that has an impending or ongoing disaster as its subject and primary plot device."
+    },
+    {
+      "id": "film_documentary_film",
+      "name": "Documentary film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A documentary film (often called simply a documentary) is a nonfiction motion picture intended to \"document reality, primarily for instruction, education or maintaining a historical record\"."
+    },
+    {
+      "id": "film_fantasy_film",
+      "name": "Fantasy film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Fantasy films are films that belong to the fantasy genre with fantastic themes, usually magic, supernatural events, mythology, folklore, or exotic fantasy worlds."
+    },
+    {
+      "id": "film_martial_arts_film",
+      "name": "Martial arts film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Martial arts films are a subgenre of action films that feature martial arts combat between characters."
+    },
+    {
+      "id": "film_mockumentary",
+      "name": "Mockumentary",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A mockumentary (a portmanteau of mock and documentary) is a type of film or television programme depicting fictional events, but presented as a documentary."
+    },
+    {
+      "id": "film_musical_film",
+      "name": "Musical film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Film genre in which songs by the characters are interwoven into the narrative, sometimes accompanied by dancing."
+    },
+    {
+      "id": "film_science_fiction_film",
+      "name": "Science fiction film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Application of science fiction themes into a film genre. As such, it uses speculative, science-based depictions of phenomena that are not fully accepted by mainstream science, such as extraterrestrial lifeforms, spacecraft, robots,."
+    },
+    {
+      "id": "film_solarpunk",
+      "name": "Solarpunk",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Genre of speculative art and fiction which centers depictions of ecologically sustainable futures."
+    },
+    {
+      "id": "film_space_opera",
+      "name": "Space opera",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Subgenre of science fiction and science fantasy that emphasizes epic outer space adventures set in a universe in which faster-than-light travel has become common."
+    },
+    {
+      "id": "film_steampunk",
+      "name": "Steampunk",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Subgenre of science fiction that incorporates retro-futuristic technology and aesthetics prominently inspired by 19th-century industrial steam-powered machinery and design."
+    },
+    {
+      "id": "film_war_film",
+      "name": "War film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Film genre concerned with warfare, typically about naval, air, or land battles, with combat scenes central to the drama."
+    },
+    {
+      "id": "film_western_genre",
+      "name": "Western (genre)",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "The Western is a genre of fiction typically set in the American frontier, commonly referred to as the “Old West” or “Wild West”."
+    },
+    {
+      "id": "film_wuxia",
+      "name": "Wuxia",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Wuxia is a genre of Chinese fiction and low fantasy concerning the adventures of martial artists in ancient China."
+    },
+    {
+      "id": "film_apocalyptic_and_post_apocalyptic_fiction",
+      "name": "Apocalyptic and post-apocalyptic fiction",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Apocalyptic and post-apocalyptic fiction are subgenres of speculative fiction in which the Earth's (or another place's) civilization is collapsing or has collapsed."
+    },
+    {
+      "id": "film_action_comedy",
+      "name": "Action comedy",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Hybrid genre that combines elements of action fiction with comedy. While early action films feature stuntwork and humor, academic Cynthia King wrote that the genre only came into its own as a mainstay of the American action film genre."
+    },
+    {
+      "id": "film_animated_documentary",
+      "name": "Animated documentary",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "The animated documentary (also known as anidoc) is a moving image form that combines animation and documentary."
+    },
+    {
+      "id": "film_dystopia",
+      "name": "Dystopia",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A dystopia (lit. \"bad place\") is an imagined world or society in which people lead wretched, dehumanized, fearful lives."
+    },
+    {
+      "id": "film_kaiju",
+      "name": "Kaiju",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Kaiju (怪獣（かいじゅう）, kaijū; lit. 'strange beast') is a term used in film and media for a subgenre of monster films produced in Japan known as kaiju eiga (monster films), also serving as a subgenre of tokusatsu (special effects filmmaking)."
+    },
+    {
+      "id": "film_road_movie",
+      "name": "Road movie",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A road movie is a genre of film in which the main characters leave home on a road trip, typically altering the perspective from their everyday lives."
+    },
+    {
+      "id": "film_swashbuckler_film",
+      "name": "Swashbuckler film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A swashbuckler film is characterised by swordfighting and adventurous heroic characters, known as swashbucklers."
+    },
+    {
+      "id": "film_sword_and_sandal",
+      "name": "Sword-and-sandal",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Sword-and-sandal, also known as peplum (pl.: pepla), is a subgenre of largely Italian-made historical, mythological, or biblical epic films mostly set in the Greco-Roman antiquity or the Middle Ages."
+    },
+    {
+      "id": "film_tokusatsu",
+      "name": "Tokusatsu",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Tokusatsu (特撮（とくさつ）; lit. 'special filming') is a Japanese term for live-action films or television programs that make heavy use of practical special effects."
+    },
+    {
+      "id": "film_b_movie",
+      "name": "B movie",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A B movie, or B film, is a type of low-budget commercial motion picture. Originally, during the Golden Age of Hollywood, this term specifically referred to films meant to be shown as the lesser-known second half of a double feature,."
+    },
+    {
+      "id": "film_found_footage_film",
+      "name": "Found footage film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Found footage is a cinematic technique and film genre in which all or a substantial part of the work is presented as if it were film or video recordings recorded by characters in the story, and later \"found\" and presented to the audience."
+    },
+    {
+      "id": "film_tech_noir",
+      "name": "Tech noir",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Hybrid genre of fiction, particularly film, combining film noir and science fiction, epitomized by Ridley Scott's Blade Runner (1982) and James Cameron's The Terminator (1984)."
+    },
+    {
+      "id": "film_anthology_film",
+      "name": "Anthology film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "An anthology film (also known as an omnibus film, package film or portmanteau film) is a single film consisting of three or more shorter films, each complete in itself and distinguished from the other, though frequently tied together by."
+    },
+    {
+      "id": "film_art_film",
+      "name": "Art film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "An art film, arthouse film, or specialty film is an independent film aimed at a niche market rather than a mass market audience."
+    },
+    {
+      "id": "film_art_horror",
+      "name": "Art horror",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Art horror or arthouse horror (sometimes called elevated horror) is a sub-genre of both horror films and art films."
+    },
+    {
+      "id": "film_arthouse_animation",
+      "name": "Arthouse animation",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Combination of art film and animated film."
+    },
+    {
+      "id": "film_arthouse_science_fiction_film",
+      "name": "Arthouse science fiction film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Arthouse science fiction (or arthouse sci-fi) is a combination of art and science fiction cinema."
+    },
+    {
+      "id": "film_bildungsroman",
+      "name": "Bildungsroman",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "In literary criticism, a bildungsroman is a literary genre that focuses on the psychological and moral growth and change of the protagonist from childhood to adulthood (coming of age)."
+    },
+    {
+      "id": "film_biographical_film",
+      "name": "Biographical film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A biographical film, or biopic (, biographical picture), is a film that dramatizes the life of a real person or sometimes a group of people."
+    },
+    {
+      "id": "film_buddy_cop",
+      "name": "Buddy cop",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Film and television genre with plots involving two people of very different and conflicting personalities who are forced to work together to solve a crime or defeat criminals, often learning from each other in the process."
+    },
+    {
+      "id": "film_buddy_film",
+      "name": "Buddy film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "The buddy film is a subgenre of adventure and comedy film in which two people go on an adventure, mission, or road trip."
+    },
+    {
+      "id": "film_cartoon",
+      "name": "Cartoon",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A cartoon is a type of visual art that is typically drawn, frequently animated, in an unrealistic or semi-realistic style."
+    },
+    {
+      "id": "film_chicano_cinema",
+      "name": "Chicano cinema",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "Aspect of Mexican American cinema that refers to the filmmaking practices that emerged out of the cultural consciousness developed through the Chicano Movement."
+    },
+    {
+      "id": "film_children_s_film",
+      "name": "Children's film",
+      "format": "feature_film",
+      "culture_era": "Global Cinematic",
+      "description": "A children's film, or family film, is a film genre that generally relates to children in the context of home and family."
+    },
+    {
+      "id": "mv_90s_fisheye_hiphop",
+      "name": "90s Fisheye Hip-Hop Video",
+      "format": "music_video",
+      "culture_era": "North America 1990s",
+      "description": "High-energy performance filmed with extreme 8mm fisheye lenses, glossy metallic windbreakers, vibrant yellow-orange backgrounds, and rapid low-angle camera rolls."
+    },
+    {
+      "id": "mv_surrealist_in_camera",
+      "name": "Practical In-Camera Surrealism",
+      "format": "music_video",
+      "culture_era": "European / Global 1990s-2000s",
+      "description": "Clever practical optical illusions, choreographed human conveyor belts, cardboard city replicas, and continuous physical match-cuts without digital visual effects."
+    },
+    {
+      "id": "mv_neon_trap_cinematic",
+      "name": "High-Gloss Neon Trap Visualizer",
+      "format": "music_video",
+      "culture_era": "Global Contemporary",
+      "description": "Late-night urban pursuit with luxury hyper-cars drifting on rain-soaked tarmac under saturated magenta and cyan rim-lighting and anamorphic streaks."
+    },
+    {
+      "id": "mv_cyber_y2k_rave",
+      "name": "Cyber-Y2K Industrial Rave",
+      "format": "music_video",
+      "culture_era": "UK / Global 1998-2003",
+      "description": "Underground warehouse strobes, chrome futuristic eyewear, cybernetic fashion, rapid shutter-angle motion stutter, and relentless breakbeat pacing."
+    },
+    {
+      "id": "mv_indie_folk_one_take",
+      "name": "Acoustic Indie Folk Single-Take",
+      "format": "music_video",
+      "culture_era": "Contemporary Independent",
+      "description": "Warm natural sunlight filtering through autumnal forest foliage as a lone musician performs an uninterrupted, gently drifting Steadicam ballad."
+    },
+    {
+      "id": "mv_fashion_performance_editorial",
+      "name": "High-Fashion Editorial Art Film",
+      "format": "music_video",
+      "culture_era": "Paris / Milan High-Fashion",
+      "description": "Striking avant-garde silhouette poses, harsh on-camera flash against raw concrete walls, minimalist sound design, and hypnotic physical choreography."
+    },
+    {
+      "id": "mv_lofi_vhs_bedroom_pop",
+      "name": "Lo-Fi VHS Bedroom Pop",
+      "format": "music_video",
+      "culture_era": "Internet Subculture 2010s-Present",
+      "description": "Dreamy hazy nostalgic video filmed on vintage analog camcorder, tracking static lines, pastel bedroom fairy lights, and intimate candid close-ups."
+    },
+    {
+      "id": "comm_luxury_fragrance",
+      "name": "Haute Parfumerie & Luxury Fragrance",
+      "format": "commercial",
+      "culture_era": "High-End Luxury Brand",
+      "description": "Ethereal slow-motion billowing silk, backlit golden sunbeams blooming through mist, statuesque models walking on water, and whispered French narration."
+    },
+    {
+      "id": "comm_automotive_pursuit",
+      "name": "Dynamic Automotive Mountain Pursuit",
+      "format": "commercial",
+      "culture_era": "Automotive Commercial",
+      "description": "High-performance sports car carving through winding alpine mountain passes at sunset, filmed from low-slung gyro-stabilized pursuit cranes."
+    },
+    {
+      "id": "comm_high_tech_monolith",
+      "name": "Minimalist Hardware & Tech Monolith",
+      "format": "commercial",
+      "culture_era": "Consumer Electronics",
+      "description": "Dark reflective obsidian environment, laser edge illumination highlighting brushed titanium and matte glass, precision turntable mechanical rotations."
+    },
+    {
+      "id": "comm_high_speed_culinary",
+      "name": "Phantom 1000fps Culinary Splash",
+      "format": "commercial",
+      "culture_era": "Commercial Tabletop",
+      "description": "Microscopic liquid droplets colliding in ultra-slow motion, sizzling flames caramelizing sugar, flying fresh ingredients bursting through airborne water ribbons."
+    },
+    {
+      "id": "comm_kinetic_streetwear",
+      "name": "High-Energy Kinetic Streetwear Campaign",
+      "format": "commercial",
+      "culture_era": "Urban Fashion / Athletics",
+      "description": "Aggressive speed-ramping, snap zooms, handheld running alongside athletes jumping across brutalist concrete steps in raw natural city light."
+    },
+    {
+      "id": "vlog_cinematic_travel_fpv",
+      "name": "Cinematic FPV Travel Adventure",
+      "format": "documentary_vlog",
+      "culture_era": "Digital Creator Contemporary",
+      "description": "Seamless continuous FPV drone dive soaring through mountain ridges and dropping into a sunlit forest camp with pristine 4K color grading."
+    },
+    {
+      "id": "doc_cinema_verite_street",
+      "name": "Observational Cinema Verité",
+      "format": "documentary_vlog",
+      "culture_era": "International Documentary",
+      "description": "Unobtrusive handheld camera documenting spontaneous human interactions in bustling open-air street markets with authentic ambient soundscapes."
+    },
+    {
+      "id": "doc_guerrilla_investigative",
+      "name": "Guerrilla Investigative Dispatch",
+      "format": "documentary_vlog",
+      "culture_era": "Independent Journalism",
+      "description": "Urgent low-light run-and-gun filming, direct microphone audio, harsh camera-mounted flashlight cutting through industrial ruins at 3 AM."
+    }
+  ],
+  "visual_styles": [
+    {
+      "id": "dir_stanley_kubrick",
+      "name": "Stanley Kubrick Visual Grammar",
+      "type": "director_signature",
+      "description": "Extreme one-point perspective symmetry, clinical emotional detachment, wide-angle spatial distortion, slow hypnotic tracking through monumental corridors.",
+      "key_motifs": "One-point perspective, pristine white interiors, labyrinthine corridors, imposing symmetry, intense unblinking glares",
+      "era_of_origin": "1960s-1990s"
+    },
+    {
+      "id": "dir_david_lynch",
+      "name": "David Lynch Surreal Dread",
+      "type": "director_signature",
+      "description": "Dream-logic juxtaposition of 1950s wholesome Americana with nightmarish psychological decay, heavy red velvet curtains, flickering floor lamps, and deep industrial audio drone.",
+      "key_motifs": "Red velvet drapery, chevron zigzag floors, flickering neon, mysterious smoky diners, uncanny doubles",
+      "era_of_origin": "1970s-2000s"
+    },
+    {
+      "id": "dir_andrei_tarkovsky",
+      "name": "Andrei Tarkovsky Poetic Transcendence",
+      "type": "director_signature",
+      "description": "Monumental slow cinema tracking across waterlogged ruins, levitating figures, damp fertile earth, wind rippling through long grass, and deeply spiritual contemplation.",
+      "key_motifs": "Water reflections, burning wooden houses, morning fog, damp earth, levitation, decaying classical paintings",
+      "era_of_origin": "1960s-1980s"
+    },
+    {
+      "id": "dir_wong_kar_wai",
+      "name": "Wong Kar-wai Melancholic Neon",
+      "type": "director_signature",
+      "description": "Step-printed slow shutter motion blur, neon reflections on wet taxi windows, smoke swirling around lonely diners, and unrequited romantic longing in dense night markets.",
+      "key_motifs": "Step-printing, 24fps motion trails, saturated neon green and amber, clock faces, cigarette smoke, cramped noodle stalls",
+      "era_of_origin": "1990s-2000s"
+    },
+    {
+      "id": "dir_denis_villeneuve",
+      "name": "Denis Villeneuve Monolithic Brutalism",
+      "type": "director_signature",
+      "description": "Towering geometric architecture dominating tiny human figures, atmospheric dust and sand storms, muted monochromatic palettes, and thunderous low-frequency sonic presence.",
+      "key_motifs": "Vast geometric monoliths, dust hazes, silhouettes against orange or grey skies, brutalist concrete, pristine symmetry",
+      "era_of_origin": "2010s-Present"
+    },
+    {
+      "id": "dir_david_fincher",
+      "name": "David Fincher Surgical Precision",
+      "type": "director_signature",
+      "description": "Mechanical tripod pans perfectly synchronized with actor movement, desaturated yellow-green sickly color timing, low-key lighting, and relentless analytical scrutiny.",
+      "key_motifs": "Desaturated sickly greens, low-key shadow contrast, computer-precise tracking moves, subterranean filing rooms, heavy rain",
+      "era_of_origin": "1990s-Present"
+    },
+    {
+      "id": "dir_wes_anderson",
+      "name": "Wes Anderson Symmetrical Whimsy",
+      "type": "director_signature",
+      "description": "Strict planar symmetry, candy-colored pastel color palettes, rapid 90-degree whip pans, miniature diorama staging, and meticulous vintage typography.",
+      "key_motifs": "Planar symmetry, pastel pink and mustard yellow, retro luggage, binoculars, antique typography, cross-section sets",
+      "era_of_origin": "1990s-Present"
+    },
+    {
+      "id": "dir_akira_kurosawa",
+      "name": "Akira Kurosawa Dynamic Composition",
+      "type": "director_signature",
+      "description": "Weather elements as dramatic forces (deluges of torrential rain, howling dust winds), dynamic triangle character blocking, and long-lens depth compression.",
+      "key_motifs": "Torrential rainstorms, blowing dust, triangle group compositions, samurai topknots, fluttering banners, horizontal tracking",
+      "era_of_origin": "1950s-1980s"
+    },
+    {
+      "id": "dir_guillermo_del_toro",
+      "name": "Guillermo del Toro Clockwork Fairy Tale",
+      "type": "director_signature",
+      "description": "Painterly amber and teal contrast, tactile mechanical clockwork apparatus, grotesque yet empathetic biological monsters, and gothic subterranean labyrinths.",
+      "key_motifs": "Amber and cyan lighting, brass gears, biological prosthetics, subterranean arches, gothic stained glass, formalin jars",
+      "era_of_origin": "1990s-Present"
+    },
+    {
+      "id": "dir_hayao_miyazaki",
+      "name": "Hayao Miyazaki Soaring Pastoral",
+      "type": "director_signature",
+      "description": "Breathtaking hand-painted cumulus clouds, soaring flight sequences, lush pastoral European hillsides, cozy domestic warmth, and environmental reverence.",
+      "key_motifs": "Towering summer clouds, hand-crafted aircraft, lush meadow grass, sparkling water springs, glowing lanterns",
+      "era_of_origin": "1980s-Present"
+    },
+    {
+      "id": "dir_gaspar_noe",
+      "name": "Gaspar Noé Hallucinogenic Immersion",
+      "type": "director_signature",
+      "description": "Floating Steadicam ceiling perspectives drifting through doorways, pulsing strobe lights, disorienting 360-degree rolls, and sensory neon euphoria.",
+      "key_motifs": "Pulsing red and amber strobe lights, overhead ceiling tracking, spinning camera axes, nightclub delirium, neon signs",
+      "era_of_origin": "2000s-Present"
+    },
+    {
+      "id": "dir_nicolas_winding_refn",
+      "name": "Nicolas Winding Refn Hyper-Stylized Neon",
+      "type": "director_signature",
+      "description": "Static, operatic compositions drenched in saturated magenta and electric cyan neon, stoic psychopathic protagonists, long pregnant silences, and brutal eruptive violence.",
+      "key_motifs": "Saturated neon magenta, deep ink shadows, luxury automotive interiors, silent stoic stares, blood on polished tiles",
+      "era_of_origin": "2010s-Present"
+    },
+    {
+      "id": "dir_terry_gilliam",
+      "name": "Terry Gilliam Baroque Absurdity",
+      "type": "director_signature",
+      "description": "Extreme wide-angle Dutch tilts, labyrinthine bureaucratic ductwork, retro-futuristic clunky cathode screens, and frantic surrealist physical comedy.",
+      "key_motifs": "Dutch angles, 14mm wide-angle distortion, pneumatic tubes, towering paper stacks, rusted clockwork, eccentric costumes",
+      "era_of_origin": "1980s-2000s"
+    },
+    {
+      "id": "dir_claire_denis",
+      "name": "Claire Denis Tactile Sensuality",
+      "type": "director_signature",
+      "description": "Extreme macro close-ups of sweating skin, rhythmic physical choreography, sun-bleached desert dust, elliptical editing, and unspoken colonial and psychological tension.",
+      "key_motifs": "Macro skin textures, desert mirages, sun-bleached salt flats, repetitive military drills, silent glances",
+      "era_of_origin": "1990s-Present"
+    },
+    {
+      "id": "dir_terrence_malick",
+      "name": "Terrence Malick Golden-Hour Transcendence",
+      "type": "director_signature",
+      "description": "Wide-angle roving Steadicam tracking behind characters through tall grass, low-angle natural golden hour backlighting, whispery poetic voiceovers, and cosmic imagery.",
+      "key_motifs": "Golden hour lens flares, wind through tall wheat, wide-angle upward tilt, flowing water streams, soaring sunbeams",
+      "era_of_origin": "1970s-Present"
+    },
+    {
+      "id": "dir_park_chan_wook",
+      "name": "Park Chan-wook Baroque Revenge",
+      "type": "director_signature",
+      "description": "Elaborate geometric wallpaper patterns, ingenious match cuts across time and space, dark macabre wit, and operatic emotional crescendos.",
+      "key_motifs": "Repetitive wallpaper patterns, symmetrical corridor tracking, green tile bathrooms, elaborate seafood, leather-bound diaries",
+      "era_of_origin": "2000s-Present"
+    },
+    {
+      "id": "dir_george_miller",
+      "name": "George Miller Kinetic High-Octane",
+      "type": "director_signature",
+      "description": "Center-framed hyper-kinetic action choreography, speed-ramped vehicular mayhem, high-contrast saturated desert orange and cobalt sky, and practical stunt madness.",
+      "key_motifs": "Center-framed action, post-apocalyptic custom vehicles, roaring exhaust flames, desert dust clouds, chrome skulls",
+      "era_of_origin": "1980s-Present"
+    },
+    {
+      "id": "art_brutalist_architecture",
+      "name": "Brutalist architecture",
+      "type": "art_movement",
+      "description": "Architectural style that emerged during the 1950s in the United Kingdom, among the reconstruction projects of the post-war era.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_constructivism_art",
+      "name": "Constructivism (art)",
+      "type": "art_movement",
+      "description": "Constructivism (romanized: konstruktivizm) is an early twentieth-century art movement founded in 1915 by Vladimir Tatlin and Alexander Rodchenko.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_cubism",
+      "name": "Cubism",
+      "type": "art_movement",
+      "description": "Early-20th-century avant-garde art movement which began in Paris. It revolutionized painting and the visual arts, and sparked artistic innovations in music, ballet, literature, and architecture.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_dada",
+      "name": "Dada",
+      "type": "art_movement",
+      "description": "Dada or Dadaism was an international art movement that developed in the context of World War I, its aftermath, and the Futurist movement.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_de_stijl",
+      "name": "De Stijl",
+      "type": "art_movement",
+      "description": "De Stijl was a Dutch art movement founded in 1917 by a group of artists and architects based in Leiden (Theo van Doesburg, J.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_fauvism",
+      "name": "Fauvism",
+      "type": "art_movement",
+      "description": "Fauvism ( FOH-viz-əm) is a style of painting and an art movement that emerged in France at the beginning of the 20th century.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_futurism",
+      "name": "Futurism",
+      "type": "art_movement",
+      "description": "Futurism was an artistic and social movement that originated in Italy, and to a lesser extent in other countries, in the early 20th century.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_gothic_art",
+      "name": "Gothic art",
+      "type": "art_movement",
+      "description": "Style of medieval art that developed in Northern France out of Romanesque art in the 12th century, led by the concurrent development of Gothic architecture.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_kitsch",
+      "name": "Kitsch",
+      "type": "art_movement",
+      "description": "Kitsch ( KITCH; loanword from German) is a term applied to art and design that is perceived as naïve imitation, overly eccentric, gratuitous, or of banal taste.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_minimalism",
+      "name": "Minimalism",
+      "type": "art_movement",
+      "description": "Art movement that emphasizes reducing art to its essentials, focusing on the object itself and the viewer's experience, with as little mediation from the artist as possible.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_op_art",
+      "name": "Op art",
+      "type": "art_movement",
+      "description": "Op art, short for optical art, is a style of visual art that uses distorted or manipulated geometrical patterns, often to create optical illusions.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_pop_art",
+      "name": "Pop art",
+      "type": "art_movement",
+      "description": "Art movement that emerged in the United Kingdom and the United States during the mid-to-late 1950s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_precisionism",
+      "name": "Precisionism",
+      "type": "art_movement",
+      "description": "Modernist art movement that emerged in the United States after World War I. Influenced by Cubism, Purism, and Futurism, Precisionist artists reduced subjects to their essential geometric shapes, eliminated detail, and often used planes.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_romanticism",
+      "name": "Romanticism",
+      "type": "art_movement",
+      "description": "Romanticism (also known as the Romantic movement or Romantic era) was an artistic and intellectual movement that originated in Europe towards the end of the 18th century.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_suprematism",
+      "name": "Suprematism",
+      "type": "art_movement",
+      "description": "Suprematism (romanized: suprematizm) is an early 20th-century art movement focused on the fundamentals of geometry (circles, squares, rectangles), painted in a limited range of colors.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_surrealism",
+      "name": "Surrealism",
+      "type": "art_movement",
+      "description": "Art and cultural movement that developed in Europe in the aftermath of World War I in which artists aimed to allow the unconscious mind to express itself, often resulting in the depiction of illogical or dreamlike scenes and ideas.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_abstract_art",
+      "name": "Abstract art",
+      "type": "art_movement",
+      "description": "Abstract art uses visual language of shape, form, color, and line to create a composition which may exist with a degree of independence from visual references in the world.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_abstract_expressionism",
+      "name": "Abstract expressionism",
+      "type": "art_movement",
+      "description": "Abstract expressionism in the United States emerged as a distinct art movement in the aftermath of World War II and gained mainstream acceptance in the 1950s, a shift from the American social realism of the 1930s influenced by the Great.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_abstract_impressionism",
+      "name": "Abstract impressionism",
+      "type": "art_movement",
+      "description": "Art movement that originated in New York City, in the 1940s. It involves the painting of a subject such as real-life scenes, objects, or people (portraits) in an Impressionist style, but with an emphasis on varying measures of abstraction.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_academic_art",
+      "name": "Academic art",
+      "type": "art_movement",
+      "description": "Academic art, academicism, or academism, is a style of painting and sculpture produced under the influence of European academies of art.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_conceptual_art",
+      "name": "Conceptual art",
+      "type": "art_movement",
+      "description": "Conceptual art, also referred to as conceptualism, is art in which the concept(s) or idea(s) involved in the work are prioritized equally to or more than traditional aesthetic, technical, and material concerns.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_metamodernism",
+      "name": "Metamodernism",
+      "type": "art_movement",
+      "description": "Cultural discourse and paradigm that has emerged after postmodernism. It refers to new forms of contemporary art and theory that respond to modernism and postmodernism and integrate aspects of both together.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_neo_expressionism",
+      "name": "Neo-expressionism",
+      "type": "art_movement",
+      "description": "Style of late modernist or early-postmodern painting and sculpture that emerged in the late 1970s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_photorealism",
+      "name": "Photorealism",
+      "type": "art_movement",
+      "description": "Genre of art that encompasses painting, drawing and other graphic media, in which an artist studies a photograph and then attempts to reproduce the image as realistically as possible in another medium.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_postmodern_art",
+      "name": "Postmodern art",
+      "type": "art_movement",
+      "description": "Body of art movements that sought to contradict some aspects of modernism or some aspects that emerged or developed in its aftermath.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_rayonism",
+      "name": "Rayonism",
+      "type": "art_movement",
+      "description": "Rayonism (or Rayism or Rayonnism) was a style of abstract art that developed in Russia in 1910–1914.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_socialist_realism",
+      "name": "Socialist realism",
+      "type": "art_movement",
+      "description": "Socialist realism, also known as socrealism (sotsrealizm), is a style of idealized realistic art that was developed in the Soviet Union and was the official cultural doctrine in that country between 1932 and.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_stuckism",
+      "name": "Stuckism",
+      "type": "art_movement",
+      "description": "Stuckism is an international art movement founded in 1999 by Billy Childish and Charles Thomson to promote figurative painting as opposed to conceptual art.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_vorticism",
+      "name": "Vorticism",
+      "type": "art_movement",
+      "description": "London-based modernist art movement formed in 1914 by the writer and artist Wyndham Lewis.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_informalism",
+      "name": "Informalism",
+      "type": "art_movement",
+      "description": "Informalism or Art Informel is a pictorial movement from the 1943–1950s, that includes all the abstract and gestural tendencies that developed in France and the rest of Europe during World War II,.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_magical_realism",
+      "name": "Magical realism",
+      "type": "art_movement",
+      "description": "Magical realism, magic realism, or marvellous realism is a style or genre of fiction and art that presents a realistic view of the world while also incorporating magical elements, often blurring the lines between speculation and reality.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_metaphysical_painting",
+      "name": "Metaphysical painting",
+      "type": "art_movement",
+      "description": "Metaphysical painting (Italian: pittura metafisica) or metaphysical art was a style of painting developed by the Italian artists Giorgio de Chirico and Carlo Carrà.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_africanfuturism",
+      "name": "Africanfuturism",
+      "type": "art_movement",
+      "description": "Cultural aesthetic and philosophy of science that centers on the fusion of African culture, history, mythology, point of view, with technology based in Africa.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_art_deco_architecture",
+      "name": "Art Deco architecture",
+      "type": "art_movement",
+      "description": "Art Deco, short for the French Arts décoratifs (lit. 'Decorative Arts'), is an architectural style that first appeared in Paris in the 1910s before World War I and flourished internationally throughout the 1920s and 1930s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_arte_informale",
+      "name": "Arte Informale",
+      "type": "art_movement",
+      "description": "Term coined in 1950 by the French critic Michel Tapié to refer to the art movement that began during the mid-1940s in post-World War II Europe.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_arts_and_crafts_movement",
+      "name": "Arts and Crafts movement",
+      "type": "art_movement",
+      "description": "The Arts and Crafts movement was an international trend in the decorative and fine arts that developed earliest and most fully in the British Isles and subsequently spread across the British Empire and to the rest of Europe and North.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_asociaci_n_arte_concreto_invenci_n",
+      "name": "Asociación Arte Concreto-Invención",
+      "type": "art_movement",
+      "description": "The Asociación Arte Concreto-Invención (AACI) is an Argentine art movement that focuses on Concrete Art.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_baghdad_school",
+      "name": "Baghdad School",
+      "type": "art_movement",
+      "description": "The Baghdad School, also known as the Arab school, was a relatively short-lived yet influential school of Islamic art developed during the late 12th century in the capital Baghdad of the ruling Abbasid Caliphate.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_cobra_art_movement",
+      "name": "COBRA (art movement)",
+      "type": "art_movement",
+      "description": "COBRA or Cobra, often stylized as CoBrA, was a European avant-garde art group active from 1948 to 1951.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_caravaggisti",
+      "name": "Caravaggisti",
+      "type": "art_movement",
+      "description": "The Caravaggisti (or the \"Caravagesques\"; singular: \"Caravaggista\") were stylistic followers of the late 16th-century Italian Baroque painter Caravaggio.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_classicism",
+      "name": "Classicism",
+      "type": "art_movement",
+      "description": "Classicism, in the arts, refers generally to a high regard for a classical period, classical antiquity in the Western tradition, as setting standards for taste which the classicists seek to emulate.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_color_field",
+      "name": "Color field",
+      "type": "art_movement",
+      "description": "Color field painting (Colour field painting in Commonwealth English) is a style of abstract painting that emerged in New York City during the 1940s and 1950s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_combine_painting",
+      "name": "Combine painting",
+      "type": "art_movement",
+      "description": "A combine painting or Combine is an artwork that incorporates elements of both painting and sculpture.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_concrete_art",
+      "name": "Concrete art",
+      "type": "art_movement",
+      "description": "Art movement with a strong emphasis on geometrical abstraction. The term was first formulated by Theo van Doesburg and was then used by him in 1930 to define the difference between his vision of art and that of other abstract artists of.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_constructivist_international",
+      "name": "Constructivist International",
+      "type": "art_movement",
+      "description": "Constructivist International (German: Konstruktivistische Internationale, KI) was an international organisation made up of avant-garde artists established in 1922 in order to co-ordinate the work of constructivist artists as an.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_corporate_memphis",
+      "name": "Corporate Memphis",
+      "type": "art_movement",
+      "description": "Corporate Memphis, also known as Alegria, is an art style that features minimalism, flat elements, bright, solid colors, and cartoon-like figures with disproportionate limbs and lack of (smaller) details on larger figures.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_costumbrismo",
+      "name": "Costumbrismo",
+      "type": "art_movement",
+      "description": "Costumbrismo (in Catalan: costumisme; sometimes anglicized as costumbrism, with the adjectival form costumbrist) is the literary or pictorial interpretation of local everyday life, mannerisms, and customs, primarily in the Hispanic.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_crystal_cubism",
+      "name": "Crystal Cubism",
+      "type": "art_movement",
+      "description": "Crystal Cubism (French: Cubisme cristal or Cubisme de cristal) is a distilled form of Cubism consistent with a shift, between 1915 and 1916, towards a strong emphasis on flat surface activity and large overlapping geometric planes.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_cubist_sculpture",
+      "name": "Cubist sculpture",
+      "type": "art_movement",
+      "description": "Cubist sculpture developed in parallel with Cubist painting, beginning in Paris around 1909 with its proto-Cubist phase, and evolving through the early 1920s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_danish_design",
+      "name": "Danish design",
+      "type": "art_movement",
+      "description": "Style of functionalistic design and architecture that was developed in mid-20th century.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_dansaekhwa",
+      "name": "Dansaekhwa",
+      "type": "art_movement",
+      "description": "Dansaekhwa (Korean: 단색화, hanja 單色畵, also known as Tansaekhwa), often translated as \"monochrome painting\" from Korean, is a retroactive term grouping together disparate artworks that were exhibited in South Korea beginning in the mid 1970s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_decadence",
+      "name": "Decadence",
+      "type": "art_movement",
+      "description": "Late-19th-century movement emphasizing the need for sensationalism, egocentricity, and bizarre, artificial, perverse, and exotic sensations and experiences.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_decadent_movement",
+      "name": "Decadent movement",
+      "type": "art_movement",
+      "description": "The Decadent movement (from the French décadence, lit. 'decay') was a late 19th-century artistic and literary movement, centered in Western Europe, that followed an aesthetic ideology of excess and artificiality.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_deconstructivism",
+      "name": "Deconstructivism",
+      "type": "art_movement",
+      "description": "Postmodern architectural movement which appeared in the 1980s. It gives the impression of the fragmentation of the constructed building, commonly characterised by an absence of obvious harmony, continuity, or symmetry.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_directoire_style",
+      "name": "Directoire style",
+      "type": "art_movement",
+      "description": "Directoire style was a period in the decorative arts, fashion, and especially furniture design in France concurrent with the Directory (November 2, 1795–November 10, 1799), the later part of the.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_empire_style",
+      "name": "Empire style",
+      "type": "art_movement",
+      "description": "The Empire style is an early–19th-century design movement in architecture, furniture, other decorative arts, and the visual arts, representing the second phase of Neoclassicism.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_etching_revival",
+      "name": "Etching revival",
+      "type": "art_movement",
+      "description": "The etching revival was the re-emergence and invigoration of etching as an original form of printmaking during the period approximately from 1850 to 1930.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_exoticism",
+      "name": "Exoticism",
+      "type": "art_movement",
+      "description": "Exoticism (from exotic) is the style or traits considered characteristic of a distant foreign country.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "art_fictive_art",
+      "name": "Fictive art",
+      "type": "art_movement",
+      "description": "Practice that involves the production of objects, events, and entities designed to support the plausibility of a central narrative.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_cinema_novo",
+      "name": "Cinema Novo",
+      "type": "cinematic_movement",
+      "description": "Cinema Novo, is a genre and movement of film noted for its emphasis on social equality and intellectualism that rose to prominence in Brazil during the 1960s and 1970s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_cin_ma_v_rit",
+      "name": "Cinéma vérité",
+      "type": "cinematic_movement",
+      "description": "Cinéma vérité is a style of documentary filmmaking developed by Edgar Morin and Jean Rouch, inspired by Dziga Vertov's theory about Kino-Pravda.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_czechoslovak_new_wave",
+      "name": "Czechoslovak New Wave",
+      "type": "cinematic_movement",
+      "description": "The Czechoslovak New Wave (also Czech New Wave) is a term used for the Czechoslovak filmmakers who started making films in the 1960s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_dogme_95",
+      "name": "Dogme 95",
+      "type": "cinematic_movement",
+      "description": "Dogme 95 was a Danish avant-garde filmmaking movement founded by Lars von Trier and Thomas Vinterberg, who created the \"Dogme 95 Manifesto\" and the \"Vows of Chastity\".",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_film_noir",
+      "name": "Film noir",
+      "type": "cinematic_movement",
+      "description": "A film noir is a Hollywood crime drama film that emphasizes cynical attitudes and motivations.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_french_new_wave",
+      "name": "French New Wave",
+      "type": "cinematic_movement",
+      "description": "The New Wave, also called the French New Wave, is a French art film movement that emerged in the late 1950s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_german_expressionist_cinema",
+      "name": "German expressionist cinema",
+      "type": "cinematic_movement",
+      "description": "Part of several related creative movements in Germany in the early 20th century that reached a peak in Berlin during the 1920s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_italian_neorealism",
+      "name": "Italian neorealism",
+      "type": "cinematic_movement",
+      "description": "Italian neorealism (Italian: Neorealismo), also known as the Golden Age of Italian Cinema, was a national film movement in Italy in the aftermath of World War II.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_kitchen_sink_realism",
+      "name": "Kitchen sink realism",
+      "type": "cinematic_movement",
+      "description": "Kitchen sink realism (or kitchen sink drama) is a British cultural movement that developed in the late 1950s and early 1960s in theatre, art, novels, mainstream and independent cinema, and television, whose protagonists usually could be.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_mumblecore",
+      "name": "Mumblecore",
+      "type": "cinematic_movement",
+      "description": "Subgenre of independent film characterized by naturalistic acting and (sometimes improvised) dialogue, low budgets, an emphasis on dialogue over plot, and a focus on the personal relationships of young adults.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_neo_noir",
+      "name": "Neo-noir",
+      "type": "cinematic_movement",
+      "description": "Film genre from the 1970s, in the era of New Hollywood, which is primarily associated with the subversion and visual style of classic film noir tropes, adapting the themes of 1940s and 1950s American film noir for contemporary.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_new_hollywood",
+      "name": "New Hollywood",
+      "type": "cinematic_movement",
+      "description": "The New Hollywood, Hollywood Renaissance, or American New Wave, was a movement in American film history from the mid-1960s to the early 1980s, when a new generation of filmmakers came to prominence.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_poetic_realism",
+      "name": "Poetic realism",
+      "type": "cinematic_movement",
+      "description": "Poetic realism (French: réalisme poétique) was a film movement in France of the 1930s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_pure_film_movement",
+      "name": "Pure Film Movement",
+      "type": "cinematic_movement",
+      "description": "The Pure Film Movement (純映画劇運動, Jun'eigageki undō) was a trend in film criticism and filmmaking from 1917–1923 in Japan that advocated what were considered more modern and cinematic modes of filmmaking.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_soviet_montage_theory",
+      "name": "Soviet montage theory",
+      "type": "cinematic_movement",
+      "description": "Approach to understanding and creating cinema that relies heavily upon editing (montage is French for 'assembly' or 'editing').",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_structural_film",
+      "name": "Structural film",
+      "type": "cinematic_movement",
+      "description": "Avant-garde experimental film movement prominent in the United States in the 1960s and a related movement was developed in the United Kingdom in the 1970s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_yugoslav_black_wave",
+      "name": "Yugoslav Black Wave",
+      "type": "cinematic_movement",
+      "description": "Yugoslav Black Wave (also referred to as Black Wave; Serbo-Croatian: Crni val or Crni talas) is a blanket term for a Yugoslav film and broader cultural movement starting from the early 1960s and ending in the.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_australian_new_wave",
+      "name": "Australian New Wave",
+      "type": "cinematic_movement",
+      "description": "The Australian New Wave (also known as the Australian Film Revival, Australian Film Renaissance, or New Australian Cinema) was an era of resurgence in the worldwide popularity of the Australian cinema, particularly in the United States.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_cin_ma_du_look",
+      "name": "Cinéma du look",
+      "type": "cinematic_movement",
+      "description": "Cinéma du look (French: [sinema dy luk]) was a French film movement of the 1980s and 1990s, analysed, for the first time, by French critic Raphaël Bassan in La Revue du Cinéma issue no.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_free_cinema",
+      "name": "Free Cinema",
+      "type": "cinematic_movement",
+      "description": "Documentary film movement that emerged in the United Kingdom in the mid-1950s. The term referred to an absence of propagandised intent or deliberate box office appeal.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_hong_kong_new_wave",
+      "name": "Hong Kong New Wave",
+      "type": "cinematic_movement",
+      "description": "The Hong Kong New Wave is a film movement in Chinese-language Hong Kong cinema that emerged in the late 1970s and lasted through the early 2000s until the present time.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_japanese_new_wave",
+      "name": "Japanese New Wave",
+      "type": "cinematic_movement",
+      "description": "The Japanese New Wave (ヌーベルバーグ, Nūberu bāgu; Japanese transliteration of the French term \"nouvelle vague\") is a group of loosely-connected Japanese films and filmmakers between the late 1950s and part of the 1970s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_l_a_rebellion",
+      "name": "L.A. Rebellion",
+      "type": "cinematic_movement",
+      "description": "The L.A. Rebellion film movement, sometimes referred to as the \"Los Angeles School of Black Filmmakers\", or the UCLA Rebellion, refers to the new generation of young African and African-American filmmakers who studied at the UCLA Film.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_no_wave_cinema",
+      "name": "No wave cinema",
+      "type": "cinematic_movement",
+      "description": "Underground filmmaking movement that flourished on the Lower East Side of New York City from about 1976 to 1987.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_parallel_cinema",
+      "name": "Parallel cinema",
+      "type": "cinematic_movement",
+      "description": "Parallel cinema, or New Indian Cinema, is a film movement in Indian cinema that originated in the state of West Bengal in the 1950s as an alternative to the mainstream commercial Indian cinema.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_remodernist_film",
+      "name": "Remodernist film",
+      "type": "cinematic_movement",
+      "description": "Remodernist film developed in the United States and the United Kingdom in the early 21st century with ideas related to those of the international art movement Stuckism and its manifesto, Remodernism.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_slow_cinema",
+      "name": "Slow cinema",
+      "type": "cinematic_movement",
+      "description": "Slow cinema (sometimes called contemplative cinema) is a genre of art cinema characterised by a style that is minimalist and observational, with frequent use of long takes, emphasis on extended duration, and sparse narrative elements.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_third_cinema",
+      "name": "Third Cinema",
+      "type": "cinematic_movement",
+      "description": "Third Cinema (Spanish: Tercer Cine) is a Latin American film movement formed in the 1960s which critiques neocolonialism, the capitalist system, the Hollywood model of cinema as mere entertainment to make money (First Cinema), as well.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_new_queer_cinema",
+      "name": "New queer cinema",
+      "type": "cinematic_movement",
+      "description": "\"New queer cinema\" (sometimes referred to as the \"queer new wave\") is a term coined by the UC Santa Cruz academic B.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_cinema_of_moral_anxiety",
+      "name": "Cinema of moral anxiety",
+      "type": "cinematic_movement",
+      "description": "The cinema of moral anxiety (Polish: Kino moralnego niepokoju) was a short-lived (1976–1981) but influential movement in the history of the cinema of Poland.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_golden_age_of_argentine_cinema",
+      "name": "Golden Age of Argentine cinema",
+      "type": "cinematic_movement",
+      "description": "The Golden Age of Argentine cinema (Spanish: Época de Oro del cine argentino or other equivalent names), sometimes known interchangeably as the broader classical or classical-industrial period (Spanish: período clásico-industrial), is.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_iranian_new_wave",
+      "name": "Iranian New Wave",
+      "type": "cinematic_movement",
+      "description": "Iranian New Wave (Persian: موج نوی سینمای ایران, lit. 'the new wave of Iranian cinema') refers to a movement in Iranian cinema.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_kinoks",
+      "name": "Kinoks",
+      "type": "cinematic_movement",
+      "description": "The Kinoks (romanized: kino-oki, lit. 'cinema-eyes') were a collective of Soviet filmmakers in the 1920s, consisting of Dziga Vertov, Elizaveta Svilova and Mikhail Kaufman.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_new_nigerian_cinema",
+      "name": "New Nigerian Cinema",
+      "type": "cinematic_movement",
+      "description": "New Nigerian Cinema or New Nigerian Cinema era (also known as New Wave or controversially as New Nollywood) is an emerging phase in Nigerian cinema, in which there became a major shift in the method of film production, from the video.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_new_generation_malayalam_film_movement",
+      "name": "New generation (Malayalam film movement)",
+      "type": "cinematic_movement",
+      "description": "New generation films is a Malayalam film movement developed in the early 2010s, characterized by fresh and unusual themes and new narrative techniques.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_non_narrative_film",
+      "name": "Non-narrative film",
+      "type": "cinematic_movement",
+      "description": "Non-narrative film, or abstract film, is an aesthetic of cinematic film that does not narrate, or relate \"an event, whether real or imaginary\".",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_nuevo_cine_mexicano",
+      "name": "Nuevo Cine Mexicano",
+      "type": "cinematic_movement",
+      "description": "Nuevo Cine Mexicano (\"New Mexican Cinema\") is a Mexican film movement started in the early 1990s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_polish_film_school",
+      "name": "Polish Film School",
+      "type": "cinematic_movement",
+      "description": "Polish Film School (Polish: polska szkoła filmowa) refers to an informal group of Polish film directors and screenplay writers active between 1956 and approximately 1963.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_romanian_new_wave",
+      "name": "Romanian New Wave",
+      "type": "cinematic_movement",
+      "description": "The Romanian New Wave (Romanian: Noul val românesc) is a genre of realist and often minimalist films made in Romania since the mid-2000s, starting with two award-winning shorts by two Romanian directors, namely Cristi Puiu's Cigarettes.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_socialist_realism_in_film",
+      "name": "Socialist realism in film",
+      "type": "cinematic_movement",
+      "description": "Socialist Realism was the official doctrine of art produced in the Soviet Union, through which the emerging medium of film took prominence.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "cm_soviet_parallel_cinema",
+      "name": "Soviet parallel cinema",
+      "type": "cinematic_movement",
+      "description": "Genre of film and underground cinematic movement that occurred in the Soviet Union in the 1970s onwards.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_atompunk",
+      "name": "Atompunk",
+      "type": "visual_aesthetic",
+      "description": "Subgenre of science fiction that centers around a view of the future from the perspective of the 1950s and 1960s, a darker version of Retrofuturism.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_cottagecore",
+      "name": "Cottagecore",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic inspired by a romanticized interpretation of western agricultural life.",
+      "key_motifs": "Baking, gardening, foraging, picnics, farm animals, wildflowers, embroidery, handmade crafts, cottages",
+      "era_of_origin": "2010s (inspired by the 19th century)"
+    },
+    {
+      "id": "aes_cyberpunk",
+      "name": "Cyberpunk",
+      "type": "visual_aesthetic",
+      "description": "Subgenre of science fiction that depicts near‑future, dystopian worlds where advanced technology coexists with social decay, marginalization, and corporate or systemic oppression.",
+      "key_motifs": "Neon-lit cityscapes, cybernetics and prosthetics, rain-slicked streets, towering megastructures, computer terminals, hackers, holograms, Japanese kanji, tactical gear, wires and cables",
+      "era_of_origin": "1980s"
+    },
+    {
+      "id": "aes_dark_academia",
+      "name": "Dark Academia",
+      "type": "visual_aesthetic",
+      "description": "Internet aesthetic that revolves around classic literature, the pursuit of self-discovery, and a passion for knowledge and learning.",
+      "key_motifs": "Books, libraries, classical art, ancient history, poetry, writing, candles, old architecture, tweed jackets, pleated skirts",
+      "era_of_origin": "Mid-2010s (peak popularity in the early 2020s)"
+    },
+    {
+      "id": "aes_dieselpunk",
+      "name": "Dieselpunk",
+      "type": "visual_aesthetic",
+      "description": "Retrofuturistic science fiction subgenre that merges the technology and aesthetics of the interwar period, spanning roughly from the 1910s to the 1950s, with speculative, often alternative history, elements.",
+      "key_motifs": "Diesel-powered machinery, riveted surfaces, engine turning, aviation, vacuum tubes, Art Deco, Streamline Moderne, propaganda art, pulp fiction",
+      "era_of_origin": "2000s (term coinage)"
+    },
+    {
+      "id": "aes_dreamcore",
+      "name": "Dreamcore",
+      "type": "visual_aesthetic",
+      "description": "Surreal internet aesthetic that emerged in the early 2020s focusing on visuals inspired by dreams.",
+      "key_motifs": "Dreamy surreal landscapes, floating clouds, soft nostalgic pastel skies, ethereal light reflections, surrealist geometry",
+      "era_of_origin": "Late 2010s-Early 2020s"
+    },
+    {
+      "id": "aes_frutiger_aero",
+      "name": "Frutiger Aero",
+      "type": "visual_aesthetic",
+      "description": "Frutiger Aero (also known as Web 2.0 Gloss) is a design aesthetic that was prevalent from roughly 2004 to 2013, succeeding Y2K Futurism and overlapping with the Vectordelia and Recession Pop aesthetics.",
+      "key_motifs": "Skeuomorphism, glossy textures, \"Humanism\", use of nature, bokeh, bubbles, Frutiger fonts, glass, auroras",
+      "era_of_origin": "2000s"
+    },
+    {
+      "id": "aes_light_academia",
+      "name": "Light Academia",
+      "type": "visual_aesthetic",
+      "description": "Academic aesthetic and the visually lighter counterpart of Dark Academia. While Dark Academia typically involves intense and negative themes, including literary tragedy, existentialism, substance abuse, and death, Light Academia’s.",
+      "key_motifs": "European/British, scholarly, old books, long corridors, fields of grass surrounded by woods, the hills, art, the classics",
+      "era_of_origin": "2010s"
+    },
+    {
+      "id": "aes_liminal_space",
+      "name": "Liminal Space",
+      "type": "visual_aesthetic",
+      "description": "Liminal Space aesthetics revolve around pictures of transitional areas devoid of life, such as malls in the early morning, empty parking lots or a school hallway during summer.",
+      "key_motifs": "Empty indoor/outdoor areas, white noise",
+      "era_of_origin": "2000s/Late 2010s"
+    },
+    {
+      "id": "aes_retrofuturism",
+      "name": "Retrofuturism",
+      "type": "visual_aesthetic",
+      "description": "Movement in the creative arts that visualizes the future through the lens of a past era's technological and cultural understanding.",
+      "key_motifs": "Imagined future technologies from a past perspective, juxtaposition of outdated aesthetics with advanced concepts, optimistic or dystopian visions of progress, flying vehicles, robots, space exploration, fantastical architecture, rayguns",
+      "era_of_origin": "Late 19th Century – Early 20th Century"
+    },
+    {
+      "id": "aes_solarpunk",
+      "name": "Solarpunk",
+      "type": "visual_aesthetic",
+      "description": "Genre of speculative fiction originating in Brazil around the late 2000s that focuses on renewable energy, living in harmony with nature, and the better future envisioned through both.",
+      "key_motifs": "Stained glass solar panels, plant life, art noveau, cluttered visuals, African and Asian patterns.",
+      "era_of_origin": "Late 2000s-Present"
+    },
+    {
+      "id": "aes_steampunk",
+      "name": "Steampunk",
+      "type": "visual_aesthetic",
+      "description": "Subgenre of science fiction and a retrofuturistic subculture that incorporates technology and aesthetic designs inspired by 19th-century industrial steam-powered machinery.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_synthwave",
+      "name": "Synthwave",
+      "type": "visual_aesthetic",
+      "description": "Electronic music microgenre and visual aesthetic that emerged in the mid-2000s, primarily within the French House scene.",
+      "key_motifs": "Neon grids, wireframe landscapes, striped sunsets, 1980s supercars (Testarossa, Countach), palm trees, VHS tracking static, chrome typography",
+      "era_of_origin": "Mid-2000s"
+    },
+    {
+      "id": "aes_vaporwave",
+      "name": "Vaporwave",
+      "type": "visual_aesthetic",
+      "description": "Internet music microgenre, aesthetic and meme that emerged in the early 2010s. Originating from experimental genres like Post-Noise and Hypnagogic Pop, its sound is defined by the use of chopped, slowed-down, and reverb-heavy samples.",
+      "key_motifs": "Hellenic statues, 1990s web design and CGI, Japanese text, glitch art, palm trees, obsolete technology (Windows 95, VHS), corporate logos",
+      "era_of_origin": "Early 2010s"
+    },
+    {
+      "id": "aes_weirdcore",
+      "name": "Weirdcore",
+      "type": "visual_aesthetic",
+      "description": "Surreal internet aesthetic centered on amateur or low-quality photography and visual images.",
+      "key_motifs": "Low-quality digital images, amateur editing, primitive graphics, image compression, distorted or out-of-place objects, unusual borders, word art, uncomfortably framed subjects, liminal spaces, out-of-context captions, incorrect or nonsensical labels, digital artifacts, distorted geometry",
+      "era_of_origin": "2010s"
+    },
+    {
+      "id": "aes_afrofuturism",
+      "name": "Afrofuturism",
+      "type": "visual_aesthetic",
+      "description": "Cultural and philosophical aesthetic that examines the relationship between the African diaspora and scientific and technological themes.",
+      "key_motifs": "Technology, cosmology, diaspora, reclamation",
+      "era_of_origin": "1950s-Present"
+    },
+    {
+      "id": "aes_art_deco",
+      "name": "Art Deco",
+      "type": "visual_aesthetic",
+      "description": "Style of visual arts, architecture, and design that first appeared in France just before World War I and flourished internationally throughout the 1920s (the \"Roaring Twenties\") and 1930s.",
+      "key_motifs": "Bold geometric shapes (chevrons, sunbursts, zig-zags), stepped forms, stylized natural forms, lavish ornamentation, symmetry",
+      "era_of_origin": "1910s–1930s"
+    },
+    {
+      "id": "aes_baroque",
+      "name": "Baroque",
+      "type": "visual_aesthetic",
+      "description": "Highly ornate and dramatic style of art, architecture, music, and literature that flourished in Europe from the early 17th to the mid-18th century.",
+      "key_motifs": "Dramatic movement, swirling forms, monumental scale, ''chiaroscuro'' (strong light/dark contrast), religious ecstasy, martyrdom, classical mythology, elaborate ornamentation",
+      "era_of_origin": "c. 1600 - 1750"
+    },
+    {
+      "id": "aes_bauhaus",
+      "name": "Bauhaus",
+      "type": "visual_aesthetic",
+      "description": "The Bauhaus (full name: Staatliches Bauhaus) was a revolutionary German art school founded by architect Walter Gropius in Weimar in 1919.",
+      "key_motifs": "Geometric shapes (circles, squares, triangles), clean lines, sans-serif typography, abstract forms, lack of ornamentation, industrial materials (steel, glass, concrete)",
+      "era_of_origin": "1919 - 1933"
+    },
+    {
+      "id": "aes_biopunk",
+      "name": "Biopunk",
+      "type": "visual_aesthetic",
+      "description": "Derivative genre of Cyberpunk which focuses on the implications of biotechnology rather than cyberware and information technology.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_cassette_futurism",
+      "name": "Cassette Futurism",
+      "type": "visual_aesthetic",
+      "description": "Retrofuturistic technological aesthetic reminiscent of the early 1970s to mid-1990s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_cybercore",
+      "name": "Cybercore",
+      "type": "visual_aesthetic",
+      "description": "Revivalist internet aesthetic that emerged around 2020 on Pinterest and TikTok. Inspired by the retro-futurism of the Y2K era, the style is a highly curated time capsule of early web graphics, digital escapism, celestial imagery, and.",
+      "key_motifs": "Early internet UI (dialogue boxes, cursors), retro anime, flip phones, butterflies, angels, celestial imagery (planets, stars), hearts, scanlines, glows, gradients",
+      "era_of_origin": "2020s"
+    },
+    {
+      "id": "aes_glitchcore",
+      "name": "Glitchcore",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic characterized by the maximalistic use of visual glitches and distortion, incorporating heavily saturated colors, rainbows, flashing patterns, pixelation, and eyestrain.",
+      "key_motifs": "",
+      "era_of_origin": "2020s"
+    },
+    {
+      "id": "aes_goth",
+      "name": "Goth",
+      "type": "visual_aesthetic",
+      "description": "Music-based subculture that emerged in the late-1970s to early 1980s in the United Kingdom, particularly in London and the North of England (Leeds).",
+      "key_motifs": "Gothic literature, Victorian mourning aesthetics, horror films, vampire lore, death and decay, romanticism, melancholia, religious and occult iconography",
+      "era_of_origin": "Late 1970s"
+    },
+    {
+      "id": "aes_grunge",
+      "name": "Grunge",
+      "type": "visual_aesthetic",
+      "description": "Alternative rock genre and associated subculture that emerged from Seattle, Washington in the mid-late 1980s and achieved mainstream popularity in the early-mid 1990s.",
+      "key_motifs": "Flannel shirts, ripped jeans, band t-shirts, Doc Martens, oversized sweaters, long unkempt hair",
+      "era_of_origin": "1980s"
+    },
+    {
+      "id": "aes_mid_century_modern",
+      "name": "Mid-Century Modern",
+      "type": "visual_aesthetic",
+      "description": "Major movement in interior, product, graphic design, and architecture that became prominent in the post-World War II era, roughly from the 1945 to 1973.",
+      "key_motifs": "Clean lines, organic and geometric forms, functionality over ornament, open-plan spaces, large windows, integration with nature",
+      "era_of_origin": "c. 1945–1969"
+    },
+    {
+      "id": "aes_webcore",
+      "name": "Webcore",
+      "type": "visual_aesthetic",
+      "description": "Webcore or Internetcore is an internet aesthetic that originated in the late 2010s and early 2020s, using the visual and auditory language of the early internet (approximately 1995–2005) to evoke a sense of nostalgia.",
+      "key_motifs": "Nostalgic internet imagery (GeoCities, Windows XP), pixel art, early 3D graphics, browser windows, surrealism, pop-ups, error messages, outdated technology",
+      "era_of_origin": "Late 2010s-Early 2020s"
+    },
+    {
+      "id": "aes_y2k",
+      "name": "Y2K",
+      "type": "visual_aesthetic",
+      "description": "Retrospective term for the cultural period and zeitgeist that existed from approximately the late 1990s to the early 2000s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_dungeon_synth",
+      "name": "Dungeon Synth",
+      "type": "visual_aesthetic",
+      "description": "Style of instrumental electronic music that emerged primarily in the early 1990s, with roots in the Black Metal scene.",
+      "key_motifs": "Castles, dungeons, forests, ancient lore, melancholy, adventure, high fantasy, winter landscapes",
+      "era_of_origin": "Early 1990s"
+    },
+    {
+      "id": "aes_fairycore",
+      "name": "Fairycore",
+      "type": "visual_aesthetic",
+      "description": "Fairycore, also known as Faecore, is an internet aesthetic that romanticizes the mythology of fairies and other similar magical nature spirits.",
+      "key_motifs": "Fairy wings, sparkles, glitter, mushrooms, butterflies, flowers, moss, soft animals, elf ears",
+      "era_of_origin": "2020s"
+    },
+    {
+      "id": "aes_frutiger_metro",
+      "name": "Frutiger Metro",
+      "type": "visual_aesthetic",
+      "description": "Visual aesthetic subculture characterized by distinctive period styling, materials, and color themes.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_future_funk",
+      "name": "Future Funk",
+      "type": "visual_aesthetic",
+      "description": "Internet-based microgenre that emerged in the early 2010s as a more energetic and dance-oriented derivative of Vaporwave.",
+      "key_motifs": "Looped anime GIFs, VHS degradation, neon typography, Japanese bubble economy imagery, disco lights, spinning vinyl, cassette tapes",
+      "era_of_origin": "2010s"
+    },
+    {
+      "id": "aes_goblincore",
+      "name": "Goblincore",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic based on the appreciation of aspects of nature not typically regarded as beautiful, such as frogs, snails, moss, mud, plants, and fungi such as mushrooms.",
+      "key_motifs": "Clutter, dirt, flora, frogs, goblins, snails, mushrooms, candles, shiny jewels, bones, moss.",
+      "era_of_origin": "2020s"
+    },
+    {
+      "id": "aes_kidcore",
+      "name": "Kidcore",
+      "type": "visual_aesthetic",
+      "description": "Fashion style and internet aesthetic that celebrates the nostalgia and bright, playful imagery of childhood, primarily from the 1990s and early 2000s.",
+      "key_motifs": "1990s toys, bright rainbows, cartoon characters, childhood nostalgia, primary colors, retro patterns",
+      "era_of_origin": "Late 2010s"
+    },
+    {
+      "id": "aes_mallsoft",
+      "name": "Mallsoft",
+      "type": "visual_aesthetic",
+      "description": "Musical and visual subgenre of Vaporwave that emerged in the early 2010s. It is characterized by its focus on the atmosphere and architecture of shopping malls, grocery stores, and other public mercantile environments.",
+      "key_motifs": "Shopping malls, atrium architecture, food courts, indoor fountains, neon signage, consumerist decay",
+      "era_of_origin": "2010s"
+    },
+    {
+      "id": "aes_mcbling",
+      "name": "McBling",
+      "type": "visual_aesthetic",
+      "description": "Fashion and lifestyle aesthetic that was prominent from roughly 2000 to 2008, overlapping with Y2K Futurism, Frutiger Aero, Scene, and UrBling.",
+      "key_motifs": "Rhinestones, glitter, Juicy Couture tracksuits, Von Dutch trucker hats, low-rise jeans, visible thongs, flip phones, paparazzi photos, tabloid culture",
+      "era_of_origin": "2000s"
+    },
+    {
+      "id": "aes_nostalgiacore",
+      "name": "Nostalgiacore",
+      "type": "visual_aesthetic",
+      "description": "Internet aesthetic that is centered on a romanticized and melancholic sense of nostalgia for a recent, personal past, typically the childhoods of the 1990s and 2000s.",
+      "key_motifs": "Empty playgrounds, old classrooms, childhood bedrooms, outdated technology (old PCs, CRT TVs), blurry or hazy photography, melancholic text overlays",
+      "era_of_origin": "Late 2010s"
+    },
+    {
+      "id": "aes_raygun_gothic",
+      "name": "Raygun Gothic",
+      "type": "visual_aesthetic",
+      "description": "Retrofuturistic aesthetic centered around a view of the future from the perspective of circa 1945 to 1970.",
+      "key_motifs": "Nuclear-based powerSpace travel and spacesuitsFantastical planets and aliensHover technologyBright colorsRobotsAutomated appliancesAircraft-like finsChrome grilles and highlightsGeometric Shapes",
+      "era_of_origin": "1940s/1950s"
+    },
+    {
+      "id": "aes_royalcore",
+      "name": "Royalcore",
+      "type": "visual_aesthetic",
+      "description": "Contemporary internet aesthetic that romanticizes the visual culture of Western European royalty, particularly from the Baroque, Rococo, and Regency eras.",
+      "key_motifs": "Ball gowns, corsets, tiaras, castles, palaces, elaborate tea sets, gold details, pearl jewelry, handwritten letters",
+      "era_of_origin": "Late 2010s"
+    },
+    {
+      "id": "aes_seapunk",
+      "name": "Seapunk",
+      "type": "visual_aesthetic",
+      "description": "Internet aesthetic and electronic music microgenre that originated on Tumblr and Twitter in 2011.",
+      "key_motifs": "Dolphins, mermaids, pyramids, palm trees, yin-yangs, smiley faces, oceans, 1990s 3D net art, early CGI",
+      "era_of_origin": "2010s"
+    },
+    {
+      "id": "aes_2000s_modern_baroque",
+      "name": "2000s Modern Baroque",
+      "type": "visual_aesthetic",
+      "description": "Design trend that emerged in the 2000s and reinterprets elements of the historical Baroque style within a contemporary context.",
+      "key_motifs": "Ornate details, gilded accents, sumptuous fabrics, floral embroidery, a fusion of Baroque elements with modern lines and materials",
+      "era_of_origin": "2000s"
+    },
+    {
+      "id": "aes_2000s_preppy",
+      "name": "2000s Preppy",
+      "type": "visual_aesthetic",
+      "description": "The 2000s Preppy aesthetic refers to a mainstream fashion style that adapted earlier prep-school and Ivy League influences into a more casual, mall-driven look associated with the early to mid-2000s.",
+      "key_motifs": "Wealth, popularity, femininity, elitism",
+      "era_of_origin": "2000s"
+    },
+    {
+      "id": "aes_2_tone",
+      "name": "2 Tone",
+      "type": "visual_aesthetic",
+      "description": "2 Tone (or Two-Tone) was a music genre and subculture that emerged in the United Kingdom in the late 1970s.",
+      "key_motifs": "Checkerboard pattern, suits, pork pie hats, loafers, band logos",
+      "era_of_origin": "Late 1970s"
+    },
+    {
+      "id": "aes_clockpunk",
+      "name": "Clockpunk",
+      "type": "visual_aesthetic",
+      "description": "Subgenre of speculative fiction similar to Steampunk that imagines a world where technology is based on Renaissance-era clockwork mechanics rather than steam power or electricity, being more surrealist than the latter.",
+      "key_motifs": "Clockwork mechanisms, gears, springs, automatons, ornithopters, polished lenses, intricate carvings",
+      "era_of_origin": "Renaissance inspiration (14th–17th centuries)"
+    },
+    {
+      "id": "aes_cyberprep",
+      "name": "Cyberprep",
+      "type": "visual_aesthetic",
+      "description": "Term referring to a society that has developed in the same aspects of Cyberpunk but towards an Utopian direction, with fair law and no world-controlling corporations.",
+      "key_motifs": "CityscapesTechnologyCyberspaceRobotics",
+      "era_of_origin": "1960s (core ideas) 2000s"
+    },
+    {
+      "id": "aes_hauntology",
+      "name": "Hauntology",
+      "type": "visual_aesthetic",
+      "description": "Loosely defined category of music, art, and aesthetic theory that explores the concept of \"lost futures\" and the persistence of cultural memory.",
+      "key_motifs": "Specific aural decay (vinyl crackle, warped tape), aesthetic of 1970s British Public Information Films (PIFs), Brutalist architecture, children's educational program aesthetics (faded colors, unsettling graphics), library music cover art, analog media (VHS artifacts)",
+      "era_of_origin": "2000s (music/aesthetic movement)"
+    },
+    {
+      "id": "aes_rococo",
+      "name": "Rococo",
+      "type": "visual_aesthetic",
+      "description": "Exceptionally ornamental and theatrical style of art and design that originated in Paris, France, during the early 18th century.",
+      "key_motifs": "Shells (rocaille), C-scrolls and S-scrolls, acanthus leaves, putti (cherubs), pastoral scenes, elaborate asymmetry, mythological love stories",
+      "era_of_origin": "1720s - 1760s"
+    },
+    {
+      "id": "aes_sovietwave",
+      "name": "Sovietwave",
+      "type": "visual_aesthetic",
+      "description": "Sovietwave is a subgenre of Synthwave music with a strong focus on Soviet aesthetics from the 1980s, dedicated more to the preservation of socialism as opposed to the hyper-capitalist utopia or dystopia often painted with.",
+      "key_motifs": "Hammers and sickles, Soviet Futurism, Soviet nostalgia, space, the Cold War, the Red Army, Cosmonauts, panel houses",
+      "era_of_origin": "2010s"
+    },
+    {
+      "id": "aes_utopian_scholastic",
+      "name": "Utopian Scholastic",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic that was prevalent from the late 1980s to the early-mid 2000s, manifesting primarily in the visual identity and presentation of edutainment media such as children's books, early digital encyclopedias, nature/science/history.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_50s_suburbia",
+      "name": "50s Suburbia",
+      "type": "visual_aesthetic",
+      "description": "The 50s Suburbia aesthetic is the idealized vision of American middle-class life that became a dominant cultural force in the post-World War II era.",
+      "key_motifs": "The nuclear family, manicured lawns, picket fences, station wagons, Tupperware parties, backyard barbecues, new household appliances",
+      "era_of_origin": "1950s"
+    },
+    {
+      "id": "aes_8_bit",
+      "name": "8-Bit",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic associated with early home gaming and arcade games, similar to early DOS and other early operating systems.",
+      "key_motifs": "Extremely limited color palettes, minimal animation, blocky graphics, lack of outlines or shading, lettering with blocky dropshadows",
+      "era_of_origin": "1980s"
+    },
+    {
+      "id": "aes_80s_90s_afrocentrism",
+      "name": "80s-90s Afrocentrism",
+      "type": "visual_aesthetic",
+      "description": "Design style, fashion trend, and cultural movement that occurred in the 1980s and 1990s and existed until its decline in the early 2000s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_80s_workout",
+      "name": "80s Workout",
+      "type": "visual_aesthetic",
+      "description": "Fitness trend and an associated fashion aesthetic that gained immense popularity throughout the 1980s.",
+      "key_motifs": "Leotards, leg warmers, sweatbands, neon colors, high-top sneakers, spandex, bike shorts",
+      "era_of_origin": "1980s"
+    },
+    {
+      "id": "aes_90s_cool",
+      "name": "90s Cool",
+      "type": "visual_aesthetic",
+      "description": "90s Cool (also known as The Matrix Effect or Bullet Time) is an aesthetic that was prevalent from the mid-1990s to mid-2000s, and emphasized martial arts-style fight choreography mixed with computer-generated (CGI) effects.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_abstract_tech",
+      "name": "Abstract Tech",
+      "type": "visual_aesthetic",
+      "description": "Abstract Tech consists of design motifs, such as concentric arcs, hexagons, or circuit patterns, that are intended to represent the abstract concept of “technology,” or evoke a sense of something being futuristic or technologically.",
+      "key_motifs": "glowing lines, concentric arcs/circles, hexagons, circuits, binary code, connected dots, robotics",
+      "era_of_origin": "c. 1990s-2000s"
+    },
+    {
+      "id": "aes_acid_design",
+      "name": "Acid Design",
+      "type": "visual_aesthetic",
+      "description": "Graphic design style characterized by psychedelic visuals, distorted typography, and futuristic textures.",
+      "key_motifs": "Chrome/liquid metal typography, wireframes, geometric shapes, dystopian imagery, psychedelic patterns, smiley faces",
+      "era_of_origin": "Late 2010s (revival); 1990s (origin)"
+    },
+    {
+      "id": "aes_acid_house",
+      "name": "Acid House",
+      "type": "visual_aesthetic",
+      "description": "Subgenre of house music that originated in Chicago in the mid-1980s, defined by the deep, squelching basslines produced by the Roland TB-303 synthesizer.",
+      "key_motifs": "Smiley face, psychedelic patterns, baggy clothing, bucket hats, bandanas, dungarees",
+      "era_of_origin": "1980s"
+    },
+    {
+      "id": "aes_acubi",
+      "name": "Acubi",
+      "type": "visual_aesthetic",
+      "description": "Acubi (아쿠비) is a minimalist fashion style that originated in South Korea in the early 2020s.",
+      "key_motifs": "Subversive basics, layering, cut-outs, \"slim top big pants\" silhouette, bolero cardigans",
+      "era_of_origin": "2020s"
+    },
+    {
+      "id": "aes_adventure_pulp",
+      "name": "Adventure Pulp",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic that romanticizes the thrilling tales of exploration and discovery found in early 20th-century pulp magazines and film serials.",
+      "key_motifs": "Ancient ruins, dense jungles, old maps, esoteric artifacts, prop planes, fedoras, treasure hunting",
+      "era_of_origin": "1930s (original), 1980s (modern revival)"
+    },
+    {
+      "id": "aes_adventurecore",
+      "name": "Adventurecore",
+      "type": "visual_aesthetic",
+      "description": "Internet aesthetic and lifestyle concept that romanticizes the idea of adventure, exploration, and the great outdoors.",
+      "key_motifs": "Exploration, the great outdoors, maps, compasses, hiking gear, dense forests, misty mountains",
+      "era_of_origin": "2010s"
+    },
+    {
+      "id": "aes_aesthetic_rap",
+      "name": "Aesthetic Rap",
+      "type": "visual_aesthetic",
+      "description": "Microgenre of hip-hop that originated in the late 2010s and early 2020s, primarily through social media platforms such as TikTok.",
+      "key_motifs": "Anime Music Videos (AMVs), e-girls/e-boys, LED lights, firearms, luxury cars, VHS filters, Hello Kitty, money, juxtaposition of conventionally attractive women with weapons",
+      "era_of_origin": "Early 2020s"
+    },
+    {
+      "id": "aes_aestheticism",
+      "name": "Aestheticism",
+      "type": "visual_aesthetic",
+      "description": "Aestheticism, or the Aesthetic Movement, is an art movement that emerged in England during the mid-19th century.",
+      "key_motifs": "Peacocks, lilies, sunflowers, irises, Japanese motifs (fans, screens), classical figures, flowing lines, intricate patterns",
+      "era_of_origin": "Late-19th century (approximately 1860s-1900s)"
+    },
+    {
+      "id": "aes_aetherpunk",
+      "name": "Aetherpunk",
+      "type": "visual_aesthetic",
+      "description": "Aetherpunk or Arcanepunk is probably one of the most diverse punk genres. High fantasy magic creates technology more befitting of a sci-fi world, from magical sky-ships to magical powered weapons.",
+      "key_motifs": "Nature, Pagan Imagery, Gold everywhere",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_afropunk",
+      "name": "Afropunk",
+      "type": "visual_aesthetic",
+      "description": "Cultural movement and music genre encompassing the involvement of Black individuals in punk and alternative subcultures.",
+      "key_motifs": "DIY aesthetics, Afrofuturist elements, African-inspired prints and patterns, natural hairstyles (e.g., afros, dreadlocks, braids), body modifications (piercings, tattoos), reclaimed punk iconography (spikes, leather, ripped denim)",
+      "era_of_origin": "1970s (origins)2000s (wider popularization)"
+    },
+    {
+      "id": "aes_after_hours",
+      "name": "After Hours",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic inspired by the forlorn atmosphere of empty or seemingly abandoned places that are usually bustling with people.",
+      "key_motifs": "Darkness, emptiness, familiarity, tranquility, melancholy",
+      "era_of_origin": "2010s"
+    },
+    {
+      "id": "aes_aggrotech",
+      "name": "Aggrotech",
+      "type": "visual_aesthetic",
+      "description": "Aggrotech (also known as Hellektro in Europe) is a harsh derivative genre of dark electro and an evolution of Electronic Body Music (EBM) that emerged in the mid-to-late 1990s.",
+      "key_motifs": "Gas masks, biohazard symbols, tactical gear, body horror, heavy machinery, aggressive synthesizers",
+      "era_of_origin": "Late 1990s"
+    },
+    {
+      "id": "aes_airbrush_surrealism",
+      "name": "Airbrush Surrealism",
+      "type": "visual_aesthetic",
+      "description": "Illustration aesthetic that diffuses compressed-air, smooth painting methods with fantasy, kitschy, dream-like subjects prominent from the late 1960s to the mid-1980s, featuring neon glows, glossy chrome, and impossible floating.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_akibapop",
+      "name": "Akibapop",
+      "type": "visual_aesthetic",
+      "description": "Akibapop, also known as Denpa song (lit. \"radio wave song\"), is a Japanese music genre known for its bizarre yet catchy and cute sound.",
+      "key_motifs": "High-pitched vocals, catchy melodies, nonsensical lyrics, repetition, otaku themes",
+      "era_of_origin": "Early 2000s"
+    },
+    {
+      "id": "aes_aliencore",
+      "name": "Aliencore",
+      "type": "visual_aesthetic",
+      "description": "The Aliencore aesthetic is inspired by pop culture media relating to the concept of otherworldy extraterrestrial life, adventure, mystery, and conspiracy.",
+      "key_motifs": "Aliens, outer space, UFOs",
+      "era_of_origin": "1990s"
+    },
+    {
+      "id": "aes_alt_country_occult",
+      "name": "Alt-Country Occult",
+      "type": "visual_aesthetic",
+      "description": "Alt-Country Occult, also known as Gothic Americana, Occult Boho or Occultriana is a generically design aesthetic, prominent from the late 2000s through the mid-2010s that characterizes a visually, moody arresting aesthetic which.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_alt",
+      "name": "Alté",
+      "type": "visual_aesthetic",
+      "description": "Alté (short for \"alternative\") is a youth-led, vibrant Nigerian subculture gaining prevalence out of Lagos in the late 2000s and gaining an absolute influence around 2016, that characterizes non-traditional, individualistic.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_amekaji",
+      "name": "Amekaji",
+      "type": "visual_aesthetic",
+      "description": "Amekaji (アメカジ), a portmanteau of \"American casual,\" is a substyle of Japanese Gyaru fashion that was popular during the late 1990s and early 2000s.",
+      "key_motifs": "Bright colors, oversized hoodies, brand logos, puffer vests, flared pants, mini skirts, layered clothing, surf and skate culture",
+      "era_of_origin": "Late 1990s–2000s"
+    },
+    {
+      "id": "aes_american_kitsch",
+      "name": "American Kitsch",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic style that was prevalent in the United States in magazine covers, movie posters, billboards, advertisements, and propaganda from the 1920s to the 1960s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_analog_horror",
+      "name": "Analog Horror",
+      "type": "visual_aesthetic",
+      "description": "Analog Horror (or Analogue Horror) is a subgenre of Found Footage horror that emerged primarily on the internet in the mid-to-late 2010s.",
+      "key_motifs": "Nostalgia, static, glitches, psychological dread, ambiguous threats, corrupted broadcasts, hidden messages",
+      "era_of_origin": "Mid-to-Late 2010s"
+    },
+    {
+      "id": "aes_anarcho_punk",
+      "name": "Anarcho-Punk",
+      "type": "visual_aesthetic",
+      "description": "One of the main subcultures within the punk movement, defined by a shared ideology of anarchism and a commitment to direct political action.",
+      "key_motifs": "DIY clothing (patches, studs, stencils), anarchy symbol (Ⓐ), anti-war and anti-capitalist slogans, animal rights imagery, black and red color schemes",
+      "era_of_origin": "Late 1970s"
+    },
+    {
+      "id": "aes_ancient_egypt",
+      "name": "Ancient Egypt",
+      "type": "visual_aesthetic",
+      "description": "Historical civilization in Northern Africa that lasted from 3150 BC to 30 BC. The boundaries of the period are set by the beginning of the dynastic monarchs (pharaohs) who ruled Egypt and Rome's conquest of Egypt.",
+      "key_motifs": "Pyramids, mummies, sand, gold, tomb artwork, winged solar disc",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_angelcore",
+      "name": "Angelcore",
+      "type": "visual_aesthetic",
+      "description": "Contemporary internet aesthetic inspired by the imagery and mythology of angels, primarily from European art history.",
+      "key_motifs": "Angels, cherubs, wings, halos, doves, soft clouds, sunbeams, glitter",
+      "era_of_origin": "Late 2010s"
+    },
+    {
+      "id": "aes_anglo_gothic",
+      "name": "Anglo Gothic",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic based on the atmosphere of dingy suburban English areas with an emphasis on overcast skies, drizzling rain, council estates, grime, the colour blue, and melancholy.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_angura_kei",
+      "name": "Angura Kei",
+      "type": "visual_aesthetic",
+      "description": "Angura Kei (アングラ系, literally \"underground style\") is a Japanese subculture derived from the experimental Angura Theater counterculture of the 1960s and 1970s.",
+      "key_motifs": "Shironuri makeup, Japanese school uniforms (modified), traditional garments (Kimono, Haori), wartime/Showa era nostalgia, occult/Shinto symbolism, Bunka dolls, old wall clocks, travelling circuses",
+      "era_of_origin": "1960s (theatre)"
+    },
+    {
+      "id": "aes_animecore",
+      "name": "Animecore",
+      "type": "visual_aesthetic",
+      "description": "Internet aesthetic that romanticizes and expresses nostalgia for the otaku and weeb fan cultures of the 1990s to early 2000s.",
+      "key_motifs": "2000s moe anime characters, anime figurines, posters, cluttered desks, CRT monitors, glitter graphics (Blingee, PicMix), low-quality images",
+      "era_of_origin": "1990s (Origins)2010s (Aesthetic)"
+    },
+    {
+      "id": "aes_antwerp_six",
+      "name": "Antwerp Six",
+      "type": "visual_aesthetic",
+      "description": "The Antwerp Six is the collective name given to a group of highly influential Belgian fashion designers who graduated from the Royal Academy of Fine Arts Antwerp in the early 1980s.",
+      "key_motifs": "Deconstruction, asymmetry, minimalism, monochromatic palettes, exposed seams/linings, oversized tailoring, intellectual rebellion, androgyny",
+      "era_of_origin": "Mid-1980s"
+    },
+    {
+      "id": "aes_appalachian_gothic",
+      "name": "Appalachian Gothic",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic centering around the culture, landscape, and media of the American Appalachian mountains and the surrounding area from New York to Alabama.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_arabian_nights",
+      "name": "Arabian Nights",
+      "type": "visual_aesthetic",
+      "description": "The Arabian Nights aesthetic is a fashion and video trend that gained viral popularity on TikTok.",
+      "key_motifs": "Desert landscapes, traditional Middle Eastern garments (thobes, abayas), elaborate makeup, gold jewelry, slow-motion transitions",
+      "era_of_origin": "2020s"
+    },
+    {
+      "id": "aes_arcadecore",
+      "name": "Arcadecore",
+      "type": "visual_aesthetic",
+      "description": "Aesthetic that revolves around the idealized sensory experience of video game arcades, primarily from their golden age in the late 1970s through the 1990s.",
+      "key_motifs": "Arcade cabinets, CRT screens, vector graphics, pixel art, neon lights, glowing joysticks and buttons, patterned carpets, tokens, tickets",
+      "era_of_origin": "1980s"
+    },
+    {
+      "id": "aes_archive_fashion",
+      "name": "Archive Fashion",
+      "type": "visual_aesthetic",
+      "description": "Archive is a fashion style and aesthetic that emerged in the late 2010s and early 2020s.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_aristocrat",
+      "name": "Aristocrat",
+      "type": "visual_aesthetic",
+      "description": "Aristocrat (アリストクラット), often referred to as Gothic Aristocrat (ゴシック・アリストクラット), is a Japanese street fashion style inspired by the attire of the 19th-century European high class and aristocracy.",
+      "key_motifs": "Tailored waistcoats and trousers, androgynous silhouettes, jabots and cravats, long skirts, fitted jackets, monarchist imagery (fleur-de-lis, crowns), crosses, roses, velvet, lace-up boots",
+      "era_of_origin": "Mid-1990s"
+    },
+    {
+      "id": "aes_art_academia",
+      "name": "Art Academia",
+      "type": "visual_aesthetic",
+      "description": "Academic aesthetic centered around the creation and enjoyment of art, including sculpture, painting, sketch, doodling, photography, and calligraphy.",
+      "key_motifs": "Admiring art pieces, staring at statues, books, painting, drawing, sketching, jotting down notes, poetry, art museums",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_art_nouveau",
+      "name": "Art Nouveau",
+      "type": "visual_aesthetic",
+      "description": "International style of art, architecture, and applied art that flourished between the 1890s and the 1910s.",
+      "key_motifs": "\"Whiplash\" curves, sinuous lines, stylized natural forms (flowers, insects, vines), female figures, peacock feathers",
+      "era_of_origin": "1890s–1910s"
+    },
+    {
+      "id": "aes_art_singulier",
+      "name": "Art Singulier",
+      "type": "visual_aesthetic",
+      "description": "Art Singulier (French for \"Singular Art\") is an outsider art movement that emerged in France during the 1970s, building upon the principles of Art Brut.",
+      "key_motifs": "Spontaneity, personal expression, non-academic techniques, diverse styles, exploration of individual realities, rejection of intellectualism",
+      "era_of_origin": "1970s"
+    },
+    {
+      "id": "aes_arte_povera",
+      "name": "Arte Povera",
+      "type": "visual_aesthetic",
+      "description": "Arte Povera (\"poor art\" or \"impoverished art\") is an avant-garde art movement that originated in Italy between the late 1960s and the early 1970s, most notably in Turin.",
+      "key_motifs": "Commonplace materials, \"poor\" materials, pre-industrial materials, earth, rocks, wood, metal, fabric, fire, organic materials, process, transformation",
+      "era_of_origin": "Late 1960s"
+    },
+    {
+      "id": "aes_arts_and_crafts",
+      "name": "Arts and Crafts",
+      "type": "visual_aesthetic",
+      "description": "The Arts and Crafts movement was an international trend in the decorative and fine arts that began in Britain and flourished between approximately 1880 and 1920.",
+      "key_motifs": "Stylized natural forms (flowers, vines, birds), medieval influences, simple and strong construction, visible joinery, handcrafted textures",
+      "era_of_origin": "1880s - 1920s"
+    },
+    {
+      "id": "aes_athleisure",
+      "name": "Athleisure",
+      "type": "visual_aesthetic",
+      "description": "Casual/gym attire style that predominantly originated in the late 2010s to the early 2010s that characterizes exaggeration towards diffusing streetwear with athletic gear/elements to frequently create highly versatile, bold,.",
+      "key_motifs": "",
+      "era_of_origin": ""
+    },
+    {
+      "id": "aes_atomic_age",
+      "name": "Atomic Age",
+      "type": "visual_aesthetic",
+      "description": "Atomic Age, also known as Atomic Age Modern, is a retrofuturistic design movement that was prominent from the end of World War II until the late 1960s.",
+      "key_motifs": "Atomic/molecular models, starbursts, boomerangs, amoeba shapes, parabolas, satellites, rockets",
+      "era_of_origin": "1940s"
+    },
+    {
+      "id": "aes_australian_gothic",
+      "name": "Australian Gothic",
+      "type": "visual_aesthetic",
+      "description": "This article is part of a series on Regional Gothic.",
+      "key_motifs": "Outback scenes, Animals (Native and Invasive), Distorted Land, Ghosts, History and myth.",
+      "era_of_origin": "1780s"
+    },
+    {
+      "id": "aes_australiana",
+      "name": "Australiana",
+      "type": "visual_aesthetic",
+      "description": "Contemporary aesthetic inspired by imagery and motifs of 20th-century Australian culture.",
+      "key_motifs": "Australian wildlife, koalas, kangaroos, and galahs, native flora and fauna, Aboriginal art, low-set cream brick homes, Queenslanders, nostalgic kitsch, retro design elements, fairy bread",
+      "era_of_origin": "1980s"
+    },
+    {
+      "id": "aes_autumn_aesthetic",
+      "name": "Autumn Aesthetic",
+      "type": "visual_aesthetic",
+      "description": "The Autumn aesthetic, sometimes referred to as Fallcore, is a social media-driven lifestyle trend focused on romanticizing the autumn season.",
+      "key_motifs": "Pumpkin spice lattes, chunky knit sweaters, falling leaves, cozy blankets, candles, classic books, pumpkin patches, apple cider",
+      "era_of_origin": "2010s"
+    },
+    {
+      "id": "aes_avant_apocalypse",
+      "name": "Avant Apocalypse",
+      "type": "visual_aesthetic",
+      "description": "Fashion aesthetic characterized by neutral maximalism, deconstruction, and wearing pieces in unconventional ways.",
+      "key_motifs": "Deconstruction, asymmetry, layering, neutral tones, cut-outs, unconventional silhouettes",
+      "era_of_origin": "2020s"
+    }
+  ],
+  "camera_movements": [
+    {
+      "id": "cam_slow_dolly_push_in",
+      "name": "Slow Forward Dolly Push-In",
+      "rig_type": "track_dolly",
+      "description": "Camera moves physically forward on smooth tracks toward the subject at a steady deliberate pace, amplifying dramatic intimacy and psychological focus."
+    },
+    {
+      "id": "cam_slow_dolly_pull_back",
+      "name": "Slow Dolly Pull-Back & Reveal",
+      "rig_type": "track_dolly",
+      "description": "Camera tracks slowly backward from a tight focal point through doorways or obstacles, gradually revealing monumental scale or hidden surrounding context."
+    },
+    {
+      "id": "cam_lateral_tracking_trucking",
+      "name": "Lateral Tracking / Trucking Shot",
+      "rig_type": "track_dolly",
+      "description": "Camera travels horizontally parallel to walking or running subjects, gliding past foreground environmental pillars to create pronounced parallax depth."
+    },
+    {
+      "id": "cam_steadicam_floating_glide",
+      "name": "Dynamic Steadicam Glide",
+      "rig_type": "stabilizer_steadicam",
+      "description": "Stabilized body-mounted camera floats effortlessly at eye level through intricate architectural corridors, pivoting smoothly around moving actors."
+    },
+    {
+      "id": "cam_fpv_drone_dive",
+      "name": "FPV Acrobatic Drone Dive",
+      "rig_type": "aerial_drone",
+      "description": "High-velocity agile quadcopter dives vertically down building facades, banks sharply around corners, and skims inches above ground level with visceral speed."
+    },
+    {
+      "id": "cam_crane_techno_jib_swoop",
+      "name": "Techno-Jib Vertical Swoop",
+      "rig_type": "crane_jib",
+      "description": "Mechanical telescoping crane arm swoops vertically from an extreme close-up of hands or eyes up to a sweeping 50-foot bird's-eye panoramic vista."
+    },
+    {
+      "id": "cam_snorricam_chest_rig",
+      "name": "Snorricam Body-Mounted Rig",
+      "rig_type": "body_rig",
+      "description": "Camera physically clamped to the actor's torso; the subject's face remains locked dead center in frame while the surrounding world spins and pitches violently."
+    },
+    {
+      "id": "cam_whip_pan_swish",
+      "name": "High-Speed Whip Pan / Swish Cut",
+      "rig_type": "handheld_organic",
+      "description": "Violent, rapid horizontal rotational flick causing intense motion blur, instantly snapping attention to a surprise subject or serving as an invisible transition."
+    },
+    {
+      "id": "cam_crash_zoom_snap",
+      "name": "Crash Zoom / Snap Zoom",
+      "rig_type": "optical_zoom",
+      "description": "Ultra-fast manual lens zoom snapping from an extreme wide perspective directly into the actor's startled eyes within a fraction of a second."
+    },
+    {
+      "id": "cam_vertigo_dolly_zoom",
+      "name": "Vertigo Effect (Zolly / Dolly Zoom)",
+      "rig_type": "track_dolly",
+      "description": "Camera physically dollies forward while simultaneously zooming out the lens, keeping the subject identical in size while background space warps and expands."
+    },
+    {
+      "id": "cam_360_orbit_bullet_time",
+      "name": "360-Degree Continuous Circular Orbit",
+      "rig_type": "track_dolly",
+      "description": "Camera glides along a complete 360-degree circular perimeter around subjects frozen or moving in slow motion, celebrating sculptural spatial geometry."
+    },
+    {
+      "id": "cam_bolt_motion_control",
+      "name": "Bolt Robotic High-Speed Motion Control",
+      "rig_type": "robotic_arm",
+      "description": "High-speed industrial robotic arm maneuvers the camera along mathematically exact coordinates in milliseconds, executing flawless geometric match-cuts."
+    },
+    {
+      "id": "cam_handheld_cinema_verite",
+      "name": "Organic Handheld Cinema Verité",
+      "rig_type": "handheld_organic",
+      "description": "Shoulder-mounted camera with natural human micro-jitter and breathing movements, instinctively reframing action with urgent documentary realism."
+    },
+    {
+      "id": "cam_overhead_gods_eye",
+      "name": "Overhead God's-Eye Top-Down View",
+      "rig_type": "crane_jib",
+      "description": "Camera positioned strictly perpendicular to the ground pointing 90 degrees downward, turning human choreography and architecture into flat geometric abstractions."
+    },
+    {
+      "id": "cam_low_angle_dutch_tilt",
+      "name": "Low-Angle Dutch Tilt / Canted Frame",
+      "rig_type": "handheld_organic",
+      "description": "Camera tilted steeply upward from ankle height with a 25-degree diagonal roll on the horizon, imbuing subjects with menacing authority or psychic distress."
+    },
+    {
+      "id": "cam_laowa_probe_flythrough",
+      "name": "Laowa Tubular Probe Lens Fly-Through",
+      "rig_type": "specialized_lens",
+      "description": "Slender waterproof tubular probe lens with built-in LED ring sliding through microscopic openings, between foliage, and inside liquid droplets."
+    },
+    {
+      "id": "cam_locked_off_tableau",
+      "name": "Locked-Off Studio Tableau",
+      "rig_type": "track_dolly",
+      "description": "Completely motionless heavy studio tripod with zero camera roll, tilt, or pan, allowing subtle character blocking and wind motion to animate the frame."
+    },
+    {
+      "id": "cam_step_print_trail",
+      "name": "Step-Printing Shutter Motion Blur",
+      "rig_type": "optical_vfx",
+      "description": "Filmed at low frame rates with high shutter angle and digitally repeated frames, causing kinetic action to leave glowing, ethereal motion trails."
+    },
+    {
+      "id": "cam_pov_subjective_action",
+      "name": "First-Person POV Helmet Mount",
+      "rig_type": "body_rig",
+      "description": "Direct subjective eye-level viewpoint with the character's arms entering peripheral vision, immersing the viewer directly into their immediate sensory crisis."
+    },
+    {
+      "id": "cam_russian_arm_pursuit",
+      "name": "Russian Arm Roof-Mounted Pursuit Crane",
+      "rig_type": "crane_jib",
+      "description": "High-speed pursuit vehicle equipped with a gyro-stabilized roof crane skimming inches above tarmac alongside racing cars through high-speed turns."
+    },
+    {
+      "id": "eye_aerial",
+      "name": "Aerial",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Footage captured from aircraft or airborne platforms like drones, creating expansive elevated perspectives of landscapes and scenes."
+    },
+    {
+      "id": "eye_altered_state",
+      "name": "Altered state",
+      "rig_type": "optical_and_camera_technique",
+      "description": "An effect simulating altered perception from drugs or alcohol through distorted visuals, vibrant colors, surreal imagery, rapid editing, and kaleidoscopic patterns."
+    },
+    {
+      "id": "eye_animation",
+      "name": "Animation",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Cel animation uses hand-drawn frames on transparent sheets, inked, painted, and layered to create traditional animated sequences."
+    },
+    {
+      "id": "eye_anthropo",
+      "name": "Anthropo",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Anthropomorphism gives human characteristics to animals or inanimate objects, making them behave, communicate, and express emotions like people do."
+    },
+    {
+      "id": "eye_arc",
+      "name": "Arc",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The arc movement shot smoothly rotates a camera in a circular motion around a subject, creating an elegant, sophisticated effect that enhances visual storytelling."
+    },
+    {
+      "id": "eye_architexture",
+      "name": "Architexture",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Using animation textures to make buildings, cities, and architectural structures appear to move and shift dynamically."
+    },
+    {
+      "id": "eye_bolt_cam",
+      "name": "Bolt Cam",
+      "rig_type": "optical_and_camera_technique",
+      "description": "An incredibly rapid motorized camera arm that moves up to 6 feet per second in any direction, creating dynamic, fast-moving shots."
+    },
+    {
+      "id": "eye_boomerang",
+      "name": "Boomerang",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A video clip that plays forward then reverses, making subjects repeat actions in a seamless continuous loop resembling a boomerang's motion."
+    },
+    {
+      "id": "eye_bullet_time",
+      "name": "Bullet Time",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Bullet time freezes action by capturing scenes from multiple camera angles simultaneously, creating the illusion of slowed motion while the camera moves dynamically around the stationary scene."
+    },
+    {
+      "id": "eye_camera_roll",
+      "name": "Camera Roll",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The entire scene rotates, typically 180 degrees, creating a dynamic spinning effect that reorients the viewer's perspective of the composition."
+    },
+    {
+      "id": "eye_central_framing",
+      "name": "Central Framing",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Centering the subject in film framing emphasizes symmetry, drawing attention to convey visual impact and significance in a shot."
+    },
+    {
+      "id": "eye_choreo",
+      "name": "Choreo",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Choreographed dance movements integrated with visuals and music to enhance storytelling, evoke emotion, and symbolize thematic elements through body language and rhythm."
+    },
+    {
+      "id": "eye_cinemagraph",
+      "name": "Cinemagraph",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A still photograph with subtle, repeating motion in one or a few elements, creating a seamless loop between static and dynamic imagery."
+    },
+    {
+      "id": "eye_close_up",
+      "name": "Close-Up",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Close-Up fills the screen with part of a subject, such as a person's head or face, allowing emotions and character reactions to dominate the scene."
+    },
+    {
+      "id": "eye_collage",
+      "name": "Collage",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The collage technique combines multiple images and video clips into a single composition, creating a visually eclectic and layered narrative."
+    },
+    {
+      "id": "eye_color_shift",
+      "name": "Color Shift",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A scene's colors shift dramatically for visual effect, creating mood changes or emphasizing narrative moments through chromatic transformation."
+    },
+    {
+      "id": "eye_conveyor",
+      "name": "Conveyor",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A visual transition where scenes move sequentially across the frame like objects on a conveyor belt, creating a flowing movement between distinct shots or settings."
+    },
+    {
+      "id": "eye_crash_cut",
+      "name": "Crash cut",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A rapid zoom into a scene that abruptly cuts to another scene, creating a dynamic transition between shots."
+    },
+    {
+      "id": "eye_cut_ins",
+      "name": "Cut-ins",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A cinematic transition where the shot zooms into a closer element of the same scene, creating an intensified focus on specific details within the frame."
+    },
+    {
+      "id": "eye_datamosh",
+      "name": "Datamosh",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Datamoshing creates glitchy, psychedelic visual distortions by corrupting video data, producing fragmented, pixelated effects resembling a blender-like digital breakdown."
+    },
+    {
+      "id": "eye_diorama",
+      "name": "Diorama",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A technique creating scenes using three-dimensional miniature or full-sized models, often enclosed in glass, to produce detailed replica environments for filming."
+    },
+    {
+      "id": "eye_distortions",
+      "name": "Distortions",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Distortions are visual effects that warp, bend, or twist the image through lens aberrations, digital manipulation, or in-camera techniques to create surreal or dreamlike visual aesthetics."
+    },
+    {
+      "id": "eye_dolly",
+      "name": "Dolly",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A camera technique where the lens physically moves closer to a subject along a track or via handheld/stabilized equipment, drawing attention to specific details or character emotions."
+    },
+    {
+      "id": "eye_dolly_zoom",
+      "name": "Dolly Zoom",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A camera technique that simultaneously moves toward a subject while adjusting the lens focal length away, creating a disorienting effect that distorts spatial perception and emphasizes psychological moments."
+    },
+    {
+      "id": "eye_double_dolly",
+      "name": "Double Dolly",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A camera technique combining dolly zoom with simultaneous subject and camera movement, creating dynamic visual distortion while the scene moves forward."
+    },
+    {
+      "id": "eye_double_exposure",
+      "name": "Double Exposure",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Layering multiple images on top of each other to create surreal, dreamlike visual effects that blend subjects together for artistic or stylistic impact."
+    },
+    {
+      "id": "eye_dreamcore",
+      "name": "Dreamcore",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Dreamcore is a surrealist visual style using dream and nightmare motifs to create nostalgic, eerie imagery with disorienting spaces and uncanny atmospheres."
+    },
+    {
+      "id": "eye_duplication",
+      "name": "Duplication",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The cloning technique creates multiple versions of the same actor or object within a single frame or sequence, achieving an illusion of duplication through in-camera or post-production methods."
+    },
+    {
+      "id": "eye_dutch_angle",
+      "name": "Dutch Angle",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The camera tilts diagonally to create visual disorientation, conveying unease, tension, instability or chaos to heighten emotional impact."
+    },
+    {
+      "id": "eye_dystopian",
+      "name": "Dystopian",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Dystopian visual style showcases dehumanizing, oppressive futures through dark aesthetics, highlighting themes of totalitarianism, environmental collapse, and human resilience against adversity."
+    },
+    {
+      "id": "eye_echo_print",
+      "name": "Echo print",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A motion blur effect that leaves trailing frames behind the main action before catching up, creating a ghosting or accordion-like visual effect reminiscent of step-printing."
+    },
+    {
+      "id": "eye_epiphany",
+      "name": "Epiphany",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A sudden moment of realization captured visually, often showing a character's facial expression or reaction when they understand something important or have a breakthrough."
+    },
+    {
+      "id": "eye_falling",
+      "name": "Falling",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A cinematic technique capturing subjects dropping through space, often used in music videos and film to convey weightlessness, disorientation, or surreal dreamlike sequences."
+    },
+    {
+      "id": "eye_fast_motion",
+      "name": "Fast Motion",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Filming at a lower frame rate than normal playback speed, so action appears sped up when played back at normal speed, creating a comedic or urgent, time-condensing visual effect."
+    },
+    {
+      "id": "eye_feedback",
+      "name": "Feedback",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Visual distortions mimicking analog TV glitches, characterized by fragmented, pixelated, or distorted elements common in 90s-2000s broadcast interference."
+    },
+    {
+      "id": "eye_first_person",
+      "name": "First-Person",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The camera becomes the character, showing the world as if through their own eyes, creating an immersive perspective where viewers see what the character sees."
+    },
+    {
+      "id": "eye_fisheye",
+      "name": "Fisheye",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A wide-angle lens technique creating distorted, circular perspective with bulging edges, used to add surreal immersion or emphasize claustrophobia and tension in scenes."
+    },
+    {
+      "id": "eye_fixed_cam",
+      "name": "Fixed Cam",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Camera remains stationary while the subject stays constant in frame; background elements shift and change around the fixed subject."
+    },
+    {
+      "id": "eye_flash_cut",
+      "name": "Flash Cut",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Rapidly flashing a series of images in quick succession to create a disorienting or hypnotic visual effect, often used as a type of accelerated match cut."
+    },
+    {
+      "id": "eye_floating_ui",
+      "name": "Floating UI",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Digital interface elements appear on-screen in abstract, layered ways to help convey information or technology within the frame."
+    },
+    {
+      "id": "eye_focal_shift",
+      "name": "Focal shift",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A cinematographic technique where the camera's focus transitions between different points of interest, shifting attention from one character or object to another within the same shot."
+    },
+    {
+      "id": "eye_fourth_wall",
+      "name": "Fourth Wall",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Characters acknowledge and address the viewer directly through the lens, breaking narrative illusion to create audience connection or comment on storytelling conventions."
+    },
+    {
+      "id": "eye_fpv_drone",
+      "name": "FPV Drone",
+      "rig_type": "optical_and_camera_technique",
+      "description": "An immersive aerial perspective captured by a drone camera that simulates the pilot's first-person view, creating dynamic, fast-moving footage through environments."
+    },
+    {
+      "id": "eye_freeze_frame",
+      "name": "Freeze Frame",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A single frame of film is repeated to create a frozen, still image effect on screen, often used to punctuate a dramatic or comedic beat."
+    },
+    {
+      "id": "eye_generative",
+      "name": "Generative",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Artificial intelligence generates visual content based on text prompts by learning patterns from training data, producing new visuals with similar characteristics."
+    },
+    {
+      "id": "eye_gesture",
+      "name": "Gesture",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Actors simulate touching, swiping, and scrolling motions as if interacting with invisible phone screens or digital interfaces in the physical world."
+    },
+    {
+      "id": "eye_ground_level",
+      "name": "Ground Level",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Camera positioned approximately 1-2 feet above ground level, capturing scenes from a child's or animal's perspective without looking directly upward."
+    },
+    {
+      "id": "eye_halation",
+      "name": "Halation",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Light scattering within film emulsion creates a diffuse halo or glow around bright areas through reflection off the film base."
+    },
+    {
+      "id": "eye_handheld",
+      "name": "Handheld",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A camera technique using handheld or apparent handheld footage, creating shaky, unsteady motion to convey documentary, news-gathering, or ad hoc cinematic feel."
+    },
+    {
+      "id": "eye_hard_light",
+      "name": "Hard Light",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Hard light is a cinematic technique using sharp, directional lighting with high contrast to create dramatic shadows and defined light patterns on subjects."
+    },
+    {
+      "id": "eye_haze",
+      "name": "Haze",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Soft photography technique using out-of-focus and hazy effects to create dreamy, nostalgic visuals with blurred details and soft color palettes."
+    },
+    {
+      "id": "eye_high_angle",
+      "name": "High Angle",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A camera shot positioned above the subject, angled downward to create vulnerability or weakness, distinct from overhead shots by its angular rather than straight-down view."
+    },
+    {
+      "id": "eye_infinite_loop",
+      "name": "Infinite Loop",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A seamless looping visual that creates the illusion of continuous, endless motion or action without apparent beginning or end."
+    },
+    {
+      "id": "eye_interview",
+      "name": "Interview",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The capture of a person responding to questions posed by an off-screen interviewer, typically used in news and documentary formats."
+    },
+    {
+      "id": "eye_jump_cut",
+      "name": "Jump cut",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A transition showing the same subject appearing to jump forward in time between two shots of identical framing and composition."
+    },
+    {
+      "id": "eye_kaleidoscope",
+      "name": "Kaleidoscope",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A visual technique using optical devices or digital mirroring to create symmetrical, repeating patterns that transform footage into kaleidoscopic imagery."
+    },
+    {
+      "id": "eye_lazy_susan",
+      "name": "Lazy Susan",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The camera remains centered while panning left or right to different actors or objects, mimicking rotation on a lazy susan turntable."
+    },
+    {
+      "id": "eye_levitation",
+      "name": "Levitation",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Where a character or object appears to float or hover in air without visible support, creating magic, supernatural, or futuristic effects."
+    },
+    {
+      "id": "eye_light_flash",
+      "name": "Light Flash",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A sudden, bright flash of light that momentarily illuminates or obscures the scene, creating a dramatic visual punctuation or transition effect."
+    },
+    {
+      "id": "eye_locked_on",
+      "name": "Locked-On",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The camera locks onto and follows a specific subject, keeping it centered while the background moves around it."
+    },
+    {
+      "id": "eye_low_angle",
+      "name": "Low Angle",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A low-angle shot positions the camera below eye level looking upward, making subjects appear towering, powerful, and dominant while creating an imposing perspective."
+    },
+    {
+      "id": "eye_magical_realism",
+      "name": "Magical realism",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Magical elements seamlessly integrated into realistic, mundane environments where characters treat the extraordinary as ordinary."
+    },
+    {
+      "id": "eye_magnification",
+      "name": "Magnification",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A cinematic technique creating a macro close-up shot viewed through a magnifying-glass frame within the larger scene."
+    },
+    {
+      "id": "eye_masking",
+      "name": "Masking",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Creating masks to isolate specific frame areas, enabling precise control over integrating visual effects, CGI elements, or different footage seamlessly."
+    },
+    {
+      "id": "eye_match_cut",
+      "name": "Match Cut",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A match cut seamlessly links two entirely different scenes by connecting similar visual elements, creating an unexpected transition that shifts narrative context while maintaining visual continuity."
+    },
+    {
+      "id": "eye_match_motion",
+      "name": "Match motion",
+      "rig_type": "optical_and_camera_technique",
+      "description": "When a camera's motion seamlessly continues across a cut, making the movement flow uninterrupted from one shot to the next."
+    },
+    {
+      "id": "eye_match_split",
+      "name": "Match Split",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A split-screen technique where the division creates a unified, seamless image across the frame rather than appearing as separate shots."
+    },
+    {
+      "id": "eye_maximalism",
+      "name": "Maximalism",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A visual style featuring excess through bold colors, patterns, textures, and layers that challenges viewers' perception of the medium's artificiality."
+    },
+    {
+      "id": "eye_mixed_media",
+      "name": "Mixed Media",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Mixed Media blends multiple visual mediums, such as live-action footage, animation, photography, and digital art, into cohesive compositions within a single frame."
+    },
+    {
+      "id": "eye_morphing",
+      "name": "Morphing",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Morphing is a special effect technique that transforms one image or object into another using computer-generated animation to show character or object evolution."
+    },
+    {
+      "id": "eye_motion_blur",
+      "name": "Motion Blur",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Motion blur is a cinematic technique where moving subjects appear streaked or blurred, creating a sense of speed and dynamic motion."
+    },
+    {
+      "id": "eye_night_vision",
+      "name": "Night Vision",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Low-light filming using infrared sensors or light amplification technology to capture visible footage in darkness or surveillance conditions."
+    },
+    {
+      "id": "eye_object_portal",
+      "name": "Object Portal",
+      "rig_type": "optical_and_camera_technique",
+      "description": "An object serves as a visual gateway, transporting viewers from one scene or world to another through a seamless transition."
+    },
+    {
+      "id": "eye_object_pov",
+      "name": "Object POV",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The camera takes the perspective of an inanimate object, with characters looking directly at it as if viewing a mirror or screen rather than breaking the fourth wall."
+    },
+    {
+      "id": "eye_omnidirectional",
+      "name": "Omnidirectional",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A 360-degree camera captures everything around a sphere, creating immersive shots that can be compressed into a ball or stretched across the screen."
+    },
+    {
+      "id": "eye_overhead",
+      "name": "Overhead",
+      "rig_type": "optical_and_camera_technique",
+      "description": "An overhead shot positions the camera directly above a subject, shooting downward to create a detached, bird's-eye perspective that conveys distance or divine observation."
+    },
+    {
+      "id": "eye_over_the_shoulder",
+      "name": "Over the Shoulder",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Camera positioned behind one character facing another, showing the first character's shoulder and back of head while viewing the second character's face."
+    },
+    {
+      "id": "eye_pan",
+      "name": "Pan",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A stationary camera rotates horizontally to follow action, making the scene appear to move while the camera stays fixed in place."
+    },
+    {
+      "id": "eye_parallax",
+      "name": "Parallax",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Foreground and background elements move at different speeds to create depth illusion and visual layering effects."
+    },
+    {
+      "id": "eye_pass_through",
+      "name": "Pass Through",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The camera or lens physically passes through an object or person in the frame, often achieved with FPV drones in wide shots or probe lenses in close-ups."
+    },
+    {
+      "id": "eye_pedestal",
+      "name": "Pedestal",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A camera movement where the tripod stays fixed while the camera moves vertically upward or downward, creating an illusion of rising or falling relative to the subject."
+    },
+    {
+      "id": "eye_photogrammetry",
+      "name": "Photogrammetry",
+      "rig_type": "optical_and_camera_technique",
+      "description": "3D modeling technique using multiple 2D images to reconstruct objects or scenes, creating realistic three-dimensional models for mapping, surveying, and virtual environments."
+    },
+    {
+      "id": "eye_pixel_art",
+      "name": "Pixel Art",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Pixel art animation uses hand-drawn pixels frame-by-frame to create retro-styled digital animations, or live-action footage pixelated for stylistic effect."
+    },
+    {
+      "id": "eye_probe",
+      "name": "Probe",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A specialized narrow probe lens enabling extreme close-ups and macro photography, creating visually striking detailed perspectives in tight or hard-to-reach spaces."
+    },
+    {
+      "id": "eye_product",
+      "name": "Product",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Videography that prominently features and showcases a product, often highlighting its distinctive features and design elements."
+    },
+    {
+      "id": "eye_profile",
+      "name": "Profile",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Camera positioned to show the subject's side profile, highlighting facial features or creating distance and detachment, commonly used in dialogue and reaction shots."
+    },
+    {
+      "id": "eye_projections",
+      "name": "Projections",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Using projectors to display images, videos, or graphics onto surfaces like walls, buildings, or screens within the scene."
+    },
+    {
+      "id": "eye_quick_cuts",
+      "name": "Quick Cuts",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Rapid-fire cutting between multiple shots in quick succession, creating a frenetic, energetic visual rhythm commonly associated with filmmaker Edgar Wright's style."
+    },
+    {
+      "id": "eye_ratio_switch",
+      "name": "Ratio Switch",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Intentionally changing image dimensions on screen through zooming, cropping, or adding black bars to shift perspective, emphasize elements, or enhance immersion."
+    },
+    {
+      "id": "eye_reflections",
+      "name": "Reflections",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Capturing subjects through mirrors or windows, creating layered visual compositions where reflected and direct imagery coexist within the frame."
+    },
+    {
+      "id": "eye_scale_shift",
+      "name": "Scale Shift",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Using forced perspective to create illusions of scale, making small objects appear gigantic or large subjects look miniature."
+    },
+    {
+      "id": "eye_screen_in_screen",
+      "name": "Screen in Screen",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A screen or frame displayed within the main shot, showing content inside the composition while maintaining the outer framing intact."
+    },
+    {
+      "id": "eye_set_transition",
+      "name": "Set Transition",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A set transforms into another form through practical effects, such as walls falling away or entire sets lifting up to reveal new environments."
+    },
+    {
+      "id": "eye_shadow_box",
+      "name": "Shadow Box",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Framing visuals within the available space without filling the entire frame, leaving negative space around the subject or action."
+    },
+    {
+      "id": "eye_shallow_focus",
+      "name": "Shallow Focus",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Using shallow depth of field to selectively focus on subjects while blurring backgrounds, drawing viewer attention to specific characters or objects within the frame."
+    },
+    {
+      "id": "eye_silhouette",
+      "name": "Silhouette",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A striking cinematic shot where the subject appears as a dark, featureless silhouette against a brighter background, emphasizing shape and form over facial details."
+    },
+    {
+      "id": "eye_slit_scan",
+      "name": "Slit-scan",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A visual effect that distorts images by scanning a narrow vertical or horizontal slit across scenes, creating surreal, abstract visuals that convey movement and time passage."
+    },
+    {
+      "id": "eye_slow_motion",
+      "name": "Slow Motion",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Slow motion captures action at high frame rates, then plays it back at normal speed to create a stretched-out, detailed view of rapid movement."
+    },
+    {
+      "id": "eye_snorricam",
+      "name": "Snorricam",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A body-mounted rig fixes the camera to an actor's torso, keeping their face locked in frame while the background sways and shifts around them."
+    },
+    {
+      "id": "eye_speed_ramp",
+      "name": "Speed Ramp",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A shift in speed within a single shot, transitioning between slow motion, standard speed, and fast motion for dynamic visual impact."
+    },
+    {
+      "id": "eye_split_diopter",
+      "name": "Split Diopter",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A lens attachment that maintains sharp focus on two objects at different distances simultaneously, used to create visual emphasis and narrative connection between foreground and background elements."
+    },
+    {
+      "id": "eye_split_screen",
+      "name": "Split Screen",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Dividing the frame into multiple simultaneous segments, each showing different action, creating dramatic visual intensity across distinct areas."
+    },
+    {
+      "id": "eye_step_print",
+      "name": "Step-print",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Step-printing repeats individual film frames multiple times to create slow-motion or stuttering visual effects by reducing the perceived frame rate."
+    },
+    {
+      "id": "eye_stop_motion",
+      "name": "Stop Motion",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Stop motion is a filmmaking technique where objects are physically repositioned in small increments between individual photograph frames, creating the illusion of independent movement when the sequence plays back."
+    },
+    {
+      "id": "eye_stutter",
+      "name": "Stutter",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Frames are repeated, skipped, or manipulated to create choppy, jittery motion that emphasizes movement, disorientation, or adds energy to scenes."
+    },
+    {
+      "id": "eye_stylistic_suck",
+      "name": "Stylistic Suck",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Intentionally employing a deliberately poor or cheesy aesthetic to create irony and humor by embracing the absurdity of a particular genre."
+    },
+    {
+      "id": "eye_tableau",
+      "name": "Tableau",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A carefully arranged and aesthetically pleasing composition resembling a painting, where cinematographers create picturesque, visually striking scenes through deliberate framing and positioning."
+    },
+    {
+      "id": "eye_thermal",
+      "name": "Thermal",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Mimics thermal-imaging cameras by displaying heat signatures and temperature variations in a scene, creating a distinctive dramatic look through infrared-style color mapping."
+    },
+    {
+      "id": "eye_tilt",
+      "name": "Tilt",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A cinematographic technique where the camera moves vertically up or down from a fixed position, mimicking the natural motion of tilting one's head."
+    },
+    {
+      "id": "eye_tilt_shift",
+      "name": "Tilt Shift",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Tilt Shift uses specialized lenses to create an optical illusion making real scenes appear like miniature toy models through selective focus and depth manipulation."
+    },
+    {
+      "id": "eye_tracking",
+      "name": "Tracking",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The camera follows a subject in motion, often used for dialogue scenes or character introductions to maintain continuous, dynamic framing."
+    },
+    {
+      "id": "eye_transformation",
+      "name": "Transformation",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A character or object visually morphs into something entirely different, creating a seamless metamorphosis effect between two distinct forms."
+    },
+    {
+      "id": "eye_transitions",
+      "name": "Transitions",
+      "rig_type": "optical_and_camera_technique",
+      "description": "How one shot or scene changes to the next, guiding viewers between points and creating emotional effects through various editing methods."
+    },
+    {
+      "id": "eye_trucking",
+      "name": "Trucking",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The camera moves laterally alongside the subject, creating dynamic energy and following action like car chases or characters moving through a scene."
+    },
+    {
+      "id": "eye_two_shot",
+      "name": "Two Shot",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A two shot frames two people in the same shot, with subjects positioned at varying distances from the camera rather than necessarily adjacent to one another."
+    },
+    {
+      "id": "eye_typography",
+      "name": "Typography",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Typography in film uses fonts, letterforms, and textual elements to enhance storytelling, establish mood, convey information, and evoke emotion throughout the visual narrative."
+    },
+    {
+      "id": "eye_ultra_wide",
+      "name": "Ultra Wide",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A cinematography technique using extremely wide-angle lenses or perspectives that capture expansive horizontal scenes with minimal depth distortion, creating panoramic framing."
+    },
+    {
+      "id": "eye_underwater",
+      "name": "Underwater",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Any shot filmed submerged in water, capturing scenes with the specific visual characteristics of aquatic environments."
+    },
+    {
+      "id": "eye_video_game",
+      "name": "Video Game",
+      "rig_type": "optical_and_camera_technique",
+      "description": "Any shot created within a video-game aesthetic, mimicking the graphics, HUD elements, or camera behavior of interactive game footage."
+    },
+    {
+      "id": "eye_video_portraits",
+      "name": "Video Portraits",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A short-form video portrait captures a person or group, reflecting their character and background, often used in documentaries and promotional content to convey personality."
+    },
+    {
+      "id": "eye_vignette",
+      "name": "Vignette",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A darkening effect around the edges of the frame that draws viewer attention toward the center, commonly used for dramatic focus."
+    },
+    {
+      "id": "eye_vintage",
+      "name": "Vintage",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A film technique presenting images as discovered archival or old footage, achieved through naturalistic cinematography, handheld camera work, and raw, degraded visual aesthetics."
+    },
+    {
+      "id": "eye_void",
+      "name": "Void",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A dream-like minimalist space devoid of visual elements, creating an intentionally empty aesthetic that emphasizes absence and simplicity."
+    },
+    {
+      "id": "eye_voyeur",
+      "name": "Voyeur",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The voyeur technique captures subjects unaware they're being observed, creating an intrusive perspective that reveals private moments as if secretly watching through windows or from hidden vantage points."
+    },
+    {
+      "id": "eye_wandering",
+      "name": "Wandering",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The camera moves through an environment as if the viewer is walking through it, creating an immersive first-person perspective of the scene."
+    },
+    {
+      "id": "eye_weirdcore",
+      "name": "Weirdcore",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A surrealist visual style using amateur or low-quality imagery edited to evoke confusion, disorientation, dread, and nostalgia through deliberately unsettling compositions."
+    },
+    {
+      "id": "eye_whip_pan",
+      "name": "Whip Pan",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The camera rapidly pans left or right, creating motion-blur streaks that make the transition between two scenes appear continuous and energetic."
+    },
+    {
+      "id": "eye_wide_shot",
+      "name": "Wide shot",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A camera framing technique that captures expansive scenes from a distance, showing the full environment and context while keeping subjects small within the frame."
+    },
+    {
+      "id": "eye_wigglegram",
+      "name": "Wigglegram",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A rapid multi-camera technique that creates the illusion of scene vibration or parallax wobble, producing an energetic, physically immersive visual effect."
+    },
+    {
+      "id": "eye_worms_eye",
+      "name": "Worms-Eye",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A low camera angle positioned at ground level looking upward at subjects, creating the perspective of viewing the world from below as a small creature or child would."
+    },
+    {
+      "id": "eye_x_ray",
+      "name": "X-Ray",
+      "rig_type": "optical_and_camera_technique",
+      "description": "The X-Ray technique creates skeletal or ghostly visual effects resembling X-ray imaging through post-production effects, emphasizing hidden or internal elements with an eerie aesthetic."
+    },
+    {
+      "id": "eye_zoetrope",
+      "name": "Zoetrope",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A cylindrical device with sequential images on its inner surface that, when spun rapidly, creates a motion illusion through persistence of vision as viewers watch through side slits."
+    },
+    {
+      "id": "eye_zoom",
+      "name": "Zoom",
+      "rig_type": "optical_and_camera_technique",
+      "description": "A camera technique that adjusts lens focal length to create the illusion of moving closer to or farther from the subject, used to emphasize details and shift perspective."
+    }
+  ],
+  "lighting": [
+    {
+      "id": "light_chiaroscuro_contrast",
+      "name": "Chiaroscuro Hard Contrast",
+      "color_temp": "3200K Tungsten & Deep Blacks",
+      "description": "Dramatic Caravaggio-inspired contrast between piercing directional key light and impenetrable shadow, sculpting bold bone structure."
+    },
+    {
+      "id": "light_volumetric_fog_god_rays",
+      "name": "Volumetric Light Rays Through Atmospheric Haze",
+      "color_temp": "4500K Warm Diffuse Rays",
+      "description": "Dense atmospheric smoke catching sharp shafts of directional sunlight or searchlights, forming luminous volumetric beams."
+    },
+    {
+      "id": "light_neon_nocturnal_dual_tone",
+      "name": "Neon Nocturnal (Cyan & Magenta)",
+      "color_temp": "Saturated Electric RGB",
+      "description": "High-contrast nighttime street lighting with saturated electric magenta rim light contrasting against cold cyan practical neon tubes on wet asphalt."
+    },
+    {
+      "id": "light_diffused_overcast_softbox",
+      "name": "Diffused Scandinavian Overcast",
+      "color_temp": "5600K-6500K Cool Daylight",
+      "description": "Ultra-soft, wraparound shadowless illumination simulating thick overcast cloud cover, producing flattering skin tones and muted naturalistic depth."
+    },
+    {
+      "id": "light_venetian_blind_slats",
+      "name": "Venetian Blind Shadow Slices (Film Noir)",
+      "color_temp": "3200K Hard Warm Slice",
+      "description": "Harsh directional sunlight or neon slicing through window louvers, painting stark horizontal shadow stripes across the subject's face."
+    },
+    {
+      "id": "light_silhouette_edge_rim",
+      "name": "Stark Silhouette with Razor Rim Light",
+      "color_temp": "High-Luminance Backlight",
+      "description": "Subject positioned directly against an intensely luminous background, rendering their body as an ink-black silhouette with a razor-thin glowing rim."
+    },
+    {
+      "id": "light_bioluminescent_ambient",
+      "name": "Subterranean Bioluminescent Glow",
+      "color_temp": "4800K Phosphorescent Emerald & Azure",
+      "description": "Ethereal glow emanating organically from glowing moss, alien flora, or deep-sea organisms, casting soft phosphorescent reflections across wet stone."
+    },
+    {
+      "id": "light_high_key_commercial_fill",
+      "name": "Pristine High-Key Commercial Fill",
+      "color_temp": "5500K Clean White",
+      "description": "Bright, completely shadowless commercial lighting with massive octabox fill, radiant skin reflections, and luminous clean environments."
+    },
+    {
+      "id": "light_single_overhead_tungsten",
+      "name": "Solitary Overhead Tungsten Spotlight",
+      "color_temp": "2700K Warm Amber Bulb",
+      "description": "A single bare tungsten bulb suspended in a pitch-black industrial space, casting deep dramatic shadows downward under brow and chin."
+    },
+    {
+      "id": "light_golden_hour_low_sun",
+      "name": "Golden Hour Low-Angle Lens Flare",
+      "color_temp": "2800K Honeyed Warmth",
+      "description": "Raking horizontal sunlight from a setting sun striking lens glass directly, creating golden halation, long dramatic shadows, and honey-toned rim lighting."
+    },
+    {
+      "id": "light_clinical_fluorescent_flicker",
+      "name": "Clinical Institutional Fluorescent",
+      "color_temp": "6000K Sickly Green-Tinted White",
+      "description": "Harsh overhead fluorescent tubes in hospital corridors or subways, imparting sterile institutional coldness and pale greenish shadows."
+    },
+    {
+      "id": "light_sodium_vapor_streetlamp",
+      "name": "Nocturnal Sodium Vapor Amber",
+      "color_temp": "2200K Monochromatic Sodium Yellow",
+      "description": "Dirty orange-yellow glow from highway sodium vapor lamps cutting through nighttime mist, creating heavy industrial melancholy."
+    }
+  ],
+  "optics_and_color": [
+    {
+      "id": "opt_anamorphic_239",
+      "name": "Anamorphic 2.39:1 Cinema Glass",
+      "category": "lens_optics",
+      "description": "Widescreen cinematic aspect ratio featuring characteristic oval bokeh discs, shallow depth of field, and horizontal streak flares across intense point lights."
+    },
+    {
+      "id": "opt_spherical_master_prime_35",
+      "name": "Spherical 35mm f/1.4 Master Prime",
+      "category": "lens_optics",
+      "description": "Crisp corner-to-corner rectilinear sharpness, natural human eye spatial perspective, creamy circular bokeh, and pristine optical fidelity."
+    },
+    {
+      "id": "opt_ultra_wide_fisheye_10mm",
+      "name": "Ultra-Wide 10mm Fisheye Lens",
+      "category": "lens_optics",
+      "description": "Extreme short focal length with exaggerated spherical barrel distortion, expanded peripheral visibility, and aggressive dynamic depth."
+    },
+    {
+      "id": "opt_telephoto_compression_135mm",
+      "name": "Telephoto 135mm f/2.0 Compression Lens",
+      "category": "lens_optics",
+      "description": "Long telephoto focal length compressing foreground and background planes together, rendering backgrounds as abstract painterly washes."
+    },
+    {
+      "id": "opt_vintage_helios_swirly",
+      "name": "Vintage Russian Helios 44-2 (Swirly Bokeh)",
+      "category": "lens_optics",
+      "description": "Iconic vintage 58mm glass with razor-sharp central performance surrounded by a pronounced optical swirling vortex bokeh in outer edges."
+    },
+    {
+      "id": "opt_tilt_shift_selective",
+      "name": "Tilt-Shift Selective Plane Lens",
+      "category": "lens_optics",
+      "description": "Pivoting focal plane creating an ultra-narrow diagonal slice of sharpness, turning real-world monuments into miniature diorama models."
+    },
+    {
+      "id": "opt_macro_probe_tubular",
+      "name": "Laowa 24mm 2:1 Macro Probe Lens",
+      "category": "lens_optics",
+      "description": "Narrow waterproof tubular probe capable of focusing within millimeters of microscopic textures while retaining deep background context."
+    },
+    {
+      "id": "opt_promist_diffusion",
+      "name": "Black Pro-Mist 1/2 Diffusion Filter",
+      "category": "lens_optics",
+      "description": "Softens digital video sharpness, blooming specular highlights gently into dreamy glows while maintaining deep contrast in shadow values."
+    },
+    {
+      "id": "stock_bleach_bypass_enr",
+      "name": "Bleach Bypass (ENR Chemical Process)",
+      "category": "color_stock",
+      "description": "Silver retained in film emulsion, producing harsh gritty contrast, desaturated muted color saturation, and intense specular metal reflections."
+    },
+    {
+      "id": "stock_technicolor_3_strip",
+      "name": "Vintage Technicolor 3-Strip Dye Transfer",
+      "category": "color_stock",
+      "description": "Hyper-saturated primary color separation with vivid crimson reds, lush emerald greens, and deep royal blues with rich golden skin tones."
+    },
+    {
+      "id": "stock_kodachrome_64_warmth",
+      "name": "Kodachrome 64 Reversal Film Warmth",
+      "category": "color_stock",
+      "description": "Nostalgic mid-century color fidelity with rich velvety blacks, glowing warm skin tones, vibrant primaries, and timeless documentary realism."
+    },
+    {
+      "id": "stock_monochrome_silver_halide",
+      "name": "Monochromatic 35mm Silver Halide",
+      "category": "color_stock",
+      "description": "Rich black-and-white tonal graduation with organic silver grain texture, deep velvety shadows, and glowing silver specular highlights."
+    },
+    {
+      "id": "stock_teal_and_orange_blockbuster",
+      "name": "Teal and Orange Blockbuster Color Timing",
+      "category": "color_stock",
+      "description": "Complementary cinematic color contrast separating cool cyan shadows from warm golden amber skin highlights with punchy modern saturation."
+    },
+    {
+      "id": "stock_16mm_bolex_grain",
+      "name": "Gritty 16mm Bolex Reversal Grain",
+      "category": "color_stock",
+      "description": "Visible organic dancing film grain, subtle micro-jitter, warm color bleed, and authentic analog indie texture."
+    },
+    {
+      "id": "stock_70mm_imax_clarity",
+      "name": "Pristine 70mm IMAX Large Format",
+      "category": "color_stock",
+      "description": "Breathtaking optical micro-contrast, zero perceptible grain, infinite dynamic range, and monumental clarity across vast spatial landscapes."
+    },
+    {
+      "id": "stock_vhs_analog_tape_glitch",
+      "name": "Analog VHS Magnetic Tape Artifacts",
+      "category": "color_stock",
+      "description": "Phosphor color bleeding, CRT scan lines, tracking static noise, chromatic aberration, and low-fidelity 1980s camcorder aesthetic."
+    }
+  ]
+}

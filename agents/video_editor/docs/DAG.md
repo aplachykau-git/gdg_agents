@@ -1,6 +1,6 @@
 # Video Editor Agent Flow
 
-> **Visual Assets**: [🖼️ PNG Diagram](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/video_editor/docs/assets/video_editor_dag.png) • [📄 PDF Document](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/video_editor/docs/assets/video_editor_dag.pdf) • [📐 SVG Vector](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/video_editor/docs/assets/video_editor_dag.svg)
+> **Visual Assets**: [PNG Diagram](assets/video_editor_dag.png) • [PDF Document](assets/video_editor_dag.pdf) • [SVG Vector](assets/video_editor_dag.svg)
 
 ```mermaid
 %%{init: {
@@ -28,23 +28,22 @@
 
 flowchart TD
     User[/"👤 User / Root Agent Request"/]
-    Agent["🎬 <b>Conversational Video Editor Agent</b><br/><i>gemini-3.5-flash-lite</i>"]
+    Agent["🎬 <b>Conversational Video Editor Agent</b><br/><i>gemini-3.8-flash</i>"]
     Help["💡 <b>Capability & Guidance Responder</b><br/><i>Answers format/help queries</i>"]
-    Tool["⚙️ <b>create_video_card tool</b><br/><i>Session staging & schema validation</i>"]
-    Draft[("💾 <b>Session Draft State</b><br/><i>Speaker details & uploaded media</i>")]
-    Confirm{"❓ <b>Confirmation Required?</b><br/><i>CONFIRM_BEFORE_RENDER</i>"}
+    Tool["⚙️ <b>Card tools</b><br/><i>update_speaker · propose_scenarios · show_scenarios<br/>render_video · get_card_status</i>"]
+    Draft[("💾 <b>CardSession state</b><br/><i>Speaker + media, scenarios, render history<br/>(kept across renders)</i>")]
+    UI[/"🗂️ Scenario deck (web UI)<br/><i>video_editor_ui_selection</i>"/]
     Render["🎥 <b>Deterministic Render Pipeline</b><br/>• Outpainting 9:16 (Flash Lite Image)<br/>• Gemini Omni Flash Video Gen<br/>• HyperFrames 1080p / 4K Composition"]
     Result["📦 <b>Rendered Assets / Typed Error</b><br/>• MP4 Video • PNG Poster • Avatar"]
 
     User --> Agent
     Agent -->|Unrelated query| Help
     Help --> User
-    Agent -->|Details, media, prompt, or confirm| Tool
+    Agent -->|Small, intent-named calls| Tool
+    UI -->|state_delta + short message| Tool
     Tool <--> Draft
-    Tool -->|Missing fields or typo notice| Agent
-    Tool --> Confirm
-    Confirm -->|Draft approval required| Agent
-    Confirm -->|Ready to render| Render
+    Tool -->|Missing fields / next_step| Agent
+    Tool -->|render_video| Render
     Render --> Result
     Result --> Agent
     Agent --> User
@@ -60,5 +59,5 @@ flowchart TD
     class Tool toolNode;
     class Render renderNode;
     class Draft stateNode;
-    class Confirm decisionNode;
+    class UI decisionNode;
 ```

@@ -13,6 +13,9 @@ from google.adk.evaluation.eval_metrics import EvalMetric, EvalStatus
 from google.adk.evaluation.evaluator import EvaluationResult, PerInvocationResult
 
 EXPORT_TOOL_NAME = "export_summary_to_google_doc"
+SUMMARY_TOOL_NAME = "show_receipt_summary"
+RATE_TOOL_NAMES = {"get_exchange_rate", "get_usd_pln_rate"}
+ALLOWED_CATEGORIES = {"Transport", "Hotel", "Food & drinks", "Swag", "Prizes", "Venue"}
 AMOUNT_TOLERANCE = 0.01
 ISO_CURRENCY_PATTERN = re.compile(r"^[A-Z]{3}$")
 
@@ -140,6 +143,99 @@ def evaluate_export_arguments(
             f"Expected a three-letter target currency; received {target_currency or '<missing>'}.",
         )
     )
+    return rules
+
+
+def evaluate_batch_workflow_contract(
+    tool_calls: list[Any],
+    require_rate_first: bool = True,
+) -> list[RuleResult]:
+    """
+    Evaluate multi-receipt workflow invariants:
+    1. Exchange rate tool called before summary/export when conversion is needed.
+    2. Both `show_receipt_summary` and `export_summary_to_google_doc` are called once.
+    3. Every exported receipt uses an allowed category and valid attachment_index when present.
+    4. Summary and export calls contain the same number of receipts in matching grouped order.
+    """
+    names = [getattr(call, "name", "") for call in tool_calls]
+    summary_calls = [call for call in tool_calls if getattr(call, "name", "") == SUMMARY_TOOL_NAME]
+    export_calls = [call for call in tool_calls if getattr(call, "name", "") == EXPORT_TOOL_NAME]
+
+    rules: list[RuleResult] = []
+    if require_rate_first:
+        rate_positions = [i for i, n in enumerate(names) if n in RATE_TOOL_NAMES]
+        later_positions = [i for i, n in enumerate(names) if n in {SUMMARY_TOOL_NAME, EXPORT_TOOL_NAME}]
+        rate_first_ok = bool(rate_positions) and (not later_positions or min(rate_positions) < min(later_positions))
+        rules.append(
+            RuleResult(
+                "rate_fetched_first",
+                rate_first_ok,
+                f"Expected exchange rate tool before summary/export; call sequence was {names!r}.",
+            )
+        )
+
+    rules.append(
+        RuleResult(
+            "single_summary_and_export",
+            len(summary_calls) == 1 and len(export_calls) == 1,
+            f"Expected 1 summary and 1 export call; got {len(summary_calls)} summary and {len(export_calls)} export.",
+        )
+    )
+    if len(summary_calls) != 1 or len(export_calls) != 1:
+        return rules
+
+    summary_args = getattr(summary_calls[0], "args", None) or {}
+    export_args = getattr(export_calls[0], "args", None) or {}
+    summary_receipts = summary_args.get("receipts") or []
+    export_receipts = export_args.get("receipts_data") or []
+
+    same_len = (
+        isinstance(summary_receipts, list)
+        and isinstance(export_receipts, list)
+        and len(summary_receipts) == len(export_receipts)
+        and len(export_receipts) > 0
+    )
+    rules.append(
+        RuleResult(
+            "matching_receipt_counts",
+            same_len,
+            f"Summary has {len(summary_receipts)} receipts while export has {len(export_receipts)}.",
+        )
+    )
+    if not same_len:
+        return rules
+
+    valid_categories = all(isinstance(r, dict) and r.get("category") in ALLOWED_CATEGORIES for r in export_receipts)
+    rules.append(
+        RuleResult(
+            "valid_categories",
+            valid_categories,
+            "All exported receipts must use one of the six canonical categories.",
+        )
+    )
+
+    summary_descs = [str(r.get("desc", "")).strip() for r in summary_receipts if isinstance(r, dict)]
+    export_descs = [str(r.get("desc", "")).strip() for r in export_receipts if isinstance(r, dict)]
+    rules.append(
+        RuleResult(
+            "summary_export_sequence_match",
+            summary_descs == export_descs,
+            f"Summary order {summary_descs!r} did not match export order {export_descs!r}.",
+        )
+    )
+
+    att_indices = [r.get("attachment_index") for r in export_receipts if isinstance(r, dict)]
+    if any(idx is not None for idx in att_indices):
+        valid_att = sorted(idx for idx in att_indices if isinstance(idx, int)) == list(
+            range(1, len(export_receipts) + 1)
+        )
+        rules.append(
+            RuleResult(
+                "attachment_index_bijection",
+                valid_att,
+                f"Expected 1..{len(export_receipts)} attachment_index values; got {att_indices!r}.",
+            )
+        )
     return rules
 
 

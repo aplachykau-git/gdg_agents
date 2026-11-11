@@ -6,6 +6,8 @@ except ModuleNotFoundError:
     from bootstrap import initialise_agent_environment
 from google.adk import Agent
 
+from agents.gemini_config import model_for
+
 initialise_agent_environment()
 
 community_name = os.getenv("COMMUNITY_NAME", "Community")
@@ -69,7 +71,7 @@ Your job is to cleanly organize, clean, sort, and partition event registration l
 """
 
 registration_agent = Agent(
-    model="gemini-3.5-flash-lite",
+    model=model_for("registration_manager"),
     name="registration_manager",
     description="Agent that cleans, transliterates Cyrillic to Latin, deduplicates (with secondary verification), and partitions registrations based on capacity limits, and manages the official organisers list.",
     instruction=INSTRUCTION,

@@ -12,6 +12,7 @@
     Calendar,
     Clock,
     Mail,
+    QrCode,
     MessageSquareQuote
   } from "@lucide/svelte";
   import { AGENT_CAPABILITIES_CATALOG } from "./constants.js";
@@ -32,7 +33,8 @@
     users: Users,
     calendar: Calendar,
     clock: Clock,
-    mail: Mail
+    mail: Mail,
+    qr: QrCode
   };
 
   const filteredAgents = $derived(

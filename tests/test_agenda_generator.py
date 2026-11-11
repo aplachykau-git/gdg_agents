@@ -34,7 +34,7 @@ class TestAgendaGeneratorAgent(unittest.TestCase):
 
             importlib.reload(ag_mod)
 
-            self.assertIn("Warsaw", ag_mod.agenda_agent.instruction)
+            self.assertIn("Warsaw", ag_mod.INSTRUCTION)
 
         # Restore default
         with patch.dict(os.environ, {"COMMUNITY_NAME": "Krakow"}):

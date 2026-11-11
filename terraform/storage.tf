@@ -3,7 +3,7 @@
 # ==============================================================================
 
 resource "google_storage_bucket" "assets_bucket" {
-  name                        = locals.bucket_name
+  name                        = local.bucket_name
   location                    = var.region
   project                     = var.project_id
   force_destroy               = false

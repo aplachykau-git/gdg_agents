@@ -3,10 +3,12 @@ Google Cloud Storage / Firebase Storage Helper Utility.
 Enables cloud persistence for generated videos, images, expense reports, and registration sheets.
 """
 
+import logging
 import mimetypes
 import os
-import urllib.parse
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 def get_default_bucket_name() -> str:
@@ -54,13 +56,13 @@ def upload_bytes_to_storage(
         filename = os.path.basename(destination_blob_name)
         blob.content_disposition = f'attachment; filename="{filename}"'
         blob.upload_from_string(data, content_type=content_type)
-        print(f"☁️ [Cloud Storage] Successfully uploaded '{destination_blob_name}' to gs://{target_bucket}")
+        logger.info(f"☁️ [Cloud Storage] Successfully uploaded '{destination_blob_name}' to gs://{target_bucket}")
 
         # Construct direct Google Cloud Storage public URL
         public_url = f"https://storage.googleapis.com/{target_bucket}/{destination_blob_name}"
         return public_url
     except Exception as e:
-        print(f"⚠️ [Cloud Storage Notice] Upload skipped/failed ({e}). Working in local filesystem mode.")
+        logger.warning(f"⚠️ [Cloud Storage Notice] Upload skipped/failed ({e}). Working in local filesystem mode.")
         return None
 
 
@@ -97,5 +99,5 @@ def upload_file_to_storage(
             bucket_name=bucket_name,
         )
     except Exception as e:
-        print(f"⚠️ [Cloud Storage Notice] Failed to read/upload '{local_path}': {e}")
+        logger.warning(f"⚠️ [Cloud Storage Notice] Failed to read/upload '{local_path}': {e}")
         return None

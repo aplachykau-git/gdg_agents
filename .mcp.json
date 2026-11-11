@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "community-studio": {
+      "command": "uv",
+      "args": ["run", "--locked", "python", "-m", "agents.mcp_server"],
+      "env": {
+        "VIDEO_EDITOR_OFFLINE": "false"
+      }
+    }
+  }
+}

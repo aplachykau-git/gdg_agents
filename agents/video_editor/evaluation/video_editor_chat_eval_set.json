@@ -1,30 +1,166 @@
 {
-  "eval_set_id": "video_editor_chat_auto_v1",
+  "eval_set_id": "video_editor_chat_auto_v2",
   "name": "Video editor conversational contract evals",
-  "description": "Live ADK chat cases using a deterministic render stub.",
+  "description": "Live ADK chat cases; tools run in offline mode (fallback scenarios, sample render).",
   "eval_cases": [
     {
       "eval_id": "single_turn_happy_path_auto",
-      "conversation": [{"user_content": {"parts": [{"text": "Create a speaker card. Title: Reliable AI Systems. Speaker: Jane Doe. Position and company: Developer Advocate, Example. Style: warm studio lighting and a slow push-in."}]}}]
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Create a speaker card. Title: Reliable AI Systems. Speaker: Jane Doe. Position and company: Developer Advocate, Example. Style: warm studio lighting and a slow push-in."
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "eval_id": "multi_turn_happy_path_auto",
       "conversation": [
-        {"user_content": {"parts": [{"text": "Create a speaker card. Title: Reliable AI Systems. Speaker: Jane Doe."}]}},
-        {"user_content": {"parts": [{"text": "Position and company: Developer Advocate, Example. Use a calm editorial style with no neon."}]}}
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Create a speaker card. Title: Reliable AI Systems. Speaker: Jane Doe."
+              }
+            ]
+          }
+        },
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Position and company: Developer Advocate, Example. Use a calm editorial style with no neon."
+              }
+            ]
+          }
+        }
       ]
     },
     {
       "eval_id": "unrelated_question_preserves_draft",
       "conversation": [
-        {"user_content": {"parts": [{"text": "Create a speaker card. Title: Reliable AI Systems. Speaker: Jane Doe."}]}},
-        {"user_content": {"parts": [{"text": "What is the capital of France? Do not treat this as a video-card detail."}]}},
-        {"user_content": {"parts": [{"text": "Position and company: Developer Advocate, Example."}]}}
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Create a speaker card. Title: Reliable AI Systems. Speaker: Jane Doe."
+              }
+            ]
+          }
+        },
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "What is the capital of France? Do not treat this as a video-card detail."
+              }
+            ]
+          }
+        },
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Position and company: Developer Advocate, Example."
+              }
+            ]
+          }
+        }
       ]
     },
     {
       "eval_id": "typo_requires_approval",
-      "conversation": [{"user_content": {"parts": [{"text": "Create a card for title: Reliabel AI Systems; speaker: Jane Doe; position and company: Developer Advocate, Example."}]}}]
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Create a card for title: Reliabel AI Systems; speaker: Jane Doe; position and company: Developer Advocate, Example."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "same_speaker_second_render",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "inline_data": {
+                  "mime_type": "image/png",
+                  "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "text": "Make a speaker card. Title: Agents in Production. Speaker: Jane Doe. Position and company: GDE, Example."
+              }
+            ]
+          }
+        },
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Render option 1."
+              }
+            ]
+          }
+        },
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Nice! Now render option 2 as well."
+              }
+            ]
+          }
+        },
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Same speaker, but give me funnier ideas."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "reopen_options",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "inline_data": {
+                  "mime_type": "image/png",
+                  "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "text": "Speaker card: title Kotlin Everywhere, speaker Maria K, Developer at ACME."
+              }
+            ]
+          }
+        },
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Show me the options again."
+              }
+            ]
+          }
+        }
+      ]
     }
   ]
 }

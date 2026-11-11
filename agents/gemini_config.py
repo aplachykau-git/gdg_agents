@@ -5,6 +5,28 @@ import os
 from dotenv import load_dotenv
 from google import genai
 
+DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_IMAGE_MODEL = "gemini-3.1-flash-lite-image"
+DEFAULT_VIDEO_MODEL = "gemini-omni-1.2-flash"
+
+
+def model_for(role: str, default: str = DEFAULT_MODEL, legacy_env: str | None = None) -> str:
+    """Model id for an agent or an internal step, configurable without code changes.
+
+    Resolution order: ``MODEL_<ROLE>`` (e.g. ``MODEL_VIDEO_EDITOR``), a legacy variable name if the
+    step already had one, ``GEMINI_MODEL`` (for text roles), then ``default``.
+    """
+    candidates = [f"MODEL_{role.upper()}"]
+    if legacy_env:
+        candidates.append(legacy_env)
+    if default == DEFAULT_MODEL:
+        candidates.append("GEMINI_MODEL")
+    for name in candidates:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return default
+
 
 class GeminiConfigurationError(RuntimeError):
     """Raised when the selected Gemini backend is not fully configured."""

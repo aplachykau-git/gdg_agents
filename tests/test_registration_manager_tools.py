@@ -4,7 +4,6 @@ Tests Cyrillic-to-Latin conversion, exact and inverted deduplication, cross-scri
 accent normalization, and output verification.
 """
 
-import os
 import re
 import unittest
 from pathlib import Path
@@ -110,7 +109,7 @@ class TestProcessRegistrationsEndToEnd(unittest.TestCase):
             "Jan Kowalski\n"
         )
         staged_path = stage_manual_text_registrations(raw_attendees)
-        summary = process_registrations(file_path=staged_path, capacity=10)
+        summary = process_registrations(file_path=staged_path, capacity=10)["result"]
 
         self.assertIn("Event Registration Processing Summary", summary)
         self.assertIn("Script Normalization", summary)
@@ -158,7 +157,7 @@ class TestProcessRegistrationsEndToEnd(unittest.TestCase):
             file_path=staged_path,
             capacity=10,
             manual_confirmed="Priority VIP Person, Special Guest",
-        )
+        )["result"]
 
         self.assertIn("Manual Priority Additions*: 2", summary)
 

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import shutil
 import subprocess
+import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import TypeVar
@@ -20,7 +22,7 @@ try:
 except ModuleNotFoundError:
     from bootstrap import initialise_agent_environment
 
-from agents.gemini_config import get_gemini_client
+from agents.gemini_config import get_gemini_client, model_for
 
 from .tools import composer_tools, media_tools
 from .workflow_models import (
@@ -38,8 +40,10 @@ from .workflow_models import (
 
 initialise_agent_environment()
 
+logger = logging.getLogger(__name__)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-INTAKE_MODEL = "gemini-3.5-flash-lite"
+INTAKE_MODEL = model_for("video_review")
 MAX_TITLE_LEN = int(os.getenv("VIDEO_EDITOR_MAX_TITLE_LEN", "110"))
 MAX_NAME_LEN = int(os.getenv("VIDEO_EDITOR_MAX_NAME_LEN", "50"))
 MAX_POSITION_COMPANY_LEN = int(os.getenv("VIDEO_EDITOR_MAX_POSITION_COMPANY_LEN", "80"))
@@ -97,18 +101,49 @@ def _latest_user_upload(ctx: Context) -> UploadedMedia | None:
 
 def _generate_structured_response(schema: type[T], prompt: str, parts: list[types.Part] | None) -> T:
     client = get_gemini_client()
-    response = client.models.generate_content(
-        model=INTAKE_MODEL,
-        contents=parts or [types.Part.from_text(text=prompt)],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=schema,
-            temperature=0,
-        ),
-    )
-    if response.parsed is not None:
-        return schema.model_validate(response.parsed)
-    return schema.model_validate_json(response.text or "{}")
+    retries = 3
+    delay = 1.0
+    for attempt in range(retries):
+        try:
+            response = client.models.generate_content(
+                model=INTAKE_MODEL,
+                contents=parts or [types.Part.from_text(text=prompt)],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=schema,
+                    temperature=0,
+                ),
+            )
+            if response.parsed is not None:
+                return schema.model_validate(response.parsed)
+            return schema.model_validate_json(response.text or "{}")
+        except Exception as exc:
+            err_str = str(exc).lower()
+            is_transient = any(
+                marker in err_str
+                for marker in (
+                    "429",
+                    "resource_exhausted",
+                    "too many requests",
+                    "quota",
+                    "503",
+                    "unavailable",
+                    "timed out",
+                    "timeout",
+                )
+            )
+            if attempt < retries - 1 and is_transient:
+                logger.warning(
+                    "Gemini structured response encountered transient error (attempt %d/%d): %s. Retrying in %.1fs...",
+                    attempt + 1,
+                    retries,
+                    exc,
+                    delay,
+                )
+                time.sleep(delay)
+                delay *= 2
+                continue
+            raise
 
 
 async def _structured_response(schema: type[T], prompt: str, parts: list[types.Part] | None = None) -> T:
@@ -293,8 +328,13 @@ def _read_video_duration(video_path: str) -> int:
             check=False,
         )
         if result.returncode == 0 and result.stdout.strip():
-            return 8 if float(result.stdout.strip()) <= 8.5 else 10
-    return 8 if "video_example" in video_path.lower() else 10
+            try:
+                dur = float(result.stdout.strip())
+                if dur >= 10.0:
+                    return int(round(dur))
+            except ValueError:
+                pass
+    return 10
 
 
 def _build_creative_direction(metadata: ValidatedMetadata, user_prompt: str | None) -> str:
@@ -492,6 +532,17 @@ Name: {metadata.name}
 Position and company: {metadata.position_company}""",
         )
     except StructuredResponseError:
+        if (
+            len(metadata.title.strip()) >= 2
+            and len(metadata.name.strip()) >= 2
+            and len(metadata.position_company.strip()) >= 2
+        ):
+            logger.warning(
+                "Structured review model unavailable; fell back to local validation for '%s'",
+                metadata.name,
+            )
+            ctx.route = "valid"
+            return
         ctx.state[INTAKE_FEEDBACK_STATE_KEY] = (
             f"{SYSTEM_ERROR_PREFIX}I cannot validate the speaker details at the moment. Please try again shortly."
         )
@@ -530,10 +581,19 @@ async def review_face_node(ctx: Context) -> None:
     try:
         review = await _structured_response(
             ReviewDecision,
-            "Approve only if this portrait contains a clear, recognisable human face suitable for a speaker card.",
+            (
+                "You are an image classifier checking if an uploaded conference speaker image contains a human being.\n"
+                "CRITICAL INSTRUCTIONS:\n"
+                "1. THIS IS A CONFERENCE SPEAKER AVATAR / PROFILE PHOTO, NOT A PASSPORT OR OFFICIAL GOVERNMENT ID PHOTO.\n"
+                "2. DO NOT apply passport, biometric ID, or visa photo standards. Casual selfies, dark backgrounds, colored stage lighting, dramatic shadows, angled perspectives, smiles, and informal attire are ALL 100% VALID AND FULLY ACCEPTABLE.\n"
+                "3. Set has_human_face=True and approved=True if ANY recognizable human face, head, or person is present in the image (even in dark lighting or casual angles).\n"
+                "4. Set approved=False ONLY if the image contains NO human being at all (e.g. an image of an animal, a car, a landscape, a building, a pure diagram, a code screenshot, or abstract graphic with zero humans)."
+            ),
             [
                 types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                types.Part.from_text(text="Return the structured review."),
+                types.Part.from_text(
+                    text="Does this image contain a human face or person? Return the structured review."
+                ),
             ],
         )
     except StructuredResponseError:
@@ -542,7 +602,29 @@ async def review_face_node(ctx: Context) -> None:
         )
         ctx.route = "invalid"
         return
-    if not review.approved:
+
+    # Guard against spurious model rejections based on passport standards, lighting, background, or selfie angles
+    rejection_reasons = (
+        "passport",
+        "official id",
+        "government id",
+        "visa",
+        "lighting",
+        "background",
+        "selfie",
+        "perspective",
+        "angle",
+        "shadow",
+        "casual",
+        "dark background",
+        "uneven lighting",
+        "plain",
+        "light-colored",
+    )
+    comment_lower = (review.comment or "").lower()
+    is_spurious_rejection = any(term in comment_lower for term in rejection_reasons)
+
+    if not review.approved and not review.has_human_face and not is_spurious_rejection:
         ctx.state[INTAKE_FEEDBACK_STATE_KEY] = review.comment or "Please upload a portrait with a clear human face."
         ctx.route = "invalid"
         return

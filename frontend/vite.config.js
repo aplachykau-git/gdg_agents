@@ -18,6 +18,7 @@ function serveAgentResultsPlugin() {
           path.resolve(__dirname, '../agents/video_editor/renders'),
           path.resolve(__dirname, '../agents/registration_manager/results'),
           path.resolve(__dirname, '../agents/receipt_scanner/results'),
+          path.resolve(__dirname, '../agents/qr_code_generator/results'),
           path.resolve(__dirname, '../agents/video_editor/results'),
           path.resolve(__dirname, '../agents/video_editor/assets'),
         ]
@@ -69,6 +70,7 @@ function serveAgentResultsPlugin() {
             '.jpeg': 'image/jpeg',
             '.webp': 'image/webp',
             '.gif': 'image/gif',
+            '.svg': 'image/svg+xml',
           }
           const contentType = mimeTypes[ext] || 'application/octet-stream'
 

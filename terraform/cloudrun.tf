@@ -10,11 +10,49 @@ resource "google_cloud_run_v2_service" "video_editor" {
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
-    service_account = google_service_account.studio_sa.email
+    service_account  = google_service_account.studio_sa.email
+    session_affinity = true
+
+    # Sessions live in Cloud SQL when enabled, so the service can scale out; otherwise they sit in a
+    # SQLite file inside the container and the service is pinned to one instance.
+    scaling {
+      max_instance_count = local.session_db_enabled ? var.max_instances : 1
+    }
+
+    dynamic "volumes" {
+      for_each = local.session_db_enabled ? [1] : []
+      content {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [google_sql_database_instance.sessions[0].connection_name]
+        }
+      }
+    }
     timeout         = "600s"
 
     containers {
-      image = "${locals.image_base}/video-editor-a2a:latest"
+      image = "${local.image_base}/video-editor-a2a:latest"
+
+      dynamic "volume_mounts" {
+        for_each = local.session_db_enabled ? [1] : []
+        content {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.session_db_enabled ? [1] : []
+        content {
+          name = "SESSION_SERVICE_URI"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.session_uri[0].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
 
       resources {
         limits = {
@@ -37,7 +75,7 @@ resource "google_cloud_run_v2_service" "video_editor" {
       }
       env {
         name  = "GCS_BUCKET_NAME"
-        value = locals.bucket_name
+        value = local.bucket_name
       }
       env {
         name  = "GOOGLE_CLOUD_PROJECT"
@@ -83,10 +121,13 @@ resource "google_cloud_run_v2_service" "video_editor" {
   }
 
   depends_on = [
+    google_secret_manager_secret_version.session_uri,
+    google_project_iam_member.sa_cloudsql_client,
+    google_project_iam_member.sa_secret_accessor,
     google_project_service.enabled_apis,
     google_storage_bucket.assets_bucket,
     google_project_iam_member.sa_vertex_user,
-    google_project_iam_member.sa_storage_admin
+    google_storage_bucket_iam_member.sa_storage_user
   ]
 }
 
@@ -106,11 +147,49 @@ resource "google_cloud_run_v2_service" "receipt_scanner" {
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
-    service_account = google_service_account.studio_sa.email
+    service_account  = google_service_account.studio_sa.email
+    session_affinity = true
+
+    # Sessions live in Cloud SQL when enabled, so the service can scale out; otherwise they sit in a
+    # SQLite file inside the container and the service is pinned to one instance.
+    scaling {
+      max_instance_count = local.session_db_enabled ? var.max_instances : 1
+    }
+
+    dynamic "volumes" {
+      for_each = local.session_db_enabled ? [1] : []
+      content {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [google_sql_database_instance.sessions[0].connection_name]
+        }
+      }
+    }
     timeout         = "300s"
 
     containers {
-      image = "${locals.image_base}/receipt-scanner-a2a:latest"
+      image = "${local.image_base}/receipt-scanner-a2a:latest"
+
+      dynamic "volume_mounts" {
+        for_each = local.session_db_enabled ? [1] : []
+        content {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.session_db_enabled ? [1] : []
+        content {
+          name = "SESSION_SERVICE_URI"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.session_uri[0].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
 
       resources {
         limits = {
@@ -133,7 +212,7 @@ resource "google_cloud_run_v2_service" "receipt_scanner" {
       }
       env {
         name  = "GCS_BUCKET_NAME"
-        value = locals.bucket_name
+        value = local.bucket_name
       }
       env {
         name  = "GOOGLE_CLOUD_PROJECT"
@@ -171,6 +250,9 @@ resource "google_cloud_run_v2_service" "receipt_scanner" {
   }
 
   depends_on = [
+    google_secret_manager_secret_version.session_uri,
+    google_project_iam_member.sa_cloudsql_client,
+    google_project_iam_member.sa_secret_accessor,
     google_project_service.enabled_apis,
     google_storage_bucket.assets_bucket,
     google_project_iam_member.sa_vertex_user,
@@ -194,11 +276,49 @@ resource "google_cloud_run_v2_service" "root_agent" {
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
-    service_account = google_service_account.studio_sa.email
+    service_account  = google_service_account.studio_sa.email
+    session_affinity = true
+
+    # Sessions live in Cloud SQL when enabled, so the service can scale out; otherwise they sit in a
+    # SQLite file inside the container and the service is pinned to one instance.
+    scaling {
+      max_instance_count = local.session_db_enabled ? var.max_instances : 1
+    }
+
+    dynamic "volumes" {
+      for_each = local.session_db_enabled ? [1] : []
+      content {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [google_sql_database_instance.sessions[0].connection_name]
+        }
+      }
+    }
     timeout         = "600s"
 
     containers {
-      image = "${locals.image_base}/community-root-agent:latest"
+      image = "${local.image_base}/community-root-agent:latest"
+
+      dynamic "volume_mounts" {
+        for_each = local.session_db_enabled ? [1] : []
+        content {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.session_db_enabled ? [1] : []
+        content {
+          name = "SESSION_SERVICE_URI"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.session_uri[0].secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
 
       resources {
         limits = {
@@ -221,7 +341,7 @@ resource "google_cloud_run_v2_service" "root_agent" {
       }
       env {
         name  = "GCS_BUCKET_NAME"
-        value = locals.bucket_name
+        value = local.bucket_name
       }
       env {
         name  = "GOOGLE_CLOUD_PROJECT"

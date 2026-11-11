@@ -8,12 +8,12 @@ LINKEDIN_EVAL_DIR := agents/linkedin_post_generator/evaluation
 LINKEDIN_EVAL_SET := $(LINKEDIN_EVAL_DIR)/post_generator_eval_set.json
 LINKEDIN_EVAL_CONFIG := $(LINKEDIN_EVAL_DIR)/post_generator_eval_config.json
 RECEIPT_EVAL_DIR := agents/receipt_scanner/evaluation
-RECEIPT_EVAL_MODEL ?= gemini-3.7-flash
+RECEIPT_EVAL_MODEL ?= gemini-3.8-flash
 
 .PHONY: help tools linkedin-evals linkedin-judge-evals linkedin-evals-all \
 	receipt-eval-discover receipt-eval-fixtures receipt-extraction-evals \
-	receipt-conversion-evals receipt-evals-all video-editor-evals video-editor-evals-all \
-	run-all deploy deploy-frontend
+	receipt-conversion-evals receipt-grouping-evals receipt-evals-all video-editor-evals video-editor-evals-all \
+	run-all deploy deploy-frontend diagrams
 
 help: ## Show available commands.
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -54,9 +54,14 @@ receipt-conversion-evals: ## Run deterministic receipt currency conversion evalu
 	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
 	"$(UV_BIN)" run --locked --no-sync python -m agents.receipt_scanner.evaluation.run_conversion_eval
 
-receipt-evals-all: ## Prepare fixtures, then run conversion and extraction evaluations.
+receipt-grouping-evals: ## Run deterministic receipt grouping and proof-alignment evaluations.
+	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
+	"$(UV_BIN)" run --locked --no-sync python -m agents.receipt_scanner.evaluation.run_grouping_eval
+
+receipt-evals-all: ## Prepare fixtures, then run conversion, grouping, and extraction evaluations.
 	@$(MAKE) receipt-eval-fixtures
 	@$(MAKE) receipt-conversion-evals
+	@$(MAKE) receipt-grouping-evals
 	@$(MAKE) receipt-extraction-evals
 
 video-editor-evals: ## Run live ADK video-editor chat evaluations.
@@ -66,8 +71,18 @@ video-editor-evals: ## Run live ADK video-editor chat evaluations.
 
 video-editor-evals-all: ## Run video-editor unit tests, then live chat evaluations.
 	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
-	"$(UV_BIN)" run --locked --no-sync python -m unittest tests.test_video_editor_workflow -v
+	"$(UV_BIN)" run --locked --no-sync python -m unittest tests.test_video_editor_card_tools tests.test_video_editor_workflow tests.test_video_editor_prompt_director tests.test_video_editor_agent -v
 	@$(MAKE) video-editor-evals
+
+diagrams: ## Render docs/architecture.mmd to docs/assets/architecture_diagram.{svg,png,pdf}.
+	@for ext in svg png pdf; do \
+		npx --yes @mermaid-js/mermaid-cli@11.4.2 -i docs/architecture.mmd -o docs/assets/architecture_diagram.$$ext \
+			-b '#0f172a' -w 2400 $$( [ $$ext = pdf ] && echo --pdfFit ) || exit 1; \
+	done
+
+mcp: ## Run the MCP server over stdio (for MCP clients; see README).
+	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }
+	"$(UV_BIN)" run --locked --no-sync python -m agents.mcp_server
 
 run-all: ## Start Video A2A, Receipt A2A, ADK web, and the frontend; Ctrl+C stops all.
 	@test -n "$(UV_BIN)" || { echo "uv was not found. Install uv and run uv sync --locked."; exit 1; }

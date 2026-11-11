@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class VideoEditorRequest(BaseModel):
@@ -10,6 +10,8 @@ class VideoEditorRequest(BaseModel):
     name: str | None = None
     position_company: str | None = None
     creative_direction: str | None = None
+    speaker_bio: str | None = None
+    creative_guidance: str | None = None
 
 
 class IntakeDecision(BaseModel):
@@ -22,11 +24,14 @@ class IntakeDecision(BaseModel):
 
 
 class ReviewDecision(BaseModel):
-    approved: bool
+    has_human_face: bool = True
+    approved: bool = True
     comment: str = ""
 
 
 class ValidationFailure(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     code: Literal[
         "missing_field",
         "field_too_long",
@@ -37,11 +42,12 @@ class ValidationFailure(BaseModel):
         "face_not_detected",
         "render_environment_unavailable",
         "model_unavailable",
+        "render_failed",
     ]
     field: str | None = None
     message: str
     retryable: bool = True
-    requested_action: Literal["correct_text", "replace_media"]
+    requested_action: Literal["correct_text", "replace_media", "retry", "retry_render"] = "retry"
 
 
 class ValidatedMetadata(BaseModel):
@@ -62,9 +68,40 @@ class UploadedMedia(BaseModel):
     mime_type: str
 
 
+class VideoShot(BaseModel):
+    shot_number: int
+    time_range: str
+    action: str
+    camera: str
+    lighting_atmosphere: str
+
+
+class ScenarioStyle(BaseModel):
+    id: str
+    name: str
+    genre: str
+    shots: list[VideoShot] = Field(default_factory=list)
+    omni_prompt: str
+
+
+class CreativeScenario(BaseModel):
+    id: str
+    title: str
+    genre: str
+    concept: str
+    shots: list[VideoShot] = Field(default_factory=list)
+    omni_prompt: str
+    styles: list[ScenarioStyle] = Field(default_factory=list)
+    narrative_metaphor: str | None = None
+    number: int | None = None
+    style_profile: dict[str, Any] | None = None
+
+
 class VideoEditorDraft(VideoEditorRequest):
     media: UploadedMedia | None = None
     confirmed_fingerprint: str | None = None
+    suggested_scenarios: list[CreativeScenario] = Field(default_factory=list)
+    selected_scenario_id: str | None = None
 
 
 class PreparedMedia(BaseModel):
@@ -83,7 +120,7 @@ class RenderedAsset(BaseModel):
 
 
 class VideoCardToolResult(BaseModel):
-    status: Literal["success", "error", "awaiting_confirmation"]
+    status: Literal["ok", "success", "error", "awaiting_confirmation", "awaiting_scenario_selection"]
     code: str | None = None
     message: str
     retryable: bool = True
@@ -93,16 +130,22 @@ class VideoCardToolResult(BaseModel):
             "replace_media",
             "correct_text",
             "confirm_render",
+            "select_scenario",
             "retry",
         ]
         | None
     ) = None
     missing_fields: list[str] = Field(default_factory=list)
+    scenarios: list[CreativeScenario] = Field(default_factory=list)
     assets: list[RenderedAsset] = Field(default_factory=list)
     draft: VideoEditorDraft | None = None
+    speaker: dict[str, Any] | None = None
+    next_step: str | None = None
+    ui: dict[str, Any] | None = None
 
 
 class RenderResult(BaseModel):
     status: str
     assets: list[RenderedAsset] = Field(default_factory=list)
     summary: str
+    notice: str | None = None

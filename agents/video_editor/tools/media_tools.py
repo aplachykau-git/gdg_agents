@@ -1,9 +1,11 @@
 import base64
+import logging
 import os
 import random
 import re
 import shutil
-import time
+import subprocess
+import uuid
 from typing import Any, Optional
 
 import google.auth
@@ -11,17 +13,19 @@ import google.auth.transport.requests
 import requests
 from google import genai
 from google.adk.tools import ToolContext
-from google.cloud import storage
 from google.genai import types
 
 from agents.common.storage import upload_bytes_to_storage, upload_file_to_storage
 from agents.gemini_config import (
+    DEFAULT_IMAGE_MODEL,
+    DEFAULT_VIDEO_MODEL,
     GeminiConfigurationError,
     get_gemini_api_key,
     get_gemini_client,
-    require_vertex_ai,
-    use_vertex_ai,
+    model_for,
 )
+
+logger = logging.getLogger(__name__)
 
 # BASE_DIR represents the absolute path of this agent's folder, ensuring self-contained integrations
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -36,12 +40,42 @@ DEFAULT_CINEMATIC_DIRECTIONS = (
 )
 
 
-def video_generation_enabled() -> bool:
+def video_generation_enabled(tool_context: Optional[Any] = None) -> bool:
+    if tool_context:
+        state = {}
+        if isinstance(tool_context, dict):
+            state = tool_context
+        else:
+            # ADK's State is not a dict subclass; check it first, then the persisted session state.
+            holders = [getattr(tool_context, "state", None)]
+            session = getattr(tool_context, "session", None)
+            holders.append(getattr(session, "state", None) if session else None)
+            for holder in holders:
+                if holder is None or not hasattr(holder, "get"):
+                    continue
+                for key in ("enable_video_generation", "enableVideoGeneration"):
+                    value = holder.get(key)
+                    if isinstance(value, (bool, int, str)):
+                        return value.lower() in ("true", "1", "yes") if isinstance(value, str) else bool(value)
+        for key in ("enable_video_generation", "enableVideoGeneration"):
+            if key in state and state[key] is not None:
+                return bool(state[key])
     return os.environ.get("ENABLE_VIDEO_GENERATION", "false").lower() in ("true", "1", "yes")
 
 
+def _safe_b64decode(data: str) -> bytes:
+    """Decodes base64 data strings safely, handling data URLs, urlsafe alphabet, and padding."""
+    if data.startswith("data:") and "," in data:
+        data = data.split(",", 1)[1]
+    normalized = data.strip().replace("-", "+").replace("_", "/")
+    pad = len(normalized) % 4
+    if pad:
+        normalized += "=" * (4 - pad)
+    return base64.b64decode(normalized)
+
+
 def sanitize_i2v_prompt(prompt: str) -> str:
-    """Strips references to specific names, likenesses, character references, or safety-triggering phrases for AI video generation."""
+    """Strips references to specific names, likenesses, character references, foreign scripts, or safety-triggering phrases for AI video generation."""
     cleaned = prompt
     # Strip metadata headers if pasted into prompt
     cleaned = re.sub(r"(?i)^(?:Name|Role|Company|Talk|Title|Speaker)\s*:\s*[^\n]+", "", cleaned, flags=re.MULTILINE)
@@ -61,16 +95,40 @@ def sanitize_i2v_prompt(prompt: str) -> str:
         "",
         cleaned,
     )
+    # Strip CJK, Cyrillic, Hebrew, Arabic characters that trip safety/language filters
+    cleaned = re.sub(
+        r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f\uac00-\ud7af\u0400-\u04ff\u0590-\u05ff\u0600-\u06ff]",
+        "",
+        cleaned,
+    )
+    # Strip Wikipedia dictionary parentheticals e.g. (lit. 'special filming'), (postal code 92)
+    cleaned = re.sub(
+        r"\([^)]*(?:lit\.|meaning|postal code|trend that emerged|collective|movement that began|century|centuries)[^)]*\)",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    # Strip long parentheticals (> 30 chars)
+    cleaned = re.sub(r"\([^)]{30,}\)", "", cleaned)
+    # Strip empty quotes and stray punctuation
+    cleaned = re.sub(r"['\"]{2}", "", cleaned)
     cleaned = re.sub(r"(?i)Create a polished speaker introduction for [^.,]+[,.]?", "", cleaned)
-    cleaned = re.sub(r"(?i)speaking about [^.,]+[,.]?", "", cleaned)
-    cleaned = re.sub(r"(?i)\b(speaker|presenter|attendee|guest|subject)\s+named\s+[^,.\n]+", "", cleaned)
+    cleaned = re.sub(r"(?i)\b(speaker|presenter|attendee|guest|subject)\s+named\s+[^,.\n]+", "the protagonist", cleaned)
     cleaned = re.sub(
         r"(?i)\b(speaker|presenter|talk title|presentation|topic|role|company)\s*[:=]\s*[^,.\n]+", "", cleaned
     )
-    cleaned = re.sub(r"(?i)\b(real\s+person|person'?s\s+likeness|celebrity|identity)\b", "", cleaned)
+    cleaned = re.sub(
+        r"(?i)\b(real\s+person|person'?s\s+(?:face|likeness|identity)|facial\s+identity|likeness|identity\s+reference|celebrity)\b",
+        "",
+        cleaned,
+    )
     # Strip empty brackets/parentheses and stray punctuation
     cleaned = re.sub(r"\(\s*[,;.]*\s*\)", "", cleaned)
     cleaned = re.sub(r"\[\s*[,;.]*\s*\]", "", cleaned)
+    # Deduplicate repeated protagonist
+    cleaned = re.sub(r"\bthe protagonist(?:\s+the protagonist)+\b", "the protagonist", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bthe protagonist\s*'?s\b", "the protagonist's", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"(^|[.!?]\s+)the protagonist\b", r"\1The protagonist", cleaned)
     # Clean up excess whitespace and punctuation
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,\n-")
     if not cleaned or len(cleaned) < 10:
@@ -78,6 +136,14 @@ def sanitize_i2v_prompt(prompt: str) -> str:
             "Cinematic conference stage in a modern professional tech setting. "
             "Gentle studio lighting, subtle natural movement, soft realistic background bokeh"
         )
+    # Cap length to 3,500 chars only if excessively bloated, ensuring all 5 shots remain intact
+    if len(cleaned) > 3500:
+        trimmed = cleaned[:3500]
+        last_period = trimmed.rfind(".")
+        if last_period > 2000:
+            cleaned = trimmed[: last_period + 1].strip()
+        else:
+            cleaned = trimmed.strip()
     return cleaned
 
 
@@ -128,14 +194,14 @@ async def stage_uploaded_media(
     """Finds and stages the active user uploaded photo or video from session events.
     Called by the root orchestrator in the parent context.
     """
-    print("\n📥 [Tool: stage_uploaded_media] Resolving user uploaded media from session...")
+    logger.info("📥 [Tool: stage_uploaded_media] Resolving user uploaded media from session...")
 
     # 1. ALWAYS scan session events first to check if the user uploaded new media in the active chat.
     try:
         if tool_context and hasattr(tool_context, "session") and tool_context.session:
             session = tool_context.session
             events = session.events or []
-            print(f"DEBUG: Staging scanning total events: {len(events)}")
+            logger.debug(f"DEBUG: Staging scanning total events: {len(events)}")
 
             # Iterate events in REVERSE to find the most recent user-uploaded video or image.
             for event in reversed(events):
@@ -154,7 +220,7 @@ async def stage_uploaded_media(
                         data = part.inline_data.data
                         if isinstance(data, str):
                             try:
-                                raw_bytes = base64.b64decode(data)
+                                raw_bytes = _safe_b64decode(data)
                             except Exception:
                                 raw_bytes = data.encode("utf-8")
                         else:
@@ -165,7 +231,7 @@ async def stage_uploaded_media(
                             os.makedirs(os.path.dirname(save_path), exist_ok=True)
                             with open(save_path, "wb") as f:
                                 f.write(raw_bytes)
-                            print(f"✅ Staged user video to: {save_path}")
+                            logger.info(f"✅ Staged user video to: {save_path}")
                             return "assets/staged_media.mp4"
                         elif mime.startswith("image/"):
                             ext_map = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
@@ -174,14 +240,14 @@ async def stage_uploaded_media(
                             os.makedirs(os.path.dirname(save_path), exist_ok=True)
                             with open(save_path, "wb") as f:
                                 f.write(raw_bytes)
-                            print(f"✅ Staged user image to: {save_path}")
+                            logger.info(f"✅ Staged user image to: {save_path}")
                             return f"assets/staged_media{ext}"
     except Exception as e:
-        print(f"⚠️ Error scanning parent session: {e}")
+        logger.warning(f"⚠️ Error scanning parent session: {e}")
 
     # 2. Fallback to local file path if provided
     if photo_path:
-        print(f"⚠️ Checking local file path: '{photo_path}'...")
+        logger.warning(f"⚠️ Checking local file path: '{photo_path}'...")
         resolved = resolve_path(photo_path)
         if os.path.exists(resolved) and os.path.isfile(resolved):
             lower_path = resolved.lower()
@@ -194,16 +260,56 @@ async def stage_uploaded_media(
             save_path = os.path.join(BASE_DIR, "assets", save_name)
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             shutil.copy2(resolved, save_path)
-            print(f"✅ Staged local media file to: {save_path}")
+            logger.info(f"✅ Staged local media file to: {save_path}")
             return f"assets/{save_name}"
 
     # 3. Fallback to default asset placeholder
     default_placeholder = resolve_path("assets/portrait_outpainted.png")
     if os.path.exists(default_placeholder):
-        print(f"ℹ️ Using default placeholder avatar: {default_placeholder}")
+        logger.info(f"ℹ️ Using default placeholder avatar: {default_placeholder}")
         return "assets/portrait_outpainted.png"
 
     raise FileNotFoundError("No media file was found in session events or local path. Please upload a photo or video.")
+
+
+def extract_video_frame(video_path: str, output_image_path: str | None = None, timestamp: float = 1.0) -> str:
+    """Extracts a single high-quality frame from a video file to serve as a portrait/poster image."""
+    abs_video = resolve_path(video_path)
+    if not os.path.exists(abs_video) or not os.path.isfile(abs_video):
+        return ""
+
+    if not shutil.which("ffmpeg"):
+        return ""
+
+    if not output_image_path:
+        base_name = os.path.splitext(os.path.basename(abs_video))[0]
+        output_image_path = os.path.join(BASE_DIR, "assets", f"{base_name}_frame.jpg")
+
+    abs_out = os.path.abspath(output_image_path)
+    os.makedirs(os.path.dirname(abs_out), exist_ok=True)
+
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-ss",
+        str(timestamp),
+        "-i",
+        abs_video,
+        "-frames:v",
+        "1",
+        "-update",
+        "1",
+        "-q:v",
+        "2",
+        abs_out,
+    ]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        if res.returncode == 0 and os.path.exists(abs_out) and os.path.getsize(abs_out) > 0:
+            return os.path.relpath(abs_out, BASE_DIR)
+    except Exception as e:
+        logger.warning(f"⚠️ Error extracting video frame: {e}")
+    return ""
 
 
 def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
@@ -212,7 +318,7 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
     to fill the missing areas while preserving the original subject perfectly.
 
     Returns the file path to the outpainted image."""
-    print("🎨 [Outpaint] Extending image to 9:16 via intelligent outpainting...")
+    logger.info("🎨 [Outpaint] Extending image to 9:16 via intelligent outpainting...")
 
     photo_path = resolve_path(photo_path)
     if not os.path.exists(photo_path):
@@ -226,13 +332,17 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
         part = types.Part.from_bytes(data=img_bytes, mime_type=mime_type)
 
         response = client.models.generate_content(
-            model="gemini-3.1-flash-lite-image",
+            model=model_for("video_outpaint", default=DEFAULT_IMAGE_MODEL),
             contents=[
                 part,
                 types.Part.from_text(
                     text=(
-                        "Extend this photo to a vertical 9:16 portrait aspect ratio by seamlessly expanding the background. "
-                        "Keep the person in the photo unchanged."
+                        "High-resolution professional portrait photography. "
+                        "Extend this portrait photo seamlessly to a vertical 9:16 aspect ratio. "
+                        "Crucially, extend the person's torso, shoulders, and clothing (matching the exact pattern, color, and fabric of their shirt/outfit) "
+                        "all the way down to the bottom edge of the frame so that their body naturally and realistically fills the lower portion of the photo. "
+                        "There must be NO blank bars, empty table tops, horizontal lines, or cutoffs beneath the person. "
+                        "Seamlessly expand the background environment upwards and outwards to fill the frame, while keeping the person's face, hair, and likeness identical."
                     )
                 ),
             ],
@@ -247,26 +357,26 @@ def outpaint_to_9_16(photo_path: str, client: genai.Client) -> str:
                 if p.inline_data and p.inline_data.data:
                     outpainted_path = os.path.join(os.path.dirname(photo_path), "portrait_outpainted.png")
                     img_data = (
-                        base64.b64decode(p.inline_data.data)
+                        _safe_b64decode(p.inline_data.data)
                         if isinstance(p.inline_data.data, str)
                         else p.inline_data.data
                     )
                     with open(outpainted_path, "wb") as f:
                         f.write(img_data)
-                    print(f"✅ [Outpaint] Extended image saved to '{outpainted_path}'")
+                    logger.info(f"✅ [Outpaint] Extended image saved to '{outpainted_path}'")
                     try:
                         cloud_img_url = upload_bytes_to_storage(
                             data=img_data,
-                            destination_blob_name="images/portrait_outpainted.png",
+                            destination_blob_name=f"images/portrait_outpainted_{uuid.uuid4().hex}.png",
                             content_type="image/png",
                         )
                         if cloud_img_url:
-                            print(f"☁️ [Cloud Storage] Outpainted avatar uploaded: {cloud_img_url}")
+                            logger.info(f"☁️ [Cloud Storage] Outpainted avatar uploaded: {cloud_img_url}")
                     except Exception as upload_err:
-                        print(f"⚠️ [Cloud Storage Notice] {upload_err}")
+                        logger.warning(f"⚠️ [Cloud Storage Notice] {upload_err}")
                     return os.path.relpath(outpainted_path, BASE_DIR)
     except Exception as e:
-        print(f"⚠️ [Outpaint Notice] Outpainting not available ({e}). Using original image.")
+        logger.warning(f"⚠️ [Outpaint Notice] Outpainting not available ({e}). Using original image.")
 
     return os.path.relpath(photo_path, BASE_DIR)
 
@@ -301,18 +411,18 @@ def verify_portrait_photo(photo_path: str = "") -> str:
     Args:
         photo_path: The file path to verify.
     """
-    print(f"\n👤 [Tool: verify_portrait_photo] Verifying photo: {photo_path}")
+    logger.info(f"👤 [Tool: verify_portrait_photo] Verifying photo: {photo_path}")
 
     photo_path = resolve_media_path(photo_path)
 
     # Check if video
     lower_path = photo_path.lower()
     if any(lower_path.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"]):
-        print("🎥 [Face Verification] Video detected. Face verification skipped.")
+        logger.warning("🎥 [Face Verification] Video detected. Face verification skipped.")
         return "video"
 
     if not os.path.exists(photo_path):
-        print(f"⚠️ [Face Verification] Photo '{photo_path}' not on disk, proceeding with default placeholder.")
+        logger.warning(f"⚠️ [Face Verification] Photo '{photo_path}' not on disk, proceeding with default placeholder.")
         return "photo"
 
     try:
@@ -324,9 +434,9 @@ def verify_portrait_photo(photo_path: str = "") -> str:
 
         client = get_gemini_client()
 
-        print("🚀 Sending face detection verification call to Gemini-3.5-Flash-Lite...")
+        logger.info("🚀 Sending face detection verification call to Gemini-3.8-Flash...")
         response = client.models.generate_content(
-            model="gemini-3.5-flash-lite",
+            model=model_for("video_face_check"),
             contents=[
                 part,
                 types.Part.from_text(
@@ -335,11 +445,11 @@ def verify_portrait_photo(photo_path: str = "") -> str:
             ],
         )
         answer = (response.text or "").strip().upper()
-        print(f"👤 [Face Detection] Model response: '{answer}'")
+        logger.info(f"👤 [Face Detection] Model response: '{answer}'")
     except Exception as e:
-        print(f"⚠️ [Face Verification Notice] Verification check bypassed: {e}")
+        logger.warning(f"⚠️ [Face Verification Notice] Verification check bypassed: {e}")
 
-    print("✅ [Face Verification] Face check completed!")
+    logger.info("✅ [Face Verification] Face check completed!")
     return "photo"
 
 
@@ -357,9 +467,20 @@ def validate_video_generation_backend(engine: str = "omni") -> None:
         )
 
 
+PHOTO_EXCLUSION_DIRECTIVE = (
+    "CINEMATIC SCENE DIRECTIVE:\n"
+    "1. Place the protagonist in a 100% newly rendered cinematic environment. Do not freeze, hold, or fade from the input photo framing.\n"
+    "2. IMMEDIATE ACTION: The video must begin immediately at 00:00 in active cinematic motion, natural human movement, and camera movement in the described scene."
+)
+FINAL_INSTRUCTION = (
+    "FINAL INSTRUCTION: Begin immediately at 00:00 in dynamic cinematic action in the newly rendered scene."
+)
+
+
 def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
-    """Generates an 8s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-1.1-flash) via Interactions API."""
+    """Generates a 10s 9:16 video using Google AI Gemini Omni Flash (gemini-omni-1.2-flash) via Interactions API."""
     api_key = get_gemini_api_key()
+    omni_model = model_for("video_omni", default=DEFAULT_VIDEO_MODEL)
 
     with open(photo_path, "rb") as f:
         frame_bytes = f.read()
@@ -368,13 +489,15 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     mime_type = "image/png" if photo_path.lower().endswith(".png") else "image/jpeg"
 
     i2v_prompt = augment_creative_prompt(creative_prompt)
+    omni_payload_prompt = f"{PHOTO_EXCLUSION_DIRECTIVE}\n\nSCENARIO DIRECTION:\n{i2v_prompt}\n\n{FINAL_INSTRUCTION}"
 
-    print(f'🎬 [Gemini Omni Flash Prompt] Base prompt: "{creative_prompt}"')
-    print(f'   └─ Final Omni Prompt: "{i2v_prompt}"')
-    print("🚀 Submitting request to Google AI Gemini Omni Flash (Interactions API)...")
+    logger.info(f'🎬 [Gemini Omni Flash Prompt] Base prompt: "{creative_prompt}"')
+    logger.info(f'   └─ Final Omni Prompt: "{omni_payload_prompt}"')
+    logger.info("🚀 Submitting request to Google AI Gemini Omni Flash (Interactions API)...")
 
     headers = {"Content-Type": "application/json"}
-    if api_key.startswith("AIza"):
+    if api_key:
+        headers["x-goog-api-key"] = api_key
         url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
     else:
         # Obtain OAuth2 token from Google Cloud ADC / Service Account
@@ -390,19 +513,19 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
             creds.refresh(auth_req)
             token = creds.token
         except Exception as e:
-            print(f"⚠️ [Omni Auth] Could not obtain OAuth2 token from ADC: {e}")
+            logger.warning(f"⚠️ [Omni Auth] Could not obtain OAuth2 token from ADC: {e}")
 
         if token:
             headers["Authorization"] = f"Bearer {token}"
             url = "https://generativelanguage.googleapis.com/v1beta/interactions"
         else:
-            url = f"https://generativelanguage.googleapis.com/v1beta/interactions?key={api_key}"
+            raise RuntimeError("No valid GEMINI_API_KEY or ADC credentials available for Omni Flash.")
 
     payload = {
-        "model": "gemini-omni-1.1-flash",
+        "model": omni_model,
         "input": [
+            {"type": "text", "text": omni_payload_prompt},
             {"type": "image", "data": b64_img, "mime_type": mime_type},
-            {"type": "text", "text": i2v_prompt},
         ],
         "generation_config": {
             "video_config": {
@@ -411,11 +534,49 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
         },
         "response_format": {
             "type": "video",
+            "duration": "10s",
             "aspect_ratio": "9:16",
         },
     }
 
     resp = requests.post(url, headers=headers, json=payload, timeout=300)
+    if resp.status_code != 200:
+        err_text = resp.text
+        if resp.status_code == 400 and ("content_blocked" in err_text or "blocked" in err_text.lower()):
+            logger.warning(
+                "⚠️ [Omni Flash Warning] Prompt content blocked (400). Retrying with safe minimalist cinematic prompt..."
+            )
+            safe_scenario = (
+                "Cinematic 9:16 sequence in a modern professional tech setting. "
+                "Shot 1 (00:00 - 00:02): The protagonist enters a warm, modern architectural space with confident natural movement. "
+                "Shot 2 (00:02 - 00:04): Gestures engagingly toward the camera with subtle natural expression. "
+                "Shot 3 (00:04 - 00:06): Interacts dynamically with surrounding ambient light and environment. "
+                "Shot 4 (00:06 - 00:08): Steps into clear focus with radiant rim lighting. "
+                "Shot 5 (00:08 - 00:10): Holds an iconic, confident stance with warm studio rim lighting and soft background bokeh. "
+                "Natural physical dynamics, pristine temporal stability."
+            )
+            safe_payload_prompt = (
+                f"{PHOTO_EXCLUSION_DIRECTIVE}\n\nSCENARIO DIRECTION:\n{safe_scenario}\n\n{FINAL_INSTRUCTION}"
+            )
+            retry_payload = {
+                "model": omni_model,
+                "input": [
+                    {"type": "text", "text": safe_payload_prompt},
+                    {"type": "image", "data": b64_img, "mime_type": mime_type},
+                ],
+                "generation_config": {
+                    "video_config": {
+                        "task": "image_to_video",
+                    }
+                },
+                "response_format": {
+                    "type": "video",
+                    "duration": "10s",
+                    "aspect_ratio": "9:16",
+                },
+            }
+            resp = requests.post(url, headers=headers, json=retry_payload, timeout=300)
+
     if resp.status_code != 200:
         raise RuntimeError(f"Gemini Omni Flash generation failed ({resp.status_code}): {resp.text}")
 
@@ -424,7 +585,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     for step in data.get("steps", []):
         for c in step.get("content", []):
             if c.get("type") == "video" and "data" in c:
-                video_bytes = base64.b64decode(c["data"])
+                video_bytes = _safe_b64decode(c["data"])
                 break
         if video_bytes:
             break
@@ -436,7 +597,7 @@ def _generate_with_omni(photo_path: str, creative_prompt: str) -> str:
     with open(animated_video_path, "wb") as f:
         f.write(video_bytes)
 
-    print(f"💾 Saved Gemini Omni Flash video ({len(video_bytes)} bytes) to '{animated_video_path}'!")
+    logger.info(f"💾 Saved Gemini Omni Flash video ({len(video_bytes)} bytes) to '{animated_video_path}'!")
     return "assets/Video_example.mp4"
 
 
@@ -448,13 +609,13 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
         creative_prompt: Detailed prompt generated by Gemini to animate the portrait.
         tool_context: ADK execution context for accessing session state overrides.
     """
-    print("\n🎬 [Tool: animate_photo] Animating photo using AI Video Engine or processing background video...")
-    print(f'💡 [Creative Prompt]: "{creative_prompt}"')
+    logger.info("🎬 [Tool: animate_photo] Animating photo using AI Video Engine or processing background video...")
+    logger.info(f'💡 [Creative Prompt]: "{creative_prompt}"')
 
     photo_path = resolve_media_path(photo_path)
     lower_path = photo_path.lower()
     if any(lower_path.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv", ".webm"]):
-        print(f"🎥 [Video Detected] Media is a video ({photo_path}). Using it directly.")
+        logger.info(f"🎥 [Video Detected] Media is a video ({photo_path}). Using it directly.")
         target_video_path = os.path.join(BASE_DIR, "assets", "Video_example.mp4")
         os.makedirs(os.path.join(BASE_DIR, "assets"), exist_ok=True)
         if os.path.abspath(photo_path) != os.path.abspath(target_video_path):
@@ -463,23 +624,7 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
 
     photo_path = os.path.abspath(photo_path)
 
-    # Check if AI video generation (Omni) is enabled in session state or env
-    state = {}
-    if tool_context:
-        if hasattr(tool_context, "state") and isinstance(tool_context.state, dict):
-            state = tool_context.state
-        elif hasattr(tool_context, "session") and tool_context.session and hasattr(tool_context.session, "state"):
-            state = tool_context.session.state or {}
-
-    enable_vid = video_generation_enabled()
-    if "enable_video_generation" in state or "enableVideoGeneration" in state:
-        val = (
-            state.get("enable_video_generation")
-            if "enable_video_generation" in state
-            else state.get("enableVideoGeneration")
-        )
-        if val is not None:
-            enable_vid = bool(val)
+    enable_vid = video_generation_enabled(tool_context)
 
     if not enable_vid:
         msg = (
@@ -487,7 +632,7 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
             "Only direct rendering of user-uploaded videos (.mp4, .mov, .webm) is supported.\n\n"
             "💡 You can enable AI video generation in Settings or attach an existing speaker video file."
         )
-        print(f"🚫 [Cost Protection] {msg}")
+        logger.warning(f"🚫 [Cost Protection] {msg}")
         return f"Error: {msg}"
 
     # Gemini client for outpainting
@@ -496,22 +641,32 @@ def animate_photo(photo_path: str = "", creative_prompt: str = "", tool_context:
     photo_path = outpaint_to_9_16(photo_path, gemini_client)
     photo_path = resolve_path(photo_path)
 
-    engine = get_video_engine()
-    validate_video_generation_backend(engine)
-    result_path = _generate_with_omni(photo_path, creative_prompt)
+    get_video_engine()  # validates VIDEO_ENGINE early
+    try:
+        result_path = _generate_with_omni(photo_path, creative_prompt)
+    except Exception as omni_err:
+        err_msg = str(omni_err)
+        logger.warning(f"⚠️ [Omni Flash Notice] {err_msg}. Falling back to outpainted portrait image.")
+        state = getattr(tool_context, "state", None) if tool_context else None
+        if state is not None:
+            try:
+                state["video_generation_failure"] = err_msg
+            except Exception:
+                pass
+        result_path = photo_path
 
     try:
-        abs_video_path = os.path.join(BASE_DIR, "assets", "Video_example.mp4")
-        if os.path.exists(abs_video_path):
+        abs_res_path = resolve_path(result_path)
+        if os.path.exists(abs_res_path) and result_path.endswith(".mp4"):
             cloud_vid_url = upload_file_to_storage(
-                local_path=abs_video_path,
-                destination_blob_name="videos/Video_example.mp4",
+                local_path=abs_res_path,
+                destination_blob_name=f"videos/omni_{uuid.uuid4().hex}.mp4",
                 content_type="video/mp4",
             )
             if cloud_vid_url:
-                print(f"☁️ [Cloud Storage] Video successfully uploaded to bucket: {cloud_vid_url}")
+                logger.info(f"☁️ [Cloud Storage] Video successfully uploaded to bucket: {cloud_vid_url}")
     except Exception as upload_err:
-        print(f"⚠️ [Cloud Storage Notice] {upload_err}")
+        logger.warning(f"⚠️ [Cloud Storage Notice] {upload_err}")
 
     return result_path
 

@@ -1,20 +1,25 @@
-name: Deploy to Google Cloud and Firebase
+name: Test & (manual) Deploy
 
+# Tests run automatically on every push and pull request.
+# Deploying to Cloud Run / Firebase happens ONLY when started by hand:
+#   GitHub → Actions → "Test & (manual) Deploy" → Run workflow → deploy = true
 on:
   push:
-    branches:
-      - main
+  pull_request:
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy to Cloud Run & Firebase Hosting after the tests pass"
+        type: boolean
+        default: false
 
 jobs:
-  test-and-deploy:
-    name: Test & Deploy
+  test:
+    name: Lint & Test
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-
+    timeout-minutes: 20
     permissions:
       contents: read
-      id-token: write
 
     steps:
       - name: Checkout repository
@@ -36,6 +41,61 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - name: Install Python dependencies
+        run: uv sync --locked
+
+      - name: Install Frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Lint Python
+        run: uv run --locked ruff check agents tests
+
+      # Unit tests never call Gemini/Omni or other external services: a dummy key is enough,
+      # the video editor runs in offline mode and network tests are skipped (RUN_NETWORK_TESTS).
+      - name: Run Python unit tests
+        env:
+          GOOGLE_API_KEY: ci-dummy-key
+          GEMINI_API_KEY: ci-dummy-key
+          GOOGLE_GENAI_USE_VERTEXAI: "0"
+          VIDEO_EDITOR_OFFLINE: "true"
+          SESSION_SERVICE_URI: "memory://"
+        run: uv run --locked python -m unittest discover tests -v
+
+      - name: Frontend tests & build
+        run: |
+          npm test --prefix frontend
+          npm run build --prefix frontend
+
+  deploy:
+    name: Deploy (manual only)
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend dependencies
+        run: npm ci --prefix frontend
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
@@ -45,18 +105,6 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ vars.GCP_PROJECT_ID || 'gdg-agents-6b59a' }}
-
-      - name: Install Python dependencies
-        run: uv sync --locked
-
-      - name: Install Frontend dependencies
-        run: npm ci --prefix frontend
-
-      - name: Run Python unit tests
-        env:
-          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
-        run: uv run --locked python -m unittest discover tests -v
 
       - name: Deploy to Cloud Run & Firebase Hosting
         env:

@@ -1,13 +1,8 @@
 <script>
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
   import {
     Sparkles,
-    History,
     Paperclip,
-    Sun,
-    Moon,
-    ChevronDown,
-    HelpCircle,
     ArrowRight,
     Receipt,
     Video,
@@ -16,12 +11,10 @@
     Calendar,
     Clock,
     Mail,
-    Workflow,
+    QrCode,
     Layers,
     AlertCircle,
-    Plus,
     Settings,
-    MoreVertical,
     X,
     FileText,
     Image as ImageIcon,
@@ -35,11 +28,13 @@
   import AgentGraph from "./lib/AgentGraph.svelte";
   import Sidebar from "./lib/Sidebar.svelte";
   import ChatMessage from "./lib/ChatMessage.svelte";
+  import WelcomeHub from "./lib/WelcomeHub.svelte";
+  import StudioHeader from "./lib/StudioHeader.svelte";
+  import { computeUiCards } from "./lib/ui/payloads.js";
+  import { mergeStreamEvent } from "./lib/chat/stream.js";
   import ChatInput from "./lib/ChatInput.svelte";
   import SettingsModal from "./lib/SettingsModal.svelte";
   import CapabilitiesModal from "./lib/CapabilitiesModal.svelte";
-  import studioLogo from "./assets/community-ai-studio.png";
-  import squareLogo from "./assets/community-ai-studio-logo.png";
 
   import {
     DEFAULT_APPS,
@@ -49,10 +44,14 @@
     getAgentHeading,
     getAgentDescription,
     getAgentStarterPrompts,
-    getAgentIconName,
     isIntermediateEvent,
+    computeScenarioDecks,
     getAppConfig,
     saveAppConfig,
+    eventStatePayload,
+    profileToConfig,
+    STUDIO_CONFIG_PATCH_EVENT,
+    DEFAULT_CONFIG,
     resolveAgentId,
     getActiveAgentFromEvents,
     getEventAgent,
@@ -66,6 +65,7 @@
     calendar: Calendar,
     clock: Clock,
     mail: Mail,
+    qr: QrCode,
     layers: Layers,
     megaphone: Megaphone,
     "file-text": FileText,
@@ -110,9 +110,9 @@
     },
     {
       id: "linkedin_post_generator",
-      name: "LinkedIn Planner",
+      name: "Social Planner",
       tag: "Social Media & Posts",
-      desc: "Writes engaging speaker announcements, event invitations, and post-event recaps with hashtags.",
+      desc: "Writes speaker announcements, recaps and a LinkedIn + Instagram countdown plan for the event.",
       actionText: "Draft post",
       icon: Share2,
       accent: "var(--agent-linkedin)",
@@ -158,6 +158,16 @@
       accent: "var(--agent-office)",
       bg: "var(--bg-office)",
     },
+    {
+      id: "qr_code_generator",
+      name: "QR Code Generator",
+      tag: "Links & Print",
+      desc: "Turns links into rounded QR codes: a flat SVG for print and design and a PNG for slides.",
+      actionText: "Make QR code",
+      icon: QrCode,
+      accent: "var(--agent-qr)",
+      bg: "var(--bg-qr)",
+    },
   ];
 
   function getAgentIcon(agentId) {
@@ -174,6 +184,7 @@
     if (clean.includes("planner")) return Calendar;
     if (clean.includes("agenda")) return Clock;
     if (clean.includes("office") || clean.includes("secretary")) return Mail;
+    if (clean.includes("qr")) return QrCode;
     return Layers;
   }
 
@@ -192,7 +203,6 @@
     onAuthStateChanged,
   } from "./lib/firebase.js";
   import LoginScreen from "./lib/LoginScreen.svelte";
-  import { LogOut } from "@lucide/svelte";
 
   function getOrCreateUserId() {
     if (typeof window === "undefined") return "user";
@@ -219,11 +229,9 @@
   let isDarkMode = $state(true);
   let studioConfig = $state(getAppConfig());
   let currentUser = $state(null);
-  let avatarLoadError = $state(false);
   let isAuthLoading = $state(true);
   let isLoggingIn = $state(false);
   let authError = $state("");
-  let showUserMenu = $state(false);
 
   // Layout Panels & Drawers
   let showSessions = $state(false);
@@ -259,6 +267,8 @@
   const filteredEvents = $derived(
     events.filter((e) => !isIntermediateEvent(e)),
   );
+  const scenarioDecks = $derived(computeScenarioDecks(filteredEvents));
+  const uiCards = $derived(computeUiCards(filteredEvents));
 
   // Agent selector manual switch
   async function handleAgentChange(newApp) {
@@ -330,13 +340,14 @@
       render_4k: studioConfig?.render4k ?? localSaved.render4k ?? true,
       render_gif: studioConfig?.renderGif ?? localSaved.renderGif ?? true,
       generate_avatar: studioConfig?.generateAvatar ?? localSaved.generateAvatar ?? true,
-      enable_video_generation: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? false,
+      enable_video_generation: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? DEFAULT_CONFIG.enableVideoGeneration ?? true,
       render4k: studioConfig?.render4k ?? localSaved.render4k ?? true,
       renderGif: studioConfig?.renderGif ?? localSaved.renderGif ?? true,
       generateAvatar: studioConfig?.generateAvatar ?? localSaved.generateAvatar ?? true,
-      enableVideoGeneration: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? false,
+      enableVideoGeneration: studioConfig?.enableVideoGeneration ?? localSaved.enableVideoGeneration ?? DEFAULT_CONFIG.enableVideoGeneration ?? true,
       video_template: studioConfig?.videoTemplate || localSaved.videoTemplate || "build_with_ai",
       videoTemplate: studioConfig?.videoTemplate || localSaved.videoTemplate || "build_with_ai",
+      ...eventStatePayload({ ...DEFAULT_CONFIG, ...localSaved, ...studioConfig }),
     };
   }
 
@@ -503,15 +514,31 @@
     }, 2200);
   }
 
-  function scrollToBottom() {
-    setTimeout(() => {
-      if (chatBodyElement) {
+  let scrollRafId = null;
+  let userHasScrolledUp = false;
+
+  function handleChatScroll() {
+    if (!chatBodyElement) return;
+    const distanceToBottom =
+      chatBodyElement.scrollHeight -
+      chatBodyElement.scrollTop -
+      chatBodyElement.clientHeight;
+    userHasScrolledUp = distanceToBottom > 80;
+  }
+
+  function scrollToBottom(smooth = false) {
+    if (scrollRafId) cancelAnimationFrame(scrollRafId);
+    scrollRafId = requestAnimationFrame(() => {
+      if (!chatBodyElement) return;
+      if (smooth) {
         chatBodyElement.scrollTo({
           top: chatBodyElement.scrollHeight,
           behavior: "smooth",
         });
+      } else {
+        chatBodyElement.scrollTop = chatBodyElement.scrollHeight;
       }
-    }, 50);
+    });
   }
 
   function refineVariant(bodyText) {
@@ -547,9 +574,55 @@
   }
 
   // Send Message / Run Agent
-  async function sendMessage() {
+  function sendMessage() {
     if (isLoading || isSubmitting) return;
     if (!queryText.trim() && stagedFiles.length === 0) return;
+    const text = queryText;
+    const files = [...stagedFiles];
+    queryText = "";
+    if (textareaElement) {
+      textareaElement.style.height = "auto";
+    }
+    stagedFiles = [];
+    return runTurn({ text, files });
+  }
+
+  // Send a message straight from an interactive card (e.g. the scenario deck).
+  // `extraState` travels as state_delta so tools can read structured choices
+  // instead of relying on the LLM to copy long prompts.
+  function sendDirect(text, extraState = null) {
+    if (isLoading || isSubmitting || !text?.trim()) return;
+    return runTurn({ text, files: [], extraState });
+  }
+
+  // Streaming events are coalesced and applied at most once per animation frame:
+  // re-rendering the whole chat for every token was what made the UI lag and jump.
+  let pendingStreamEvents = [];
+  let streamFlushRaf = null;
+
+  function flushStreamEvents() {
+    streamFlushRaf = null;
+    if (pendingStreamEvents.length === 0) return;
+    const batch = pendingStreamEvents;
+    pendingStreamEvents = [];
+    const next = [...events];
+    for (const eventObj of batch) mergeStreamEvent(next, eventObj);
+    events = next;
+    if (!userHasScrolledUp) scrollToBottom(false);
+  }
+
+  function queueStreamEvent(eventObj) {
+    pendingStreamEvents.push(eventObj);
+    if (streamFlushRaf === null) {
+      streamFlushRaf =
+        typeof requestAnimationFrame === "function"
+          ? requestAnimationFrame(flushStreamEvents)
+          : setTimeout(flushStreamEvents, 16);
+    }
+  }
+
+  async function runTurn({ text, files, extraState = null }) {
+    if (isLoading || isSubmitting) return;
 
     if (currentAbortController) {
       try {
@@ -577,21 +650,13 @@
       }
     }
 
-    const currentText = queryText;
-    const currentFiles = [...stagedFiles];
-
-    queryText = "";
-    if (textareaElement) {
-      textareaElement.style.height = "auto";
-    }
-    stagedFiles = [];
     errorMsg = "";
     currentExecutingAgent = activeAgent || sessionOwnerApp || selectedApp || "root_agent";
     startStatusTicker(currentExecutingAgent);
 
     try {
       const parts = [];
-      currentFiles.forEach((f) => {
+      files.forEach((f) => {
         parts.push({
           inline_data: {
             mime_type: f.type,
@@ -599,8 +664,9 @@
           },
         });
       });
-      if (currentText.trim()) {
-        parts.push({ text: currentText });
+      const cleanText = (text || "").replace(/\u2028/g, "\n").replace(/\u2029/g, "\n\n");
+      if (cleanText.trim()) {
+        parts.push({ text: cleanText });
       }
 
       // Add user message to events list
@@ -612,9 +678,10 @@
           timestamp: Date.now() / 1000,
         },
       ];
-      scrollToBottom();
+      userHasScrolledUp = false;
+      scrollToBottom(true);
 
-      const statePayload = getSessionStatePayload();
+      const statePayload = { ...getSessionStatePayload(), ...(extraState || {}) };
       let metadataHeader = "";
       if (statePayload.google_drive_folder_id) {
         metadataHeader += `[Target Drive Folder: ${statePayload.google_drive_folder_id}] `;
@@ -660,41 +727,7 @@
             }
           }
 
-          const existingIdx = eventObj.id
-            ? events.findIndex((e) => e.id === eventObj.id)
-            : -1;
-
-          if (existingIdx !== -1) {
-            // Existing event with same ID
-            const existingEv = events[existingIdx];
-            const updatedEvents = [...events];
-
-            if (eventObj.partial === false) {
-              // Final complete event emitted by ADK: replace with final consolidated payload
-              updatedEvents[existingIdx] = eventObj;
-            } else {
-              // Partial stream chunk: append text deltas
-              const newText = eventObj.content?.parts?.[0]?.text || "";
-              const prevText = existingEv.content?.parts?.[0]?.text || "";
-              updatedEvents[existingIdx] = {
-                ...eventObj,
-                content: {
-                  ...eventObj.content,
-                  parts: [
-                    {
-                      ...(eventObj.content?.parts?.[0] || {}),
-                      text: prevText + newText,
-                    },
-                  ],
-                },
-              };
-            }
-            events = updatedEvents;
-          } else {
-            // New event ID or first chunk
-            events = [...events, eventObj];
-          }
-          scrollToBottom();
+          queueStreamEvent(eventObj);
         },
       });
     } catch (e) {
@@ -705,11 +738,19 @@
         errorMsg = e.message || "Execution failed";
       }
     } finally {
+      if (streamFlushRaf !== null) {
+        if (typeof cancelAnimationFrame === "function") cancelAnimationFrame(streamFlushRaf);
+        clearTimeout(streamFlushRaf);
+        streamFlushRaf = null;
+      }
+      flushStreamEvents();
       isLoading = false;
       isSubmitting = false;
       currentAbortController = null;
       clearInterval(statusInterval);
-      scrollToBottom();
+      if (!userHasScrolledUp) {
+        scrollToBottom(false);
+      }
     }
   }
 
@@ -718,13 +759,40 @@
     saveAppConfig(newConfig);
   }
 
+  // Event details and social profiles are set in the chat (event_profile cards), not in Settings.
+  function patchConfig(patch) {
+    updateConfig({ ...studioConfig, ...patch });
+  }
+
+  $effect(() => {
+    const onPatch = (e) => patchConfig(e.detail || {});
+    window.addEventListener(STUDIO_CONFIG_PATCH_EVENT, onPatch);
+    return () => window.removeEventListener(STUDIO_CONFIG_PATCH_EVENT, onPatch);
+  });
+
+  // A profile the agent saved from the conversation (persist: true) is remembered for future
+  // sessions, unless what we already have is newer (e.g. when an old session is reopened).
+  $effect(() => {
+    let latest = null;
+    for (const list of uiCards.lists.values()) {
+      for (const payload of list) {
+        if (payload?.type !== "event_profile" || !payload.persist || !payload.updated_at) continue;
+        if (!latest || Date.parse(payload.updated_at) > Date.parse(latest.updated_at)) latest = payload;
+      }
+    }
+    if (!latest) return;
+    const known = untrack(() => Date.parse(studioConfig.eventProfileUpdatedAt || "") || 0);
+    if (Date.parse(latest.updated_at) > known) {
+      untrack(() => patchConfig({ ...profileToConfig(latest.profile), eventProfileUpdatedAt: latest.updated_at }));
+    }
+  });
+
   async function handleGoogleLogin() {
     isLoggingIn = true;
     authError = "";
     try {
       const res = await loginWithGoogle();
       currentUser = res.user;
-      avatarLoadError = false;
       selectedSessionId = "";
       events = [];
       queryText = "";
@@ -746,8 +814,6 @@
   async function handleGoogleLogout() {
     await logoutUser();
     currentUser = null;
-    avatarLoadError = false;
-    showUserMenu = false;
   }
 
   onMount(() => {
@@ -755,9 +821,17 @@
     document.documentElement.setAttribute("data-theme", "dark");
     loadApps();
 
+    // Local development / e2e only: `VITE_DEV_AUTH_BYPASS=true npm run dev` skips Google sign-in.
+    // import.meta.env.DEV is false in production builds, so this branch is compiled out there.
+    if ((import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_BYPASS === "true") || !auth) {
+      currentUser = { uid: "local-dev", displayName: "Local developer", email: "dev@localhost" };
+      userId = "user_local-dev";
+      isAuthLoading = false;
+      return;
+    }
+
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       currentUser = user;
-      avatarLoadError = false;
       isAuthLoading = false;
       if (user && user.uid) {
         userId = `user_${user.uid.slice(0, 10)}`;
@@ -770,17 +844,6 @@
   });
 </script>
 
-<svelte:window
-  onkeydown={(e) => {
-    if (e.key === "Escape") {
-      showUserMenu = false;
-    }
-  }}
-  onclick={(e) => {
-    if (showUserMenu && !e.target.closest?.(".user-menu-container"))
-      showUserMenu = false;
-  }}
-/>
 
 {#if isAuthLoading}
   <div class="auth-loading-screen">
@@ -802,223 +865,30 @@
     <!-- =========================================================================
      * TOP APP BAR (Sleek Modern Header)
      * ========================================================================= -->
-    <header class="studio-header">
-    <div class="header-left">
-      <!-- Community AI Studio Brand Badge (Leftmost) -->
-      <button
-        class="brand-badge"
-        onclick={() => {
-          selectedSessionId = "";
-          events = [];
-        }}
-        data-tooltip="Home"
-        aria-label="Home"
-      >
-        <img
-          src={squareLogo}
-          alt="Community AI Studio"
-          class="brand-icon-img"
-        />
-        <div class="brand-text">
-          <span class="brand-name">Community AI Studio</span>
-          <span class="brand-sub">{studioConfig.communityName || "GDG Krakow"}</span>
-        </div>
-      </button>
-
-      <div class="header-divider"></div>
-
-      <!-- New Session Button (With label) -->
-      <button
-        class="header-btn-new-session"
-        onclick={() => startNewSession()}
-        disabled={isLoading}
-        data-tooltip="Start New Session"
-        aria-label="Start New Session"
-      >
-        <Plus size={15} strokeWidth={2.2} />
-        <span>New session</span>
-      </button>
-
-      <!-- Sidebar toggle (History) -->
-      <button
-        class="icon-btn"
-        class:active={showSessions}
-        onclick={() => (showSessions = !showSessions)}
-        data-tooltip="Session History"
-        aria-label="Session History"
-      >
-        <History size={18} strokeWidth={1.75} />
-      </button>
-    </div>
-
-    <div class="header-right">
-      <!-- Active Agent Selector with integrated Online dot -->
-      <div class="app-picker">
-        <span class="picker-label">Agent:</span>
-        <div
-          class="select-wrapper"
-          class:has-session={Boolean(selectedSessionId)}
-          class:is-main={activeAgent === "root_agent"}
-        >
-          {#if selectedSessionId}
-            <span
-              class="live-status-dot"
-              style="background: {activeAgentTheme.color}; box-shadow: 0 0 8px {activeAgentTheme.color}80;"
-              data-tooltip="Session Active • Connected ({activeAgentTheme.label})"
-              aria-label="Session Active • Connected ({activeAgentTheme.label})"
-            ></span>
-          {:else if activeAgent === "root_agent"}
-            <span
-              class="main-badge-icon"
-              data-tooltip="Main Coordinator"
-              aria-label="Main Coordinator"
-            >
-              <Layers size={12} strokeWidth={2} />
-            </span>
-          {/if}
-          <select
-            id="appSelect"
-            value={activeAgent}
-            onchange={(e) => handleAgentChange(e.target.value)}
-          >
-            {#each apps as app}
-              <option value={app.name}>
-                {app.root_agent_name || app.name}
-              </option>
-            {/each}
-          </select>
-          <ChevronDown size={14} class="select-chevron" />
-        </div>
-      </div>
-
-      <div class="header-divider"></div>
-
-      <!-- Multi-Agent Architecture -->
-      <button
-        class="icon-btn"
-        class:active={showAgentGraph}
-        onclick={() => (showAgentGraph = true)}
-        data-tooltip="Multi-Agent Architecture"
-        aria-label="Multi-Agent Architecture"
-      >
-        <Workflow size={18} strokeWidth={1.75} />
-      </button>
-
-      <!-- User Profile & Workspace Options Dropdown (Combined) -->
-      {#if currentUser}
-        <div class="user-menu-container">
-          <button 
-            class="user-header-profile" 
-            class:active={showUserMenu}
-            onclick={(e) => {
-              e.stopPropagation();
-              showUserMenu = !showUserMenu;
-            }} 
-            title="Account & Options ({currentUser.displayName || 'Google Account'})"
-            aria-label="Account and options"
-          >
-            <div class="user-avatar-wrap">
-              {#if currentUser.photoURL && !avatarLoadError}
-                <img
-                  src={currentUser.photoURL}
-                  alt="User avatar"
-                  class="header-avatar-img"
-                  referrerpolicy="no-referrer"
-                  onerror={() => (avatarLoadError = true)}
-                />
-              {:else}
-                <span class="header-avatar-fallback">
-                  {(currentUser.displayName || currentUser.email || 'U').charAt(0).toUpperCase()}
-                </span>
-              {/if}
-            </div>
-            <ChevronDown size={11} strokeWidth={2.2} class="profile-dropdown-arrow" />
-          </button>
-
-          {#if showUserMenu}
-            <div class="dropdown-menu user-dropdown">
-              <!-- Account info header -->
-              <div class="user-dropdown-header">
-                <div class="user-dropdown-top">
-                  {#if currentUser.photoURL && !avatarLoadError}
-                    <img
-                      src={currentUser.photoURL}
-                      alt="Avatar"
-                      class="dropdown-avatar-img"
-                      referrerpolicy="no-referrer"
-                      onerror={() => (avatarLoadError = true)}
-                    />
-                  {:else}
-                    <span class="dropdown-avatar-fallback">
-                      {(currentUser.displayName || currentUser.email || 'U').charAt(0).toUpperCase()}
-                    </span>
-                  {/if}
-                  <div class="user-dropdown-info">
-                    <div class="user-dropdown-name">{currentUser.displayName || 'Google Account'}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="dropdown-divider"></div>
-
-              <!-- Workspace Theme / Capabilities / Settings -->
-              <button
-                class="dropdown-item"
-                onclick={() => {
-                  toggleTheme();
-                  showUserMenu = false;
-                }}
-              >
-                {#if isDarkMode}
-                  <Sun size={15} strokeWidth={1.75} class="dropdown-icon" />
-                  <span>Light Theme</span>
-                {:else}
-                  <Moon size={15} strokeWidth={1.75} class="dropdown-icon" />
-                  <span>Dark Theme</span>
-                {/if}
-              </button>
-
-              <button
-                class="dropdown-item"
-                onclick={() => {
-                  showLegend = true;
-                  showUserMenu = false;
-                }}
-              >
-                <HelpCircle size={15} strokeWidth={1.75} class="dropdown-icon" />
-                <span>Capabilities</span>
-              </button>
-
-              <button
-                class="dropdown-item"
-                onclick={() => {
-                  showSettings = true;
-                  showUserMenu = false;
-                }}
-              >
-                <Settings size={15} strokeWidth={1.75} class="dropdown-icon" />
-                <span>Settings</span>
-              </button>
-
-              <div class="dropdown-divider"></div>
-
-              <!-- Logout -->
-              <button
-                class="dropdown-item dropdown-item-danger"
-                onclick={() => {
-                  handleGoogleLogout();
-                  showUserMenu = false;
-                }}
-              >
-                <LogOut size={15} strokeWidth={1.75} class="dropdown-icon" />
-                <span>Sign out</span>
-              </button>
-            </div>
-          {/if}
-        </div>
-      {/if}
-    </div>
-  </header>
+    <StudioHeader
+      communityName={studioConfig.communityName || "GDG Krakow"}
+      {isLoading}
+      hasSession={Boolean(selectedSessionId)}
+      {showSessions}
+      {showAgentGraph}
+      {activeAgent}
+      {activeAgentTheme}
+      {apps}
+      {currentUser}
+      {isDarkMode}
+      onHome={() => {
+        selectedSessionId = "";
+        events = [];
+      }}
+      onNewSession={() => startNewSession()}
+      onToggleSessions={() => (showSessions = !showSessions)}
+      onAgentChange={handleAgentChange}
+      onShowGraph={() => (showAgentGraph = true)}
+      onToggleTheme={toggleTheme}
+      onShowCapabilities={() => (showLegend = true)}
+      onShowSettings={() => (showSettings = true)}
+      onLogout={handleGoogleLogout}
+    />
 
   <div class="studio-body">
     <!-- Left Sidebar -->
@@ -1075,67 +945,10 @@
 
       {#if !selectedSessionId}
         <!-- Welcome Hub View / Main Agents Catalog -->
-        <div class="hub-welcome-view">
-          <div class="hub-container">
-            <div class="hub-header">
-              <p class="hub-subtitle">
-                Select an agent to begin, or use the <strong>Main</strong> agent to automatically coordinate tasks.
-              </p>
-            </div>
-
-            <!-- Quick 3-Step Guide -->
-            <div class="workflow-steps-strip">
-              <div class="step-badge">
-                <span class="step-num">1</span>
-                <span>Select agent or attach docs</span>
-              </div>
-              <div class="step-separator"></div>
-              <div class="step-badge">
-                <span class="step-num">2</span>
-                <span>Run prompt (Ctrl+Enter)</span>
-              </div>
-              <div class="step-separator"></div>
-              <div class="step-badge">
-                <span class="step-num">3</span>
-                <span>Inspect tool calls & copy outputs</span>
-              </div>
-            </div>
-
-            <!-- Agents Catalog Grid -->
-            <div class="agents-catalog-grid">
-              {#each CATALOG_AGENTS as agent}
-                {@const AgentIcon = agent.icon}
-                <button
-                  class="agent-catalog-card"
-                  style="--card-accent: {agent.accent}; --card-bg: {agent.bg};"
-                  onclick={() => {
-                    startNewSession(agent.id);
-                  }}
-                >
-                  <div class="agent-card-header">
-                    <div class="agent-icon-box">
-                      <AgentIcon size={18} strokeWidth={1.75} />
-                    </div>
-                    <div class="agent-title-col">
-                      <strong>{agent.name}</strong>
-                      <span class="agent-type-tag">{agent.tag}</span>
-                    </div>
-                  </div>
-                  <p class="agent-card-desc">
-                    {agent.desc}
-                  </p>
-                  <div class="card-footer-action">
-                    <span>{agent.actionText}</span>
-                    <ArrowRight size={14} />
-                  </div>
-                </button>
-              {/each}
-            </div>
-          </div>
-        </div>
+        <WelcomeHub agents={CATALOG_AGENTS} onStart={(agentId) => startNewSession(agentId)} />
       {:else}
         <!-- Active Chat Message Stream -->
-        <div class="chat-viewport" bind:this={chatBodyElement}>
+        <div class="chat-viewport" bind:this={chatBodyElement} onscroll={handleChatScroll}>
           <div class="chat-stream-container">
             {#if filteredEvents.length === 0}
               {@const CurrentAgentIcon = getAgentIcon(activeAgent)}
@@ -1191,7 +1004,13 @@
                 {event}
                 index={idx}
                 allEvents={filteredEvents}
+                deck={scenarioDecks.get(idx) || null}
+                ui={uiCards.cards.get(idx) || null}
+                uiList={uiCards.lists.get(idx) || null}
+                structuredTurn={uiCards.structuredTurnEvents.has(idx)}
+                isBusy={isLoading}
                 onRefine={refineVariant}
+                onSend={sendDirect}
               />
             {/each}
 
@@ -1216,6 +1035,9 @@
                   </div>
                   <span class="generating-status">{statusText}</span>
                   <span class="streaming-cursor"></span>
+                </div>
+                <div class="generating-progress-track">
+                  <div class="generating-progress-glow"></div>
                 </div>
                 <div class="skeleton-shimmer-group">
                   <div class="skeleton-line" style="width: 85%;"></div>
@@ -1282,201 +1104,11 @@
     overflow: hidden;
   }
 
-  .studio-header {
-    height: 56px;
-    background: var(--bg-surface);
-    border-bottom: 1px solid var(--border-subtle);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 16px;
-    z-index: 50;
-  }
-
-  .header-left,
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .brand-badge {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 0;
-    user-select: none;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    text-align: left;
-    outline: none;
-    transition: opacity 0.15s ease;
-  }
-
-  .brand-badge:hover,
-  .brand-badge:focus,
-  .brand-badge:active {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    outline: none;
-    opacity: 0.88;
-  }
-
-  .brand-icon-img {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
-    object-fit: cover;
-    flex-shrink: 0;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
-  }
-
-  .brand-text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.15;
-  }
-
-  .brand-name {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: -0.015em;
-    color: var(--text-primary);
-  }
-
-  .brand-sub {
-    font-size: 10.5px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    letter-spacing: 0.01em;
-  }
-
-  .header-btn-new-session {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-subtle);
-    color: var(--text-primary);
-    padding: 6px 12px;
-    border-radius: var(--radius-pill);
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: var(--transition-fast);
-  }
-
-  .header-btn-new-session:hover:not(:disabled) {
-    background: var(--primary-accent-container);
-    border-color: var(--primary-accent);
-    color: var(--primary-accent);
-  }
-
-  .header-btn-new-session:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .header-divider {
-    width: 1px;
-    height: 20px;
-    background: var(--border-subtle);
-    margin: 0 2px;
-  }
-
-  .app-picker {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .picker-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-tertiary);
-  }
-
-  .select-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-
-  .select-wrapper select {
-    appearance: none;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-subtle);
-    color: var(--text-primary);
-    padding: 6px 30px 6px 14px;
-    border-radius: var(--radius-pill);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    outline: none;
-    transition: var(--transition-fast);
-  }
-
-  .select-wrapper.has-session select {
-    padding-left: 24px;
-  }
-
-  .select-wrapper.is-main select {
-    padding-left: 28px;
-  }
-
-  .select-wrapper select:hover {
-    border-color: var(--primary-accent);
-  }
-
-  .main-badge-icon {
-    position: absolute;
-    left: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--primary-accent);
-    pointer-events: none;
-    z-index: 2;
-  }
-
-  .live-status-dot {
-    position: absolute;
-    left: 10px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--accent-green, #34a853);
-    box-shadow: 0 0 6px var(--accent-green, #34a853);
-    pointer-events: none;
-    z-index: 2;
-    animation: pulseGlow 1.8s infinite ease-in-out;
-  }
-
   :global(.select-chevron) {
     position: absolute;
     right: 10px;
     pointer-events: none;
     color: var(--text-tertiary);
-  }
-
-
-  .dropdown-menu {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    min-width: 170px;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    padding: 6px;
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    animation: fadeInMenu 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   @keyframes fadeInMenu {
@@ -1490,77 +1122,9 @@
     }
   }
 
-  .dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 8px 12px;
-    border-radius: var(--radius-md);
-    background: transparent;
-    border: none;
-    color: var(--text-primary);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    text-align: left;
-    transition: var(--transition-fast);
-  }
-
-  .dropdown-item:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
-
   :global(.dropdown-icon) {
     color: var(--text-secondary);
     flex-shrink: 0;
-  }
-
-  .dropdown-item:hover :global(.dropdown-icon) {
-    color: var(--primary-accent);
-  }
-
-  .dropdown-item-danger {
-    color: #ef4444 !important;
-  }
-
-  .dropdown-item-danger :global(.dropdown-icon) {
-    color: #ef4444 !important;
-  }
-
-  .dropdown-item-danger:hover {
-    background: rgba(239, 68, 68, 0.12) !important;
-    color: #ef4444 !important;
-  }
-
-  .dropdown-item-danger:hover :global(.dropdown-icon) {
-    color: #ef4444 !important;
-  }
-
-  .icon-btn {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-pill);
-    border: 1px solid transparent;
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: var(--transition-fast);
-  }
-
-  .icon-btn:hover {
-    background: var(--bg-surface-elevated);
-    color: var(--text-primary);
-  }
-
-  .icon-btn.active {
-    background: var(--primary-accent-container);
-    color: var(--primary-accent);
-    border-color: var(--primary-accent);
   }
 
   .studio-body {
@@ -1689,194 +1253,12 @@
   }
 
   /* Welcome Hub View / Main Agents Catalog */
-  .hub-welcome-view {
-    flex: 1;
-    overflow-y: auto;
-    padding: 32px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    max-width: 1060px;
-    margin: 0 auto;
-    width: 100%;
-  }
-
-  .hub-container {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: auto 0;
-  }
-
-  .hub-header {
-    text-align: center;
-    margin-bottom: 24px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .hub-subtitle {
-    font-size: 13.5px;
-    color: var(--text-secondary);
-    max-width: 560px;
-    line-height: 1.5;
-    margin: 0;
-  }
-
-  .hub-subtitle strong {
-    color: var(--text-primary);
-  }
-
-  .workflow-steps-strip {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    padding: 6px 16px;
-    border-radius: var(--radius-full);
-    margin-bottom: 24px;
-  }
-
-  .step-badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--text-secondary);
-  }
-
-  .step-num {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-medium);
-    color: var(--text-primary);
-    font-size: 10.5px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .step-separator {
-    width: 16px;
-    height: 1px;
-    background: var(--border-subtle);
-  }
-
-  .agents-catalog-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
-    width: 100%;
-  }
-
-  .agent-catalog-card {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 18px;
-    display: flex;
-    flex-direction: column;
-    text-align: left;
-    cursor: pointer;
-    transition: var(--transition-normal);
-    color: inherit;
-    position: relative;
-  }
-
-  .agent-catalog-card:hover {
-    background: var(--bg-surface-elevated);
-    border-color: var(--card-accent, var(--primary-accent));
-    transform: translateY(-3px);
-    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35), var(--shadow-md);
-  }
-
-  .agent-card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .agent-icon-box {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-md);
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--card-accent, var(--text-primary));
-    flex-shrink: 0;
-    transition: var(--transition-fast);
-  }
-
-  .agent-catalog-card:hover .agent-icon-box {
-    border-color: var(--card-accent, var(--border-subtle));
-    box-shadow: 0 0 12px var(--card-bg, transparent);
-  }
-
-  .agent-title-col {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .agent-title-col strong {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-primary);
-    line-height: 1.2;
-  }
-
-  .agent-type-tag {
-    font-size: 10.5px;
-    font-weight: 500;
-    color: var(--text-tertiary);
-    letter-spacing: 0.02em;
-  }
-
-  .agent-card-desc {
-    font-size: 12.5px;
-    color: var(--text-secondary);
-    line-height: 1.55;
-    margin-bottom: 18px;
-    flex: 1;
-  }
-
-  .card-footer-action {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    font-size: 11.5px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    border-top: 1px solid var(--border-subtle);
-    padding-top: 12px;
-    transition: var(--transition-fast);
-  }
-
-  .agent-catalog-card:hover .card-footer-action {
-    color: var(--text-primary);
-    border-color: var(--border-medium);
-  }
-
-  .agent-catalog-card:hover .card-footer-action :global(svg) {
-    transform: translateX(3px);
-    transition: transform 0.2s ease;
-    color: var(--text-primary);
-  }
-
   /* Chat Viewport */
   .chat-viewport {
     flex: 1;
     overflow-y: auto;
+    overflow-anchor: auto;
+    scroll-behavior: auto;
     padding: 24px 32px;
     display: flex;
     flex-direction: column;
@@ -2070,6 +1452,36 @@
     animation: blink 0.8s infinite;
   }
 
+  .generating-progress-track {
+    width: 100%;
+    height: 3px;
+    background: var(--bg-surface-elevated);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 12px;
+  }
+
+  .generating-progress-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 45%;
+    background: linear-gradient(90deg, transparent, var(--exec-color, var(--primary-accent)), transparent);
+    border-radius: var(--radius-full);
+    animation: progressGlide 1.8s infinite ease-in-out;
+  }
+
+  @keyframes progressGlide {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(250%);
+    }
+  }
+
   .skeleton-shimmer-group {
     display: flex;
     flex-direction: column;
@@ -2166,130 +1578,10 @@
   }
 
   /* User Menu & Avatar */
-  .user-menu-container {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-  }
-
-  .user-header-profile {
-    background: var(--bg-surface-elevated, rgba(255, 255, 255, 0.04));
-    border: 1px solid var(--border-subtle);
-    padding: 2px 6px 2px 2px;
-    border-radius: 16px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    transition: var(--transition-fast);
-    height: 30px;
-    box-sizing: border-box;
-  }
-
-  .user-header-profile:hover,
-  .user-header-profile.active {
-    background: var(--bg-surface-variant);
-    border-color: var(--primary-accent);
-  }
-
-  .user-header-profile.active :global(.profile-dropdown-arrow) {
-    transform: rotate(180deg);
-  }
-
   :global(.profile-dropdown-arrow) {
     color: var(--text-tertiary);
     transition: transform var(--transition-fast), color var(--transition-fast);
     flex-shrink: 0;
   }
-
-  .user-header-profile:hover :global(.profile-dropdown-arrow) {
-    color: var(--text-primary);
-  }
-
-  .user-avatar-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    overflow: hidden;
-    flex-shrink: 0;
-  }
-
-  .header-avatar-img {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    object-fit: cover;
-    display: block;
-    flex-shrink: 0;
-  }
-
-  .header-avatar-fallback {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: var(--primary-accent);
-    color: #ffffff;
-    font-size: 11.5px;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .user-dropdown {
-    right: 0;
-    top: calc(100% + 8px);
-    width: 220px;
-    padding: 8px;
-    z-index: 1000;
-  }
-
-  .user-dropdown-header {
-    padding: 6px 6px 8px;
-  }
-
-  .user-dropdown-top {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .dropdown-avatar-img {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-  }
-
-  .dropdown-avatar-fallback {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--primary-accent);
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .user-dropdown-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .user-dropdown-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
 
 </style>

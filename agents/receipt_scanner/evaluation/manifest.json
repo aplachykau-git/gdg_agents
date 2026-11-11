@@ -2,13 +2,14 @@
   "suite_version": "1.0.0",
   "extraction_eval_set": "receipt_scanner_critical_extraction_v1",
   "conversion_eval_set": "receipt_conversion_contract_v1",
+  "grouping_eval_set": "receipt_grouping_and_proof_alignment_v1",
   "extraction": {
-    "model": "gemini-3.7-flash",
+    "model": "gemini-3.8-flash",
     "model_environment_override": "RECEIPT_EVAL_MODEL",
     "ocr_tool_model_environment_override": "RECEIPT_SCANNER_MODEL",
     "temperature": null,
     "required_case_score": 100.0,
-    "production_prompt_sha256": "64f5d62bc81cf833c27ac1867e3ef72d1be1d40d9fd6d7bed411914a73b74d06"
+    "production_prompt_sha256": "e0cf57d4755e042acd74b330ab667e866aa9526a20124d06d5183736352a6ab2"
   },
   "conversion": {
     "formula": "source_amount * source_rate_to_pln / target_rate_to_pln",
@@ -23,7 +24,13 @@
       "name": "amaye15/receipts-google-ocr",
       "revision": "ec151509b2d5ca3d90ffa8b6d8d80c940305e8c7",
       "split": "test",
-      "rows": [96, 106, 603, 1668, 1773]
+      "rows": [
+        96,
+        106,
+        603,
+        1668,
+        1773
+      ]
     },
     {
       "name": "naver-clova-ix/cord-v1",
@@ -34,6 +41,8 @@
   ],
   "acceptance_thresholds": {
     "extraction_pass_rate": 1.0,
-    "conversion_pass_rate": 1.0
-  }
+    "conversion_pass_rate": 1.0,
+    "grouping_pass_rate": 1.0
+  },
+  "production_prompt_sha256": "f87003a2e545f9f8da5c0519f4e6b086064eed6f2fe55d22798eec31829c6189"
 }

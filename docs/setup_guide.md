@@ -1,6 +1,6 @@
 # 🚀 Community AI Studio - Setup & Operations Guide
 
-Welcome to the comprehensive setup and operations guide for **Community AI Studio**. This project is a multi-agent orchestration workspace built using the [Google Agent Development Kit (ADK) 2.0](https://adk.dev/) in Python (powered by Vertex AI and Gemini models) paired with a high-performance, responsive **Svelte + Vite** custom frontend.
+Welcome to the comprehensive setup and operations guide for **Community AI Studio**. This project is a multi-agent orchestration workspace built using the [Google Agent Development Kit (ADK) 2.14](https://adk.dev/) in Python 3.12 (powered by Vertex AI and Gemini models) paired with a high-performance, responsive **Svelte 5 + Vite 8** custom frontend.
 
 ---
 
@@ -18,17 +18,18 @@ graph TD
     end
     
     subgraph "Local In-Process Sub-Agents"
-        B --> F[LinkedIn Planner <br> agents/linkedin_post_generator]
+        B --> F[Social Planner <br> agents/linkedin_post_generator]
         B --> G[Registrations Manager <br> agents/registration_manager]
         B --> H[Event Scheduler <br> agents/event_planner]
         B --> I[Agenda Formatter <br> agents/agenda_generator]
         B --> J[Office Secretary <br> agents/office_secretary]
+        B --> K[QR Code Generator <br> agents/qr_code_generator]
     end
 ```
 
 1. **Custom Svelte Frontend (`frontend/`)**: A dark-themed, premium workspace that provides a chat interface, real-time status ticker for the agents, and capability highlights.
 2. **Root Orchestrator Agent (`agents/root_agent/`)**: The main coordinating Python agent that receives user requests, determines the correct domain, and delegates tasks to the appropriate specialized sub-agents.
-3. **Sub-Agents Core (`agents/`)**: Seven specialized sub-agents covering receipts/expense reporting, speaker video generation, social media management, guest lists, meetup scheduling, agenda formatting, and office access letters.
+3. **Sub-Agents Core (`agents/`)**: Eight specialized sub-agents covering receipts/expense reporting, speaker video generation, social posts and countdown plans, guest lists, meetup scheduling, agenda formatting, office access letters, and QR codes. Shared code (UI card payloads, event profile, sessions) lives in `agents/common/`. The full diagram is [`architecture.mmd`](architecture.mmd) ([PNG](assets/architecture_diagram.png)).
 
 ---
 
@@ -237,7 +238,7 @@ Open **`http://localhost:8000`** in your browser.
 You can test the receipt OCR scanner and currency converter directly using the test runner:
 
 ```bash
-uv run --locked python tests/test_receipt_scanner.py
+uv run --locked python -m unittest tests.test_receipt_scanner tests.test_receipt_summary tests.test_receipt_scanner_evaluation -v
 ```
 
 ### 3. HyperFrames Development & Preview Sandbox

@@ -98,6 +98,33 @@ rm -f "$LIFECYCLE_TMP"
     --role="roles/storage.objectUser" \
     --quiet >/dev/null 2>&1 || true
 
+# Persistent session store (see deploy/setup_sessions_db.sh). With the secret present every
+# service stores ADK sessions in Cloud SQL and may scale out; without it sessions live in a
+# SQLite file inside the container, so each service is pinned to a single instance.
+SESSION_SECRET_NAME="${SESSION_SECRET_NAME:-session-service-uri}"
+SESSION_FLAGS=()
+if "$GCLOUD_BIN" secrets describe "$SESSION_SECRET_NAME" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    # The secret may hold a Cloud SQL URI (setup_sessions_db.sh) or any external Postgres URI,
+    # e.g. a free-tier Neon/Supabase database. Only Cloud SQL needs the unix-socket mount.
+    SESSION_URI_VALUE="$("$GCLOUD_BIN" secrets versions access latest --secret "$SESSION_SECRET_NAME" --project "$PROJECT_ID")"
+    SESSION_FLAGS=(
+        --set-secrets "SESSION_SERVICE_URI=${SESSION_SECRET_NAME}:latest"
+        --max-instances "${MAX_INSTANCES:-5}"
+    )
+    if [[ "$SESSION_URI_VALUE" == *"/cloudsql/"* ]]; then
+        SESSION_CONNECTION_NAME="${SESSION_URI_VALUE##*/cloudsql/}"
+        SESSION_FLAGS+=(--add-cloudsql-instances "$SESSION_CONNECTION_NAME")
+        echo "🗄️ Persistent sessions: Cloud SQL ${SESSION_CONNECTION_NAME} (secret ${SESSION_SECRET_NAME})"
+    else
+        echo "🗄️ Persistent sessions: external database from secret ${SESSION_SECRET_NAME}"
+    fi
+    unset SESSION_URI_VALUE
+else
+    echo "⚠️ No ${SESSION_SECRET_NAME} secret: sessions stay inside each container (lost on restart)."
+    echo "   Run deploy/setup_sessions_db.sh once to enable Cloud SQL session storage."
+    SESSION_FLAGS=(--max-instances 1)
+fi
+
 # Helper function to build and deploy a service
 build_and_deploy() {
     local SERVICE_NAME="$1"
@@ -136,6 +163,8 @@ EOF
         --memory "$MEMORY" \
         --cpu "$CPU" \
         --timeout "$TIMEOUT" \
+        --session-affinity \
+        "${SESSION_FLAGS[@]}" \
         --set-env-vars "$ENV_VARS"
 }
 

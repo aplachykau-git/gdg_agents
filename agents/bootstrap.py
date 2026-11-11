@@ -1,13 +1,21 @@
+import logging
 import os
-import sys
 
 try:
     from .gemini_config import load_gemini_environment
 except ImportError:
     from gemini_config import load_gemini_environment
 
+logger = logging.getLogger(__name__)
+
 
 def initialise_agent_environment() -> None:
+    try:
+        from agents.common.logging_setup import configure_logging
+    except ModuleNotFoundError:
+        from common.logging_setup import configure_logging
+    configure_logging()
+
     # Ensure common binary paths (e.g. Homebrew on macOS) are present in PATH for ffmpeg/ffprobe/node
     for path_dir in ("/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"):
         if os.path.isdir(path_dir) and path_dir not in os.environ.get("PATH", "").split(os.pathsep):
@@ -34,5 +42,9 @@ def initialise_agent_environment() -> None:
 
         EventActions.model_rebuild()
         Event.model_rebuild()
-    except Exception:
-        pass
+    except Exception as warmup_err:
+        # Non-fatal: this is a best-effort warm-up to avoid a known 'MockValSer'
+        # SchemaSerializer error. Agents still work if it fails, just slower on
+        # first use — but log it so a real breakage (e.g. a pydantic/ADK API
+        # change) is visible instead of silently hidden.
+        logger.warning(f"⚠️ [Startup Warm-up] Skipped ADK/GenAI model pre-build: {warmup_err}")

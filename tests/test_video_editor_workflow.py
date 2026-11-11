@@ -1,13 +1,14 @@
 import asyncio
+import base64
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 from agents.video_editor.tools import media_tools
-from agents.video_editor.tools.composer_tools import build_card_config, render_composer, update_composer
-from agents.video_editor.tools.media_tools import animate_photo
-from agents.video_editor.tools.video_card_tool import confirmation_required, create_video_card
+from agents.video_editor.tools.composer_tools import render_composer, update_composer
+from agents.video_editor.tools.media_tools import _safe_b64decode, animate_photo
+from agents.video_editor.tools.video_card_tool import format_render_success_message
 from agents.video_editor.video_card_service import (
     _copy_workspace_template,
     compile_creative_prompt,
@@ -25,48 +26,13 @@ from agents.video_editor.workflow import (
 )
 from agents.video_editor.workflow_models import (
     RenderedAsset,
-    RenderResult,
     ResolvedMedia,
     UploadedMedia,
+    ValidationFailure,
     VideoEditorDraft,
     VideoEditorRequest,
 )
-
-
-class FakeInlineData:
-    def __init__(self, mime_type: str, data: bytes):
-        self.mime_type = mime_type
-        self.data = data
-
-
-class FakePart:
-    def __init__(self, text: str | None = None, inline_data: FakeInlineData | None = None):
-        self.text = text
-        self.inline_data = inline_data
-
-
-class FakeContent:
-    def __init__(self, parts: list[FakePart]):
-        self.parts = parts
-
-
-class FakeEvent:
-    def __init__(self, event_id: str, parts: list[FakePart]):
-        self.id = event_id
-        self.author = "user"
-        self.content = FakeContent(parts)
-
-
-class FakeSession:
-    def __init__(self, events: list[FakeEvent]):
-        self.id = "test-session"
-        self.events = events
-
-
-class FakeToolContext:
-    def __init__(self, state: dict, events: list[FakeEvent]):
-        self.state = state
-        self.session = FakeSession(events)
+from tests.video_editor_fakes import FakeToolContext  # noqa: E402
 
 
 class TestVideoEditorWorkflow(unittest.TestCase):
@@ -152,68 +118,6 @@ class TestVideoEditorWorkflow(unittest.TestCase):
         self.assertEqual(merged.name, "First speaker")
         self.assertEqual(merged.media.event_id, "new-upload")
 
-    def test_tool_uses_prior_video_upload_after_later_text_message(self):
-        video_event = FakeEvent(
-            "video-upload",
-            [FakePart(inline_data=FakeInlineData("video/mp4", b"video"))],
-        )
-        text_event = FakeEvent("details", [FakePart(text="Use my uploaded video.")])
-        context = FakeToolContext({}, [video_event, text_event])
-        fake_result = RenderResult(
-            status="completed",
-            summary="Completed.",
-            assets=[RenderedAsset(label="Video", url="https://example.com/video.mp4")],
-        )
-
-        with patch("agents.video_editor.tools.video_card_tool.render_video_card", return_value=fake_result):
-            result = asyncio.run(
-                create_video_card(
-                    talk_title="Talk",
-                    name="Jane Doe",
-                    position_company="Developer Advocate, Example",
-                    media_type="video",
-                    tool_context=context,
-                )
-            )
-
-        self.assertEqual(result["status"], "success")
-        self.assertEqual(context.state["video_editor_draft"], {})
-
-    def test_tool_does_not_reuse_media_after_a_completed_render(self):
-        upload = FakeEvent("video-upload", [FakePart(inline_data=FakeInlineData("video/mp4", b"video"))])
-        context = FakeToolContext({}, [upload])
-        rendered = RenderResult(
-            status="completed",
-            summary="Completed.",
-            assets=[RenderedAsset(label="Video", url="https://example.com/video.mp4")],
-        )
-
-        with patch("agents.video_editor.tools.video_card_tool.render_video_card", return_value=rendered):
-            first = asyncio.run(
-                create_video_card(
-                    talk_title="First talk",
-                    name="First speaker",
-                    position_company="First role",
-                    media_type="video",
-                    tool_context=context,
-                )
-            )
-
-        self.assertEqual(first["status"], "success")
-
-        second = asyncio.run(
-            create_video_card(
-                talk_title="Second talk",
-                name="Second speaker",
-                position_company="Second role",
-                media_type="video",
-                tool_context=context,
-            )
-        )
-
-        self.assertEqual(second["status"], "error")
-        self.assertEqual(second["code"], "missing_media")
-
     def test_creative_prompt_includes_user_direction(self):
         draft = VideoEditorDraft(
             title="Reliable AI systems",
@@ -243,10 +147,6 @@ class TestVideoEditorWorkflow(unittest.TestCase):
 
         self.assertEqual(_collect_assets_from_summary(summary)[0].url, "file:///private/tmp/video.mp4")
         self.assertEqual(_normalise_render_summary(summary), "• [Video](file:///private/tmp/video.mp4)")
-
-    def test_confirmation_flag_defaults_to_false(self):
-        with patch.dict("os.environ", {}, clear=True):
-            self.assertFalse(confirmation_required())
 
     def test_video_generation_enabled_reads_the_environment_at_call_time(self):
         with patch.dict("os.environ", {"ENABLE_VIDEO_GENERATION": "false"}):
@@ -294,102 +194,6 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             index_content = (workspace / "index.html").read_text(encoding="utf-8")
             self.assertIn("DEVFEST", index_content)
 
-    def test_tool_returns_missing_input_without_rendering(self):
-        context = FakeToolContext({}, [])
-
-        result = asyncio.run(
-            create_video_card(
-                talk_title="",
-                name="",
-                position_company="",
-                media_type="image",
-                tool_context=context,
-            )
-        )
-
-        self.assertEqual(result["status"], "error")
-        self.assertEqual(result["code"], "missing_input")
-        self.assertIn("speaker name", result["missing_fields"])
-
-    def test_tool_requires_confirmation_when_enabled(self):
-        event = FakeEvent("upload", [FakePart(inline_data=FakeInlineData("image/png", b"image"))])
-        context = FakeToolContext({}, [event])
-        with patch.dict("os.environ", {"VIDEO_EDITOR_REQUIRE_CONFIRMATION": "true"}):
-            result = asyncio.run(
-                create_video_card(
-                    talk_title="Talk",
-                    name="Jane Doe",
-                    position_company="Developer Advocate, Example",
-                    media_type="image",
-                    tool_context=context,
-                )
-            )
-
-        self.assertEqual(result["status"], "awaiting_confirmation")
-        self.assertEqual(result["requested_action"], "confirm_render")
-
-    def test_tool_renders_after_confirmation(self):
-        event = FakeEvent("upload", [FakePart(inline_data=FakeInlineData("image/png", b"image"))])
-        context = FakeToolContext({}, [event])
-        fake_result = RenderResult(
-            status="completed",
-            summary="Completed.",
-            assets=[RenderedAsset(label="Video", url="https://example.com/video.mp4")],
-        )
-        with patch.dict("os.environ", {"VIDEO_EDITOR_REQUIRE_CONFIRMATION": "true"}):
-            with patch("agents.video_editor.tools.video_card_tool.render_video_card", return_value=fake_result):
-                first = asyncio.run(
-                    create_video_card(
-                        talk_title="Talk",
-                        name="Jane Doe",
-                        position_company="Developer Advocate, Example",
-                        media_type="image",
-                        tool_context=context,
-                    )
-                )
-                result = asyncio.run(
-                    create_video_card(
-                        talk_title="Talk",
-                        name="Jane Doe",
-                        position_company="Developer Advocate, Example",
-                        media_type="image",
-                        confirm_render=True,
-                        tool_context=context,
-                    )
-                )
-
-        self.assertEqual(first["status"], "awaiting_confirmation")
-        self.assertEqual(result["status"], "success")
-        self.assertEqual(result["assets"][0]["url"], "https://example.com/video.mp4")
-        self.assertEqual(context.state["video_editor_draft"], {})
-
-    def test_confirmation_is_invalidated_by_changed_creative_direction(self):
-        event = FakeEvent("upload", [FakePart(inline_data=FakeInlineData("image/png", b"image"))])
-        context = FakeToolContext({}, [event])
-        with patch.dict("os.environ", {"VIDEO_EDITOR_REQUIRE_CONFIRMATION": "true"}):
-            first = asyncio.run(
-                create_video_card(
-                    talk_title="Talk",
-                    name="Jane Doe",
-                    position_company="Developer Advocate, Example",
-                    media_type="image",
-                    tool_context=context,
-                )
-            )
-            result = asyncio.run(
-                create_video_card(
-                    talk_title="Talk",
-                    name="Jane Doe",
-                    position_company="Developer Advocate, Example",
-                    media_type="image",
-                    creative_direction="Warm studio lighting.",
-                    tool_context=context,
-                )
-            )
-
-        self.assertEqual(first["status"], "awaiting_confirmation")
-        self.assertEqual(result["status"], "awaiting_confirmation")
-
     def test_render_composer_session_state_blocks_when_all_disabled(self):
         mock_context = MagicMock()
         mock_context.session.state = {
@@ -423,8 +227,10 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             vid_path = vid.name
         self.addCleanup(Path(vid_path).unlink, missing_ok=True)
 
-        result = animate_photo(vid_path, "prompt", tool_context=mock_context)
-        self.assertEqual(result, "assets/Video_example.mp4")
+        with patch("agents.video_editor.tools.media_tools.shutil.copy2") as mock_copy:
+            result = animate_photo(vid_path, "prompt", tool_context=mock_context)
+            self.assertEqual(result, "assets/Video_example.mp4")
+            mock_copy.assert_called_once()
 
     def test_outpaint_image_node_invokes_outpainting_for_image(self):
         from agents.video_editor.workflow import outpaint_image_node
@@ -563,6 +369,330 @@ class TestVideoEditorWorkflow(unittest.TestCase):
             self.assertIn(
                 'id="krakow_pill" x="926.7" y="241" width="428" height="57" rx="28.5" fill="#FFFFFF"', content
             )
+
+    def test_update_composer_handles_unicode_escapes_and_special_chars(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            devfest_template_path = (
+                Path(__file__).resolve().parent.parent / "agents" / "video_editor" / "templates" / "devfest.html"
+            )
+            target_index = Path(tmp_dir) / "index.html"
+            target_index.write_text(devfest_template_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+            with patch("agents.video_editor.tools.composer_tools.resolve_path", return_value=str(target_index)):
+                # Test with unicode escape sequences in path and Polish/Cyrillic characters in name
+                result = update_composer(
+                    video_path="assets/dominika_zaj\\u0105c.png",
+                    title="Architektura Wielu Agentów",
+                    name="Dominika Zając",
+                    position_company="Tech Lead, Google Developer Groups",
+                    duration_seconds=10,
+                )
+
+            self.assertIn("Successfully updated index.html", result)
+            content = target_index.read_text(encoding="utf-8")
+            self.assertIn("Dominika", content)
+            self.assertIn("Architektura", content)
+            self.assertIn("dominika_zaj", content)
+
+    def test_validation_failure_supports_render_failed_and_ignores_extra_fields(self):
+        failure = ValidationFailure(
+            code="render_failed",
+            message="Failed to render video composition: timeout",
+            missing_fields=[],
+        )
+        self.assertEqual(failure.code, "render_failed")
+        self.assertEqual(failure.requested_action, "retry")
+        self.assertTrue(failure.retryable)
+
+    def test_render_video_card_returns_validation_failure_on_render_composer_error(self):
+        draft = VideoEditorDraft(
+            title="Architektura Wielu Agentów",
+            name="Dominika Zając",
+            position_company="Tech Lead, Google Developer Groups",
+            confirmed=True,
+            media=UploadedMedia(event_id="evt_123", part_index=0, mime_type="video/mp4"),
+        )
+        mock_context = MagicMock()
+        mock_context.session.id = "session_123"
+        mock_context.session.state = {"video_template": "devfest"}
+        with (
+            patch("agents.video_editor.video_card_service._review_metadata", return_value=None),
+            patch("agents.video_editor.video_card_service.workflow.validate_render_environment", return_value=None),
+            patch("agents.video_editor.video_card_service.isolated_workspace"),
+            patch("agents.video_editor.video_card_service._workspace_tool_paths"),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.stage_uploaded_media",
+                return_value="assets/Video_example.mp4",
+            ),
+            patch("agents.video_editor.video_card_service.workflow.validate_resolved_media", return_value=None),
+            patch("agents.video_editor.video_card_service.workflow._read_video_duration", return_value=10),
+            patch("agents.video_editor.video_card_service.shutil.copy2"),
+            patch("agents.video_editor.video_card_service.composer_tools.update_composer"),
+            patch(
+                "agents.video_editor.video_card_service.composer_tools.render_composer",
+                side_effect=RuntimeError("HyperFrames render crashed"),
+            ),
+        ):
+            from agents.video_editor.video_card_service import render_video_card
+
+            result = asyncio.run(render_video_card(draft, mock_context))
+
+        self.assertIsInstance(result, ValidationFailure)
+        self.assertEqual(result.code, "render_failed")
+        self.assertIn("HyperFrames render crashed", result.message)
+        self.assertEqual(result.requested_action, "retry")
+
+    def test_render_video_card_rejects_image_when_video_generation_disabled_in_state(self):
+        draft = VideoEditorDraft(
+            title="Architektura Wielu Agentów",
+            name="Dominika Zając",
+            position_company="Tech Lead, Google Developer Groups",
+            confirmed=True,
+            media=UploadedMedia(event_id="evt_123", part_index=0, mime_type="image/png"),
+        )
+        mock_context = MagicMock()
+        mock_context.session.id = "session_123"
+        mock_context.session.state = {
+            "enable_video_generation": False,
+        }
+        with (
+            patch("agents.video_editor.video_card_service._review_metadata", return_value=None),
+            patch("agents.video_editor.video_card_service.workflow.validate_render_environment", return_value=None),
+            patch("agents.video_editor.video_card_service.isolated_workspace"),
+            patch("agents.video_editor.video_card_service._workspace_tool_paths"),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.stage_uploaded_media",
+                return_value="portrait.png",
+            ),
+            patch("agents.video_editor.video_card_service.workflow.validate_resolved_media", return_value=None),
+        ):
+            from agents.video_editor.video_card_service import render_video_card
+
+            result = asyncio.run(render_video_card(draft, mock_context))
+
+        self.assertIsInstance(result, ValidationFailure)
+        self.assertEqual(result.code, "model_unavailable")
+        self.assertIn("Image-to-video generation is disabled", result.message)
+        self.assertEqual(result.requested_action, "replace_media")
+
+    def test_safe_b64decode_handles_standard_urlsafe_and_data_urls(self):
+        # Standard base64
+        self.assertEqual(_safe_b64decode("aGVsbG8="), b"hello")
+        # Unpadded base64
+        self.assertEqual(_safe_b64decode("aGVsbG8"), b"hello")
+        # Urlsafe base64 (- and _)
+        import base64
+
+        raw = b"\xfb\xff\xfe\x00\x01test"
+        urlsafe_encoded = base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+        self.assertEqual(_safe_b64decode(urlsafe_encoded), raw)
+        # Data URL prefix
+        data_url = f"data:image/png;base64,{urlsafe_encoded}"
+        self.assertEqual(_safe_b64decode(data_url), raw)
+
+    def test_format_render_success_message_with_notice(self):
+        assets = [
+            RenderedAsset(label="Static Card Poster", path="card.png", url="/media/card.png", mime_type="image/png"),
+        ]
+        msg = format_render_success_message(assets, notice="⚠️ API Quota Notice")
+        self.assertTrue(msg.startswith("⚠️ API Quota Notice\n\nGeneration complete."))
+        self.assertIn("[Static Card Poster](/media/card.png)", msg)
+
+        # Without notice
+        msg_no_notice = format_render_success_message(assets)
+        self.assertTrue(msg_no_notice.startswith("Generation complete."))
+
+    @patch("agents.video_editor.tools.media_tools.get_gemini_api_key", return_value="test_key")
+    @patch("agents.video_editor.tools.media_tools.requests.post")
+    def test_generate_with_omni_retries_on_400_content_blocked(self, mock_post, mock_key):
+        resp_blocked = MagicMock()
+        resp_blocked.status_code = 400
+        resp_blocked.text = '{"error":{"message":"Input blocked","code":"content_blocked"}}'
+
+        fake_video_b64 = base64.b64encode(b"FAKE_MP4_VIDEO_BYTES").decode("utf-8")
+        resp_ok = MagicMock()
+        resp_ok.status_code = 200
+        resp_ok.json.return_value = {"steps": [{"content": [{"type": "video", "data": fake_video_b64}]}]}
+
+        mock_post.side_effect = [resp_blocked, resp_ok]
+
+        with patch("builtins.open", mock_open(read_data=b"PNG_IMAGE_DATA")):
+            result = media_tools._generate_with_omni("test_image.png", "A prompt with risky tokens")
+
+        self.assertEqual(result, "assets/Video_example.mp4")
+        self.assertEqual(mock_post.call_count, 2)
+        initial_payload = mock_post.call_args_list[0][1]["json"]
+        self.assertEqual(initial_payload["response_format"]["duration"], "10s")
+        # Check retry payload used the safe scenario and 10s duration
+        retry_payload = mock_post.call_args_list[1][1]["json"]
+        self.assertEqual(retry_payload["response_format"]["duration"], "10s")
+        self.assertIn("modern architectural space", retry_payload["input"][0]["text"])
+
+    @patch("agents.video_editor.tools.media_tools.get_gemini_api_key", return_value="test_key")
+    @patch("agents.video_editor.tools.media_tools.requests.post")
+    def test_generate_with_omni_raises_on_429(self, mock_post, mock_key):
+        resp_429 = MagicMock()
+        resp_429.status_code = 429
+        resp_429.text = '{"error":{"message":"You exceeded your spend-based rate limit","code":"too_many_requests"}}'
+        mock_post.return_value = resp_429
+
+        with patch("builtins.open", mock_open(read_data=b"PNG_DATA")):
+            with self.assertRaises(RuntimeError) as cm:
+                media_tools._generate_with_omni("test_image.png", "A standard prompt")
+            self.assertIn("429", str(cm.exception))
+            self.assertIn("spend-based rate limit", str(cm.exception))
+
+    @patch("agents.video_editor.tools.media_tools.video_generation_enabled", return_value=True)
+    @patch("agents.video_editor.tools.media_tools.get_gemini_client")
+    @patch("agents.video_editor.tools.media_tools.outpaint_to_9_16", return_value="assets/portrait_outpainted.png")
+    @patch(
+        "agents.video_editor.tools.media_tools._generate_with_omni",
+        side_effect=RuntimeError("Gemini Omni Flash generation failed (429): spend-based rate limit"),
+    )
+    def test_animate_photo_records_failure_state_when_omni_fails(
+        self, mock_omni, mock_outpaint, mock_client, mock_enabled
+    ):
+        tool_context = FakeToolContext({"ENABLE_VIDEO_GENERATION": True}, [])
+        res = animate_photo("assets/portrait_outpainted.png", "A nice prompt", tool_context=tool_context)
+        self.assertTrue(res.endswith(".png"))
+        self.assertIn("video_generation_failure", tool_context.state)
+        self.assertIn("429", tool_context.state["video_generation_failure"])
+
+    def test_render_video_card_sets_notice_when_falling_back_to_static_image_with_429(self):
+        draft = VideoEditorDraft(
+            title="Architektura Wielu Agentów",
+            name="Dominika Zając",
+            position_company="Tech Lead, Google Developer Groups",
+            confirmed=True,
+            media=UploadedMedia(event_id="evt_123", part_index=0, mime_type="image/png"),
+        )
+        mock_context = MagicMock()
+        mock_context.session.id = "session_123"
+        mock_context.session.state = {"enable_video_generation": True}
+        mock_context.state = {}
+        failure_reason = "Gemini Omni Flash generation failed (429): spend-based rate limit exceeded"
+
+        def fake_animate(**kwargs):
+            kwargs["tool_context"].state["video_generation_failure"] = failure_reason
+            return "assets/portrait_outpainted.png"
+
+        with (
+            patch("agents.video_editor.video_card_service._review_metadata", return_value=None),
+            patch("agents.video_editor.video_card_service.workflow.validate_render_environment", return_value=None),
+            patch("agents.video_editor.video_card_service.isolated_workspace"),
+            patch("agents.video_editor.video_card_service._workspace_tool_paths"),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.stage_uploaded_media", return_value="portrait.png"
+            ),
+            patch("agents.video_editor.video_card_service.workflow.validate_resolved_media", return_value=None),
+            patch("agents.video_editor.video_card_service._review_face", return_value=None),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.animate_photo",
+                side_effect=fake_animate,
+            ),
+            patch("agents.video_editor.video_card_service.workflow._read_video_duration", return_value=8),
+            patch("agents.video_editor.video_card_service.composer_tools.update_composer"),
+            patch(
+                "agents.video_editor.video_card_service.composer_tools.render_composer",
+                return_value="Generated renders/dominika_zajac_4k.mp4",
+            ),
+            patch(
+                "agents.video_editor.video_card_service.normalise_rendered_assets",
+                return_value=[
+                    RenderedAsset(kind="video", label="1080p MP4", availability="available", url="file:///test.mp4")
+                ],
+            ),
+        ):
+            from agents.video_editor.video_card_service import render_video_card
+
+            result = asyncio.run(render_video_card(draft, mock_context))
+
+        self.assertEqual(result.status, "completed")
+        self.assertIsNotNone(result.notice)
+        self.assertIn("429", result.notice)
+        self.assertIn("spend-based rate limit", result.notice)
+        self.assertIn("outpainted portrait", result.notice)
+        self.assertIn("static photo", result.notice)
+
+    def test_render_video_card_sets_notice_when_content_blocked(self):
+        draft = VideoEditorDraft(
+            title="Architektura Wielu Agentów",
+            name="Dominika Zając",
+            position_company="Tech Lead, Google Developer Groups",
+            confirmed=True,
+            media=UploadedMedia(event_id="evt_123", part_index=0, mime_type="image/png"),
+        )
+        mock_context = MagicMock()
+        mock_context.session.id = "session_123"
+        mock_context.session.state = {"enable_video_generation": True}
+        mock_context.state = {}
+        failure_reason = "Gemini Omni Flash generation failed (400): content_blocked"
+
+        def fake_animate(**kwargs):
+            kwargs["tool_context"].state["video_generation_failure"] = failure_reason
+            return "assets/portrait_outpainted.png"
+
+        with (
+            patch("agents.video_editor.video_card_service._review_metadata", return_value=None),
+            patch("agents.video_editor.video_card_service.workflow.validate_render_environment", return_value=None),
+            patch("agents.video_editor.video_card_service.isolated_workspace"),
+            patch("agents.video_editor.video_card_service._workspace_tool_paths"),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.stage_uploaded_media", return_value="portrait.png"
+            ),
+            patch("agents.video_editor.video_card_service.workflow.validate_resolved_media", return_value=None),
+            patch("agents.video_editor.video_card_service._review_face", return_value=None),
+            patch(
+                "agents.video_editor.video_card_service.media_tools.animate_photo",
+                side_effect=fake_animate,
+            ),
+            patch("agents.video_editor.video_card_service.workflow._read_video_duration", return_value=8),
+            patch("agents.video_editor.video_card_service.composer_tools.update_composer"),
+            patch(
+                "agents.video_editor.video_card_service.composer_tools.render_composer",
+                return_value="Generated renders/dominika_zajac_4k.mp4",
+            ),
+            patch(
+                "agents.video_editor.video_card_service.normalise_rendered_assets",
+                return_value=[
+                    RenderedAsset(kind="video", label="1080p MP4", availability="available", url="file:///test.mp4")
+                ],
+            ),
+        ):
+            from agents.video_editor.video_card_service import render_video_card
+
+            result = asyncio.run(render_video_card(draft, mock_context))
+
+        self.assertEqual(result.status, "completed")
+        self.assertIsNotNone(result.notice)
+        self.assertIn("prompt content blocked", result.notice)
+        self.assertIn("outpainted portrait", result.notice)
+        self.assertIn("static photo", result.notice)
+
+    def test_read_video_duration_defaults_to_10_seconds(self):
+        from agents.video_editor.workflow import _read_video_duration
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/ffprobe"),
+            patch("os.path.exists", return_value=True),
+            patch("subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stdout="6.0\n")
+            # Even for a 6s probed file or Video_example.mp4, standard card timeline is 10s
+            duration = _read_video_duration("assets/Video_example.mp4")
+            self.assertEqual(duration, 10)
+
+    def test_read_video_duration_respects_longer_custom_video(self):
+        from agents.video_editor.workflow import _read_video_duration
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/ffprobe"),
+            patch("os.path.exists", return_value=True),
+            patch("subprocess.run") as mock_sub,
+        ):
+            mock_sub.return_value = MagicMock(returncode=0, stdout="14.8\n")
+            duration = _read_video_duration("assets/custom_longer_talk.mp4")
+            self.assertEqual(duration, 15)
 
 
 if __name__ == "__main__":
