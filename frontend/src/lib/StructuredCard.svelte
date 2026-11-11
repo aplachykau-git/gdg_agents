@@ -10,7 +10,16 @@
   import ReceiptSummaryCard from './ReceiptSummaryCard.svelte';
   import PostPlanCard from './PostPlanCard.svelte';
   import EventProfileCard from './EventProfileCard.svelte';
-  import { toDocumentCard, toEmailDraft, toEventDates, toMediaCard, toQrCard, toVariants } from './ui/payloads.js';
+  import VideoOutputChoiceCard from './VideoOutputChoiceCard.svelte';
+  import {
+    toDocumentCard,
+    toEmailDraft,
+    toEventDates,
+    toMediaCard,
+    toQrCard,
+    toVariants,
+    toVideoOutputChoice,
+  } from './ui/payloads.js';
 
   let { ui, author = '', onRefine = () => {}, onSend = () => {}, isBusy = false } = $props();
 </script>
@@ -33,6 +42,8 @@
   <PostPlanCard plan={ui} />
 {:else if ui?.type === 'receipt_summary'}
   <ReceiptSummaryCard summary={ui} />
+{:else if ui?.type === 'video_output_choice'}
+  <VideoOutputChoiceCard payload={toVideoOutputChoice(ui)} {isBusy} {onSend} />
 {:else if ui?.type === 'media'}
   <VideoPreviewCard media={toMediaCard(ui)} {onRefine} />
 {/if}

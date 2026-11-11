@@ -1,3 +1,4 @@
+import colorsys
 import datetime
 import glob
 import html
@@ -30,16 +31,57 @@ BRAND_COLORS = [
     "#4285F4",
     "#34A853",
     "#F9AB00",
-    "#EA4335",  # Core Colors
-    "#57CAFF",
-    "#5CDB6D",
-    "#FFD427",
-    "#FF7DAF",  # Halftones
-    "#C3ECF6",
-    "#CCF6C5",
-    "#FFE7A5",
-    "#F8D8D8",  # Pastels
+    "#EA4335",
+    "#0891B2",
+    "#7C3AED",
+    "#EC4899",
 ]
+
+# Vivid, high-contrast HSL ranges grouped by hue family (no washed-out pastels).
+# Lightness stays high enough (>= 0.40) for dark #1E1E1E pill text and strokes,
+# while saturation stays strong (>= 0.68) so fills never look pale on light cards.
+_COLOR_FAMILIES: dict[str, tuple[tuple[float, float], tuple[float, float], tuple[float, float]]] = {
+    "blue": ((210.0, 224.0), (0.82, 0.94), (0.56, 0.62)),
+    "green": ((134.0, 152.0), (0.68, 0.86), (0.40, 0.46)),
+    "amber": ((38.0, 48.0), (0.90, 1.00), (0.48, 0.54)),
+    "coral": ((356.0, 370.0), (0.80, 0.94), (0.54, 0.61)),
+    "teal": ((186.0, 200.0), (0.78, 0.94), (0.42, 0.48)),
+    "violet": ((260.0, 276.0), (0.76, 0.90), (0.62, 0.69)),
+    "rose": ((328.0, 344.0), (0.80, 0.94), (0.55, 0.62)),
+}
+_COLOR_RNG = random.SystemRandom()
+_LAST_COLOR_FAMILY_SET: frozenset[str] | None = None
+
+
+def generate_random_brand_colors(count: int) -> list[str]:
+    """Generate ``count`` vivid hex colors algorithmically without AI or pale pastels.
+
+    Samples distinct hue families via OS entropy and jitters HSL within tested contrast bounds,
+    avoiding repeating the exact previous family set back-to-back.
+    """
+    global _LAST_COLOR_FAMILY_SET
+    if count <= 0:
+        return []
+    family_names = list(_COLOR_FAMILIES.keys())
+    k = min(count, len(family_names))
+    chosen_families = _COLOR_RNG.sample(family_names, k)
+    if len(family_names) > k and _LAST_COLOR_FAMILY_SET is not None:
+        for _ in range(8):
+            if frozenset(chosen_families) != _LAST_COLOR_FAMILY_SET:
+                break
+            chosen_families = _COLOR_RNG.sample(family_names, k)
+    _LAST_COLOR_FAMILY_SET = frozenset(chosen_families)
+
+    colors: list[str] = []
+    for i in range(count):
+        family = chosen_families[i % len(chosen_families)]
+        (h_min, h_max), (s_min, s_max), (l_min, l_max) = _COLOR_FAMILIES[family]
+        hue = (_COLOR_RNG.uniform(h_min, h_max) % 360.0) / 360.0
+        sat = _COLOR_RNG.uniform(s_min, s_max)
+        light = _COLOR_RNG.uniform(l_min, l_max)
+        r, g, b = colorsys.hls_to_rgb(hue, light, sat)
+        colors.append(f"#{round(r * 255):02X}{round(g * 255):02X}{round(b * 255):02X}")
+    return colors
 
 
 def resolve_path(rel_path: str) -> str:
@@ -91,10 +133,21 @@ def restore_default_placeholder(force: bool = False):
         logger.warning(f"⚠️ [Placeholder] Failed to restore generic placeholder: {e}")
 
 
+_NBSP_ENTITY_RE = re.compile(r"&nbsp;|&#160;|&#xA0;", re.IGNORECASE)
+_NOWRAP_SPAN_RE = re.compile(r"\[\[([\s\S]+?)\]\]")
+
+
+def normalize_title_text(title: str) -> str:
+    """Normalize explicit non-breaking spaces / [[no-wrap]] spans for single-line title control."""
+    normalized = _NBSP_ENTITY_RE.sub("\u00a0", title or "")
+    return _NOWRAP_SPAN_RE.sub(lambda m: re.sub(r"[ \t]+", "\u00a0", m.group(1)), normalized)
+
+
 def build_card_config(title: str, name: str, position_company: str, year: int) -> str:
     """Builds a JavaScript-safe CARD_CONFIG declaration."""
+    normalized_title = normalize_title_text(title)
     return f"""const CARD_CONFIG = {{
-      title: {json.dumps(title)},
+      title: {json.dumps(normalized_title)},
       name: {json.dumps(name)},
       position_company: {json.dumps(position_company)},
       year: {json.dumps(str(year))}
@@ -243,13 +296,13 @@ def update_composer(
             pill_color = theme_colors.get("pill_color") or BRAND_COLORS[2]
             hexagon_color = theme_colors.get("hexagon_color") or BRAND_COLORS[3]
         else:
-            selected_colors = random.sample(BRAND_COLORS, 4)
+            selected_colors = generate_random_brand_colors(4)
             break_color = selected_colors[0]
             circle_color = selected_colors[1]
             pill_color = selected_colors[2]
             hexagon_color = selected_colors[3]
 
-        logger.info("🎨 [Color Randomizer] Selected random Google palette colors:")
+        logger.info("🎨 [Color Randomizer] Selected algorithmic vibrant palette colors:")
         logger.info(f"   ├─ breaks: {break_color}")
         logger.info(f"   ├─ circle: {circle_color}")
         logger.info(f"   ├─ pill: {pill_color}")
@@ -289,14 +342,14 @@ def update_composer(
             dot_2_color = theme_colors.get("dot_2_color") or dots_color
             dot_3_color = theme_colors.get("dot_3_color") or dots_color
         else:
-            selected_colors = random.sample(BRAND_COLORS, 2)
+            selected_colors = generate_random_brand_colors(2)
             break_color = selected_colors[0]
             dots_color = selected_colors[1]
             dot_1_color = dots_color
             dot_2_color = dots_color
             dot_3_color = dots_color
 
-        logger.info("🎨 [Color Randomizer] DevFest template: Selected random Google palette colors:")
+        logger.info("🎨 [Color Randomizer] DevFest template: Selected algorithmic vibrant palette colors:")
         logger.info(f"   ├─ breaks: {break_color}")
         logger.info(f"   ├─ dots: {dots_color}")
         logger.info("   └─ city pill: #FFFFFF (preserved canonical)")
@@ -426,6 +479,156 @@ def prepend_cover_frame(video_path: str, image_path: str, seconds: float | None 
     return True
 
 
+def _is_placeholder_avatar(path: str) -> bool:
+    """Return True when ``path`` is the bundled 500x500 dark-grey avatar placeholder."""
+    try:
+        with Image.open(path) as img:
+            return img.size == (500, 500)
+    except Exception:
+        return False
+
+
+def _is_placeholder_avatar(path: str) -> bool:
+    """Return True when ``path`` is the bundled 500x500 dark-grey avatar placeholder."""
+    try:
+        with Image.open(path) as img:
+            return img.size == (500, 500)
+    except Exception:
+        return False
+
+
+def _chromium_render_env() -> dict[str, str]:
+    return {
+        **os.environ,
+        "PRODUCER_LOW_MEMORY_MODE": "true",
+        "PUPPETEER_ARGS": "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu",
+        "CHROMIUM_FLAGS": "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu",
+    }
+
+
+def _speaker_render_stem(target_index_html: str) -> tuple[str, str, str]:
+    speaker_name = "speaker"
+    try:
+        if os.path.exists(target_index_html):
+            with open(target_index_html, "r", encoding="utf-8") as f:
+                html_content = f.read()
+            name_match = re.search(r'name:\s*"(.*?)"', html_content)
+            if name_match:
+                speaker_name = name_match.group(1)
+    except Exception as e:
+        logger.warning(f"⚠️ [Naming] Could not parse speaker name from index.html: {e}")
+
+    speaker_name_clean = re.sub(r"[^\w\u0400-\u04FF]+", "_", speaker_name.strip().lower()).strip("_") or "speaker"
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    return speaker_name, speaker_name_clean, timestamp
+
+
+def _cleanup_snapshot_artifacts() -> None:
+    logger.info("🗑️ [Poster Cleanup] Ensuring snapshots and contact-sheets are cleaned up...")
+    shutil.rmtree(resolve_path("snapshots"), ignore_errors=True)
+    shutil.rmtree(resolve_path(".hyperframes/artifacts/snapshots"), ignore_errors=True)
+    contact_sheet = resolve_path("contact-sheet.jpg")
+    if os.path.exists(contact_sheet):
+        try:
+            os.remove(contact_sheet)
+        except Exception as ce:
+            logger.warning(f"⚠️ Failed to remove contact-sheet.jpg: {ce}")
+
+
+def _upload_and_format_poster(target_poster_path: str, label: str) -> str:
+    cloud_url = upload_file_to_storage(target_poster_path, f"renders/{os.path.basename(target_poster_path)}")
+    file_link = cloud_url if cloud_url else target_poster_path
+    return f"• {label}: {file_link}"
+
+
+def _save_card_poster(
+    snapshot_file: str,
+    renders_folder: str,
+    poster_stem: str,
+    *,
+    render_4k: bool,
+    ffmpeg_installed: bool,
+) -> str:
+    os.makedirs(renders_folder, exist_ok=True)
+    target_poster_path = os.path.abspath(os.path.join(renders_folder, f"{poster_stem}.png"))
+    logger.info(f"🏷️ [Poster] Saving high-resolution card poster to '{target_poster_path}'...")
+    if render_4k and ffmpeg_installed:
+        logger.info(
+            f"🎬 [Poster 4K] Generating high-resolution 4K card poster using Lanczos: '{target_poster_path}'..."
+        )
+        try:
+            upscale_cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                snapshot_file,
+                "-vf",
+                "scale=3840:2160:flags=lanczos",
+                "-update",
+                "1",
+                target_poster_path,
+            ]
+            upscale_result = subprocess.run(upscale_cmd, capture_output=True, text=True, cwd=BASE_DIR)
+            if upscale_result.returncode == 0 and os.path.exists(target_poster_path):
+                logger.info("✅ [Poster 4K] 4K poster successfully created!")
+                return _upload_and_format_poster(target_poster_path, "High-Resolution Card Poster (4K PNG)")
+            logger.warning(
+                f"⚠️ [Poster 4K] ffmpeg failed to upscale, falling back to 1080p copy: {upscale_result.stderr}"
+            )
+        except Exception as upscale_err:
+            logger.warning(f"⚠️ [Poster 4K] Failed to generate 4K poster, falling back to 1080p copy: {upscale_err}")
+
+    shutil.copy2(snapshot_file, target_poster_path)
+    return _upload_and_format_poster(target_poster_path, "High-Resolution Card Poster (PNG)")
+
+
+def _save_outpainted_avatar(renders_folder: str, speaker_name_clean: str, timestamp: str) -> Optional[str]:
+    outpainted_src = resolve_path("assets/portrait_outpainted.png")
+    if not os.path.exists(outpainted_src):
+        return None
+    try:
+        with Image.open(outpainted_src) as img:
+            width, height = img.size
+        if (width, height) == (500, 500):
+            logger.warning("⏭️  [Save Avatar] Skipping placeholder avatar copy (500x500 placeholder detected)")
+            return None
+        os.makedirs(renders_folder, exist_ok=True)
+        target_avatar_path = os.path.abspath(
+            os.path.join(renders_folder, f"{speaker_name_clean}_{timestamp}_avatar.png")
+        )
+        logger.info(f"🖼️ [Save Avatar] Saving Gemini outpainted avatar ({width}x{height}) to '{target_avatar_path}'...")
+        shutil.copy2(outpainted_src, target_avatar_path)
+        cloud_url = upload_file_to_storage(target_avatar_path, f"renders/{os.path.basename(target_avatar_path)}")
+        file_link = cloud_url if cloud_url else target_avatar_path
+        return f"• Gemini Outpainted Avatar: {file_link}"
+    except Exception as e:
+        logger.warning(f"⚠️ [Save Avatar] Failed to copy Gemini outpainted avatar: {e}")
+        return None
+
+
+def _cleanup_intermediate_assets() -> None:
+    logger.info("🗑️ [Cleanup Step] Cleaning up intermediate uploaded staging assets...")
+    intermediate_files = [
+        "assets/staged_media.png",
+        "assets/staged_media.jpg",
+        "assets/staged_media.jpeg",
+        "assets/staged_media.webp",
+        "assets/staged_media.mp4",
+        "assets/portrait_outpainted.png",
+        "assets/temp_video_frame.png",
+    ]
+    for item in intermediate_files:
+        item_abs = resolve_path(item)
+        if os.path.exists(item_abs):
+            try:
+                os.remove(item_abs)
+                logger.info(f"   Deleted intermediate file: '{item}'")
+            except Exception as cleanup_err:
+                logger.warning(f"   ⚠️ Failed to delete '{item}': {cleanup_err}")
+
+    restore_default_placeholder()
+
+
 def _capture_card_snapshot(target_index_html: str, render_env: dict, ffmpeg_installed: bool) -> Optional[str]:
     """PNG snapshot of the finished card (full title, speaker name, real speaker photo).
 
@@ -448,7 +651,7 @@ def _capture_card_snapshot(target_index_html: str, render_env: dict, ffmpeg_inst
     )
 
     # The user explicitly requires the poster to be created from the speaker's real portrait photo,
-    # never from an AI video frame.
+    # never from an AI video frame. Skip portrait_outpainted.png if it is still the 500x500 placeholder.
     speaker_photo_candidates = [
         "assets/portrait_outpainted.png",
         "assets/staged_media.png",
@@ -459,10 +662,13 @@ def _capture_card_snapshot(target_index_html: str, render_env: dict, ffmpeg_inst
     temp_image_src = ""
     for cand in speaker_photo_candidates:
         cand_abs = resolve_path(cand)
-        if os.path.exists(cand_abs) and os.path.isfile(cand_abs):
-            temp_image_src = cand
-            logger.info(f"📸 [Poster] Using authentic speaker portrait '{cand}' for high-resolution card poster.")
-            break
+        if not (os.path.exists(cand_abs) and os.path.isfile(cand_abs)):
+            continue
+        if cand == "assets/portrait_outpainted.png" and _is_placeholder_avatar(cand_abs):
+            continue
+        temp_image_src = cand
+        logger.info(f"📸 [Poster] Using authentic speaker portrait '{cand}' for high-resolution card poster.")
+        break
 
     # If original_video_src was already a static image, use it
     if not temp_image_src and not is_video_src and original_video_src:
@@ -534,11 +740,21 @@ def _capture_card_snapshot(target_index_html: str, render_env: dict, ffmpeg_inst
             with open(target_index_html, "w", encoding="utf-8") as f:
                 f.write(temp_content)
 
+            snapshot_dir = resolve_path("snapshots")
+            os.makedirs(snapshot_dir, exist_ok=True)
             logger.info(
                 f"📸 [Poster] Taking high-resolution PNG snapshot of the final card state at T={snapshot_time}s..."
             )
             snapshot_result = subprocess.run(
-                ["npx", "--yes", "hyperframes@0.9.23", "snapshot", f"--at={snapshot_time}"],
+                [
+                    "npx",
+                    "--yes",
+                    "hyperframes@0.9.23",
+                    "snapshot",
+                    f"--at={snapshot_time}",
+                    "--no-end",
+                    f"--output={snapshot_dir}",
+                ],
                 capture_output=True,
                 text=True,
                 cwd=BASE_DIR,
@@ -554,14 +770,27 @@ def _capture_card_snapshot(target_index_html: str, render_env: dict, ffmpeg_inst
         if snapshot_result and snapshot_result.returncode == 0:
             snapshot_file = resolve_path(f"snapshots/frame-00-at-{snapshot_time}s.png")
             if not os.path.exists(snapshot_file):
-                found_snaps = glob.glob(os.path.join(BASE_DIR, "snapshots", "*.png"))
+                search_roots = [
+                    snapshot_dir,
+                    resolve_path(".hyperframes/artifacts/snapshots"),
+                ]
+                found_snaps: list[str] = []
+                for root in search_roots:
+                    found_snaps.extend(glob.glob(os.path.join(root, "**", "*.png"), recursive=True))
                 if found_snaps:
                     snapshot_file = max(found_snaps, key=os.path.getmtime)
             if os.path.exists(snapshot_file):
                 return snapshot_file
-            logger.warning("⚠️ [Poster] Snapshot file was not found after execution.")
+            logger.warning(
+                "⚠️ [Poster] Snapshot file was not found after execution (stdout: %s)",
+                (snapshot_result.stdout or "").strip()[:400],
+            )
         elif snapshot_result:
-            logger.warning(f"⚠️ [Poster] Snapshot rendering failed: {snapshot_result.stderr}")
+            logger.warning(
+                "⚠️ [Poster] Snapshot rendering failed (exit=%s): %s",
+                snapshot_result.returncode,
+                (snapshot_result.stderr or snapshot_result.stdout or "").strip()[:400],
+            )
         return None
     logger.warning("⚠️ [Poster] No processed outpainted portrait found, skipping card snapshot.")
     return None
@@ -631,20 +860,8 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
         logger.warning("⚠️ [System] ffmpeg NOT found. Audio stripping and GIF conversion will be skipped.")
 
     # 3. Extract speaker name from index.html and generate timestamp
-    speaker_name = "speaker"
     target_index_html = resolve_path("index.html")
-    try:
-        if os.path.exists(target_index_html):
-            with open(target_index_html, "r", encoding="utf-8") as f:
-                html_content = f.read()
-            name_match = re.search(r'name:\s*"(.*?)"', html_content)
-            if name_match:
-                speaker_name = name_match.group(1)
-    except Exception as e:
-        logger.warning(f"⚠️ [Naming] Could not parse speaker name from index.html: {e}")
-
-    speaker_name_clean = re.sub(r"[^\w\u0400-\u04FF]+", "_", speaker_name.strip().lower()).strip("_")
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    speaker_name, speaker_name_clean, timestamp = _speaker_render_stem(target_index_html)
 
     logger.info(f'🏷️  [Naming Config] Speaker name: "{speaker_name}" -> clean: "{speaker_name_clean}"')
     logger.info(f"⏱️  [Naming Config] Synchronized timestamp: {timestamp}")
@@ -662,12 +879,7 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
     # ============================================================================
     # We always render the base 1080p composition first via HyperFrames (fast & reliable).
     logger.info("🎬 [Render Step 1/2] Rendering vector composition...")
-    render_env = {
-        **os.environ,
-        "PRODUCER_LOW_MEMORY_MODE": "true",
-        "PUPPETEER_ARGS": "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu",
-        "CHROMIUM_FLAGS": "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu",
-    }
+    render_env = _chromium_render_env()
     result = subprocess.run(
         ["npm", "run", "render"],
         capture_output=True,
@@ -844,7 +1056,6 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
         snapshot_file = cover_snapshot or _capture_card_snapshot(target_index_html, render_env, ffmpeg_installed)
         if snapshot_file and os.path.exists(snapshot_file):
             renders_folder = resolve_path("renders")
-            os.makedirs(renders_folder, exist_ok=True)
             video_stem = ""
             if ordinary_file and os.path.exists(ordinary_file):
                 video_stem = os.path.splitext(os.path.basename(ordinary_file))[0]
@@ -852,61 +1063,16 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
                 video_stem = os.path.splitext(os.path.basename(target_4k_name))[0]
             if not video_stem:
                 video_stem = f"{speaker_name_clean}_{timestamp}"
-            target_poster_name = os.path.join(renders_folder, f"{video_stem}.png")
-            target_poster_path = os.path.abspath(target_poster_name)
-            logger.info(f"🏷️ [Poster] Saving high-resolution card poster to '{target_poster_path}'...")
             try:
-                if render_4k and ffmpeg_installed:
-                    logger.info(
-                        f"🎬 [Poster 4K] Generating high-resolution 4K card poster using Lanczos: '{target_poster_path}'..."
+                rendered_files.append(
+                    _save_card_poster(
+                        snapshot_file,
+                        renders_folder,
+                        video_stem,
+                        render_4k=render_4k,
+                        ffmpeg_installed=ffmpeg_installed,
                     )
-                    try:
-                        upscale_cmd = [
-                            "ffmpeg",
-                            "-y",
-                            "-i",
-                            snapshot_file,
-                            "-vf",
-                            "scale=3840:2160:flags=lanczos",
-                            "-update",
-                            "1",
-                            target_poster_path,
-                        ]
-                        upscale_result = subprocess.run(upscale_cmd, capture_output=True, text=True, cwd=BASE_DIR)
-                        if upscale_result.returncode == 0 and os.path.exists(target_poster_path):
-                            cloud_url = upload_file_to_storage(
-                                target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
-                            )
-                            file_link = cloud_url if cloud_url else target_poster_path
-                            rendered_files.append(f"• High-Resolution Card Poster (4K PNG): {file_link}")
-                            logger.info("✅ [Poster 4K] 4K poster successfully created!")
-                        else:
-                            logger.warning(
-                                f"⚠️ [Poster 4K] ffmpeg failed to upscale, falling back to 1080p copy: {upscale_result.stderr}"
-                            )
-                            shutil.copy2(snapshot_file, target_poster_path)
-                            cloud_url = upload_file_to_storage(
-                                target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
-                            )
-                            file_link = cloud_url if cloud_url else target_poster_path
-                            rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
-                    except Exception as upscale_err:
-                        logger.warning(
-                            f"⚠️ [Poster 4K] Failed to generate 4K poster, falling back to 1080p copy: {upscale_err}"
-                        )
-                        shutil.copy2(snapshot_file, target_poster_path)
-                        cloud_url = upload_file_to_storage(
-                            target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
-                        )
-                        file_link = cloud_url if cloud_url else target_poster_path
-                        rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
-                else:
-                    shutil.copy2(snapshot_file, target_poster_path)
-                    cloud_url = upload_file_to_storage(
-                        target_poster_path, f"renders/{os.path.basename(target_poster_path)}"
-                    )
-                    file_link = cloud_url if cloud_url else target_poster_path
-                    rendered_files.append(f"• High-Resolution Card Poster (PNG): {file_link}")
+                )
             except Exception as e:
                 logger.warning(f"⚠️ [Poster] Failed to save poster: {e}")
         else:
@@ -914,70 +1080,62 @@ def render_composer(tool_context: Optional[Any] = None) -> str:
     except Exception as poster_err:
         logger.warning(f"⚠️ [Poster] Unexpected error during poster generation: {poster_err}")
     finally:
-        # Unconditionally cleanup snapshots directory and AI contact sheets to keep workspace pristine!
-        logger.info("🗑️ [Poster Cleanup] Ensuring snapshots and contact-sheets are cleaned up...")
-        shutil.rmtree(resolve_path("snapshots"), ignore_errors=True)
-        if os.path.exists(resolve_path("contact-sheet.jpg")):
-            try:
-                os.remove(resolve_path("contact-sheet.jpg"))
-            except Exception as ce:
-                logger.warning(f"⚠️ Failed to remove contact-sheet.jpg: {ce}")
+        _cleanup_snapshot_artifacts()
 
-    # Save the Gemini outpainted avatar if it exists and is not the default placeholder
-    outpainted_src = resolve_path("assets/portrait_outpainted.png")
-    if os.path.exists(outpainted_src):
-        try:
-            with Image.open(outpainted_src) as img:
-                width, height = img.size
-            if (width, height) != (500, 500):
-                renders_folder = resolve_path("renders")
-                os.makedirs(renders_folder, exist_ok=True)
-                target_avatar_name = os.path.join(renders_folder, f"{speaker_name_clean}_{timestamp}_avatar.png")
-                target_avatar_path = os.path.abspath(target_avatar_name)
-                logger.info(
-                    f"🖼️ [Save Avatar] Saving Gemini outpainted avatar ({width}x{height}) to '{target_avatar_path}'..."
-                )
-                shutil.copy2(outpainted_src, target_avatar_path)
-                cloud_url = upload_file_to_storage(
-                    target_avatar_path, f"renders/{os.path.basename(target_avatar_path)}"
-                )
-                file_link = cloud_url if cloud_url else target_avatar_path
-                rendered_files.append(f"• Gemini Outpainted Avatar: {file_link}")
-            else:
-                logger.warning("⏭️  [Save Avatar] Skipping placeholder avatar copy (500x500 placeholder detected)")
-        except Exception as e:
-            logger.warning(f"⚠️ [Save Avatar] Failed to copy Gemini outpainted avatar: {e}")
+    avatar_entry = _save_outpainted_avatar(resolve_path("renders"), speaker_name_clean, timestamp)
+    if avatar_entry:
+        rendered_files.append(avatar_entry)
 
-    # ============================================================================
-    # CLEANUP INTERMEDIATE ASSETS
-    # ============================================================================
-    logger.info("🗑️ [Cleanup Step] Cleaning up intermediate uploaded staging assets...")
-    intermediate_files = [
-        "assets/staged_media.png",
-        "assets/staged_media.jpg",
-        "assets/staged_media.jpeg",
-        "assets/staged_media.webp",
-        "assets/staged_media.mp4",
-        "assets/portrait_outpainted.png",
-        "assets/temp_video_frame.png",
-    ]
-    for item in intermediate_files:
-        item_abs = resolve_path(item)
-        if os.path.exists(item_abs):
-            try:
-                os.remove(item_abs)
-                logger.info(f"   Deleted intermediate file: '{item}'")
-            except Exception as cleanup_err:
-                logger.warning(f"   ⚠️ Failed to delete '{item}': {cleanup_err}")
-
-    # Restore the default placeholder to prevent 404/file-not-found issues in other checks
-    restore_default_placeholder()
+    _cleanup_intermediate_assets()
 
     # Formulate output response
     status_str = "All requested files have been successfully generated sequentially:\n" + "\n".join(rendered_files)
     if not ffmpeg_installed:
         status_str += (
             "\n\n⚠️ Note: ffmpeg was not detected on your system. Audio stripping and GIF animation have been skipped."
+        )
+    return status_str
+
+
+def render_cover_poster(tool_context: Optional[Any] = None) -> str:
+    """Render ONLY the static 4K (3840x2160) speaker-card cover photo without rendering a video."""
+    del tool_context
+    logger.info("📸 [Tool: render_cover_poster] Rendering standalone 4K cover photo...")
+    target_index_html = resolve_path("index.html")
+    if not os.path.exists(target_index_html):
+        raise FileNotFoundError(f"Cannot find composition file '{target_index_html}'.")
+
+    ffmpeg_installed = shutil.which("ffmpeg") is not None
+    speaker_name, speaker_name_clean, timestamp = _speaker_render_stem(target_index_html)
+    logger.info(f'🏷️  [Cover Naming] Speaker name: "{speaker_name}" -> clean: "{speaker_name_clean}"')
+
+    rendered_files: list[str] = []
+    render_env = _chromium_render_env()
+    try:
+        snapshot_file = _capture_card_snapshot(target_index_html, render_env, ffmpeg_installed)
+        if not snapshot_file or not os.path.exists(snapshot_file):
+            raise RuntimeError("Failed to capture high-resolution cover snapshot from composition.")
+        renders_folder = resolve_path("renders")
+        rendered_files.append(
+            _save_card_poster(
+                snapshot_file,
+                renders_folder,
+                f"{speaker_name_clean}_{timestamp}_cover",
+                render_4k=True,
+                ffmpeg_installed=ffmpeg_installed,
+            )
+        )
+        avatar_entry = _save_outpainted_avatar(renders_folder, speaker_name_clean, timestamp)
+        if avatar_entry:
+            rendered_files.append(avatar_entry)
+    finally:
+        _cleanup_snapshot_artifacts()
+        _cleanup_intermediate_assets()
+
+    status_str = "4K cover photo generated:\n" + "\n".join(rendered_files)
+    if not ffmpeg_installed:
+        status_str += (
+            "\n\n⚠️ Note: ffmpeg was not detected on your system, so the cover was saved at 1080p instead of 4K."
         )
     return status_str
 

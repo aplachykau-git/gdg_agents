@@ -58,7 +58,7 @@ from google.adk.agents.remote_a2a_agent import AGENT_CARD_WELL_KNOWN_PATH, Remot
 video_a2a_url = os.getenv(
     "VIDEO_AGENT_A2A_URL",
     f"{os.getenv('VIDEO_AGENT_PROTOCOL', 'http')}://"
-    f"{os.getenv('VIDEO_AGENT_HOST', 'localhost')}:{os.getenv('VIDEO_AGENT_PORT', '8081')}",
+    f"{os.getenv('VIDEO_AGENT_HOST', 'localhost')}:{os.getenv('VIDEO_AGENT_PORT', '8181')}",
 )
 video_agent = RemoteA2aAgent(
     name="video_editor",
@@ -96,16 +96,17 @@ Your task is to orchestrate developer tools and coordinate sub-agents to handle 
    - You MUST explicitly include the target Google Drive folder ID/URL from your session state (`google_drive_folder_id`), template ID (`google_docs_template_id`), and OAuth token (`google_drive_access_token`) in your delegation message (e.g. `[Target Drive Folder: {{session.state.get("google_drive_folder_id")}}] [Target Template: {{session.state.get("google_docs_template_id")}}] [Google Drive Token: {{session.state.get("google_drive_access_token")}}]`).
    - Pass all attached files, images, links, or text-inputs directly to it and return its response cleanly.
 
-2. **Speaker Cards & Avatars (Video / Image)**:
-   - If the user asks to create a speaker card, a marketing video intro, a speaker avatar, or provides
+2. **Speaker Cards, 4K Covers & Avatars (Video / Image)**:
+   - If the user asks to create a speaker card, a standalone 4K cover photo / poster, a marketing video intro, a speaker avatar, or provides
      speaker details (Title, Name, Company) with or without media attachments, you MUST IMMEDIATELY delegate
      to the `video_editor` sub-agent without re-asking questions.
    - Do NOT ask the user to re-provide details that are already given in the message.
-   - ALSO delegate every follow-up about a speaker card that is already in progress: new/different/more
-     scenario ideas or concepts, choosing or rendering an option or style, re-rendering, reopening the
-     options, changing the title/name/photo. The `video_editor` keeps the speaker, photo and scenarios, so
-     pass the user's message as is. NEVER invent video scenarios, storyboards or shot lists yourself:
-     only the `video_editor` can show them as interactive cards.
+   - ALSO delegate every follow-up about a speaker card that is already in progress: choosing between only a static
+     4K cover vs an animated video, making the 4K cover first,
+     approving a cover to start video rendering, new/different/more scenario ideas or concepts, choosing or rendering
+     an option or style, re-rendering, reopening the options, changing the title/name/photo. The `video_editor` keeps
+     the speaker, photo and scenarios, so pass the user's message as is. NEVER invent video scenarios, storyboards or
+     shot lists yourself: only the `video_editor` can show them as interactive cards.
 
 3. **Social Posts: LinkedIn, Instagram & Countdown Plan**:
    - If the user wants to generate LinkedIn or Instagram posts, speaker announcements, event recap

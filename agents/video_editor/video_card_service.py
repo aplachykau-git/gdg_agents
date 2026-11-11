@@ -9,6 +9,7 @@ import shutil
 import tempfile
 import threading
 import time
+import uuid
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -26,6 +27,7 @@ from .tools import composer_tools, media_tools
 from .workflow_models import (
     CreativeScenario,
     PreparedMedia,
+    PreparedPortrait,
     RenderedAsset,
     RenderResult,
     ResolvedMedia,
@@ -443,13 +445,17 @@ def offline_mode() -> bool:
     return os.getenv("VIDEO_EDITOR_OFFLINE", "false").lower() in {"1", "true", "yes"}
 
 
-async def offline_render(draft: VideoEditorDraft) -> RenderResult:
+async def offline_render(draft: VideoEditorDraft, *, cover_only: bool = False) -> RenderResult:
     delay = float(os.getenv("VIDEO_EDITOR_OFFLINE_RENDER_SECONDS", "0") or 0)
     if delay > 0:
         await asyncio.sleep(delay)
+    poster_url = (BASE_DIR / "assets" / "portrait_outpainted.png").as_uri()
+    if cover_only:
+        assets = [RenderedAsset(label="High-Resolution Card Poster (4K PNG) (offline sample)", url=poster_url)]
+        return RenderResult(status="completed", assets=assets, summary=f"Offline 4K cover render for {draft.name}")
     assets = [
         RenderedAsset(label="Video (offline sample)", url=(BASE_DIR / "assets" / "Video_example.mp4").as_uri()),
-        RenderedAsset(label="Poster (offline sample)", url=(BASE_DIR / "assets" / "portrait_outpainted.png").as_uri()),
+        RenderedAsset(label="Poster (offline sample)", url=poster_url),
     ]
     return RenderResult(status="completed", assets=assets, summary=f"Offline render for {draft.name}")
 
@@ -503,8 +509,9 @@ async def render_card(
     *,
     stage_media: MediaStager,
     workspace_label: str = "standalone",
+    cover_only: bool = False,
 ) -> RenderResult | ValidationFailure:
-    """Validate the speaker details and render the speaker-card video. No ADK objects involved."""
+    """Validate the speaker details and render the speaker-card video (or 4K cover only). No ADK objects involved."""
     metadata_result = workflow.validate_request_metadata_fields(draft)
     if isinstance(metadata_result, ValidationFailure):
         return metadata_result
@@ -519,7 +526,7 @@ async def render_card(
     # Wait for any other render (in any session) to finish without blocking the event loop.
     await asyncio.to_thread(_RENDER_LOCK.acquire)
     try:
-        return await _render_locked(draft, metadata, settings, stage_media, workspace_label)
+        return await _render_locked(draft, metadata, settings, stage_media, workspace_label, cover_only=cover_only)
     finally:
         _RENDER_LOCK.release()
 
@@ -529,7 +536,9 @@ async def render_card(
 # =============================================================================
 
 
-async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) -> RenderResult | ValidationFailure:
+async def _render_for_adk(
+    draft: VideoEditorDraft, tool_context: ToolContext, *, cover_only: bool
+) -> RenderResult | ValidationFailure:
     """Render for an ADK session: media comes from the uploaded chat attachment, settings from state."""
     if draft.media is None:
         return ValidationFailure(
@@ -551,7 +560,83 @@ async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) 
         RenderSettings.from_tool_context(tool_context),
         stage_media=stage_from_session,
         workspace_label=str(getattr(getattr(tool_context, "session", None), "id", "") or "session"),
+        cover_only=cover_only,
     )
+
+
+async def render_video_card(draft: VideoEditorDraft, tool_context: ToolContext) -> RenderResult | ValidationFailure:
+    """Render the full animated speaker-card video for an ADK session."""
+    return await _render_for_adk(draft, tool_context, cover_only=False)
+
+
+async def render_cover_card(draft: VideoEditorDraft, tool_context: ToolContext) -> RenderResult | ValidationFailure:
+    """Render ONLY the static 4K cover poster for an ADK session without video generation."""
+    return await _render_for_adk(draft, tool_context, cover_only=True)
+
+
+async def prepare_portrait_card(
+    draft: VideoEditorDraft, tool_context: ToolContext
+) -> PreparedPortrait | ValidationFailure:
+    """Verify and outpaint an uploaded portrait photo to 9:16 before offering cover vs video choices."""
+    if draft.media is None:
+        return ValidationFailure(
+            code="media_not_found",
+            message="Please upload a portrait photo or a speaker video.",
+            requested_action="replace_media",
+        )
+    media = draft.media
+    media_key = f"{media.event_id}:{media.part_index}:{media.mime_type}"
+    if offline_mode():
+        sample = (BASE_DIR / "assets" / "portrait_outpainted.png").resolve()
+        return PreparedPortrait(local_path=str(sample), preview_url=sample.as_uri(), media_key=media_key)
+
+    settings = RenderSettings.from_tool_context(tool_context)
+    session_id = str(getattr(getattr(tool_context, "session", None), "id", "") or "session")
+    await asyncio.to_thread(_RENDER_LOCK.acquire)
+    try:
+        with isolated_workspace(f"{session_id}-outpaint", template_name=settings.video_template) as workspace:
+            with _workspace_tool_paths(workspace):
+                try:
+                    staged_path = await media_tools.stage_uploaded_media(
+                        event_id=media.event_id,
+                        part_index=media.part_index,
+                        tool_context=tool_context,
+                    )
+                except FileNotFoundError as missing:
+                    return ValidationFailure(
+                        code="media_not_found", message=str(missing), requested_action="replace_media"
+                    )
+                resolved_media = ResolvedMedia(
+                    source_path=staged_path,
+                    media_type=workflow.classify_media_path(staged_path),
+                    placeholder_used=False,
+                )
+                media_failure = await asyncio.to_thread(workflow.validate_resolved_media, resolved_media)
+                if media_failure:
+                    return media_failure
+                if resolved_media.media_type != "image":
+                    source_abs = Path(media_tools.resolve_path(resolved_media.source_path)).resolve()
+                    return PreparedPortrait(
+                        local_path=str(source_abs), preview_url=source_abs.as_uri(), media_key=media_key
+                    )
+
+                face_failure = await _review_face(resolved_media)
+                if face_failure:
+                    return face_failure
+
+                outpainted_rel = await asyncio.to_thread(_outpaint_cover_photo, resolved_media.source_path)
+                outpainted_abs = Path(media_tools.resolve_path(outpainted_rel)).resolve()
+                renders_dir = workspace / "renders"
+                renders_dir.mkdir(parents=True, exist_ok=True)
+                prepared_path = (renders_dir / f"prepared_avatar_{uuid.uuid4().hex[:8]}.png").resolve()
+                await asyncio.to_thread(shutil.copy2, outpainted_abs, prepared_path)
+                return PreparedPortrait(
+                    local_path=str(prepared_path),
+                    preview_url=prepared_path.as_uri(),
+                    media_key=media_key,
+                )
+    finally:
+        _RENDER_LOCK.release()
 
 
 def _static_fallback_notice(failure_reason: str) -> str:
@@ -571,12 +656,24 @@ def _static_fallback_notice(failure_reason: str) -> str:
     )
 
 
+def _outpaint_cover_photo(source_path: str) -> str:
+    """Outpaint a portrait photo to 9:16 for cover rendering, falling back to the original photo on error."""
+    try:
+        client = media_tools.get_gemini_client()
+        return media_tools.outpaint_to_9_16(source_path, client)
+    except Exception as exc:
+        logger.warning("⚠️ [Cover Outpaint] Falling back to original photo (%s).", exc)
+        return source_path
+
+
 async def _render_locked(
     draft: VideoEditorDraft,
     metadata: ValidatedMetadata,
     settings: RenderSettings,
     stage_media: MediaStager,
     workspace_label: str,
+    *,
+    cover_only: bool = False,
 ) -> RenderResult | ValidationFailure:
     # media_tools / composer_tools read toggles from `<ctx>.state` and animate_photo reports a
     # generation failure there; a fresh per-render object means nothing leaks between renders.
@@ -600,7 +697,7 @@ async def _render_locked(
                 return media_failure
 
             if resolved_media.media_type == "image":
-                if not media_tools.video_generation_enabled(tool_context):
+                if not cover_only and not media_tools.video_generation_enabled(tool_context):
                     return ValidationFailure(
                         code="model_unavailable",
                         message=(
@@ -610,39 +707,63 @@ async def _render_locked(
                         requested_action="replace_media",
                         retryable=False,
                     )
-                face_failure = await _review_face(resolved_media)
-                if face_failure:
-                    return face_failure
-                try:
-                    # animate_photo outpaints to 9:16 itself; doing it here as well doubled cost and time.
-                    video_path = await asyncio.to_thread(
-                        media_tools.animate_photo,
-                        photo_path=resolved_media.source_path,
-                        creative_prompt=compile_creative_prompt(draft),
-                        tool_context=tool_context,
+
+                pre_outpainted = bool(draft.prepared_avatar_path and os.path.isfile(draft.prepared_avatar_path))
+                if pre_outpainted:
+                    prepared_dest = os.path.join(media_tools.BASE_DIR, "assets", "portrait_outpainted.png")
+                    os.makedirs(os.path.dirname(prepared_dest), exist_ok=True)
+                    if os.path.abspath(draft.prepared_avatar_path) != os.path.abspath(prepared_dest):
+                        await asyncio.to_thread(shutil.copy2, draft.prepared_avatar_path, prepared_dest)
+                    prepared_avatar_rel = "assets/portrait_outpainted.png"
+                else:
+                    face_failure = await _review_face(resolved_media)
+                    if face_failure:
+                        return face_failure
+                    prepared_avatar_rel = None
+
+                if cover_only:
+                    cover_image_path = prepared_avatar_rel or await asyncio.to_thread(
+                        _outpaint_cover_photo, resolved_media.source_path
                     )
-                except Exception as anim_err:
-                    logger.exception("Speaker animation failed")
-                    return ValidationFailure(
-                        code="model_unavailable",
-                        message=f"Failed to generate speaker animation: {anim_err}",
-                        requested_action="retry",
-                        retryable=True,
+                    prepared_media = PreparedMedia(
+                        media_type="image",
+                        source_path=resolved_media.source_path,
+                        working_path=cover_image_path,
+                        video_path=cover_image_path,
+                        duration_seconds=10,
                     )
-                if isinstance(video_path, str) and video_path.startswith("Error:"):
-                    return ValidationFailure(
-                        code="model_unavailable",
-                        message=video_path.removeprefix("Error:").strip(),
-                        requested_action="replace_media",
-                        retryable=False,
+                else:
+                    try:
+                        # Reuse the already-prepared outpainted portrait when available so framing stays identical.
+                        video_path = await asyncio.to_thread(
+                            media_tools.animate_photo,
+                            photo_path=prepared_avatar_rel or resolved_media.source_path,
+                            creative_prompt=compile_creative_prompt(draft),
+                            tool_context=tool_context,
+                            skip_outpaint=pre_outpainted,
+                        )
+                    except Exception as anim_err:
+                        logger.exception("Speaker animation failed")
+                        return ValidationFailure(
+                            code="model_unavailable",
+                            message=f"Failed to generate speaker animation: {anim_err}",
+                            requested_action="retry",
+                            retryable=True,
+                        )
+                    if isinstance(video_path, str) and video_path.startswith("Error:"):
+                        return ValidationFailure(
+                            code="model_unavailable",
+                            message=video_path.removeprefix("Error:").strip(),
+                            requested_action="replace_media",
+                            retryable=False,
+                        )
+                    prepared_media = PreparedMedia(
+                        media_type="image",
+                        source_path=resolved_media.source_path,
+                        working_path=video_path,
+                        video_path=video_path,
+                        duration_seconds=await asyncio.to_thread(workflow._read_video_duration, video_path),
                     )
-                prepared_media = PreparedMedia(
-                    media_type="image",
-                    source_path=resolved_media.source_path,
-                    working_path=video_path,
-                    video_path=video_path,
-                    duration_seconds=await asyncio.to_thread(workflow._read_video_duration, video_path),
-                )
             else:
                 target_video_path = os.path.join(media_tools.BASE_DIR, "assets", "Video_example.mp4")
                 source_path = media_tools.resolve_path(resolved_media.source_path)
@@ -667,18 +788,22 @@ async def _render_locked(
                     theme_colors=theme_colors,
                     city=settings.city,
                 )
-                summary = await asyncio.to_thread(composer_tools.render_composer, tool_context=tool_context)
+                render_fn = composer_tools.render_cover_poster if cover_only else composer_tools.render_composer
+                summary = await asyncio.to_thread(render_fn, tool_context=tool_context)
             except Exception as render_err:
                 logger.exception("Composition render failed")
                 return ValidationFailure(
                     code="render_failed",
-                    message=f"Failed to render video composition: {render_err}",
+                    message=f"Failed to render {'4K cover photo' if cover_only else 'video composition'}: {render_err}",
                     requested_action="retry",
                 )
 
-            is_static_fallback = str(prepared_media.video_path).lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
-            failure_reason = str(_state_get(tool_context, "video_generation_failure", "") or "")
-            notice = _static_fallback_notice(failure_reason) if (is_static_fallback or failure_reason) else None
+            if cover_only:
+                notice = None
+            else:
+                is_static_fallback = str(prepared_media.video_path).lower().endswith((".png", ".jpg", ".jpeg", ".webp"))
+                failure_reason = str(_state_get(tool_context, "video_generation_failure", "") or "")
+                notice = _static_fallback_notice(failure_reason) if (is_static_fallback or failure_reason) else None
 
             return RenderResult(
                 status="completed",

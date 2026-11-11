@@ -115,30 +115,42 @@
       {/if}
 
       {#if media.posterUrl}
+        {@const isCoverOnly = !media.videoUrl && !media.gifUrl}
         <button 
-          class="download-pill-btn secondary"
+          class={isCoverOnly ? 'download-pill-btn primary' : 'download-pill-btn secondary'}
           disabled={downloadingMap['poster']}
           onclick={() => handleDownload(media.posterUrl, posterDownloadName, 'poster')}
-          title="Direct download Card Poster PNG"
+          title={isCoverOnly ? 'Direct download 4K Cover PNG' : 'Direct download Card Poster PNG'}
         >
           {#if downloadingMap['poster']}
             <Loader2 size={14} class="spin-icon" />
             <span>Downloading...</span>
           {:else}
             <ImageIcon size={14} />
-            <span>Download Poster</span>
+            <span>{isCoverOnly ? 'Download 4K Cover (PNG)' : 'Download Poster'}</span>
           {/if}
         </button>
       {/if}
 
-      <button 
-        class="download-pill-btn edit-reopen"
-        onclick={() => onRefine("Please reopen the video card for this speaker so I can adjust shots, reorder timeline, or choose another style.")}
-        title="Re-open scenario card and edit shots or styles"
-      >
-        <Edit3 size={14} />
-        <span>Edit & Reopen Card</span>
-      </button>
+      {#if media.videoUrl || media.gifUrl}
+        <button 
+          class="download-pill-btn edit-reopen"
+          onclick={() => onRefine("Please reopen the video card for this speaker so I can adjust shots, reorder timeline, or choose another style.")}
+          title="Re-open scenario card and edit shots or styles"
+        >
+          <Edit3 size={14} />
+          <span>Edit & Reopen Card</span>
+        </button>
+      {:else}
+        <button
+          class="download-pill-btn edit-reopen"
+          onclick={() => onRefine("The 4K cover looks good — I approve proceeding to the animated video step.")}
+          title="Approve cover and move to creating an animated video"
+        >
+          <Film size={14} />
+          <span>Approve & Create Video</span>
+        </button>
+      {/if}
     </div>
   </div>
 {/if}

@@ -101,7 +101,8 @@
       letter-spacing: -0.02em;
       line-height: 1.2;
       white-space: pre-wrap;
-      word-break: break-word;
+      word-break: normal;
+      overflow-wrap: normal;
     }
 
     /* Speaker info block — pinned to the bottom of the grid (auto row) */
@@ -366,33 +367,51 @@
       companyEl.style.fontSize = fontSize + "px";
     }
 
+    function normalizeCardTitle(rawTitle) {
+      return String(rawTitle || "")
+        .replace(/&nbsp;|&#160;|&#xA0;/gi, "\u00A0")
+        .replace(/\[\[([\s\S]+?)\]\]/g, (_, inner) => inner.replace(/[ \t]+/g, "\u00A0"));
+    }
+
     // Adaptive text sizing function
     function applyAdaptiveTextSize(title) {
+      const normalizedTitle = normalizeCardTitle(title);
+      CARD_CONFIG.title = normalizedTitle;
       const titleBox = document.getElementById("title-box");
       const maxWidth = 945;
       const maxHeight = 340;
 
-      titleBox.querySelector("#title-text").textContent = title;
+      const titleTextEl = titleBox.querySelector("#title-text");
+      const cursorEl = titleBox.querySelector("#cursor");
+      titleBox.style.wordBreak = "normal";
+      titleBox.style.overflowWrap = "normal";
+      titleTextEl.textContent = normalizedTitle;
 
+      const hasExplicitNewlines = normalizedTitle.includes("\n");
+      const hasOnlyNonBreakingSpaces = !normalizedTitle.includes(" ") && !hasExplicitNewlines;
+      const singleLineMinFontSize = hasOnlyNonBreakingSpaces ? 28 : 64;
       let fontSize = 110;
       let fitsOnSingleLine = false;
 
-      while (fontSize >= 84) {
-        titleBox.style.fontSize = fontSize + "px";
-        titleBox.style.whiteSpace = "nowrap";
-        const width = titleBox.scrollWidth;
-        titleBox.style.whiteSpace = "";
+      if (!hasExplicitNewlines) {
+        while (fontSize >= singleLineMinFontSize) {
+          titleBox.style.fontSize = fontSize + "px";
+          titleBox.style.whiteSpace = "nowrap";
+          const contentWidth = titleTextEl.getBoundingClientRect().width + (cursorEl ? cursorEl.getBoundingClientRect().width : 0);
+          const overflowWidth = titleBox.scrollWidth;
+          titleBox.style.whiteSpace = "";
 
-        if (width <= maxWidth) {
-          fitsOnSingleLine = true;
-          break;
+          if (overflowWidth <= maxWidth && contentWidth <= maxWidth - 4) {
+            fitsOnSingleLine = true;
+            break;
+          }
+          fontSize -= 2;
         }
-        fontSize -= 2;
       }
 
       if (!fitsOnSingleLine) {
-        fontSize = 84;
-        const minFontSize = 36;
+        fontSize = hasExplicitNewlines ? 110 : 84;
+        const minFontSize = 28;
         while (fontSize > minFontSize) {
           titleBox.style.fontSize = fontSize + "px";
           if (titleBox.scrollHeight <= maxHeight && titleBox.scrollWidth <= maxWidth) {
@@ -400,18 +419,20 @@
           }
           fontSize -= 2;
         }
+        if (titleBox.scrollWidth > maxWidth) {
+          titleBox.style.overflowWrap = "break-word";
+        }
       }
 
       titleBox.style.fontSize = fontSize + "px";
 
-      if (!fitsOnSingleLine && title.trim().split(/\s+/).length > 2) {
-        const minOrphanFontSize = Math.max(fontSize - 12, 36);
+      if (!fitsOnSingleLine && !hasExplicitNewlines && normalizedTitle.trim().split(/[ \t\r\n]+/).length > 2) {
+        const minOrphanFontSize = Math.max(fontSize - 20, 44);
         let orphanFixed = false;
 
         while (fontSize > minOrphanFontSize) {
           titleBox.style.fontSize = fontSize + "px";
 
-          const words = title.trim().split(/\s+/);
           const lineHeight = parseFloat(getComputedStyle(titleBox).lineHeight) || (fontSize * 1.2);
           const totalTextHeight = titleBox.scrollHeight;
           const lineCount = Math.round(totalTextHeight / lineHeight);
@@ -442,7 +463,7 @@
             }
 
             const lastLineText = originalText.substring(lastLineStart).trim();
-            lastLineWords = lastLineText.split(/\s+/).filter(w => w.length > 0).length;
+            lastLineWords = lastLineText.split(/[ \t\r\n]+/).filter(w => w.length > 0).length;
           }
 
           if (lastLineWords >= 2) {
@@ -500,6 +521,18 @@
         document.getElementById("title-text").textContent = CARD_CONFIG.title.slice(0, Math.floor(typeObj.n));
       }
     }, L1_START);
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        applyAdaptiveSpeakerInfoSize(CARD_CONFIG.name, CARD_CONFIG.position_company);
+        applyAdaptiveTextSize(CARD_CONFIG.title);
+        if (!window.__HYPERFRAMES__ && window.location.search.includes("static")) {
+          document.getElementById("title-text").textContent = CARD_CONFIG.title;
+        } else if (tl.time() > 0) {
+          document.getElementById("title-text").textContent = CARD_CONFIG.title.slice(0, Math.floor(typeObj.n));
+        }
+      });
+    }
 
     window.__timelines["main"] = tl;
 

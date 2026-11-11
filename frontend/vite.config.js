@@ -112,39 +112,25 @@ function serveAgentResultsPlugin() {
   }
 }
 
+const rootApiTarget = process.env.VITE_DEV_PROXY_TARGET || 'http://127.0.0.1:8180'
+const proxyPaths = ['/list-apps', '/run', '/run_sse', '/apps']
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [svelte(), serveAgentResultsPlugin()],
   server: {
-    proxy: {
-      '/list-apps': {
-        target: 'http://127.0.0.1:8080',
-        changeOrigin: true,
-        headers: {
-          Origin: 'http://127.0.0.1:8080'
+    port: Number(process.env.VITE_PORT || 5180),
+    proxy: Object.fromEntries(
+      proxyPaths.map((prefix) => [
+        prefix,
+        {
+          target: rootApiTarget,
+          changeOrigin: true,
+          headers: {
+            Origin: rootApiTarget
+          }
         }
-      },
-      '/run': {
-        target: 'http://127.0.0.1:8080',
-        changeOrigin: true,
-        headers: {
-          Origin: 'http://127.0.0.1:8080'
-        }
-      },
-      '/run_sse': {
-        target: 'http://127.0.0.1:8080',
-        changeOrigin: true,
-        headers: {
-          Origin: 'http://127.0.0.1:8080'
-        }
-      },
-      '/apps': {
-        target: 'http://127.0.0.1:8080',
-        changeOrigin: true,
-        headers: {
-          Origin: 'http://127.0.0.1:8080'
-        }
-      }
-    }
+      ])
+    )
   }
 })

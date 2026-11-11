@@ -149,5 +149,121 @@ class PrependCoverFrameTests(unittest.TestCase):
             self.assertEqual(f.read(), original)
 
 
+@unittest.skipUnless(HAS_FFMPEG, "ffmpeg/ffprobe not installed")
+class StandaloneCoverPosterTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.orig_base_dir = composer_tools.BASE_DIR
+        composer_tools.BASE_DIR = self.tmp
+        os.makedirs(os.path.join(self.tmp, "assets"), exist_ok=True)
+        os.makedirs(os.path.join(self.tmp, "snapshots"), exist_ok=True)
+        with open(os.path.join(self.tmp, "index.html"), "w", encoding="utf-8") as f:
+            f.write(
+                '<html><head><style></style></head><body data-duration="10">'
+                '<video id="card-video" src="assets/Video_example.mp4"></video>'
+                '<img id="card-image" src="assets/staged_media.jpg">'
+                '<span id="cursor"></span>'
+                '<script>const CARD_CONFIG = { title: "Agents", name: "Jane Doe", position_company: "GDE" };</script>'
+                "</body></html>"
+            )
+
+    def tearDown(self):
+        composer_tools.BASE_DIR = self.orig_base_dir
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_render_cover_poster_outputs_4k_png_even_when_render_4k_disabled(self):
+        snapshot = os.path.join(self.tmp, "snapshots", "frame-00-at-9.7s.png")
+        Image.new("RGB", (1920, 1080), (20, 80, 200)).save(snapshot)
+
+        with (
+            mock.patch.dict(os.environ, {"RENDER_4K": "false"}),
+            mock.patch.object(composer_tools, "_capture_card_snapshot", return_value=snapshot),
+            mock.patch.object(composer_tools, "upload_file_to_storage", return_value=None),
+        ):
+            summary = composer_tools.render_cover_poster()
+
+        self.assertIn("High-Resolution Card Poster (4K PNG)", summary)
+        poster_path = summary.split("High-Resolution Card Poster (4K PNG): ", 1)[1].strip()
+        self.assertTrue(os.path.exists(poster_path))
+        with Image.open(poster_path) as out_img:
+            self.assertEqual(out_img.size, (3840, 2160))
+
+    def test_capture_card_snapshot_skips_500x500_placeholder_avatar(self):
+        composer_tools.restore_default_placeholder(force=True)
+        Image.new("RGB", (600, 800), (10, 200, 30)).save(os.path.join(self.tmp, "assets", "staged_media.jpg"))
+        captured_html = []
+
+        def fake_run(cmd, *args, **kwargs):
+            with open(os.path.join(self.tmp, "index.html"), "r", encoding="utf-8") as f:
+                captured_html.append(f.read())
+            snap = os.path.join(self.tmp, "snapshots", "frame-00-at-9.7s.png")
+            Image.new("RGB", (1920, 1080), (10, 200, 30)).save(snap)
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(composer_tools.subprocess, "run", side_effect=fake_run) as run_mock:
+            snap = composer_tools._capture_card_snapshot(os.path.join(self.tmp, "index.html"), os.environ.copy(), True)
+
+        self.assertIsNotNone(snap)
+        self.assertIn('id="card-image" src="assets/staged_media.jpg"', captured_html[0])
+        called_cmd = run_mock.call_args[0][0]
+        self.assertIn("--no-end", called_cmd)
+        self.assertIn(f"--output={os.path.join(self.tmp, 'snapshots')}", called_cmd)
+
+    def test_capture_card_snapshot_finds_nested_hyperframes_artifacts_snapshot(self):
+        Image.new("RGB", (600, 800), (10, 200, 30)).save(os.path.join(self.tmp, "assets", "staged_media.jpg"))
+        nested_dir = os.path.join(self.tmp, ".hyperframes", "artifacts", "snapshots", "snap-abc123")
+
+        def fake_run(cmd, *args, **kwargs):
+            os.makedirs(nested_dir, exist_ok=True)
+            snap = os.path.join(nested_dir, "at-9.7s.png")
+            Image.new("RGB", (1920, 1080), (40, 120, 240)).save(snap)
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(composer_tools.subprocess, "run", side_effect=fake_run):
+            snap = composer_tools._capture_card_snapshot(os.path.join(self.tmp, "index.html"), os.environ.copy(), True)
+
+        self.assertEqual(snap, os.path.join(nested_dir, "at-9.7s.png"))
+        composer_tools._cleanup_snapshot_artifacts()
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "snapshots")))
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, ".hyperframes", "artifacts", "snapshots")))
+
+    def test_normalize_title_text_handles_nbsp_and_nowrap_markers(self):
+        self.assertEqual(
+            composer_tools.normalize_title_text("How to do RAG in&nbsp;2027?"),
+            "How to do RAG in\u00a02027?",
+        )
+        self.assertEqual(
+            composer_tools.normalize_title_text("[[How to do RAG in 2027?]]"),
+            "How\u00a0to\u00a0do\u00a0RAG\u00a0in\u00a02027?",
+        )
+        self.assertEqual(
+            composer_tools.normalize_title_text("How to do RAG [[in 2027?]]"),
+            "How to do RAG in\u00a02027?",
+        )
+
+    def test_outpaint_preserves_9_16_and_uses_anti_zoom_prompt(self):
+        from agents.video_editor.tools import media_tools
+
+        orig_media_base = media_tools.BASE_DIR
+        media_tools.BASE_DIR = self.tmp
+        try:
+            tall_src = os.path.join(self.tmp, "assets", "already_9_16.png")
+            Image.new("RGB", (768, 1376), (20, 40, 60)).save(tall_src)
+            fake_client = mock.MagicMock()
+            rel = media_tools.outpaint_to_9_16(tall_src, fake_client)
+            self.assertEqual(rel, "assets/portrait_outpainted.png")
+            fake_client.models.generate_content.assert_not_called()
+
+            wide_src = os.path.join(self.tmp, "assets", "square.png")
+            Image.new("RGB", (800, 800), (20, 40, 60)).save(wide_src)
+            fake_client.models.generate_content.return_value = mock.MagicMock(candidates=[])
+            media_tools.outpaint_to_9_16(wide_src, fake_client)
+            prompt_text = fake_client.models.generate_content.call_args.kwargs["contents"][1].text
+            self.assertIn("DO NOT zoom out or shrink the person", prompt_text)
+            self.assertIn("DO NOT invent legs", prompt_text)
+        finally:
+            media_tools.BASE_DIR = orig_media_base
+
+
 if __name__ == "__main__":
     unittest.main()

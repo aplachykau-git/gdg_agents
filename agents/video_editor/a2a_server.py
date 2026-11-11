@@ -21,7 +21,7 @@ except (ImportError, ValueError):
 configure_logging()
 logger = logging.getLogger(__name__)
 
-PORT = int(os.getenv("PORT", os.getenv("VIDEO_AGENT_PORT", "8081")))
+PORT = int(os.getenv("PORT", os.getenv("VIDEO_AGENT_PORT", "8181")))
 HOST = os.getenv("VIDEO_AGENT_HOST", "0.0.0.0")
 PROTOCOL = os.getenv("VIDEO_AGENT_PROTOCOL", "http")
 

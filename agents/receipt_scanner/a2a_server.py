@@ -21,7 +21,7 @@ except (ImportError, ValueError):
 configure_logging()
 logger = logging.getLogger(__name__)
 
-PORT = int(os.getenv("PORT", os.getenv("RECEIPT_AGENT_PORT", "8082")))
+PORT = int(os.getenv("PORT", os.getenv("RECEIPT_AGENT_PORT", "8182")))
 HOST = os.getenv("RECEIPT_AGENT_HOST", "0.0.0.0")
 PROTOCOL = os.getenv("RECEIPT_AGENT_PROTOCOL", "http")
 

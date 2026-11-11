@@ -12,16 +12,27 @@ from google.adk.evaluation.eval_case import Invocation, get_all_tool_calls
 from google.adk.evaluation.eval_metrics import EvalMetric, EvalStatus
 from google.adk.evaluation.evaluator import EvaluationResult, PerInvocationResult
 
-CARD_TOOLS = {"update_speaker", "propose_scenarios", "show_scenarios", "render_video", "get_card_status"}
+CARD_TOOLS = {
+    "update_speaker",
+    "propose_scenarios",
+    "show_scenarios",
+    "render_cover",
+    "render_video",
+    "get_card_status",
+}
 
 # phrase in the user turn -> (tools that must be called, tools that must NOT be called)
 EXPECTATIONS: list[tuple[str, set[str], set[str]]] = [
     ("capital of france", set(), CARD_TOOLS),
     ("what can you do", set(), CARD_TOOLS),
+    ("static 4k cover photo", {"render_cover"}, {"propose_scenarios", "render_video"}),
+    ("4k cover", {"render_cover"}, {"render_video"}),
     ("render option 2", {"render_video"}, {"update_speaker"}),
     ("render option 1", {"render_video"}, set()),
     ("same speaker, but", {"propose_scenarios"}, set()),
     ("show me the options again", {"show_scenarios"}, {"propose_scenarios", "render_video"}),
+    ("animated speaker video card", {"update_speaker", "propose_scenarios"}, {"render_cover", "render_video"}),
+    ("agents in production", {"update_speaker"}, {"propose_scenarios", "render_cover", "render_video"}),
     ("reliabel", set(), {"render_video"}),
 ]
 DEFAULT_REQUIRED = {"update_speaker"}

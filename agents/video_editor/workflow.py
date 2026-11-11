@@ -682,7 +682,7 @@ def normalise_input_video_node(ctx: Context) -> None:
 @node(name="prepare_render_input")
 def prepare_render_input_node(ctx: Context) -> None:
     prepared_media = PreparedMedia.model_validate(ctx.state["temp:prepared_media"])
-    ctx.state["temp:render_plan"] = {"theme": DEFAULT_THEME, "duration_seconds": prepared_media.duration_seconds}
+    ctx.state["temp:render_plan"] = {"theme": None, "duration_seconds": prepared_media.duration_seconds}
 
 
 @node(name="update_composer")

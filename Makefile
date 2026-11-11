@@ -101,15 +101,15 @@ run-all: ## Start Video A2A, Receipt A2A, ADK web, and the frontend; Ctrl+C stop
 				echo "All services stopped cleanly."; \
 			}; \
 			trap cleanup INT TERM EXIT; \
-			echo "Starting Video Editor A2A service on http://127.0.0.1:8081..."; \
-			"$$UV_BIN" run --locked --no-sync uvicorn agents.video_editor.a2a_server:a2a_app --host 0.0.0.0 --port 8081 & pids="$$pids $$!"; \
-			echo "Starting Receipt Scanner A2A service on http://127.0.0.1:8082..."; \
-			"$$UV_BIN" run --locked --no-sync uvicorn agents.receipt_scanner.a2a_server:a2a_app --host 0.0.0.0 --port 8082 & pids="$$pids $$!"; \
+			echo "Starting Video Editor A2A service on http://127.0.0.1:8181..."; \
+			"$$UV_BIN" run --locked --no-sync uvicorn agents.video_editor.a2a_server:a2a_app --host 0.0.0.0 --port 8181 & pids="$$pids $$!"; \
+			echo "Starting Receipt Scanner A2A service on http://127.0.0.1:8182..."; \
+			"$$UV_BIN" run --locked --no-sync uvicorn agents.receipt_scanner.a2a_server:a2a_app --host 0.0.0.0 --port 8182 & pids="$$pids $$!"; \
 			sleep 2; \
-			echo "Starting Root Orchestrator on http://127.0.0.1:8080..."; \
-			VIDEO_AGENT_A2A_URL=http://localhost:8081 RECEIPT_AGENT_A2A_URL=http://localhost:8082 ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS=true \
-				"$$UV_BIN" run --locked --no-sync adk web --port 8080 agents & pids="$$pids $$!"; \
-			echo "Starting frontend on http://localhost:5173..."; \
+			echo "Starting Root Orchestrator on http://127.0.0.1:8180..."; \
+			VIDEO_AGENT_A2A_URL=http://localhost:8181 RECEIPT_AGENT_A2A_URL=http://localhost:8182 ADK_SUPPRESS_A2A_EXPERIMENTAL_FEATURE_WARNINGS=true \
+				"$$UV_BIN" run --locked --no-sync adk web --port 8180 agents & pids="$$pids $$!"; \
+			echo "Starting frontend on http://localhost:5180..."; \
 			"$$NPM_BIN" run dev --prefix frontend & pids="$$pids $$!"; \
 				echo "All services are running. Press Ctrl+C to stop."; \
 				wait \

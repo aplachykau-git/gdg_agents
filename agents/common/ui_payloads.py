@@ -92,6 +92,18 @@ def media(assets: Sequence[dict[str, Any]], speaker: dict[str, Any] | None = Non
     return {"type": "media", "urls": by_kind, "assets": list(assets), "speaker": speaker or {}, "notice": notice}
 
 
+def video_output_choice(speaker: dict[str, Any], media_kind: str = "image", avatar_url: str | None = None) -> UiPayload:
+    """Interactive choice card asking whether to create only a static 4K cover photo or an animated video."""
+    payload: UiPayload = {
+        "type": "video_output_choice",
+        "speaker": dict(speaker or {}),
+        "media_kind": media_kind or "image",
+    }
+    if avatar_url:
+        payload["avatar_url"] = avatar_url
+    return payload
+
+
 def qr_code(
     link: str, *, svg_url: str, png_url: str, filename: str, color: str, background: str, transparent: bool
 ) -> UiPayload:

@@ -15,6 +15,7 @@
     Lightbulb,
     Loader2,
     Lock,
+    Image as ImageIcon,
   } from '@lucide/svelte';
 
   let { 
@@ -300,6 +301,11 @@
     onRegenerate("Please propose 5 new scenarios for the same speaker.");
   }
 
+  function handleCoverOnlyClick() {
+    if (isLocked || isSubmitting) return;
+    onSelect("Create ONLY the static 4K cover photo (without creating or rendering any video).");
+  }
+
   function formatCompactTime(timeRange, sIdx) {
     if (!timeRange) return `${sIdx * 2}–${(sIdx + 1) * 2}s`;
     const m = timeRange.match(/00:0?(\d+)\s*-\s*00:0?(\d+)/);
@@ -352,6 +358,15 @@
         <span>{allExpanded ? "Collapse" : "Shots"}</span>
       </button>
       {#if !isLocked}
+        <button
+          class="cover-only-btn"
+          disabled={isSubmitting}
+          onclick={handleCoverOnlyClick}
+          title="Render only the static 4K cover photo without video"
+        >
+          <ImageIcon size={12} />
+          <span>4K Cover Only</span>
+        </button>
         <button 
           class="regenerate-btn" 
           disabled={isSubmitting}
@@ -628,7 +643,8 @@
   }
 
   .expand-all-btn,
-  .regenerate-btn {
+  .regenerate-btn,
+  .cover-only-btn {
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -644,7 +660,8 @@
   }
 
   .expand-all-btn:hover,
-  .regenerate-btn:hover {
+  .regenerate-btn:hover,
+  .cover-only-btn:hover {
     color: var(--text-primary);
     border-color: var(--border-focus);
     background: var(--bg-hover);

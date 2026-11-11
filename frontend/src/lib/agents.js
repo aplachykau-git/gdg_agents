@@ -52,7 +52,7 @@ export function getAgentDescription(agentId) {
     return 'Scans receipts, checks live bank exchange rates, and creates expense reports in Google Drive.';
   }
   if (clean.includes('video') || clean.includes('avatar')) {
-    return 'Turns speaker portrait photos into animated video intros and speaker cards.';
+    return 'Turns speaker portrait photos into static 4K cover photos or animated video intros and speaker cards.';
   }
   if (clean.includes('linkedin')) {
     return 'Writes speaker announcements, recaps and a LinkedIn + Instagram countdown plan for the event.';
@@ -98,6 +98,7 @@ export function getAgentStarterPrompts(agentId) {
   }
   if (clean.includes('video') || clean.includes('avatar')) {
     return [
+      { icon: 'image', text: 'Create only a static 4K cover photo (no video)', prompt: 'Create only a static 4K cover photo without video' },
       { icon: 'video', text: 'Generate speaker intro video with Omni', prompt: 'Generate speaker intro video with Omni' },
       { icon: 'image', text: 'Enhance portrait photo and render animated speaker card', prompt: 'Enhance portrait photo and render animated speaker card' }
     ];
@@ -416,6 +417,7 @@ export function getFriendlyToolCall(name, args) {
     update_speaker: (a) => a?.new_speaker ? "Starting a card for a new speaker..." : "Saving speaker details...",
     propose_scenarios: (a) => a?.creative_guidance ? `Inventing new scenarios (${a.creative_guidance})...` : "Inventing 5 cinematic scenarios...",
     show_scenarios: () => "Reopening saved scenarios...",
+    render_cover: () => "Rendering 4K speaker cover photo (3840x2160)...",
     render_video: (a) => a?.option ? `Rendering option ${a.option}... (usually 1–3 min)` : "Rendering speaker card... (usually 1–3 min)",
     get_card_status: () => "Checking the saved card...",
     present_email_draft: () => "Preparing the e-mail card...",
@@ -508,6 +510,7 @@ export function getFriendlyToolResponse(name, response, args) {
     update_speaker: (r) => r?.missing_fields?.length ? `Details saved. Missing: ${r.missing_fields.join(', ')}` : "Speaker details saved.",
     propose_scenarios: (r) => r?.scenarios?.length ? `${r.scenarios.length} scenarios ready.` : (r?.message || "Scenarios step finished."),
     show_scenarios: (r) => r?.scenarios?.length ? "Saved scenarios reopened." : (r?.message || "No saved scenarios."),
+    render_cover: (r) => r?.status === 'success' ? "4K cover photo ready." : (r?.message || "Cover render step finished."),
     render_video: (r) => r?.status === 'success' ? "Speaker card rendered." : (r?.message || "Render step finished."),
     get_card_status: () => "Card status checked.",
     present_email_draft: (r) => r?.status === 'error' ? (r.message || "E-mail needs changes.") : "E-mail draft ready.",

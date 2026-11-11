@@ -10,6 +10,7 @@ import {
   toMediaCard,
   toQrCard,
   toVariants,
+  toVideoOutputChoice,
 } from '../src/lib/ui/payloads.js';
 import { computeScenarioDecks } from '../src/lib/scenarios.js';
 
@@ -113,4 +114,41 @@ test('qr_code payload becomes a QR card and the agent is recognised', async () =
   assert.equal(getAgentTheme('qr_code_generator').label, 'QR Codes');
   assert.equal(resolveAgentId('qr_code_generator'), 'qr_code_generator');
   assert.match(getFriendlyToolCall('generate_qr_code', { link: 'https://gdg.dev' }), /QR code for https:\/\/gdg.dev/);
+});
+
+test('video_output_choice card is suppressed when resolved in the same turn and marked resolved later', () => {
+  const sameTurnCover = [
+    user('Make only a static 4K cover'),
+    toolResponse('update_speaker', { ui: { type: 'video_output_choice', speaker: { name: 'Jane' }, media_kind: 'image' } }),
+    toolResponse('render_cover', { ui: { type: 'media', urls: { poster: 'https://x/cover.png' } } }),
+  ];
+  const sameTurnCards = computeUiCards(sameTurnCover);
+  assert.equal(sameTurnCards.cards.has(1), false);
+  assert.equal(sameTurnCards.cards.get(2)?.type, 'media');
+
+  const sameTurnScenarios = [
+    user('Make an animated video'),
+    toolResponse('update_speaker', { ui: { type: 'video_output_choice', speaker: { name: 'Jane' }, media_kind: 'image' } }),
+    toolResponse('propose_scenarios', { scenarios: [{ id: 's1', title: 'S1', shots: [] }] }),
+  ];
+  const scenarioCards = computeUiCards(sameTurnScenarios);
+  assert.equal(scenarioCards.cards.has(1), false);
+
+  const twoTurns = [
+    user('Speaker details + photo'),
+    toolResponse('update_speaker', { ui: { type: 'video_output_choice', speaker: { name: 'Jane' }, media_kind: 'image' } }),
+    user('Only static 4K cover'),
+    toolResponse('render_cover', { ui: { type: 'media', urls: { poster: 'https://x/cover.png' } } }),
+  ];
+  const twoTurnCards = computeUiCards(twoTurns);
+  assert.equal(twoTurnCards.cards.get(1)?.type, 'video_output_choice');
+  assert.equal(twoTurnCards.cards.get(1)?.resolved, true);
+  assert.equal(twoTurnCards.cards.get(3)?.type, 'media');
+
+  const adapted = toVideoOutputChoice({
+    type: 'video_output_choice',
+    speaker: { name: 'Jane' },
+    avatar_url: 'file:///tmp/workspaces/w1/renders/prepared_avatar_abc123.png',
+  });
+  assert.equal(adapted.avatarUrl, '/renders/prepared_avatar_abc123.png');
 });

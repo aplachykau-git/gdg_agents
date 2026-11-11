@@ -99,7 +99,7 @@
                 }
               },
               {
-                "text": "Make a speaker card. Title: Agents in Production. Speaker: Jane Doe. Position and company: GDE, Example."
+                "text": "Make an animated speaker video card. Title: Agents in Production. Speaker: Jane Doe. Position and company: GDE, Example."
               }
             ]
           }
@@ -146,7 +146,7 @@
                 }
               },
               {
-                "text": "Speaker card: title Kotlin Everywhere, speaker Maria K, Developer at ACME."
+                "text": "Animated video speaker card: title Kotlin Everywhere, speaker Maria K, Developer at ACME."
               }
             ]
           }
@@ -156,6 +156,35 @@
             "parts": [
               {
                 "text": "Show me the options again."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "eval_id": "asks_cover_vs_video_then_cover_only",
+      "conversation": [
+        {
+          "user_content": {
+            "parts": [
+              {
+                "inline_data": {
+                  "mime_type": "image/png",
+                  "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "text": "Speaker: Jane Doe. Talk: Agents in Production. Role: GDE, Example."
+              }
+            ]
+          }
+        },
+        {
+          "user_content": {
+            "parts": [
+              {
+                "text": "Just a static 4K cover photo without video."
               }
             ]
           }

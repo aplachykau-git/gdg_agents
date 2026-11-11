@@ -143,7 +143,8 @@
       letter-spacing: -0.02em;
       line-height: 1.2;
       white-space: pre-wrap;
-      word-break: break-word;
+      word-break: normal;
+      overflow-wrap: normal;
     }
 
     /* Speaker info block — pinned to the bottom of the grid (auto row) */
@@ -485,36 +486,55 @@
       year: "2026"
     };
 
+    function normalizeCardTitle(rawTitle) {
+      return String(rawTitle || "")
+        .replace(/&nbsp;|&#160;|&#xA0;/gi, "\u00A0")
+        .replace(/\[\[([\s\S]+?)\]\]/g, (_, inner) => inner.replace(/[ \t]+/g, "\u00A0"));
+    }
+
     // Adaptive text sizing function — calculates optimal font size for any title length
     // and eliminates typographic orphans (single short words stranded on the last line).
     function applyAdaptiveTextSize(title) {
+      const normalizedTitle = normalizeCardTitle(title);
+      CARD_CONFIG.title = normalizedTitle;
       const titleBox = document.getElementById("title-box");
       const maxWidth = 945;   // container width in px
       const maxHeight = 280;  // max vertical space for the title before it eats into speaker info
 
-      titleBox.querySelector("#title-text").textContent = title;
+      const titleTextEl = titleBox.querySelector("#title-text");
+      const cursorEl = titleBox.querySelector("#cursor");
+      titleBox.style.wordBreak = "normal";
+      titleBox.style.overflowWrap = "normal";
+      titleTextEl.textContent = normalizedTitle;
 
-      // 1. Try to fit the text on a single line by scaling up (up to 110px)
+      const hasExplicitNewlines = normalizedTitle.includes("\n");
+      const hasOnlyNonBreakingSpaces = !normalizedTitle.includes(" ") && !hasExplicitNewlines;
+      const singleLineMinFontSize = hasOnlyNonBreakingSpaces ? 28 : 64;
+
+      // 1. Try to fit the text on a single line by scaling (down to 64px, or 28px for non-breaking titles)
       let fontSize = 110;
       let fitsOnSingleLine = false;
 
-      while (fontSize >= 84) {
-        titleBox.style.fontSize = fontSize + "px";
-        titleBox.style.whiteSpace = "nowrap";
-        const width = titleBox.scrollWidth;
-        titleBox.style.whiteSpace = ""; // restore to stylesheet rule (pre-wrap)
+      if (!hasExplicitNewlines) {
+        while (fontSize >= singleLineMinFontSize) {
+          titleBox.style.fontSize = fontSize + "px";
+          titleBox.style.whiteSpace = "nowrap";
+          const contentWidth = titleTextEl.getBoundingClientRect().width + (cursorEl ? cursorEl.getBoundingClientRect().width : 0);
+          const overflowWidth = titleBox.scrollWidth;
+          titleBox.style.whiteSpace = ""; // restore to stylesheet rule (pre-wrap)
 
-        if (width <= maxWidth) {
-          fitsOnSingleLine = true;
-          break; // Found the largest font size where it fits on a single line!
+          if (overflowWidth <= maxWidth && contentWidth <= maxWidth - 4) {
+            fitsOnSingleLine = true;
+            break; // Found the largest font size where it fits on a single line!
+          }
+          fontSize -= 2;
         }
-        fontSize -= 2;
       }
 
-      // 2. If it cannot fit on a single line at >= 84px, fall back to standard multi-line search
+      // 2. If it cannot fit on a single line at >= 64px, fall back to multi-line / non-breaking fit
       if (!fitsOnSingleLine) {
-        fontSize = 84;
-        const minFontSize = 36;
+        fontSize = hasExplicitNewlines ? 110 : 84;
+        const minFontSize = 28;
         while (fontSize > minFontSize) {
           titleBox.style.fontSize = fontSize + "px";
           if (titleBox.scrollHeight <= maxHeight && titleBox.scrollWidth <= maxWidth) {
@@ -522,25 +542,22 @@
           }
           fontSize -= 2;
         }
+        if (titleBox.scrollWidth > maxWidth) {
+          titleBox.style.overflowWrap = "break-word";
+        }
       }
 
       titleBox.style.fontSize = fontSize + "px";
 
       // 3. Anti-orphan correction: detect and fix single short words stranded on the last line.
-      //    A "typographic orphan" is when the last line of wrapped text contains only one word
-      //    (e.g. "Stop using it\nwrongly!" — "wrongly!" alone looks unbalanced).
-      //    We fix this by slightly reducing the font size so the browser reflows at least
-      //    two words onto the last line, producing a visually balanced block.
-      if (!fitsOnSingleLine && title.trim().split(/\s+/).length > 2) {
-        const minOrphanFontSize = Math.max(fontSize - 12, 36); // don't shrink more than 12px
+      //    Treat non-breaking spaces (\u00A0) as part of one unbreakable unit.
+      if (!fitsOnSingleLine && !hasExplicitNewlines && normalizedTitle.trim().split(/[ \t\r\n]+/).length > 2) {
+        const minOrphanFontSize = Math.max(fontSize - 20, 44);
         let orphanFixed = false;
 
         while (fontSize > minOrphanFontSize) {
           titleBox.style.fontSize = fontSize + "px";
 
-          // Measure orphan status: use a temporary invisible clone to count words per line.
-          // We measure by checking if the last line contains only one short word.
-          const words = title.trim().split(/\s+/);
           const lineHeight = parseFloat(getComputedStyle(titleBox).lineHeight) || (fontSize * 1.2);
           const totalTextHeight = titleBox.scrollHeight;
           const lineCount = Math.round(totalTextHeight / lineHeight);
@@ -550,36 +567,34 @@
           // Create a temporary measurement span to find where the last line break occurs
           const textSpan = titleBox.querySelector("#title-text");
           const originalText = textSpan.textContent;
-          
-          // Binary approach: find the last word that starts on a new line
-          // by measuring text width incrementally
+
+          // Find the last line using Range API
           let lastLineWords = 0;
-          let lastLineStartIdx = 0;
-          
+
           // Measure using Range API to find the actual last line
           const range = document.createRange();
           const textNode = textSpan.firstChild;
-          
+
           if (textNode && textNode.nodeType === Node.TEXT_NODE) {
             let prevTop = null;
             let lastLineStart = 0;
-            
+
             for (let i = 0; i < originalText.length; i++) {
               range.setStart(textNode, i);
               range.setEnd(textNode, i + 1);
               const rect = range.getBoundingClientRect();
               const charTop = Math.round(rect.top);
-              
+
               if (prevTop !== null && charTop > prevTop + 2) {
                 // New line detected at character index i
                 lastLineStart = i;
               }
               prevTop = charTop;
             }
-            
-            // Extract the text on the last line and count its words
+
+            // Extract the text on the last line and count its breakable words
             const lastLineText = originalText.substring(lastLineStart).trim();
-            lastLineWords = lastLineText.split(/\s+/).filter(w => w.length > 0).length;
+            lastLineWords = lastLineText.split(/[ \t\r\n]+/).filter(w => w.length > 0).length;
           }
 
           // If the last line has 2+ words, the orphan is resolved!
@@ -595,7 +610,7 @@
         // If we couldn't fix the orphan within the allowed range, restore the best fit
         titleBox.style.fontSize = fontSize + "px";
       }
-      
+
       // Reset text content to empty string so it doesn't flicker on start before typewriter tween plays!
       titleBox.querySelector("#title-text").textContent = "";
     }
@@ -683,6 +698,18 @@
         document.getElementById("title-text").textContent = CARD_CONFIG.title.slice(0, Math.floor(typeObj.n));
       }
     }, L1_START);
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        applyAdaptiveSpeakerInfoSize(CARD_CONFIG.name, CARD_CONFIG.position_company);
+        applyAdaptiveTextSize(CARD_CONFIG.title);
+        if (!window.__HYPERFRAMES__ && window.location.search.includes("static")) {
+          document.getElementById("title-text").textContent = CARD_CONFIG.title;
+        } else if (tl.time() > 0) {
+          document.getElementById("title-text").textContent = CARD_CONFIG.title.slice(0, Math.floor(typeObj.n));
+        }
+      });
+    }
 
     // Register timeline under the 'main' composition ID for the studio
     window.__timelines["main"] = tl;
