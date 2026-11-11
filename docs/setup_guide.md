@@ -238,7 +238,7 @@ Open **`http://localhost:8000`** in your browser.
 You can test the receipt OCR scanner and currency converter directly using the test runner:
 
 ```bash
-uv run --locked python tests/test_receipt_scanner.py
+uv run --locked python -m unittest tests.test_receipt_scanner tests.test_receipt_summary tests.test_receipt_scanner_evaluation -v
 ```
 
 ### 3. HyperFrames Development & Preview Sandbox

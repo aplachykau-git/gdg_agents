@@ -48,7 +48,7 @@ flowchart TB
         subgraph REMOTE_A2A["Private A2A services (local :8081 / :8082, Cloud Run with IAM OIDC)"]
             direction LR
             A_VIDEO["<b>Live Video Editor</b><br/><i>video_editor</i><br/>• Face check, 9:16 outpainting<br/>• Scenario deck, Gemini Omni Flash video<br/>• HyperFrames render with cover frame<br/>• MP4 1080p / 4K, GIF, poster"]
-            A_RECEIPT["<b>Receipt Scanner</b><br/><i>receipt_scanner</i><br/>• Multimodal OCR<br/>• Recognised-receipts card + CSV<br/>• NBP / Pekao FX, Google Docs report"]
+            A_RECEIPT["<b>Receipt Scanner</b><br/><i>receipt_scanner</i><br/>• Multimodal OCR, multi-page PDF stitching<br/>• Community FX, manual rate fallback<br/>• Grouped rows & synced 2-per-row proofs<br/>• Recognised-receipts card + CSV, Google Docs"]
         end
         CORE["<b>Shared core: agents/common</b><br/>ui_payloads.py (card contract, mirrored in frontend/src/lib/ui/payloads.js)<br/>event_profile.py (event + social profiles) • runtime.py (SQLite sessions locally, optional Postgres)"]
     end
@@ -58,7 +58,7 @@ flowchart TB
         FILES["<b>Media and files</b><br/>local renders/ and results/ (dev default)<br/>or Cloud Storage (30-day lifecycle)"]
         AI_BACKEND["<b>Gemini API / Vertex AI</b><br/>Gemini 3.8 Flash<br/>Gemini Omni Flash<br/>Flash Lite Image"]
         WORKSPACE["<b>Google Workspace</b><br/>Docs, Drive, Sheets"]
-        EXTERNAL["<b>External APIs</b><br/>NBP / Pekao FX, Nager.Date holidays,<br/>Google Search (Luma, Meetup)"]
+        EXTERNAL["<b>External APIs</b><br/>NBP / Pekao / Frankfurter / Open ER FX,<br/>Nager.Date holidays, Google Search"]
     end
 
     UI --- CARDS

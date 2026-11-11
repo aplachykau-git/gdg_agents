@@ -64,7 +64,13 @@ class AgentWiringConsistencyTests(unittest.TestCase):
         self.assertIn(diagram, read("README.md"), "Paste docs/architecture.mmd into the README mermaid block")
 
     def test_docs_use_relative_links(self):
-        for rel in ["README.md", "AGENTS.md", *(str(p.relative_to(ROOT)) for p in (ROOT / "docs").glob("*.md"))]:
+        doc_paths = [
+            "README.md",
+            "AGENTS.md",
+            *(str(p.relative_to(ROOT)) for p in (ROOT / "docs").glob("*.md")),
+            *(str(p.relative_to(ROOT)) for p in (ROOT / "agents").rglob("*.md")),
+        ]
+        for rel in doc_paths:
             self.assertNotRegex(read(rel), r"\]\(file:///", rel)
 
 

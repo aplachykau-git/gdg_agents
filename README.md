@@ -4,8 +4,6 @@ This project is a multi-agent system built on the [Google Agent Development Kit 
 
 ---
 
----
-
 ## 🏛️ System Architecture
 
 The diagram source is [`docs/architecture.mmd`](docs/architecture.mmd); `make diagrams` renders it to [`docs/assets/`](docs/assets/architecture_diagram.png) (SVG, PNG, PDF). Edit the `.mmd` file, then re-render and paste it here.
@@ -61,7 +59,7 @@ flowchart TB
         subgraph REMOTE_A2A["Private A2A services (local :8081 / :8082, Cloud Run with IAM OIDC)"]
             direction LR
             A_VIDEO["<b>Live Video Editor</b><br/><i>video_editor</i><br/>• Face check, 9:16 outpainting<br/>• Scenario deck, Gemini Omni Flash video<br/>• HyperFrames render with cover frame<br/>• MP4 1080p / 4K, GIF, poster"]
-            A_RECEIPT["<b>Receipt Scanner</b><br/><i>receipt_scanner</i><br/>• Multimodal OCR<br/>• Recognised-receipts card + CSV<br/>• NBP / Pekao FX, Google Docs report"]
+            A_RECEIPT["<b>Receipt Scanner</b><br/><i>receipt_scanner</i><br/>• Multimodal OCR, multi-page PDF stitching<br/>• Community FX, manual rate fallback<br/>• Grouped rows & synced 2-per-row proofs<br/>• Recognised-receipts card + CSV, Google Docs"]
         end
         CORE["<b>Shared core: agents/common</b><br/>ui_payloads.py (card contract, mirrored in frontend/src/lib/ui/payloads.js)<br/>event_profile.py (event + social profiles) • runtime.py (SQLite sessions locally, optional Postgres)"]
     end
@@ -71,7 +69,7 @@ flowchart TB
         FILES["<b>Media and files</b><br/>local renders/ and results/ (dev default)<br/>or Cloud Storage (30-day lifecycle)"]
         AI_BACKEND["<b>Gemini API / Vertex AI</b><br/>Gemini 3.8 Flash<br/>Gemini Omni Flash<br/>Flash Lite Image"]
         WORKSPACE["<b>Google Workspace</b><br/>Docs, Drive, Sheets"]
-        EXTERNAL["<b>External APIs</b><br/>NBP / Pekao FX, Nager.Date holidays,<br/>Google Search (Luma, Meetup)"]
+        EXTERNAL["<b>External APIs</b><br/>NBP / Pekao / Frankfurter / Open ER FX,<br/>Nager.Date holidays, Google Search"]
     end
 
     UI --- CARDS
@@ -145,7 +143,7 @@ community_studio/
 
 ## 🧠 ADK Architecture: Session State & Artifacts Management
 
-The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 primitives:
+The multi-agent system leverages core Google Agent Development Kit (ADK) 2.14 primitives:
 
 1. **Model Tiering Strategy**:
    - **`gemini-3.8-flash`**: High-precision reasoning, multimodal document OCR (`receipt_scanner`), creative genre scouting and conversational editing (`video_editor`), structured tool-calling across all worker agents, and LLM-as-a-judge evaluation scoring.
@@ -159,8 +157,6 @@ The multi-agent system leverages core Google Agent Development Kit (ADK) 2.0 pri
 
 ---
 
----
-
 ## 🚀 Quick Start: Launch the Entire Workspace
 
 ### 1. Prerequisites & Installation
@@ -169,8 +165,8 @@ Make sure you have [uv](https://docs.astral.sh/uv/) (Python 3.12+) and Node.js (
 
 ```bash
 # 1. Clone & enter repository
-git clone https://github.com/aplachykau-git/community-ai-studio.git
-cd community-ai-studio
+git clone https://github.com/aplachykau-git/gdg_agents.git
+cd gdg_agents
 
 # 2. Configure environment variables
 cp .env.example .env
@@ -206,11 +202,14 @@ npm start
 
 ### ☁️ Cloud Run & Firebase Production Deployment
 
-To build container images with Cloud Build and deploy all microservices to Google Cloud Run and Firebase Hosting:
+GitHub Actions (`.github/workflows/deploy.yml`) runs `Lint & Test` on every push and pull request; production deploys are disabled on push and run only via manual `workflow_dispatch` on `main` with `deploy=true`. To build container images with Cloud Build and deploy all microservices to Google Cloud Run and Firebase Hosting locally:
 
 ```bash
 # Deploy all Cloud Run services (community-root-agent, video-editor-a2a, receipt-scanner-a2a) and Firebase Hosting
 make deploy
+
+# Or provision & deploy infrastructure declaratively via Terraform
+make tf-deploy
 
 # Or deploy frontend-only updates to Firebase Hosting
 make deploy-frontend
@@ -237,7 +236,7 @@ npm run dev
 > `npm run a2a:root` serves the whole `agents/` workspace, so the frontend can open `root_agent` **or** any specialized sub-agent directly.
 
 ### 🧾 Google Docs & Google Drive Setup (Receipt Scanner)
-The **Receipt Scanner** sub-agent can generate native **Google Docs** directly in Google Drive using a free **GCP Service Account** (`receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com`).
+The **Receipt Scanner** sub-agent processes receipt photos and multi-page PDFs (stitching PDF pages vertically and auto-orienting landscape receipt photos into a 2-per-row proof grid), clusters expenses semantically while preserving that exact order across the table and proofs, keeps template dropdown chips intact, resolves FX rates from NBP / Pekao / Frankfurter / Open ER (or asks for a manual rate rather than guessing), and generates native **Google Docs** directly in Google Drive using a **GCP Service Account** (`receipt-docs-bot@YOUR_PROJECT_ID.iam.gserviceaccount.com`) or OAuth/ADC.
 - To set up the Service Account in 1 minute and share your Google Doc template, see the [Setup Guide (Step 5)](docs/setup_guide.md#5-google-drive--google-docs-service-account-setup-cloud--native-google-docs).
 - If offline or unconfigured, the agent automatically falls back to local `.docx` generation.
 
@@ -303,10 +302,12 @@ npm run video:render
   sample video instead of calling Gemini Omni / HyperFrames (`VIDEO_EDITOR_OFFLINE_RENDER_SECONDS` simulates render time).
 - `VITE_DEV_AUTH_BYPASS=true npm run dev --prefix frontend` — skip Google sign-in locally (ignored in production builds).
 
-### Tests
+### Tests & Evaluations
 - `uv run --locked python -m unittest discover tests` — no network, no Gemini: conversations run through the real ADK
   `Runner` with a scripted model (`tests/agent_harness.py`). Tests that hit real external APIs run only with `RUN_NETWORK_TESTS=1`.
 - `npm test --prefix frontend` — UI payload adapters, scenario decks and stream merging (`node --test`, no extra deps).
+- Offline deterministic evals: `make receipt-conversion-evals` (FX & totals) and `make receipt-grouping-evals` (semantic grouping & synced proof grid order).
+- Live model/ADK evals (require Gemini/Vertex credentials): `make receipt-extraction-evals`, `make linkedin-judge-evals`, `make linkedin-evals`, `make video-editor-evals` (see [`docs/receipt_scanner_evals.md`](docs/receipt_scanner_evals.md)).
 
 ### Structured UI payloads
 Cards in the UI (video, scenarios, LinkedIn variants, countdown post plan, event details, recognised receipts, QR code,

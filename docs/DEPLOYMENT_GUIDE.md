@@ -40,8 +40,11 @@ graph TD
 All microservices communicate via dynamic URLs configured via environment variables and IAM:
 - **`VIDEO_AGENT_A2A_URL`**: Full HTTPS URL to the Video Editor A2A service. Authenticated via Google OIDC ID tokens.
 - **`RECEIPT_AGENT_A2A_URL`**: Full HTTPS URL to the Receipt Scanner A2A service. Authenticated via Google OIDC ID tokens.
-- **`VITE_API_URL`**: Full URL to the Root Orchestrator backend (empty in production to leverage native Firebase Hosting rewrites).
+- **`VITE_API_URL`**: Full URL to the Root Orchestrator backend (set to `$ROOT_AGENT_URL` by `deploy/deploy_a2a_cloudrun.sh`; leave empty if relying strictly on Firebase Hosting same-origin rewrites).
+- **`SESSION_SERVICE_URI`** *(optional)*: Postgres URI stored in Secret Manager (`session-service-uri`) for persistent ADK sessions across Cloud Run restarts (when absent, services pin to 1 instance).
 - **Service Account**: `community-studio-runtime@<project_id>.iam.gserviceaccount.com` (Least privilege).
+
+> **CI vs Deployment**: `.github/workflows/deploy.yml` runs `Lint & Test` on every push and pull request; production deploys on push are disabled and execute only via manual `workflow_dispatch` on `main` with `deploy=true` (or locally via `make deploy` / `make tf-deploy`).
 
 ---
 

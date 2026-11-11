@@ -61,7 +61,7 @@ flowchart TD
 
     subgraph PRIVATE_A2A["Private A2A Microservices (IAM OIDC Only)"]
         VideoAgent["video-editor-a2a\n(8Gi / 4 CPU)\nFace Check · Outpainting\nGSAP / FFmpeg 4K Engine"]
-        ReceiptAgent["receipt-scanner-a2a\n(4Gi / 2 CPU)\nGemini OCR Engine\nPekao / NBP FX Engine"]
+        ReceiptAgent["receipt-scanner-a2a\n(4Gi / 2 CPU)\nGemini OCR & PDF Stitcher\nNBP / Pekao / Frankfurter / Open ER FX"]
 
         RootAgent -->|Bearer OIDC ID Token| VideoAgent
         RootAgent -->|Bearer OIDC ID Token| ReceiptAgent
@@ -93,7 +93,7 @@ flowchart TD
 |:---|:---:|:---:|:---|:---|:---|
 | `community-root-agent` | 4 vCPU | 8 GiB | All (Firebase proxy) | `--allow-unauthenticated` | Root orchestrator, in-process agents |
 | `video-editor-a2a` | 4 vCPU | 8 GiB | All | `--no-allow-unauthenticated` | `video_editor` agent: face detection, outpainting, scenario deck, render with cover frame |
-| `receipt-scanner-a2a` | 2 vCPU | 4 GiB | All | `--no-allow-unauthenticated` | `receipt_scanner` agent: OCR, recognised-receipts card, FX conversion, Drive export |
+| `receipt-scanner-a2a` | 2 vCPU | 4 GiB | All | `--no-allow-unauthenticated` | `receipt_scanner` agent: OCR, multi-page PDF stitching, semantic grouping, recognised-receipts card, multi-source FX, Drive export |
 
 All services run as `community-studio-runtime` Service Account (`studio_sa`) defined in `terraform/iam.tf`.
 
@@ -246,20 +246,21 @@ sequenceDiagram
     participant Root as community-root-agent
     participant Receipt as receipt-scanner-a2a
     participant Gemini as Gemini 3.8 Flash (BYOK)
-    participant FX as NBP / Pekao FX APIs
+    participant FX as NBP / Pekao / Frankfurter / Open ER FX
     participant Drive as Google Drive & Docs APIs
     participant GCS as GCS Bucket
 
-    User->>SPA: Upload receipt photo/PDF + folder settings
-    SPA->>Root: Prompt + Drive folder ID in session state
+    User->>SPA: Upload receipt photos / multi-page PDFs + folder settings
+    SPA->>Root: Prompt + Drive folder & community settings in session state
     Root->>Root: Embed [Target Drive Folder: ...] in delegation
     Root->>Receipt: OIDC-authenticated A2A call
-    Receipt->>Gemini: OCR extraction
-    Gemini-->>Receipt: Line items, tax IDs, dates
+    Receipt->>Gemini: OCR extraction + semantic grouping
+    Gemini-->>Receipt: Clustered items, dates, currencies, community target
+    Receipt->>FX: Live FX lookup (or prompt user for manual rate)
+    FX-->>Receipt: Exchange rates
     Receipt-->>SPA: Recognised-receipts card (items, totals, FX, budget, copy as text / CSV)
-    Receipt->>FX: EUR/USD → PLN conversion
-    FX-->>Receipt: Live exchange rates
-    Receipt->>Drive: Create Google Doc from template
+    Receipt->>Receipt: Stitch multi-page PDFs & auto-orient photos (2-per-row synced proofs)
+    Receipt->>Drive: Update template table (keep dropdown chips) & proofs
     Drive-->>Receipt: Doc URL
     Receipt->>GCS: Store DOCX artifact
     Receipt-->>Root: Doc URL + download card
@@ -476,8 +477,8 @@ Steps performed:
 | FR-02.2 | 9:16 outpainting | `agents/video_editor/tools/media_tools.py` | Implemented |
 | FR-02.3 | Gemini Omni video generation | `agents/video_editor/tools/media_tools.py` | Implemented |
 | FR-02.4 | 4K MP4 + GIF composite | `agents/video_editor/tools/composer_tools.py` | Implemented |
-| FR-03.1 | Receipt OCR (Gemini 3.8) | `agents/receipt_scanner/tools.py` | Implemented |
-| FR-03.2 | NBP / Pekao FX rates | `agents/receipt_scanner/tools.py` | Implemented |
+| FR-03.1 | Receipt OCR, multi-page PDF stitching, semantic grouping & template chip preservation | `agents/receipt_scanner/tools.py`, `agents/receipt_scanner/evaluation/run_grouping_eval.py` | Implemented |
+| FR-03.2 | Community currency + NBP / Pekao / Frankfurter / Open ER FX with strict manual-rate prompt | `agents/receipt_scanner/tools.py` | Implemented |
 | FR-03.3 | Drive export / DOCX download, Drive Picker | `agents/receipt_scanner/tools.py`, `frontend/src/lib/google/drive.js` | Partial — see GAP-05 |
 | FR-04.1 | Roster dedup + PII redaction | `agents/registration_manager/` | Implemented |
 | FR-04.2 | Holiday conflict detection | `agents/event_planner/` | Implemented |

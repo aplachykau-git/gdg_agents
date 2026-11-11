@@ -1,6 +1,6 @@
 # Video Editor Agent Flow
 
-> **Visual Assets**: [🖼️ PNG Diagram](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/video_editor/docs/assets/video_editor_dag.png) • [📄 PDF Document](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/video_editor/docs/assets/video_editor_dag.pdf) • [📐 SVG Vector](file:///Users/aplachykau/Experiments/gdg_krakow_tool/agents/video_editor/docs/assets/video_editor_dag.svg)
+> **Visual Assets**: [PNG Diagram](assets/video_editor_dag.png) • [PDF Document](assets/video_editor_dag.pdf) • [SVG Vector](assets/video_editor_dag.svg)
 
 ```mermaid
 %%{init: {
