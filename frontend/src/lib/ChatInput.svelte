@@ -136,7 +136,7 @@
               <span class="drive-badge" title="From Google Drive"><HardDrive size={10} /></span>
             {/if}
             {#if file.preview}
-              <img class="staged-img" src={file.preview} alt="staged upload" />
+              <img class="staged-img" src={file.preview} alt="staged upload" width="26" height="26" />
             {:else}
               <FileText size={20} class="staged-doc-icon" />
             {/if}

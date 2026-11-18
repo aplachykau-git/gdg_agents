@@ -50,6 +50,8 @@
       <img
         src={squareLogo}
         alt="Community AI Studio"
+        width="28"
+        height="28"
         class="brand-icon-img"
       />
       <div class="brand-text">
@@ -149,12 +151,17 @@
           }} 
           title="Account & Options ({currentUser.displayName || 'Google Account'})"
           aria-label="Account and options"
+          aria-haspopup="menu"
+          aria-expanded={showUserMenu}
+          aria-controls="user-dropdown-menu"
         >
           <div class="user-avatar-wrap">
             {#if currentUser.photoURL && !avatarLoadError}
               <img
                 src={currentUser.photoURL}
                 alt="User avatar"
+                width="26"
+                height="26"
                 class="header-avatar-img"
                 referrerpolicy="no-referrer"
                 onerror={() => (avatarLoadError = true)}
@@ -169,7 +176,12 @@
         </button>
 
         {#if showUserMenu}
-          <div class="dropdown-menu user-dropdown">
+          <div
+            id="user-dropdown-menu"
+            class="dropdown-menu user-dropdown"
+            role="menu"
+            aria-label="Account and workspace options"
+          >
             <!-- Account info header -->
             <div class="user-dropdown-header">
               <div class="user-dropdown-top">
@@ -177,6 +189,8 @@
                   <img
                     src={currentUser.photoURL}
                     alt="Avatar"
+                    width="36"
+                    height="36"
                     class="dropdown-avatar-img"
                     referrerpolicy="no-referrer"
                     onerror={() => (avatarLoadError = true)}
@@ -192,11 +206,12 @@
               </div>
             </div>
 
-            <div class="dropdown-divider"></div>
+            <div class="dropdown-divider" role="separator"></div>
 
             <!-- Workspace Theme / Capabilities / Settings -->
             <button
               class="dropdown-item"
+              role="menuitem"
               onclick={() => {
                 onToggleTheme();
                 showUserMenu = false;
@@ -213,6 +228,7 @@
 
             <button
               class="dropdown-item"
+              role="menuitem"
               onclick={() => {
                 onShowCapabilities();
                 showUserMenu = false;
@@ -224,6 +240,7 @@
 
             <button
               class="dropdown-item"
+              role="menuitem"
               onclick={() => {
                 onShowSettings();
                 showUserMenu = false;
@@ -233,11 +250,12 @@
               <span>Settings</span>
             </button>
 
-            <div class="dropdown-divider"></div>
+            <div class="dropdown-divider" role="separator"></div>
 
             <!-- Logout -->
             <button
               class="dropdown-item dropdown-item-danger"
+              role="menuitem"
               onclick={() => {
                 onLogout();
                 showUserMenu = false;

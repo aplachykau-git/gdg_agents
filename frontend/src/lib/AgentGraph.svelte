@@ -36,6 +36,13 @@
 
   let inspectedAgentId = $state('root_agent');
   let activeTab = $state('telemetry'); // 'telemetry' | 'spec'
+  let dialogEl = $state(null);
+
+  $effect(() => {
+    if (dialogEl && !dialogEl.open) {
+      dialogEl.showModal();
+    }
+  });
 
   const AGENTS_META = [
     {
@@ -332,7 +339,18 @@
   }
 </script>
 
-<div class="agent-graph-backdrop" role="dialog" aria-modal="true">
+<dialog
+  bind:this={dialogEl}
+  class="agent-graph-backdrop"
+  aria-labelledby="agent-graph-title"
+  oncancel={(e) => {
+    e.preventDefault();
+    onClose?.();
+  }}
+  onclick={(e) => {
+    if (e.target === e.currentTarget) onClose?.();
+  }}
+>
   <div class="agent-graph-modal">
     <!-- Header -->
     <header class="graph-modal-header">
@@ -342,7 +360,7 @@
         </div>
         <div>
           <div class="header-title-row">
-            <h3>Multi-Agent Architecture</h3>
+            <h3 id="agent-graph-title">Multi-Agent Architecture</h3>
             <span class="active-badge-counter">{AGENTS_META.length} Active Nodes</span>
           </div>
           <span class="header-sub">Google ADK 2.0 Network &bull; Live Agent-to-Agent (A2A) Protocols</span>
@@ -364,7 +382,7 @@
         {/if}
 
         {#if onClose}
-          <button class="close-btn" onclick={onClose} title="Close Graph View">
+          <button class="close-btn" onclick={onClose} aria-label="Close graph view" title="Close Graph View">
             <X size={18} />
           </button>
         {/if}
@@ -668,12 +686,20 @@
       </aside>
     </div>
   </div>
-</div>
+</dialog>
 
 <style>
   .agent-graph-backdrop {
     position: fixed;
     inset: 0;
+    border: none;
+    margin: 0;
+    max-width: none;
+    max-height: none;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    color: inherit;
     background: rgba(0, 0, 0, 0.78);
     backdrop-filter: blur(10px);
     z-index: 100;
@@ -682,6 +708,10 @@
     justify-content: center;
     padding: 24px;
     animation: fadeIn 0.2s ease-out;
+  }
+
+  .agent-graph-backdrop::backdrop {
+    background: transparent;
   }
 
   @keyframes fadeIn {

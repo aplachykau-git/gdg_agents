@@ -40,6 +40,13 @@
   let templateInputRaw = $state('');
   let isTemplateGuideOpen = $state(false);
   let saveTimer = null;
+  let dialogEl = $state(null);
+
+  $effect(() => {
+    if (show && dialogEl && !dialogEl.open) {
+      dialogEl.showModal();
+    }
+  });
 
   // Sync draft state whenever modal opens or external config changes
   $effect(() => {
@@ -161,13 +168,17 @@
 </script>
 
 {#if show}
-  <div 
-    class="modal-backdrop" 
-    role="presentation"
-    onclick={(e) => { if (e.target === e.currentTarget) handleDone(); }} 
-    onkeydown={(e) => { if (e.key === 'Escape') handleDone(); }}
+  <dialog
+    bind:this={dialogEl}
+    class="modal-backdrop"
+    aria-labelledby="settings-title"
+    oncancel={(e) => {
+      e.preventDefault();
+      handleDone();
+    }}
+    onclick={(e) => { if (e.target === e.currentTarget) handleDone(); }}
   >
-    <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="settings-dialog">
       <!-- Header -->
       <header class="dialog-header">
         <div class="header-title-area">
@@ -480,13 +491,21 @@
         <button class="btn-done" onclick={handleDone}>Done</button>
       </footer>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 <style>
   .modal-backdrop {
     position: fixed;
     inset: 0;
+    border: none;
+    margin: 0;
+    max-width: none;
+    max-height: none;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    color: inherit;
     background: rgba(0, 0, 0, 0.65);
     backdrop-filter: blur(6px);
     z-index: 1000;
@@ -495,6 +514,10 @@
     justify-content: center;
     padding: 16px;
     animation: fadeIn 0.15s ease-out;
+  }
+
+  .modal-backdrop::backdrop {
+    background: transparent;
   }
 
   .settings-dialog {

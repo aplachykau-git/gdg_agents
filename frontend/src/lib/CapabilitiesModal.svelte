@@ -24,6 +24,13 @@
   } = $props();
 
   let searchQuery = $state("");
+  let dialogEl = $state(null);
+
+  $effect(() => {
+    if (show && dialogEl && !dialogEl.open) {
+      dialogEl.showModal();
+    }
+  });
 
   const ICON_MAP = {
     layers: Layers,
@@ -54,22 +61,19 @@
 </script>
 
 {#if show}
-  <div
+  <dialog
+    bind:this={dialogEl}
     class="modal-backdrop"
-    role="presentation"
+    aria-labelledby="capabilities-title"
+    oncancel={(e) => {
+      e.preventDefault();
+      onClose();
+    }}
     onclick={(e) => {
       if (e.target === e.currentTarget) onClose();
     }}
-    onkeydown={(e) => {
-      if (e.key === "Escape") onClose();
-    }}
   >
-    <div
-      class="capabilities-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="capabilities-title"
-    >
+    <div class="capabilities-dialog">
       <!-- Dialog Header -->
       <header class="dialog-header">
         <div class="header-main-group">
@@ -195,13 +199,21 @@
         <button class="btn-done" onclick={onClose}>Close</button>
       </footer>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 <style>
   .modal-backdrop {
     position: fixed;
     inset: 0;
+    border: none;
+    margin: 0;
+    max-width: none;
+    max-height: none;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    color: inherit;
     background: rgba(8, 11, 17, 0.78);
     backdrop-filter: blur(8px);
     z-index: 1000;
@@ -210,6 +222,10 @@
     justify-content: center;
     padding: 20px;
     animation: modalFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .modal-backdrop::backdrop {
+    background: transparent;
   }
 
   .capabilities-dialog {
