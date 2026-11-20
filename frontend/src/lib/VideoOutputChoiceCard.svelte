@@ -39,7 +39,7 @@
   <div class="choice-layout" class:has-preview={Boolean(avatarUrl)}>
     {#if avatarUrl}
       <div class="portrait-preview">
-        <img src={avatarUrl} alt="Outpainted 9:16 portrait preview" />
+        <img src={avatarUrl} alt="Outpainted 9:16 portrait preview" width="120" height="213" loading="lazy" />
         <span class="portrait-caption">Outpainted 9:16 portrait</span>
       </div>
     {/if}

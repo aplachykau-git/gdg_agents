@@ -10,8 +10,8 @@
   /* =========================================================================
    * Typography Tokens
    * ========================================================================= */
-  --font-family-base: 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-family-display: 'Google Sans Display', 'Google Sans', 'Outfit', sans-serif;
+  --font-family-base: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-display: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-family-mono: 'Google Sans Mono', 'JetBrains Mono', 'Fira Code', monospace;
 
   --font-size-display-lg: 2.25rem;
@@ -69,6 +69,8 @@
  * Dark Theme (Default AI Studio Canvas)
  * ========================================================================= */
 :root, [data-theme="dark"], :root.dark {
+  color-scheme: dark;
+  accent-color: var(--primary-accent);
   --bg-app: #131314;
   --bg-surface: #1e1f20;
   --bg-surface-elevated: #282a2c;
@@ -107,6 +109,8 @@
  * Light Theme
  * ========================================================================= */
 [data-theme="light"], :root:not(.dark):not([data-theme="dark"]) {
+  color-scheme: light;
+  accent-color: var(--primary-accent);
   /* Lime is unreadable on white: darker shade of the same QR accent. */
   --agent-qr: #4d7c0f;
   --bg-qr: rgba(77, 124, 15, 0.1);
@@ -153,6 +157,11 @@
   padding: 0;
 }
 
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-medium) transparent;
+}
+
 body {
   font-family: var(--font-family-base);
   font-size: var(--font-size-body-md);
@@ -160,9 +169,23 @@ body {
   background-color: var(--bg-app);
   color: var(--text-primary);
   min-height: 100vh;
+  min-height: 100dvh;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+:where(button, a, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
 }
 
 /* Custom Scrollbar */
@@ -376,4 +399,13 @@ code, pre {
 [data-tooltip].active::after,
 [data-tooltip]:disabled::after {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -289,16 +289,23 @@
     }
   }
 
-  // Theme Toggler
-  function toggleTheme() {
-    isDarkMode = !isDarkMode;
-    if (isDarkMode) {
+  function applyTheme(dark) {
+    isDarkMode = dark;
+    if (dark) {
       document.documentElement.classList.add("dark");
       document.documentElement.setAttribute("data-theme", "dark");
     } else {
       document.documentElement.classList.remove("dark");
       document.documentElement.setAttribute("data-theme", "light");
     }
+  }
+
+  // Theme Toggler
+  function toggleTheme() {
+    applyTheme(!isDarkMode);
+    try {
+      localStorage.setItem("community_studio_theme", isDarkMode ? "dark" : "light");
+    } catch (e) {}
   }
 
   // Load Apps
@@ -817,8 +824,12 @@
   }
 
   onMount(() => {
-    document.documentElement.classList.add("dark");
-    document.documentElement.setAttribute("data-theme", "dark");
+    let savedTheme = "";
+    try {
+      savedTheme = localStorage.getItem("community_studio_theme") || "";
+    } catch (e) {}
+    const prefersLight = !savedTheme && window.matchMedia?.("(prefers-color-scheme: light)")?.matches;
+    applyTheme(savedTheme ? savedTheme !== "light" : !prefersLight);
     loadApps();
 
     // Local development / e2e only: `VITE_DEV_AUTH_BYPASS=true npm run dev` skips Google sign-in.
@@ -862,6 +873,7 @@
     class:thinking-active={isLoading}
     style="--active-agent-color: {activeAgentTheme.color}"
   >
+    <a href="#studio-main-content" class="skip-link">Skip to main content</a>
     <!-- =========================================================================
      * TOP APP BAR (Sleek Modern Header)
      * ========================================================================= -->
@@ -905,6 +917,8 @@
 
     <!-- Central Workspace -->
     <main
+      id="studio-main-content"
+      tabindex="-1"
       class="studio-main"
       ondragenter={handleDragEnter}
       ondragover={handleDragOver}
@@ -1098,10 +1112,31 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
     background-color: var(--bg-app);
     color: var(--text-primary);
     overflow: hidden;
+  }
+
+  .skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 10000;
+    padding: 8px 14px;
+    background: var(--primary-accent);
+    color: #ffffff;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transform: translateY(-150%);
+    transition: transform 0.15s ease;
+  }
+
+  .skip-link:focus-visible {
+    transform: translateY(0);
   }
 
   :global(.select-chevron) {
@@ -1549,6 +1584,7 @@
     inset: 0;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     background: #080b11;
     display: flex;
     flex-direction: column;
