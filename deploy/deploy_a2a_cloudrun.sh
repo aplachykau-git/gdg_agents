@@ -98,6 +98,17 @@ rm -f "$LIFECYCLE_TMP"
     --role="roles/storage.objectUser" \
     --quiet >/dev/null 2>&1 || true
 
+# Ensure Artifact Registry cleanup policy deletes old untagged image versions automatically
+if [ -f "deploy/artifact-cleanup-policy.json" ]; then
+    echo "🧹 [1.7/6] Applying Artifact Registry cleanup policy to gcr.io..."
+    "$GCLOUD_BIN" artifacts repositories set-cleanup-policies gcr.io \
+        --location=us \
+        --project="$PROJECT_ID" \
+        --policy="deploy/artifact-cleanup-policy.json" \
+        --no-dry-run \
+        --quiet >/dev/null 2>&1 || true
+fi
+
 # Persistent session store (see deploy/setup_sessions_db.sh). With the secret present every
 # service stores ADK sessions in Cloud SQL and may scale out; without it sessions live in a
 # SQLite file inside the container, so each service is pinned to a single instance.
@@ -166,6 +177,22 @@ EOF
         --session-affinity \
         "${SESSION_FLAGS[@]}" \
         --set-env-vars "$ENV_VARS"
+
+    echo "🧹 Cleaning up old untagged container digests for ${SERVICE_NAME}..."
+    local OLD_DIGESTS
+    OLD_DIGESTS=$("$GCLOUD_BIN" artifacts docker images list "us-docker.pkg.dev/${PROJECT_ID}/gcr.io/${SERVICE_NAME}" \
+        --include-tags \
+        --project="$PROJECT_ID" \
+        --filter="-tags:*" \
+        --format="value(version)" \
+        --limit=50 \
+        --quiet 2>/dev/null || true)
+    for digest in $OLD_DIGESTS; do
+        "$GCLOUD_BIN" artifacts docker images delete \
+            "us-docker.pkg.dev/${PROJECT_ID}/gcr.io/${SERVICE_NAME}@${digest}" \
+            --project="$PROJECT_ID" \
+            --quiet >/dev/null 2>&1 || true
+    done
 }
 
 GEMINI_KEY="${GEMINI_API_KEY:-${GOOGLE_API_KEY:-}}"
